@@ -1,0 +1,152 @@
+version: '3.8'
+
+# ==============================================================================
+# PACHAS - DOCKER STACK SPECIFICATION (SWARM MODE)
+# ==============================================================================
+# Despliegue con: docker stack deploy -c deploy/docker-stack.yml pachas
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. PACHAS NEXT.JS WEB APPLICATION
+  # ----------------------------------------------------------------------------
+  app:
+    image: ${PACHAS_IMAGE:-pachas:latest}
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:3001}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key}
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: ingress
+    networks:
+      - pachas_network
+    configs:
+      - source: app_env
+        target: /app/.env.production
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      mode: replicated
+      replicas: ${APP_REPLICAS:-2}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+      resources:
+        limits:
+          cpus: '1.50'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ----------------------------------------------------------------------------
+  # 2. BASE DE DATOS POSTGRESQL (SERVICIOS DEPENDIENTES)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pachas}
+      POSTGRES_USER: ${POSTGRES_USER:-pachas_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pachas_secure_password_123!}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pachas_network
+    configs:
+      - source: db_schema
+        target: /docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pachas_admin} -d ${POSTGRES_DB:-pachas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.20'
+          memory: 128M
+
+  # ----------------------------------------------------------------------------
+  # 3. POSTGREST API (SUPABASE REST COMPATIBLE)
+  # ----------------------------------------------------------------------------
+  postgrest:
+    image: postgrest/postgrest:v12.0.2
+    environment:
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-pachas_admin}:${POSTGRES_PASSWORD:-pachas_secure_password_123!}@postgres:5432/${POSTGRES_DB:-pachas}
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: ${POSTGRES_USER:-pachas_admin}
+      PGRST_SERVER_PORT: 3001
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3001
+    ports:
+      - target: 3001
+        published: 3001
+        protocol: tcp
+        mode: ingress
+    networks:
+      - pachas_network
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/3001 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+# ==============================================================================
+# NETWORKS, VOLUMES & CONFIGS
+# ==============================================================================
+networks:
+  pachas_network:
+    driver: overlay
+    attachable: true
+
+volumes:
+  postgres_data:
+    driver: local
+
+configs:
+  app_env:
+    file: ./env.example
+  db_schema:
+    file: ./init-scripts/01-schema.sql

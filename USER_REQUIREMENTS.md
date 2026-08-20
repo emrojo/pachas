@@ -132,6 +132,13 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-18.2**: **Desplazamiento Automático y Centrado**: Al cambiar de pestaña (manualmente o mediante las flechas), la barra se desplaza de forma fluida (`scrollIntoView` suave) para mantener la pestaña seleccionada siempre visible y centrada en pantalla.
 - **RF-18.3**: **Indicadores Visuales y Estados Deshabilitados**: Las flechas indican claramente el límite de navegación (deshabilitadas en el primer y último elemento) y las pestañas cuentan con bordes redondeados y fondos táctiles adaptados para dispositivos móviles y pantallas táctiles.
 
+### 🐳 RF-19: Despliegue en Docker Stack y Orquestación de Servicios (Swarm / Compose)
+- **RF-19.1**: **Directorio de Despliegue Dedicado (`deploy/`)**: Estructura de despliegue contenerizada y modular para producción y entornos de prueba.
+- **RF-19.2**: **Dockerfile Multietapa Optimizado**: Imagen basada en Alpine Linux compilada con `output: 'standalone'` en Next.js, usuario sin privilegios `nextjs:nodejs` y sondeo de salud (`HEALTHCHECK`).
+- **RF-19.3**: **Especificación Docker Stack (`deploy/docker-stack.yml`)**: Definición de servicios para Docker Swarm (`pachas_app` con réplicas y *rolling updates*, `pachas_postgres` con volumen persistente y script de esquema `01-schema.sql`, `pachas_postgrest` y red *overlay* `pachas_network`).
+- **RF-19.4**: **Soporte Docker Compose (`deploy/docker-compose.yml`)**: Configuración complementaria para desarrollo o pruebas en nodo único.
+- **RF-19.5**: **Automatización de Despliegue y Documentación**: Scripts ejecutables para Linux/macOS (`deploy.sh`), Windows PowerShell (`deploy.ps1`) y guía paso a paso ([`deploy/README.md`](file:///d:/Projects/pachas/deploy/README.md)).
+
 ---
 
 ## ⚙️ 2. Requisitos No Funcionales (RNF)
@@ -173,4 +180,5 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 | **20/08/2026** | 📱 Añadido | **RF-18** | Controles de flechas de navegación previa/siguiente y auto-scroll centrado en la barra de pestañas para facilitar la navegación en dispositivos móviles. |
 | **20/08/2026** | 📊 Añadido | **RF-09.1** | Inclusión de gráficas vectoriales completas en el informe PDF descargable: evolución temporal de gastos por día, distribución porcentual por categorías y comparativa pagado vs consumido por amigo. |
 | **20/08/2026** | 👤 Añadido | **RF-09.1** | Desglose individualizado de gastos por persona en el informe PDF para verificación personal: tablas dedicadas por participante con total del ticket, importe pagado, consumo asignado y saldo neto. |
+| **20/08/2026** | 🐳 Añadido | **RF-19** | Carpeta de despliegue completa (`deploy/`) con `Dockerfile` multietapa optimizado, `docker-stack.yml` para Docker Swarm, `docker-compose.yml`, scripts de automatización (`deploy.sh`, `deploy.ps1`) y auto-inicialización de base de datos PostgreSQL con esquemas y RLS. |
 | **20/08/2026** | 📋 Actualizado | **Documentación** | Actualización continua del registro de Requisitos de Usuario (`USER_REQUIREMENTS.md`) con todas las nuevas funcionalidades y correcciones. |
