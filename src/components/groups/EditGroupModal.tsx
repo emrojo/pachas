@@ -1,18 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Group } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { SUPPORTED_CURRENCIES } from '@/lib/currencies';
 import {
-  Smile,
+  Sparkles,
   Image as ImageIcon,
+  Smile,
   Upload,
-  Camera,
   Trash2,
+  Check,
+  Camera,
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 const EMOJI_PRESETS = [
   '🏖️', '🏔️', '🍕', '✈️', '⛵', '🚗', '⛺', '🎉', '🌴', '🍹', '🏰', '⛷️', '🌮', '🍣', '🎸', '🎒', '🎡', '🏄', '🥂', '🏙️'
@@ -27,27 +31,41 @@ const PHOTO_PRESETS = [
   { label: 'Camping & Ruta', url: 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=500&auto=format&fit=crop&q=80' },
 ];
 
-export interface CreateGroupModalProps {
+export interface EditGroupModalProps {
+  group: Group;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (groupId: string) => void;
+  onSuccess?: (updated: Group) => void;
 }
 
-export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
+export const EditGroupModal: React.FC<EditGroupModalProps> = ({
+  group,
   isOpen,
   onClose,
   onSuccess,
 }) => {
-  const { createGroup } = usePachas();
+  const { updateGroup } = usePachas();
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [emoji, setEmoji] = useState('🏖️');
-  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
-  const [visualMode, setVisualMode] = useState<'emoji' | 'photo'>('emoji');
-  const [currency, setCurrency] = useState('EUR');
+  const [name, setName] = useState(group.name);
+  const [description, setDescription] = useState(group.description || '');
+  const [emoji, setEmoji] = useState(group.icon_emoji || '🏖️');
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(group.cover_image_url || null);
+  const [visualMode, setVisualMode] = useState<'emoji' | 'photo'>(group.cover_image_url ? 'photo' : 'emoji');
+  const [currency, setCurrency] = useState(group.base_currency || 'EUR');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(group.name);
+      setDescription(group.description || '');
+      setEmoji(group.icon_emoji || '🏖️');
+      setCoverImageUrl(group.cover_image_url || null);
+      setVisualMode(group.cover_image_url ? 'photo' : 'emoji');
+      setCurrency(group.base_currency || 'EUR');
+      setError('');
+    }
+  }, [isOpen, group]);
 
   // Handle local image file upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,21 +91,26 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     try {
       setIsLoading(true);
       setError('');
-      const newGroup = await createGroup(
-        name.trim(),
-        description.trim(),
-        emoji,
-        currency,
-        visualMode === 'photo' ? coverImageUrl : null
-      );
-      setName('');
-      setDescription('');
-      setCoverImageUrl(null);
-      setVisualMode('emoji');
+
+      const updated = await updateGroup(group.id, {
+        name: name.trim(),
+        description: description.trim() || null,
+        icon_emoji: emoji,
+        cover_image_url: visualMode === 'photo' ? coverImageUrl : null,
+        base_currency: currency,
+      });
+
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#10b981', '#059669', '#f59e0b'],
+      });
+
       onClose();
-      if (onSuccess) onSuccess(newGroup.id);
+      if (onSuccess) onSuccess(updated);
     } catch (err: any) {
-      setError(err.message || 'Error al crear el grupo');
+      setError(err.message || 'Error al actualizar el grupo');
     } finally {
       setIsLoading(false);
     }
@@ -97,12 +120,12 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Nuevo Grupo de Gastos"
-      description="Crea un grupo para tus vacaciones, escapada o viaje con amigos"
+      title="Ajustes del Grupo"
+      description={`Personaliza el icono, foto y detalles de ${group.name}`}
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Visual Identity Selector */}
+        {/* Visual Identity Selector: Emoji vs Photo */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
@@ -162,6 +185,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           {/* Mode 2: Photo Upload & Presets */}
           {visualMode === 'photo' && (
             <div className="space-y-3">
+              {/* Photo Preview or Dropzone */}
               {coverImageUrl ? (
                 <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/40 h-36 bg-slate-100 dark:bg-slate-800 group shadow-sm">
                   <img
@@ -275,23 +299,14 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           </select>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            className="flex-1"
-          >
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-2">
+          <Button type="button" variant="outline" onClick={onClose} className="flex-1">
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            variant="brand"
-            isLoading={isLoading}
-            className="flex-1 text-xs font-bold"
-          >
-            Crear Grupo
+          <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-xs font-bold gap-1.5">
+            <Check className="w-4 h-4" />
+            Guardar Cambios
           </Button>
         </div>
       </form>

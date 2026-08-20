@@ -18,6 +18,12 @@ import {
 import { SplitType, ExpenseCategory, Expense } from '@/types/database';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import {
+  toDateTimeLocalValue,
+  fromDateTimeLocalToISOWithTimezone,
+  getCurrentDateTimeISOWithTimezone,
+  getUserTimezoneLabel,
+} from '@/lib/utils';
+import {
   Receipt,
   Users,
   Check,
@@ -31,6 +37,7 @@ import {
   CreditCard,
   Globe,
   MapPin,
+  Clock,
 } from 'lucide-react';
 
 export interface ExpenseFormProps {
@@ -61,7 +68,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [currency, setCurrency] = useState(baseCurrency);
   const [exchangeRateStr, setExchangeRateStr] = useState('1,0000');
   const [category, setCategory] = useState<ExpenseCategory>('food');
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [expenseDateTime, setExpenseDateTime] = useState(() =>
+    toDateTimeLocalValue(getCurrentDateTimeISOWithTimezone())
+  );
   const [notes, setNotes] = useState('');
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
@@ -109,7 +118,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       const rate = expenseToEdit.exchange_rate || getDefaultExchangeRate(expenseToEdit.currency);
       setExchangeRateStr(rate.toFixed(4).replace('.', ','));
       setCategory(expenseToEdit.category);
-      setExpenseDate(expenseToEdit.expense_date);
+      setExpenseDateTime(toDateTimeLocalValue(expenseToEdit.expense_date));
       setNotes(expenseToEdit.notes || '');
       setReceiptUrl(expenseToEdit.receipt_url || null);
       setSplitType(expenseToEdit.split_type);
@@ -155,7 +164,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setCurrency(baseCurrency);
       setExchangeRateStr('1,0000');
       setCategory('food');
-      setExpenseDate(new Date().toISOString().split('T')[0]);
+      setExpenseDateTime(toDateTimeLocalValue(getCurrentDateTimeISOWithTimezone()));
       setNotes('');
       setReceiptUrl(null);
       setLatitude(null);
@@ -271,7 +280,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
     try {
       setIsLoading(true);
-      setErrorMessage('');
+      const finalIsoDate = fromDateTimeLocalToISOWithTimezone(expenseDateTime);
 
       if (expenseToEdit) {
         await updateExpense(groupId, expenseToEdit.id, {
@@ -281,7 +290,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           currency,
           exchangeRate,
           category,
-          expenseDate,
+          expenseDate: finalIsoDate,
           receiptUrl,
           latitude,
           longitude,
@@ -300,7 +309,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           currency,
           exchangeRate,
           category,
-          expenseDate,
+          expenseDate: finalIsoDate,
           receiptUrl,
           latitude,
           longitude,
@@ -816,18 +825,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           )}
         </div>
 
-        {/* Fecha del gasto y Foto de Ticket */}
+        {/* Fecha y Hora del gasto y Foto de Ticket */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Date Picker */}
+          {/* DateTime Picker with Timezone */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-              Fecha del gasto
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                Fecha y Hora
+              </label>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-medium truncate max-w-[130px]" title={getUserTimezoneLabel()}>
+                {getUserTimezoneLabel()}
+              </span>
+            </div>
             <div className="relative">
               <input
-                type="date"
-                value={expenseDate}
-                onChange={(e) => setExpenseDate(e.target.value)}
+                type="datetime-local"
+                value={expenseDateTime}
+                onChange={(e) => setExpenseDateTime(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
               />
             </div>

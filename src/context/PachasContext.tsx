@@ -49,7 +49,8 @@ interface PachasContextType {
   setCurrentUser: (user: Profile) => void;
   groups: Group[];
   isLoading: boolean;
-  createGroup: (name: string, description: string, emoji: string, currency: string) => Promise<Group>;
+  createGroup: (name: string, description: string, emoji: string, currency: string, coverImageUrl?: string | null) => Promise<Group>;
+  updateGroup: (groupId: string, data: Partial<Group>) => Promise<Group>;
   getGroup: (id: string) => Group | undefined;
   getGroupMembers: (groupId: string) => GroupMember[];
   getGroupExpenses: (groupId: string) => Expense[];
@@ -204,14 +205,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     name: string,
     description: string,
     emoji: string,
-    currency: string
+    currency: string,
+    coverImageUrl?: string | null
   ): Promise<Group> => {
     const newGroup: Group = {
       id: `group-${Date.now()}`,
       name,
       description,
       icon_emoji: emoji || '🏖️',
-      cover_image_url: null,
+      cover_image_url: coverImageUrl || null,
       base_currency: currency || 'EUR',
       invite_code: Math.random().toString(36).substring(2, 8).toLowerCase(),
       created_by: currentUser.id,
@@ -235,6 +237,23 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     saveState(updatedGroups, updatedMembers, updatedExpenses, updatedSettlements);
     return newGroup;
+  };
+
+  const updateGroup = async (groupId: string, data: Partial<Group>): Promise<Group> => {
+    const existing = groups.find((g) => g.id === groupId);
+    if (!existing) {
+      throw new Error('Grupo no encontrado');
+    }
+
+    const updatedGroup: Group = {
+      ...existing,
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+
+    const updatedGroups = groups.map((g) => (g.id === groupId ? updatedGroup : g));
+    saveState(updatedGroups);
+    return updatedGroup;
   };
 
   const joinGroup = async (inviteCode: string): Promise<Group | null> => {
@@ -764,6 +783,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         groups,
         isLoading,
         createGroup,
+        updateGroup,
         getGroup,
         getGroupMembers,
         getGroupExpenses,

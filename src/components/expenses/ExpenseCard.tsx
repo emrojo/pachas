@@ -105,7 +105,11 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              <span>{formatDate(expense.expense_date, 'd MMM')}</span>
+              <span title={formatDate(expense.expense_date, "dd/MM/yyyy HH:mm")}>
+                {expense.expense_date.includes('T') || expense.expense_date.includes(':')
+                  ? formatDate(expense.expense_date, 'd MMM, HH:mm')
+                  : formatDate(expense.expense_date, 'd MMM')}
+              </span>
               <span>•</span>
               <div className="flex items-center gap-1">
                 <span>Pagó</span>

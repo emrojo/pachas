@@ -7,8 +7,9 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 ## 📌 1. Requisitos Funcionales (RF)
 
 ### 👥 RF-01: Gestión de Grupos Temáticos de Vacaciones
-- **RF-01.1**: El usuario puede crear grupos específicos para cada viaje o escapada indicando: nombre, descripción, selector visual de emojis temáticos (🏖️, 🏔️, 🍕, ✈️, etc.) y moneda base del grupo.
+- **RF-01.1**: El usuario puede crear grupos específicos para cada viaje o escapada indicando: nombre, descripción, selector visual de emojis temáticos (🏖️, 🏔️, 🍕, ✈️, etc.) o subida de foto de portada, y moneda base del grupo.
 - **RF-01.2**: Panel de control con listado de viajes activos, total gastado y estado de saldo neto personal.
+- **RF-01.3**: **Edición de Icono, Portada y Ajustes del Viaje**: Posibilidad de modificar en cualquier momento el icono/emoji del grupo, su nombre, descripción y moneda base, así como **subir una fotografía o imagen personalizada** desde el dispositivo o seleccionar fotos temáticas de galería para usar como imagen de portada y cabecera del viaje.
 
 ### 🔗 RF-02: Invitaciones y Adhesión al Grupo
 - **RF-02.1**: Generación de un enlace de invitación único por grupo (`/join/[inviteCode]`).
@@ -83,6 +84,12 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-12.3**: **Gestión desde Perfil y Login**: Pantalla de perfil (`/profile`) y login (`/login`) con acceso directo a todos los usuarios de prueba y botón para eliminar perfiles creados localmente.
 - **RF-12.4**: **Persistencia Local**: Los usuarios creados se guardan en `localStorage` manteniéndose disponibles en futuras sesiones.
 
+### 🧭 RF-13: Registro de Hora con Timezone e Itinerario Histórico en Mapa
+- **RF-13.1**: **Registro de Hora y Timezone**: Al crear o editar un gasto se registra la hora exacta por defecto (hora actual) preservando el huso horario / timezone ISO (`YYYY-MM-DDTHH:mm:ss±HH:MM`) con visualización de la zona horaria del usuario.
+- **RF-13.2**: **Visualización de Hora en Listado**: Las tarjetas de gasto muestran la fecha y hora (`d MMM, HH:mm`, ej: `20 ago, 20:44`).
+- **RF-13.3**: **Itinerario de Pagos en Mapa (`TripRouteMapModal`)**: Visor interactivo que ordena cronológicamente todos los gastos geolocalizados del viaje, muestra las paradas numeradas (1, 2, 3...), el mapa interactivo con la posición seleccionada y un botón para abrir la **ruta completa de navegación en Google Maps** con waypoints.
+- **RF-13.4**: **Línea de Tiempo del Viaje**: Feed cronológico de paradas con desglose de importe, moneda, concepto, pagador y hora exacta.
+
 ---
 
 ## ⚙️ 2. Requisitos No Funcionales (RNF)
@@ -110,4 +117,6 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 | **20/08/2026** | 📥 Añadido | **RF-11** | Importación masiva de gastos mediante subida de archivos CSV/Excel o pegado de tabla, con descarga de plantilla oficial, detección inteligente de separadores y vista previa interactiva. |
 | **20/08/2026** | 🛡️ Modificado | **RF-11.6 - RF-11.8** | Validación estricta de usuarios del grupo al importar (bloqueo y fallo si hay usuarios desconocidos o filas con error) y funcionalidad para **Deshacer Importación** completa. |
 | **20/08/2026** | 👥 Añadido | **RF-12** | Creación y gestión de usuarios de prueba en modo local con selector rápido en Navbar, perfil y login, auto-adhesión a grupos y persistencia en localStorage. |
+| **20/08/2026** | 🎨 Añadido | **RF-01.3** | Edición de icono y fotografía del grupo: soporte para subida de fotos personalizadas desde el dispositivo, galería temática, cambio de emojis y modal de ajustes (`EditGroupModal`). |
+| **20/08/2026** | 🧭 Añadido | **RF-13** | Registro de hora con timezone por defecto e itinerario histórico de paradas de pago en mapa (`TripRouteMapModal`) con ruta multietapa en Google Maps. |
 | **20/08/2026** | 📋 Añadido | **Documentación** | Creación y mantenimiento del documento de Requisitos de Usuario (`USER_REQUIREMENTS.md`) para seguimiento continuo. |
