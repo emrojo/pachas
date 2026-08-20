@@ -138,6 +138,7 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-19.3**: **Especificación Docker Stack (`deploy/docker-stack.yml`)**: Definición de servicios para Docker Swarm (`pachas_app` con réplicas y *rolling updates*, `pachas_postgres` con volumen persistente y script de esquema `01-schema.sql`, `pachas_postgrest` y red *overlay* `pachas_network`).
 - **RF-19.4**: **Soporte Docker Compose (`deploy/docker-compose.yml`)**: Configuración complementaria para desarrollo o pruebas en nodo único.
 - **RF-19.5**: **Automatización de Despliegue y Documentación**: Scripts ejecutables para Linux/macOS (`deploy.sh`), Windows PowerShell (`deploy.ps1`) y guía paso a paso ([`deploy/README.md`](file:///d:/Projects/pachas/deploy/README.md)).
+- **RF-19.6**: **Resiliencia de Compilación y Valores de Respaldo Seguros (Safe Fallbacks)**: Definición de valores por defecto en los argumentos de construcción del `Dockerfile` (`ARG NEXT_PUBLIC_SUPABASE_URL`, `ARG NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ARG NEXT_PUBLIC_ADMIN_EMAIL`) y blindaje de clientes cliente/servidor de Supabase para garantizar que la compilación y ejecución de Next.js standalone se complete sin excepciones de inicialización incluso antes de conectar servicios externos.
 
 ### 🔒 RF-20: Restricciones de Seguridad en Modo Producción y Creación por Administrador
 - **RF-20.1**: **Bloqueo Total de Inicio de Sesión con Usuarios de Prueba en Producción**:
@@ -146,6 +147,8 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-20.2**: **Restricción de Creación y Eliminación de Usuarios Exclusiva para Administradores**:
   - Solo los usuarios con rol de **Administrador** (`role === 'admin'`, creadores de grupos o administradores) pueden abrir el formulario o ejecutar la creación de nuevos usuarios ([`CreateUserModal.tsx`](file:///d:/Projects/pachas/src/components/profile/CreateUserModal.tsx) y `createLocalUser` en [`PachasContext.tsx`](file:///d:/Projects/pachas/src/context/PachasContext.tsx)).
   - Para usuarios estándar, los botones de creación permanecen ocultos y cualquier intento directo es bloqueado con un mensaje de acción restringida a administradores.
+- **RF-20.3**: **Configuración de Administrador Inicial por Variable de Entorno (`NEXT_PUBLIC_ADMIN_EMAIL`)**:
+  - Reconocimiento automático de privilegios de Administrador Global para el correo configurado en la variable de entorno `NEXT_PUBLIC_ADMIN_EMAIL` al registrarse o iniciar sesión, complementando la asignación directa en base de datos PostgreSQL y la administración individual por creación de viajes.
 
 ### 🚪 RF-21: Funcionalidad de Cierre de Sesión (Logout)
 - **RF-21.1**: **Cierre de Sesión Seguro y Completo**:

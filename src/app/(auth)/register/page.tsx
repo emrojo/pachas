@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Mail, Lock, User, Phone, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { Profile } from '@/types/database';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -43,11 +44,12 @@ export default function RegisterPage() {
         },
       });
 
-      const newUser = {
-        id: data.user?.id || `user-${Date.now()}`,
-        email: data.user?.email || email,
+      const newUser: Profile = {
+        id: data?.user?.id || `user-${Date.now()}`,
+        email: data?.user?.email || email.trim().toLowerCase(),
         full_name: fullName.trim(),
         bizum_phone: phone.trim() || null,
+        role: email.trim().toLowerCase() === process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ? 'admin' : 'member',
         created_at: new Date().toISOString(),
       };
 

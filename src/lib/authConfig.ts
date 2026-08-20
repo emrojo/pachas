@@ -26,6 +26,12 @@ export const isUserAdmin = (
 ): boolean => {
   if (!user) return false;
 
+  // 0. Configured admin email from environment variable
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase();
+  if (adminEmail && user.email && user.email.toLowerCase() === adminEmail) {
+    return true;
+  }
+
   // 1. Direct admin role on profile
   if (user.role === 'admin') return true;
 
