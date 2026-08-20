@@ -59,7 +59,11 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-08.3**: **Formato de fecha europeo**: Presentación estándar `DD/MM/YYYY` (ej. `15/08/2026`) y `DD/MM/YYYY HH:mm` en registros y reportes.
 
 ### 📄 RF-09: Exportación de Informes
-- **RF-09.1**: Descarga de informe completo en **PDF** con cabecera, resumen general, tabla de saldos por participante, transferencias sugeridas y desglose de gastos.
+- **RF-09.1**: **Descarga de informe completo en PDF con Gráficas Vectoriales y Desglose Individual**:
+  - *Página 1*: Cabecera oficial del viaje, tarjetas de métricas/KPIs clave, **Gráfica de Evolución Temporal de Gastos por Día** (barras vectoriales nítidas con importes y fechas) y **Gráfica de Distribución de Gastos por Categoría** (barras de porcentaje y totales).
+  - *Página 2*: **Gráfica Comparativa por Amigo (Total Pagado vs Consumido)**, Tabla completa de saldos por participante y Propuesta de Liquidación con Bizum.
+  - *Página 3*: **Historial General de Gastos**: Tabla completa con todos los gastos del viaje (fecha, concepto, categoría, pagador, importes en moneda original y convertida).
+  - *Página 4 en adelante*: **Desglose Individual de Gastos por Persona**: Sección dedicada para cada amigo del grupo con su tarjeta de resumen (Total Pagado, Total Consumido, Saldo Neto) y una tabla detallada con todos los gastos en los que participó o pagó, indicando el total del ticket, lo que pagó esa persona y su consumo/reparto exacto para verificación personal.
 - **RF-09.2**: Descarga en formato **CSV / Excel europeo** con separador de columnas punto y coma (`;`) y decimales con coma (`,`).
 
 ### 📍 RF-10: Geolocalización y Mapas de Gastos (Google Maps)
@@ -74,21 +78,59 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-11.3**: Botón de **descarga de plantilla oficial en CSV** con las cabeceras predefinidas (`Fecha;Concepto;Categoría;Importe;Divisa;Pagado Por;Repartir Entre;Notas`) y sugerencias personalizadas con los nombres de los miembros del grupo.
 - **RF-11.4**: Normalización automática de categorías, fechas y tipos de cambio.
 - **RF-11.5**: **Tabla interactiva de vista previa**: Validación visual de filas con estado de errores/advertencias y posibilidad de eliminar o ajustar filas antes de confirmar.
-- **RF-11.6**: **Validación Estricta de Miembros del Grupo**: Comprobación estricta de pagadores y participantes. Si se especifica un usuario que no pertenece al grupo, la fila se marca como errónea indicando el motivo exacto.
+- **RF-11.6**: **Validación Estricta y Reconocimiento de "Todos"**: Comprobación estricta de miembros del grupo; si se indica `"Todos"`, `"All"`, `"todos los miembros"` o se deja vacío el campo de participantes, se asigna automáticamente a la totalidad de amigos registrados en el grupo sin generar error.
 - **RF-11.7**: **Bloqueo Preventivo de Importación**: La importación queda inhabilitada y falla si se intenta ejecutar habiendo filas con errores sin corregir o eliminar.
 - **RF-11.8**: **Opción de Deshacer Importación (Undo Import)**: Posibilidad de revertir el último lote importado con un solo clic eliminando los gastos creados y recalculando los balances del grupo.
+- **RF-11.9**: **Popup / Modal de Detalle Completo de Errores**: Permite hacer clic en cualquier celda o botón de error en la tabla de vista previa para abrir un modal con la explicación detallada de por qué falló la fila, sus valores originales, sugerencias de solución y un botón para eliminar la fila directamente desde el popup.
+- **RF-11.10**: **Soporte de Múltiples Pagadores en Importación**: Capacidad de procesar gastos pagados por varios usuarios indicando cantidades desglosadas (ej. `Eduardo: 350 + Carlos: 250` o `Eduardo: 350; Carlos: 250`) o a partes iguales (ej. `Eduardo + Carlos`), repartiéndose entre `Todos` o participantes concretos.
 
 ### 👥 RF-12: Creación de Usuarios de Prueba y Simulación Local
 - **RF-12.1**: **Modal de creación de usuarios locales**: Permite crear perfiles ficticios para pruebas indicando nombre completo, correo electrónico, teléfono de Bizum, selector de avatar fotográfico y opción de inclusión automática en todos los grupos existentes.
 - **RF-12.2**: **Selector rápido de usuario en Navbar**: Desplegable accesible desde cualquier pantalla para cambiar de sesión con 1 clic entre todos los usuarios disponibles o crear uno nuevo.
 - **RF-12.3**: **Gestión desde Perfil y Login**: Pantalla de perfil (`/profile`) y login (`/login`) con acceso directo a todos los usuarios de prueba y botón para eliminar perfiles creados localmente.
 - **RF-12.4**: **Persistencia Local**: Los usuarios creados se guardan en `localStorage` manteniéndose disponibles en futuras sesiones.
+- **RF-12.5**: **Persistencia del Usuario Activo entre Recargas**: Al cambiar de usuario activo (mediante el selector de la barra de navegación, la pantalla de login o perfil), el usuario seleccionado se persiste inmediatamente en `localStorage`, de modo que al recargar la página (F5) o volver a abrir la aplicación se mantiene logueado el mismo usuario seleccionado.
 
 ### 🧭 RF-13: Registro de Hora con Timezone e Itinerario Histórico en Mapa
 - **RF-13.1**: **Registro de Hora y Timezone**: Al crear o editar un gasto se registra la hora exacta por defecto (hora actual) preservando el huso horario / timezone ISO (`YYYY-MM-DDTHH:mm:ss±HH:MM`) con visualización de la zona horaria del usuario.
 - **RF-13.2**: **Visualización de Hora en Listado**: Las tarjetas de gasto muestran la fecha y hora (`d MMM, HH:mm`, ej: `20 ago, 20:44`).
 - **RF-13.3**: **Itinerario de Pagos en Mapa (`TripRouteMapModal`)**: Visor interactivo que ordena cronológicamente todos los gastos geolocalizados del viaje, muestra las paradas numeradas (1, 2, 3...), el mapa interactivo con la posición seleccionada y un botón para abrir la **ruta completa de navegación en Google Maps** con waypoints.
 - **RF-13.4**: **Línea de Tiempo del Viaje**: Feed cronológico de paradas con desglose de importe, moneda, concepto, pagador y hora exacta.
+
+### ⏱️ RF-14: Ordenación Temporal de Gastos en el Listado
+- **RF-14.1**: **Ordenación por defecto (Más recientes primero)**: Las entradas de gastos del grupo se presentan ordenadas cronológicamente de forma descendente por fecha de gasto (`expense_date` / `created_at`) mostrando los gastos más recientes arriba.
+- **RF-14.2**: **Selector interactivo de orden**: Botones de conmutación integrados junto a la barra de búsqueda para alternar en cualquier momento entre **"Más recientes"** y **"Más antiguas"** (ascendente), plenamente compatible con filtros de categoría y búsquedas por texto.
+
+### 👤 RF-15: Baja y Eliminación de Miembros del Grupo
+- **RF-15.1**: **Quitar amigos del grupo**: Los administradores del viaje pueden eliminar participantes del grupo directamente desde la pestaña de *"Amigos"*, así como los miembros pueden abandonar el grupo.
+- **RF-15.2**: **Modal de confirmación**: Cuadro de diálogo de confirmación preventiva antes de proceder a la eliminación del miembro para evitar bajas accidentales.
+
+### 📦 RF-16: Archivado y Restauración de Grupos (Solo Administrador)
+- **RF-16.1**: **Control exclusivo de Administrador**: Solo los administradores de un viaje tienen permisos para archivar o restaurar el grupo.
+- **RF-16.2**: **Ocultación de la vista principal**: Los viajes archivados desaparecen del panel principal de grupos activos y no se contabilizan en los saldos generales.
+- **RF-16.3**: **Bloqueo de acceso a miembros**: Si un miembro no administrador intenta acceder directamente a la URL de un grupo archivado, la aplicación muestra una pantalla de bloqueo informativo.
+- **RF-16.4**: **Sección separada en Dashboard**: Los grupos archivados se muestran en una sección independiente en el Dashboard (*"Viajes Archivados"*) visible únicamente para el administrador, con fecha de archivado, enlace al historial y botón de **"Restaurar"** directo.
+- **RF-16.5**: **Banner informativo y gestión desde Ajustes**: Al entrar el administrador a un grupo archivado se muestra un banner superior para restaurarlo, y en el modal de Ajustes del Grupo (`EditGroupModal`) se incluye la *"Zona de Administrador"* para archivar/restaurar con 1 clic.
+
+### 📊 RF-17: Gráficas y Estadísticas de Gastos (Temporales y por Persona)
+- **RF-17.1**: **Pestaña y Modal de Estadísticas y Gráficas (`ExpenseChartsView` / `ExpenseChartsModal`)**: Accesible tanto como pestaña principal (*"Gráficas & Análisis"*) en el panel del viaje como mediante el botón de acceso directo *"Gráficas"* en la cabecera.
+- **RF-17.2**: **Selector de Granularidad Temporal**:
+  - *Por Horas*: Agrupa los gastos en franjas horarias (`HH:00 - HH:00`) y día.
+  - *Por Días*: Evolución y desembolso día a día de todo el viaje.
+  - *Por Semanas*: Comparativa agrupada por semanas de calendario.
+  - *En Total*: Resumen global acumulado del viaje con distribución porcentual por categorías (comida, hotel, ocio, transporte...).
+- **RF-17.3**: **Desglose de Totales y por Persona**:
+  - *Por Pagador*: Gráfica de barras apiladas con colores asignados que muestra quién adelantó el dinero en cada intervalo.
+  - *Por Consumo*: Gráfica de barras apiladas con el consumo/reparto asignado a cada amigo en cada tramo.
+  - *Total Global*: Gráfica con las barras del importe total del grupo sin desglosar.
+- **RF-17.4**: **Filtro interactivo de amigos**: Leyenda con chips interactivos para activar/desactivar amigos específicos en la gráfica y comparar gastos individuales.
+- **RF-17.5**: **Detalle interactivo (Drill-down)**: Al hacer clic sobre cualquier barra o intervalo temporal, se despliega una tarjeta de desglose con el detalle de cantidades por persona y la lista de gastos individuales incluidos en esa franja.
+- **RF-17.6**: **Tarjetas de KPIs**: Resumen superior con gasto total del viaje, media por participante, pico de gasto máximo y número de intervalos con actividad.
+
+### 📱 RF-18: Navegación de Pestañas con Controles de Flechas para Móvil
+- **RF-18.1**: **Botones de Navegación Rápida Anterior/Siguiente**: Inclusión de botones con flechas (<kbd>&lt;</kbd> y <kbd>&gt;</kbd>) a ambos lados de la barra de pestañas para cambiar de sección con 1 toque sin necesidad de arrastre táctil forzado.
+- **RF-18.2**: **Desplazamiento Automático y Centrado**: Al cambiar de pestaña (manualmente o mediante las flechas), la barra se desplaza de forma fluida (`scrollIntoView` suave) para mantener la pestaña seleccionada siempre visible y centrada en pantalla.
+- **RF-18.3**: **Indicadores Visuales y Estados Deshabilitados**: Las flechas indican claramente el límite de navegación (deshabilitadas en el primer y último elemento) y las pestañas cuentan con bordes redondeados y fondos táctiles adaptados para dispositivos móviles y pantallas táctiles.
 
 ---
 
@@ -119,4 +161,16 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 | **20/08/2026** | 👥 Añadido | **RF-12** | Creación y gestión de usuarios de prueba en modo local con selector rápido en Navbar, perfil y login, auto-adhesión a grupos y persistencia en localStorage. |
 | **20/08/2026** | 🎨 Añadido | **RF-01.3** | Edición de icono y fotografía del grupo: soporte para subida de fotos personalizadas desde el dispositivo, galería temática, cambio de emojis y modal de ajustes (`EditGroupModal`). |
 | **20/08/2026** | 🧭 Añadido | **RF-13** | Registro de hora con timezone por defecto e itinerario histórico de paradas de pago en mapa (`TripRouteMapModal`) con ruta multietapa en Google Maps. |
-| **20/08/2026** | 📋 Añadido | **Documentación** | Creación y mantenimiento del documento de Requisitos de Usuario (`USER_REQUIREMENTS.md`) para seguimiento continuo. |
+| **20/08/2026** | 📥 Modificado | **RF-11.6** | Soporte para alias `"Todos"` / `"All"` al importar gastos en Excel/CSV, asociando el reparto automáticamente a todos los amigos del grupo. |
+| **20/08/2026** | 🔍 Añadido | **RF-11.9** | Modal emergente (popup) para ver el texto completo del error de cualquier fila en la vista previa de importación con sugerencias de solución y acción de borrado directo. |
+| **20/08/2026** | 💰 Añadido | **RF-11.10** | Soporte de múltiples pagadores en importación CSV/Excel con importes desglosados (`Eduardo: 350 + Carlos: 250`) o a partes iguales (`Eduardo + Carlos`). |
+| **20/08/2026** | ⏱️ Añadido | **RF-14** | Selector de ordenación temporal de gastos en la vista de detalle del grupo (más recientes por defecto vs más antiguas). |
+| **20/08/2026** | 👤 Añadido | **RF-15** | Opción para quitar amigos del grupo con modal de confirmación y permisos de administrador. |
+| **20/08/2026** | 📦 Añadido | **RF-16** | Archivado y restauración de grupos solo para administradores: ocultación de la vista principal, bloqueo a miembros y sección dedicada en Dashboard. |
+| **20/08/2026** | 💾 Modificado | **RF-12.5** | Persistencia inmediata del usuario seleccionado en `localStorage` para mantener la sesión tras recargar la página. |
+| **20/08/2026** | 📊 Añadido | **RF-17** | Gráficas interactivas y estadísticas de gastos integradas en pestaña principal y modal, con soporte para horas, días, semanas y total, filtros de amigos y KPIs. |
+| **20/08/2026** | 🐛 Corregido | **RF-17** | Corrección en el renderizado y alturas de las barras apiladas de la gráfica: cálculo explícito de altura de pista (`CHART_TRACK_HEIGHT`) y dimensionamiento de segmentos con `flex-grow`. |
+| **20/08/2026** | 📱 Añadido | **RF-18** | Controles de flechas de navegación previa/siguiente y auto-scroll centrado en la barra de pestañas para facilitar la navegación en dispositivos móviles. |
+| **20/08/2026** | 📊 Añadido | **RF-09.1** | Inclusión de gráficas vectoriales completas en el informe PDF descargable: evolución temporal de gastos por día, distribución porcentual por categorías y comparativa pagado vs consumido por amigo. |
+| **20/08/2026** | 👤 Añadido | **RF-09.1** | Desglose individualizado de gastos por persona en el informe PDF para verificación personal: tablas dedicadas por participante con total del ticket, importe pagado, consumo asignado y saldo neto. |
+| **20/08/2026** | 📋 Actualizado | **Documentación** | Actualización continua del registro de Requisitos de Usuario (`USER_REQUIREMENTS.md`) con todas las nuevas funcionalidades y correcciones. |

@@ -35,6 +35,8 @@ export interface Group {
   created_by: string;
   created_at: string;
   updated_at: string;
+  is_archived?: boolean;
+  archived_at?: string | null;
 }
 
 export interface GroupMember {

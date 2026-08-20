@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePachas } from '@/context/PachasContext';
@@ -15,6 +15,8 @@ import { ExpenseCard } from '@/components/expenses/ExpenseCard';
 import { ExpenseForm } from '@/components/expenses/ExpenseForm';
 import { ImportExpensesModal } from '@/components/expenses/ImportExpensesModal';
 import { TripRouteMapModal } from '@/components/expenses/TripRouteMapModal';
+import { ExpenseChartsModal } from '@/components/expenses/ExpenseChartsModal';
+import { ExpenseChartsView } from '@/components/expenses/ExpenseChartsView';
 import { InviteModal } from '@/components/groups/InviteModal';
 import { EditGroupModal } from '@/components/groups/EditGroupModal';
 import { MemberList } from '@/components/groups/MemberList';
@@ -46,9 +48,18 @@ import {
   Pencil,
   Compass,
   MapPin,
+  ArrowUpDown,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  Archive,
+  ArchiveRestore,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
-type TabType = 'expenses' | 'balances' | 'members' | 'history';
+type TabType = 'expenses' | 'balances' | 'charts' | 'members' | 'history';
+type SortOrder = 'desc' | 'asc';
 
 export default function GroupDetailPage() {
   const params = useParams();
@@ -65,6 +76,7 @@ export default function GroupDetailPage() {
     currentUser,
     lastImportBatch,
     undoLastImport,
+    restoreGroup,
   } = usePachas();
 
   const group = getGroup(groupId);
@@ -79,10 +91,52 @@ export default function GroupDetailPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isEditGroupOpen, setIsEditGroupOpen] = useState(false);
   const [isRouteMapOpen, setIsRouteMapOpen] = useState(false);
+  const [isChartsModalOpen, setIsChartsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const TABS = [
+    { id: 'expenses' as TabType, label: `Gastos (${expenses.length})`, shortLabel: `Gastos (${expenses.length})`, icon: Receipt },
+    { id: 'balances' as TabType, label: 'Saldos & Liquidación', shortLabel: 'Saldos', icon: HandCoins, badgeDot: debts.length > 0 },
+    { id: 'charts' as TabType, label: 'Gráficas & Análisis', shortLabel: 'Gráficas', icon: BarChart3 },
+    { id: 'members' as TabType, label: `Amigos (${members.length})`, shortLabel: `Amigos (${members.length})`, icon: Users },
+    { id: 'history' as TabType, label: `Pagos Realizados (${settlements.length})`, shortLabel: `Pagos (${settlements.length})`, icon: History },
+  ];
+
+  const currentTabIndex = TABS.findIndex((t) => t.id === activeTab);
+
+  const handlePrevTab = () => {
+    if (currentTabIndex > 0) {
+      setActiveTab(TABS[currentTabIndex - 1].id);
+    }
+  };
+
+  const handleNextTab = () => {
+    if (currentTabIndex < TABS.length - 1) {
+      setActiveTab(TABS[currentTabIndex + 1].id);
+    }
+  };
+
+  useEffect(() => {
+    const currentEl = tabRefs.current[activeTab];
+    if (currentEl && tabsContainerRef.current) {
+      currentEl.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [activeTab]);
+
+  const isAdmin =
+    group?.created_by === currentUser.id ||
+    members.some((m) => m.user_id === currentUser.id && m.role === 'admin');
 
   if (!group) {
     return (
@@ -107,12 +161,41 @@ export default function GroupDetailPage() {
     );
   }
 
+  if (group.is_archived && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+        <Card className="text-center p-8 max-w-md w-full">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center mx-auto mb-3 text-3xl">
+            📦
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            Grupo archivado
+          </h2>
+          <p className="text-xs text-slate-500 mt-1 mb-4">
+            Este viaje ha sido archivado por el administrador y no está disponible para visualización.
+          </p>
+          <Link href="/dashboard">
+            <Button variant="brand" className="w-full">
+              Volver a mis viajes
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
+
   const totalSpent = expenses.reduce(
     (sum, e) => sum + (e.converted_amount || e.amount),
     0
   );
 
-  const filteredExpenses = expenses.filter((e) => {
+  const sortedExpenses = [...expenses].sort((a, b) => {
+    const timeA = new Date(a.expense_date || a.created_at).getTime();
+    const timeB = new Date(b.expense_date || b.created_at).getTime();
+    return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+  });
+
+  const filteredExpenses = sortedExpenses.filter((e) => {
     const matchesCategory =
       selectedCategory === 'all' || e.category === selectedCategory;
     const matchesQuery =
@@ -136,6 +219,37 @@ export default function GroupDetailPage() {
       <Navbar />
 
       <main className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-5">
+        {/* Archived Banner for Admin */}
+        {group.is_archived && isAdmin && (
+          <div className="p-4 bg-amber-500/15 border-2 border-amber-500/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Archive className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-black text-amber-900 dark:text-amber-200 block">
+                  Este viaje está actualmente archivado
+                </span>
+                <span className="text-[11px] text-amber-800/80 dark:text-amber-300/90 block">
+                  Está oculto para los demás miembros. Como administrador, puedes restaurarlo en cualquier momento.
+                </span>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="brand"
+              onClick={async () => {
+                await restoreGroup(group.id);
+              }}
+              className="text-xs font-bold gap-1.5 shrink-0"
+            >
+              <ArchiveRestore className="w-4 h-4" />
+              <span>Restaurar Grupo</span>
+            </Button>
+          </div>
+        )}
+
         {/* Back Link & Header Card */}
         <div>
           <Link
@@ -242,7 +356,18 @@ export default function GroupDetailPage() {
                     className="gap-1.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
                   >
                     <Compass className="w-4 h-4 text-emerald-600" />
-                    <span className="hidden sm:inline font-bold">Itinerario en Mapa</span>
+                    <span className="hidden sm:inline font-bold">Mapa</span>
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab('charts')}
+                    title="Ver gráficas y estadísticas de gastos temporales y por persona"
+                    className="gap-1.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
+                  >
+                    <BarChart3 className="w-4 h-4 text-emerald-600" />
+                    <span className="hidden sm:inline font-bold">Gráficas</span>
                   </Button>
 
                   {/* Export Dropdown / Buttons */}
@@ -293,61 +418,70 @@ export default function GroupDetailPage() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2 overflow-x-auto no-scrollbar">
+        {/* Tab Navigation with Mobile Arrow Controls */}
+        <div className="relative flex items-center gap-1.5 sm:gap-2">
+          {/* Left Arrow (Prev Tab) */}
           <button
             type="button"
-            onClick={() => setActiveTab('expenses')}
-            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'expenses'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+            onClick={handlePrevTab}
+            disabled={currentTabIndex === 0}
+            aria-label="Pestaña anterior"
+            title="Pestaña anterior"
+            className={`p-2 rounded-xl border transition-all shrink-0 flex items-center justify-center ${
+              currentTabIndex === 0
+                ? 'opacity-25 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-400 bg-slate-50 dark:bg-slate-900/40'
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-300 dark:hover:border-emerald-700 shadow-2xs active:scale-95'
             }`}
           >
-            <Receipt className="w-4 h-4" />
-            Gastos ({expenses.length})
+            <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('balances')}
-            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'balances'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
+          {/* Scrollable Tabs Track */}
+          <div
+            ref={tabsContainerRef}
+            className="flex-1 flex border-b border-slate-200 dark:border-slate-800 gap-1 sm:gap-2 overflow-x-auto scroll-smooth no-scrollbar py-0.5"
           >
-            <HandCoins className="w-4 h-4" />
-            Saldos & Liquidación
-            {debts.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            )}
-          </button>
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  ref={(el) => {
+                    tabRefs.current[tab.id] = el;
+                  }}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`pb-2.5 pt-1.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-t-xl ${
+                    isActive
+                      ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/30'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/40'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{tab.label}</span>
+                  {tab.badgeDot && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
+          {/* Right Arrow (Next Tab) */}
           <button
             type="button"
-            onClick={() => setActiveTab('members')}
-            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'members'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+            onClick={handleNextTab}
+            disabled={currentTabIndex === TABS.length - 1}
+            aria-label="Pestaña siguiente"
+            title="Pestaña siguiente"
+            className={`p-2 rounded-xl border transition-all shrink-0 flex items-center justify-center ${
+              currentTabIndex === TABS.length - 1
+                ? 'opacity-25 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-400 bg-slate-50 dark:bg-slate-900/40'
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-300 dark:hover:border-emerald-700 shadow-2xs active:scale-95'
             }`}
           >
-            <Users className="w-4 h-4" />
-            Amigos ({members.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('history')}
-            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'history'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            Pagos Realizados ({settlements.length})
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 
@@ -421,14 +555,50 @@ export default function GroupDetailPage() {
               })}
             </div>
 
-            {/* Search Input */}
-            <div className="max-w-md">
-              <Input
-                placeholder="Buscar por concepto o notas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                leftIcon={<Search className="w-4 h-4" />}
-              />
+            {/* Search Input & Sort Order Controls */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex-1 max-w-md">
+                <Input
+                  placeholder="Buscar por concepto o notas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  leftIcon={<Search className="w-4 h-4" />}
+                />
+              </div>
+
+              {/* Sort Order Selector */}
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-800 self-start sm:self-auto shadow-2xs">
+                <span className="text-[11px] font-semibold text-slate-400 pl-2 pr-1 hidden sm:inline-flex items-center gap-1">
+                  <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  Orden:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('desc')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    sortOrder === 'desc'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                  title="Ordenar por más recientes primero"
+                >
+                  <ArrowDownWideNarrow className="w-3.5 h-3.5" />
+                  <span>Más recientes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('asc')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    sortOrder === 'asc'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                  title="Ordenar por más antiguas primero"
+                >
+                  <ArrowUpNarrowWide className="w-3.5 h-3.5" />
+                  <span>Más antiguas</span>
+                </button>
+              </div>
             </div>
 
             {/* Expenses List */}
@@ -476,7 +646,32 @@ export default function GroupDetailPage() {
           </div>
         )}
 
-        {/* Tab 3: Amigos / Participantes */}
+        {/* Tab 3: Gráficas & Análisis de Gastos */}
+        {activeTab === 'charts' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-emerald-600" />
+                  Gráficas y Estadísticas de Gastos
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Visualización temporal por horas, días o semanas y reparto entre amigos
+                </p>
+              </div>
+            </div>
+
+            <Card className="p-4 sm:p-6">
+              <ExpenseChartsView
+                group={group}
+                expenses={expenses}
+                members={members}
+              />
+            </Card>
+          </div>
+        )}
+
+        {/* Tab 4: Amigos / Participantes */}
         {activeTab === 'members' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -499,7 +694,7 @@ export default function GroupDetailPage() {
             </div>
 
             <Card>
-              <MemberList members={members} />
+              <MemberList groupId={group.id} members={members} isAdmin={isAdmin} />
             </Card>
           </div>
         )}
@@ -595,6 +790,14 @@ export default function GroupDetailPage() {
         expenses={expenses}
         isOpen={isRouteMapOpen}
         onClose={() => setIsRouteMapOpen(false)}
+      />
+
+      <ExpenseChartsModal
+        group={group}
+        expenses={expenses}
+        members={members}
+        isOpen={isChartsModalOpen}
+        onClose={() => setIsChartsModalOpen(false)}
       />
     </div>
   );

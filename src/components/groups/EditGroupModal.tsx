@@ -15,6 +15,10 @@ import {
   Trash2,
   Check,
   Camera,
+  Archive,
+  ArchiveRestore,
+  AlertTriangle,
+  Shield,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -44,7 +48,12 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { updateGroup } = usePachas();
+  const { updateGroup, archiveGroup, restoreGroup, currentUser, getGroupMembers } = usePachas();
+
+  const members = getGroupMembers(group.id);
+  const isAdmin =
+    group.created_by === currentUser.id ||
+    members.some((m) => m.user_id === currentUser.id && m.role === 'admin');
 
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description || '');
@@ -53,6 +62,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   const [visualMode, setVisualMode] = useState<'emoji' | 'photo'>(group.cover_image_url ? 'photo' : 'emoji');
   const [currency, setCurrency] = useState(group.base_currency || 'EUR');
   const [isLoading, setIsLoading] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -113,6 +123,38 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
       setError(err.message || 'Error al actualizar el grupo');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleToggleArchive = async () => {
+    if (group.is_archived) {
+      try {
+        setIsArchiving(true);
+        const restored = await restoreGroup(group.id);
+        onClose();
+        if (onSuccess) onSuccess(restored);
+      } catch (err: any) {
+        setError(err.message || 'Error al restaurar el grupo');
+      } finally {
+        setIsArchiving(false);
+      }
+    } else {
+      if (
+        confirm(
+          `¿Estás seguro de que deseas archivar el grupo "${group.name}"? Los miembros ya no podrán verlo en su panel principal, pero tú podrás restaurarlo cuando quieras desde tu panel de administrador.`
+        )
+      ) {
+        try {
+          setIsArchiving(true);
+          const archived = await archiveGroup(group.id);
+          onClose();
+          if (onSuccess) onSuccess(archived);
+        } catch (err: any) {
+          setError(err.message || 'Error al archivar el grupo');
+        } finally {
+          setIsArchiving(false);
+        }
+      }
     }
   };
 
@@ -298,6 +340,50 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
             ))}
           </select>
         </div>
+
+        {/* Admin Danger / Archive Zone */}
+        {isAdmin && (
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+              <Shield className="w-3.5 h-3.5 text-amber-500" />
+              <span>Zona de Administrador</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                  {group.is_archived ? 'Grupo archivado' : 'Archivar este grupo'}
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                  {group.is_archived
+                    ? 'Restaura el grupo para que vuelva a estar visible para todos los miembros.'
+                    : 'Oculta el viaje de la vista principal. Solo tú podrás restaurarlo desde el panel.'}
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                variant={group.is_archived ? 'brand' : 'outline'}
+                size="sm"
+                isLoading={isArchiving}
+                onClick={handleToggleArchive}
+                className="shrink-0 text-xs font-bold gap-1.5"
+              >
+                {group.is_archived ? (
+                  <>
+                    <ArchiveRestore className="w-3.5 h-3.5" />
+                    <span>Restaurar</span>
+                  </>
+                ) : (
+                  <>
+                    <Archive className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Archivar</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-2">

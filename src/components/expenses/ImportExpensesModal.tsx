@@ -21,6 +21,9 @@ import {
   FileDown,
   Sparkles,
   AlertOctagon,
+  AlertCircle,
+  Info,
+  HelpCircle,
 } from 'lucide-react';
 
 export interface ImportExpensesModalProps {
@@ -65,6 +68,7 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importErrorMessage, setImportErrorMessage] = useState('');
+  const [selectedErrorRow, setSelectedErrorRow] = useState<ParsedRow | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'paste' | 'preview'>('upload');
 
   // Normalize category string from CSV to valid ExpenseCategory
@@ -102,9 +106,28 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
     return new Date().toISOString().split('T')[0];
   };
 
+  // Helper to detect keywords that mean all members of the group
+  const isAllMembersKeyword = (val?: string): boolean => {
+    if (!val) return false;
+    const clean = val.trim().toLowerCase();
+    return (
+      clean === 'todos' ||
+      clean === 'todas' ||
+      clean === 'all' ||
+      clean === 'todos los miembros' ||
+      clean === 'todo el grupo' ||
+      clean === 'todos los participantes' ||
+      clean === 'grupo' ||
+      clean === '*'
+    );
+  };
+
   // Strict check for member in the group
   const findMember = (nameOrEmail?: string): { memberId: string | null; error?: string } => {
     if (!nameOrEmail || !nameOrEmail.trim()) {
+      return { memberId: currentUser.id };
+    }
+    if (isAllMembersKeyword(nameOrEmail)) {
       return { memberId: currentUser.id };
     }
     const q = nameOrEmail.trim().toLowerCase();
@@ -122,6 +145,112 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
       };
     }
     return { memberId: found.user_id };
+  };
+
+  // Parse multi-payer and single-payer formats
+  const parsePayers = (
+    rawPayerStr: string,
+    totalAmount: number
+  ): { payers: { userId: string; amountPaid: number }[]; error?: string } => {
+    const trimmed = rawPayerStr.trim();
+    if (!trimmed || isAllMembersKeyword(trimmed)) {
+      return { payers: [{ userId: currentUser.id, amountPaid: totalAmount }] };
+    }
+
+    // Check if string contains colons, parentheses or equal signs with amounts: e.g. "Eduardo: 350 + Carlos: 250"
+    const hasColons = trimmed.includes(':');
+    const hasParentheses = /\([^)]*\d+[^)]*\)/.test(trimmed);
+    const hasEquals = /=[0-9]/.test(trimmed);
+
+    if (hasColons || hasParentheses || hasEquals) {
+      // Split by '+', '|', '/', '&', ' y ', or ';' or comma followed by a word character
+      const segments = trimmed
+        .split(/\s*(?:\+|\/|\||&|\by\b|\band\b|;|(?:,\s*(?=[A-Za-zÀ-ÿ])))\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const payers: { userId: string; amountPaid: number }[] = [];
+      let sumPaid = 0;
+
+      for (const segment of segments) {
+        let name = '';
+        let amountPart = 0;
+
+        if (segment.includes(':')) {
+          const parts = segment.split(':');
+          name = parts[0].trim();
+          amountPart = parseEuropeanAmount(parts.slice(1).join(':'));
+        } else if (/\(([^)]+)\)/.test(segment)) {
+          const match = segment.match(/^(.*?)\(([^)]+)\)$/);
+          if (match) {
+            name = match[1].trim();
+            amountPart = parseEuropeanAmount(match[2]);
+          }
+        } else if (segment.includes('=')) {
+          const parts = segment.split('=');
+          name = parts[0].trim();
+          amountPart = parseEuropeanAmount(parts.slice(1).join('='));
+        } else {
+          name = segment;
+        }
+
+        const memRes = findMember(name);
+        if (memRes.error) {
+          return { payers: [], error: memRes.error };
+        }
+
+        if (amountPart <= 0) {
+          return {
+            payers: [],
+            error: `No se pudo determinar el importe pagado por "${name}" en "${segment}". Formato esperado: "Nombre: Importe" (ej: Eduardo: 350).`,
+          };
+        }
+
+        payers.push({ userId: memRes.memberId!, amountPaid: amountPart });
+        sumPaid += amountPart;
+      }
+
+      // Validate total sum matches expense amount (with small rounding margin)
+      if (Math.abs(sumPaid - totalAmount) > 0.05) {
+        return {
+          payers: [],
+          error: `La suma de las cantidades pagadas (${sumPaid.toFixed(2).replace('.', ',')}) no coincide con el importe total del gasto (${totalAmount.toFixed(2).replace('.', ',')}).`,
+        };
+      }
+
+      return { payers };
+    }
+
+    // Format: Multiple names without specific amounts, e.g. "Eduardo + Carlos" or "Eduardo, Carlos" (equal split of the payment)
+    const multiNames = trimmed
+      .split(/\s*(?:\+|\/|\||&|\by\b|\band\b|;|,)\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (multiNames.length > 1) {
+      const payers: { userId: string; amountPaid: number }[] = [];
+      const equalShare = Math.round((totalAmount / multiNames.length) * 100) / 100;
+      let accumulated = 0;
+
+      for (let i = 0; i < multiNames.length; i++) {
+        const pName = multiNames[i];
+        const memRes = findMember(pName);
+        if (memRes.error) {
+          return { payers: [], error: memRes.error };
+        }
+        const paid = i === multiNames.length - 1 ? Math.round((totalAmount - accumulated) * 100) / 100 : equalShare;
+        accumulated += paid;
+        payers.push({ userId: memRes.memberId!, amountPaid: paid });
+      }
+      return { payers };
+    }
+
+    // Format: Single payer name
+    const singleRes = findMember(trimmed);
+    if (singleRes.error) {
+      return { payers: [], error: singleRes.error };
+    }
+    return { payers: [{ userId: singleRes.memberId!, amountPaid: totalAmount }] };
   };
 
   // Parse CSV text
@@ -207,30 +336,38 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
       const baseObj = getCurrencyByCode(baseCurrency);
       const exchangeRate = currencyObj.rateToEur / baseObj.rateToEur;
 
-      // Strict validation for Payer
-      const payerResult = findMember(rawPayer);
-      let payerId = currentUser.id;
+      // Strict validation for Payer(s)
+      const payerResult = parsePayers(rawPayer, amount);
+      let payersList: { userId: string; amountPaid: number }[] = [{ userId: currentUser.id, amountPaid: amount }];
       if (payerResult.error) {
         errors.push(payerResult.error);
-      } else if (payerResult.memberId) {
-        payerId = payerResult.memberId;
+      } else if (payerResult.payers && payerResult.payers.length > 0) {
+        payersList = payerResult.payers;
       }
 
       // Strict validation for Participants
       let participantIds = members.map((m) => m.user_id);
-      if (rawParticipants.trim()) {
-        const pNames = rawParticipants.split(/[,;\/]/).map((n) => n.trim()).filter(Boolean);
-        const resolvedIds: string[] = [];
+      const cleanParticipants = rawParticipants.trim();
+
+      if (cleanParticipants && !isAllMembersKeyword(cleanParticipants)) {
+        const pNames = cleanParticipants.split(/[,;\/]/).map((n) => n.trim()).filter(Boolean);
+        const resolvedIds = new Set<string>();
+
         for (const pName of pNames) {
+          if (isAllMembersKeyword(pName)) {
+            members.forEach((m) => resolvedIds.add(m.user_id));
+            continue;
+          }
           const res = findMember(pName);
           if (res.error) {
             errors.push(res.error);
           } else if (res.memberId) {
-            resolvedIds.push(res.memberId);
+            resolvedIds.add(res.memberId);
           }
         }
-        if (resolvedIds.length > 0 && errors.length === 0) {
-          participantIds = resolvedIds;
+
+        if (resolvedIds.size > 0 && errors.length === 0) {
+          participantIds = Array.from(resolvedIds);
         }
       }
 
@@ -247,7 +384,7 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
             expenseDate: mapDate(rawDate),
             notes: rawNotes || undefined,
             splitType: 'EQUAL',
-            payers: [{ userId: payerId, amountPaid: amount }],
+            payers: payersList,
             selectedParticipantIds: participantIds,
           }
         : undefined;
@@ -262,7 +399,7 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
           currency,
           date: mapDate(rawDate),
           category: mapCategory(rawCategory),
-          payer: rawPayer || (members.find((m) => m.user_id === payerId)?.profile?.full_name || 'Tú'),
+          payer: rawPayer || (members.find((m) => m.user_id === payersList[0]?.userId)?.profile?.full_name || 'Tú'),
           participantsStr: rawParticipants,
           participantsCount: isValid ? `${participantIds.length} amigos` : 'Error',
           notes: rawNotes,
@@ -299,10 +436,11 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
 
     let sampleCSV = 'data:text/csv;charset=utf-8,\uFEFF';
     sampleCSV += 'Fecha;Concepto;Categoría;Importe;Divisa;Pagado Por;Repartir Entre;Notas\n';
-    sampleCSV += `15/08/2026;Cena pizzería;food;68,50;EUR;${defaultPayer};;Pizzas y bebidas varias\n`;
-    sampleCSV += `16/08/2026;Gasolina autopista;transport;45,00;EUR;${otherPayer};;Llenado de depósito\n`;
+    sampleCSV += `15/08/2026;Cena pizzería;food;68,50;EUR;${defaultPayer};Todos;Pizzas y bebidas varias\n`;
+    sampleCSV += `16/08/2026;Gasolina autopista;transport;60,00;EUR;${defaultPayer} + ${otherPayer};Todos;Gasolina pagada a medias (30€ c/u)\n`;
     sampleCSV += `17/08/2026;Entradas museo;activities;30,00;EUR;${defaultPayer};${splitSample};Visita cultural guiada\n`;
-    sampleCSV += `18/08/2026;Supermercado compras;shopping;82,20;EUR;${defaultPayer};;Desayunos y snacks\n`;
+    sampleCSV += `18/08/2026;Supermercado compras;shopping;82,20;EUR;${defaultPayer};Todos;Desayunos y snacks\n`;
+    sampleCSV += `19/08/2026;Villa Vacaciones;accommodation;600,00;EUR;${defaultPayer}: 350 + ${otherPayer}: 250;Todos;Alquiler villa con pagos desglosados\n`;
 
     const encodedUri = encodeURI(sampleCSV);
     const link = document.createElement('a');
@@ -444,6 +582,19 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
               </label>
             </div>
 
+            {/* Formats help guide banner */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-1.5">
+              <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                💡 Formatos soportados en la columna &quot;Pagado Por&quot;:
+              </span>
+              <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 pl-3 list-disc">
+                <li><strong>Un solo pagador:</strong> <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Eduardo</code> (paga el 100%).</li>
+                <li><strong>Varios con importes exactos:</strong> <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Eduardo: 350 + Carlos: 250</code></li>
+                <li><strong>Varios a partes iguales:</strong> <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Eduardo + Carlos</code> o <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Eduardo, Carlos</code> (50% cada uno).</li>
+                <li><strong>Repartir entre:</strong> Usa <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Todos</code> o deja la celda vacía para que se divida entre todos los amigos del grupo.</li>
+              </ul>
+            </div>
+
             {/* Template Download Banner */}
             <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/40 rounded-2xl flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -561,19 +712,29 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
                         {row.valid ? (
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         ) : (
-                          <div className="flex items-center gap-1 text-rose-600" title={row.errors.join(' • ')}>
-                            <XCircle className="w-4 h-4 shrink-0" />
-                            <span className="text-[10px] font-bold hidden sm:inline">Error</span>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedErrorRow(row)}
+                            className="flex items-center gap-1 text-rose-600 hover:text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/70 hover:bg-rose-200 dark:hover:bg-rose-900 px-2 py-1 rounded-lg border border-rose-200 dark:border-rose-900 transition-colors font-bold shadow-2xs"
+                            title="Haz clic para ver el error completo en un popup"
+                          >
+                            <XCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span className="text-[10px]">Ver error</span>
+                          </button>
                         )}
                       </td>
                       <td className="p-2.5 font-mono text-[11px]">{row.raw.date}</td>
                       <td className="p-2.5 font-semibold text-slate-900 dark:text-white truncate max-w-[130px]">
                         {row.raw.title || <span className="text-rose-500 italic">Sin concepto</span>}
                         {row.errors.length > 0 && (
-                          <span className="block text-[10px] text-rose-600 dark:text-rose-400 font-normal truncate">
-                            {row.errors[0]}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedErrorRow(row)}
+                            className="block text-left text-[10px] text-rose-600 dark:text-rose-400 font-medium truncate hover:underline mt-0.5 max-w-full"
+                            title="Haz clic para ver el error completo"
+                          >
+                            ⚠️ {row.errors[0]}
+                          </button>
                         )}
                       </td>
                       <td className="p-2.5 font-black text-slate-900 dark:text-white">
@@ -630,6 +791,99 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Error Detail Popup Modal */}
+      <Modal
+        isOpen={!!selectedErrorRow}
+        onClose={() => setSelectedErrorRow(null)}
+        title="Detalle del Error en la Fila"
+        description="Información detallada sobre los motivos que impiden importar este gasto"
+        maxWidth="md"
+      >
+        {selectedErrorRow && (
+          <div className="space-y-4">
+            {/* Row Summary Card */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">
+                  {selectedErrorRow.raw.title || '(Sin concepto)'}
+                </span>
+                <Badge variant="rose" size="sm">
+                  {selectedErrorRow.errors.length} error(es)
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1">
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Fecha</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">{selectedErrorRow.raw.date || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Importe</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedErrorRow.raw.amount} {selectedErrorRow.raw.currency}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Pagador</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedErrorRow.raw.payer || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Repartir</span>
+                  <span className="text-slate-700 dark:text-slate-300">{selectedErrorRow.raw.participantsStr || 'Todos'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Errors List */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
+                Motivos del fallo:
+              </span>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {selectedErrorRow.errors.map((err, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5"
+                  >
+                    <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-semibold">{err}</p>
+                      {err.includes('no está registrado') && (
+                        <p className="text-[11px] text-rose-500/90 dark:text-rose-400">
+                          💡 Sugerencia: Añade a esta persona como amiga en la pestaña &quot;Amigos&quot; del grupo antes de importar, o elimínala de esta fila.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Action buttons inside popup */}
+            <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSelectedErrorRow(null)}
+                className="flex-1 text-xs"
+              >
+                Cerrar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  handleDeleteRow(selectedErrorRow.id);
+                  setSelectedErrorRow(null);
+                }}
+                className="flex-1 text-xs font-bold gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Eliminar esta Fila
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </Modal>
   );
 };

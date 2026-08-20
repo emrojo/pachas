@@ -71,9 +71,12 @@ interface PachasContextType {
     paymentMethod: PaymentMethod,
     notes?: string
   ) => Promise<Settlement>;
+  archiveGroup: (groupId: string) => Promise<Group>;
+  restoreGroup: (groupId: string) => Promise<Group>;
   joinGroup: (inviteCode: string) => Promise<Group | null>;
   addMemberByEmail: (groupId: string, email: string) => Promise<boolean>;
   addMemberToGroup: (groupId: string, userId: string) => Promise<boolean>;
+  removeMemberFromGroup: (groupId: string, userId: string) => Promise<boolean>;
   availableUsers: Profile[];
   createLocalUser: (data: {
     full_name: string;
@@ -99,7 +102,7 @@ const STORAGE_KEYS = {
 };
 
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<Profile>(DEMO_CURRENT_USER);
+  const [currentUser, _setCurrentUser] = useState<Profile>(DEMO_CURRENT_USER);
   const [availableUsers, setAvailableUsers] = useState<Profile[]>(DEMO_USERS);
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Record<string, GroupMember[]>>({});
@@ -112,6 +115,16 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper to change current user and persist immediately to localStorage
+  const setCurrentUser = (user: Profile) => {
+    _setCurrentUser(user);
+    try {
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    } catch (e) {
+      console.error('Failed to persist current user to localStorage:', e);
+    }
+  };
+
   // Initialize data from localStorage or demo defaults
   useEffect(() => {
     try {
@@ -122,8 +135,22 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const savedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
       const savedSettlements = localStorage.getItem(STORAGE_KEYS.SETTLEMENTS);
 
-      if (savedUser) setCurrentUser(JSON.parse(savedUser));
-      if (savedUsers) setAvailableUsers(JSON.parse(savedUsers));
+      let currentUsersList = DEMO_USERS;
+      if (savedUsers) {
+        try {
+          currentUsersList = JSON.parse(savedUsers);
+          setAvailableUsers(currentUsersList);
+        } catch (e) {}
+      }
+
+      if (savedUser) {
+        try {
+          const parsedUser: Profile = JSON.parse(savedUser);
+          const fresh = currentUsersList.find((u) => u.id === parsedUser.id) || parsedUser;
+          _setCurrentUser(fresh);
+        } catch (e) {}
+      }
+
       if (savedGroups) {
         setGroups(JSON.parse(savedGroups));
       } else {
@@ -256,11 +283,29 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return updatedGroup;
   };
 
+  const archiveGroup = async (groupId: string): Promise<Group> => {
+    return updateGroup(groupId, {
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+    });
+  };
+
+  const restoreGroup = async (groupId: string): Promise<Group> => {
+    return updateGroup(groupId, {
+      is_archived: false,
+      archived_at: null,
+    });
+  };
+
   const joinGroup = async (inviteCode: string): Promise<Group | null> => {
     const targetGroup = groups.find(
       (g) => g.invite_code.toLowerCase() === inviteCode.trim().toLowerCase()
     );
     if (!targetGroup) return null;
+
+    if (targetGroup.is_archived) {
+      throw new Error('Este grupo ha sido archivado por el administrador y no admite nuevos miembros.');
+    }
 
     const grpMembers = members[targetGroup.id] || [];
     const isAlreadyMember = grpMembers.some((m) => m.user_id === currentUser.id);
@@ -283,6 +328,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     return targetGroup;
+  };
+
+  const removeMemberFromGroup = async (groupId: string, userId: string): Promise<boolean> => {
+    const grpMembers = members[groupId] || [];
+    const updated = grpMembers.filter((m) => m.user_id !== userId);
+    const updatedMembers = {
+      ...members,
+      [groupId]: updated,
+    };
+    saveState(undefined, updatedMembers);
+    return true;
   };
 
   const addMemberToGroup = async (groupId: string, userId: string): Promise<boolean> => {
@@ -740,7 +796,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (data.autoSwitch) {
       setCurrentUser(newProfile);
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newProfile));
     }
 
     return newProfile;
@@ -754,7 +809,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (currentUser.id === userId) {
       const fallback = updatedUsers[0] || DEMO_USERS[0];
       setCurrentUser(fallback);
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(fallback));
     }
   };
 
@@ -764,7 +818,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...data,
     };
     setCurrentUser(updated);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updated));
 
     // Update in availableUsers list too
     const updatedUsers = availableUsers.map((u) => (u.id === currentUser.id ? updated : u));
@@ -797,9 +850,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateExpense,
         deleteExpense,
         recordSettlement,
+        archiveGroup,
+        restoreGroup,
         joinGroup,
         addMemberByEmail,
         addMemberToGroup,
+        removeMemberFromGroup,
         updateProfile,
       }}
     >
