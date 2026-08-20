@@ -1,12 +1,12 @@
-# 🐳 Despliegue de Pachas en Docker Stack (Docker Swarm)
+# 🐳 Pachas Deployment with Docker Stack (Docker Swarm)
 
-Guía completa para la contenedorización, orquestación y despliegue de **Pachas** y sus servicios dependientes utilizando **Docker Stack** (Docker Swarm Mode) o **Docker Compose**.
+Complete guide for containerization, orchestration, and production deployment of **Pachas** and its dependent services using **Docker Stack** (Docker Swarm Mode) or **Docker Compose**.
 
 ---
 
-## 🏗️ Arquitectura de Servicios en el Stack
+## 🏗️ Stack Services Architecture
 
-El archivo [`docker-stack.yml`](./docker-stack.yml) define la siguiente topología de microservicios:
+The [`docker-stack.yml`](./docker-stack.yml) file defines the following microservices topology:
 
 ```
                   ┌─────────────────────────────────┐
@@ -15,70 +15,73 @@ El archivo [`docker-stack.yml`](./docker-stack.yml) define la siguiente topolog�
                                  │
                  ┌───────────────┴───────────────┐
                  │                               │
-        Puerto 3000 (HTTP)              Puerto 3001 (REST)
+        Port 3000 (HTTP)                Port 3001 (REST)
                  │                               │
                  ▼                               ▼
        ┌───────────────────┐           ┌───────────────────┐
        │    pachas_app     │           │ pachas_postgrest  │
-       │ (Next.js Stand-   │           │ (API REST auto-   │
-       │  alone 2 Replicas)│           │  mática Postgres) │
+       │ (Next.js Stand-   │           │ (Auto REST API    │
+       │  alone 2 Replicas)│           │  over Postgres)   │
        └─────────┬─────────┘           └─────────┬─────────┘
                  │                               │
                  └───────────────┬───────────────┘
-                                 │ Red Interna Overlay
+                                 │ Internal Overlay Network
                                  ▼
                        ┌───────────────────┐
                        │  pachas_postgres  │
                        │  (PostgreSQL 15 + │
-                       │   Esquema Pachas) │
+                       │   Pachas Schema)  │
                        └─────────┬─────────┘
                                  │
-                           [Volumen Data]
+                           [Data Volume]
 ```
 
-### Servicios incluidos:
+### Included Services:
 1. **`pachas_app`**:
-   - Aplicación web Next.js 14 compilada en modo `standalone` con imagen ultra-ligera (Alpine Linux).
-   - Escalado en múltiples réplicas (por defecto 2) con balanceo de carga interno y rolling updates con cero tiempo de inactividad (`zero-downtime`).
-   - Configuración de *Healthcheck* activo cada 20s.
+   - Next.js 14 web application compiled in `standalone` mode using an ultra-lightweight image (Alpine Linux).
+   - Scaled with multiple replicas (default 2) with built-in load balancing and zero-downtime rolling updates.
+   - Active healthcheck configured every 20s.
 2. **`pachas_postgres`**:
-   - Servidor de base de datos PostgreSQL 15.
-   - Monta el script de inicialización [`init-scripts/01-schema.sql`](./init-scripts/01-schema.sql) que crea automáticamente todas las tablas, funciones, disparadores y políticas de seguridad RLS en el primer arranque.
-   - Persistencia asegurada en el volumen nombrado `postgres_data`.
+   - PostgreSQL 15 relational database server.
+   - Automatically executes the initialization script [`init-scripts/01-schema.sql`](./init-scripts/01-schema.sql) which creates tables, functions, triggers, and Row Level Security (RLS) policies on first boot.
+   - Persistent storage backed by named volume `postgres_data`.
 3. **`pachas_postgrest`**:
-   - Capa API RESTful compatible con Supabase sobre la base de datos PostgreSQL.
+   - RESTful API layer over PostgreSQL for data access.
 4. **`pachas_network`**:
-   - Red `overlay` cifrada y aislada para la comunicación interna entre contenedores.
+   - Isolated and encrypted overlay network for internal container-to-container communication.
 
 ---
 
-## 📁 Estructura del Directorio `deploy/`
+## 📁 Directory Structure `deploy/`
 
 ```
 deploy/
-├── Dockerfile                  # Multi-stage build optimizado para Next.js
-├── .dockerignore               # Filtro de archivos para acelerar el build
-├── docker-stack.yml            # Especificación oficial para Docker Swarm (Stack)
-├── docker-compose.yml          # Especificación para desarrollo / Docker Compose simple
-├── env.example                 # Plantilla de variables de entorno
-├── deploy.sh                   # Script de despliegue automatizado para Linux/macOS
-├── deploy.ps1                  # Script de despliegue automatizado para Windows PowerShell
-├── README.md                   # Esta guía
+├── Dockerfile                  # Multi-stage build optimized for Next.js standalone
+├── .dockerignore               # File filter to accelerate builds
+├── docker-stack.yml            # Official specification for Docker Swarm (Stack)
+├── docker-compose.yml          # Specification for local development / simple Compose
+├── env.example                 # Environment variables template
+├── deploy.sh                   # Automated deployment script for Linux/macOS
+├── deploy.ps1                  # Automated deployment script for Windows PowerShell
+├── reset-db.sh                 # Database reset script for Linux/macOS
+├── reset-db.ps1                # Database reset script for Windows PowerShell
+├── README.md                   # This guide
 └── init-scripts/
-    └── 01-schema.sql           # Script SQL con esquemas, tablas y RLS
+    ├── 01-schema.sql           # SQL schema with tables, functions, triggers, and RLS
+    └── reset-db.sql            # Clean database truncate script
 ```
 
 ---
 
-## 🚀 Despliegue Rápido (1 solo comando)
+## 🚀 Quick Deployment (1 Command)
 
-### En Linux / macOS:
+### On Linux / macOS:
 ```bash
 chmod +x deploy/deploy.sh
 ./deploy/deploy.sh
 ```
 
-### En Windows (PowerShell):
+### On Windows (PowerShell):
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\deploy\deploy.ps1
@@ -86,128 +89,128 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ---
 
-## 🛠️ Despliegue Manual Paso a Paso (Docker Stack)
+## 🛠️ Step-by-Step Manual Deployment (Docker Stack)
 
-### 1. Inicializar Docker Swarm (si no está activo)
+### 1. Initialize Docker Swarm (if not active)
 ```bash
 docker swarm init
 ```
 
-### 2. Configurar Variables de Entorno
-Copia la plantilla y ajusta los valores si es necesario:
+### 2. Configure Environment Variables
+Copy the template and adjust values if needed:
 ```bash
 cp deploy/env.example deploy/.env.production
 ```
 
-### 3. Construir la Imagen Docker de la Aplicación
+### 3. Build Application Docker Image
 ```bash
 docker build -f deploy/Dockerfile -t pachas:latest .
 ```
 
-### 4. Desplegar el Stack en el Cluster
+### 4. Deploy the Stack to the Cluster
 ```bash
 docker stack deploy -c deploy/docker-stack.yml pachas
 ```
 
 ---
 
-## 📊 Comandos de Gestión y Monitoreo
+## 📊 Management and Monitoring Commands
 
-### Ver el estado de los servicios del Stack:
+### Check Stack services status:
 ```bash
 docker stack services pachas
 ```
 
-### Listar los contenedores / tareas en ejecución:
+### List running containers / tasks:
 ```bash
 docker stack ps pachas
 ```
 
-### Ver los logs en tiempo real de la aplicación:
+### View real-time application logs:
 ```bash
 docker service logs -f pachas_app
 ```
 
-### Ver los logs de la base de datos PostgreSQL:
+### View PostgreSQL database logs:
 ```bash
 docker service logs -f pachas_postgres
 ```
 
-### Escalar réplicas de la aplicación web:
+### Scale web application replicas:
 ```bash
 docker service scale pachas_app=4
 ```
 
-### Actualizar la aplicación con cero tiempo de inactividad:
+### Zero-downtime rolling update:
 ```bash
-# Tras compilar una nueva versión de la imagen:
+# After building a new image version:
 docker service update --image pachas:latest --update-parallelism 1 --update-delay 10s pachas_app
 ```
 
-### Eliminar / Desmontar el Stack:
+### Remove / Teardown the Stack:
 ```bash
 docker stack rm pachas
 ```
 
 ---
 
-## 🧪 Despliegue Alternativo con Docker Compose (Desarrollo Local)
+## 🧪 Alternative Deployment with Docker Compose (Local Dev)
 
-Si prefieres arrancar el entorno sin activar Docker Swarm, puedes usar:
+If you prefer to start services without enabling Docker Swarm, run:
 
 ```bash
-# Arrancar servicios en segundo plano
+# Start services in background
 docker compose -f deploy/docker-compose.yml up -d --build
 
-# Ver logs
+# View logs
 docker compose -f deploy/docker-compose.yml logs -f
 
-# Detener servicios
+# Stop services
 docker compose -f deploy/docker-compose.yml down
 ```
 
 ---
 
-## 🧹 Reseteo y Limpieza de Base de Datos para Producción
+## 🧹 Database Reset and Clean Slate for Production
 
-Si deseas **borrar todos los datos de prueba y dejar la base de datos completamente limpia** para el despliegue oficial:
+To **wipe all test data and leave the database completely clean** for official deployment:
 
-### Opción 1: Script Automatizado de Reseteo (1 clic)
+### Option 1: Automated 1-Click Reset Script
 
-- **En Windows (PowerShell):**
+- **On Windows (PowerShell):**
   ```powershell
   .\deploy\reset-db.ps1
   ```
-- **En Linux / macOS:**
+- **On Linux / macOS:**
   ```bash
   chmod +x deploy/reset-db.sh
   ./deploy/reset-db.sh
   ```
 
-### Opción 2: Reseteo Manual por Comandos Docker
+### Option 2: Manual Reset via Docker Commands
 ```bash
-# 1. Detener el stack
+# 1. Stop and remove the stack
 docker stack rm pachas
 
-# 2. Eliminar el volumen persistente de PostgreSQL
+# 2. Remove the persistent PostgreSQL data volume
 docker volume rm pachas_postgres_data
 
-# 3. Volver a desplegar (inicializa el esquema limpio desde cero)
-./deploy/deploy.sh       # En Linux/macOS
-.\deploy\deploy.ps1      # En Windows PowerShell
+# 3. Redeploy (auto-initializes clean schema from scratch)
+./deploy/deploy.sh       # On Linux/macOS
+.\deploy\deploy.ps1      # On Windows PowerShell
 ```
 
-### Opción 3: Truncar Tablas en Caliente con SQL (sin detener servicios)
+### Option 3: Hot-Truncate Tables with SQL (without stopping services)
 ```bash
 docker exec -i $(docker ps -q -f name=pachas_postgres) psql -U pachas_admin -d pachas -f /docker-entrypoint-initdb.d/reset-db.sql
 ```
 
 ---
 
-## 🌐 Puertos Expuestos
+## 🌐 Exposed Ports
 
-| Servicio | Puerto Host | Descripción |
+| Service | Host Port | Description |
 |---|---|---|
-| **App Web (Pachas)** | `http://localhost:3000` | Interfaz de usuario Next.js |
-| **PostgREST API** | `http://localhost:3001` | API REST para datos |
-| **PostgreSQL** | `localhost:5432` | Base de datos relacional (Compose) |
+| **Web App (Pachas)** | `http://localhost:3000` | Next.js User Interface |
+| **PostgREST API** | `http://localhost:3001` | REST API for data |
+| **PostgreSQL** | `localhost:5432` | Relational database (Compose) |
