@@ -21,6 +21,7 @@ export interface Profile {
   full_name: string;
   avatar_url?: string | null;
   bizum_phone?: string | null;
+  role?: 'admin' | 'member';
   created_at: string;
 }
 

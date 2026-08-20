@@ -18,7 +18,7 @@ export interface InviteModalProps {
 }
 
 export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose }) => {
-  const { addMemberByEmail, addMemberToGroup, availableUsers, getGroupMembers } = usePachas();
+  const { addMemberByEmail, addMemberToGroup, availableUsers, getGroupMembers, isDemoMode } = usePachas();
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState('');
   const [emailStatus, setEmailStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -101,8 +101,8 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
       maxWidth="md"
     >
       <div className="space-y-5">
-        {/* Quick Add Local Test Users Section (if there are non-members available) */}
-        {nonMemberUsers.length > 0 && (
+        {/* Quick Add Demo Local Users (Visible only in Demo / Development mode) */}
+        {isDemoMode && nonMemberUsers.length > 0 && (
           <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/40 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 dark:text-emerald-200">

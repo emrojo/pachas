@@ -139,6 +139,20 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-19.4**: **Soporte Docker Compose (`deploy/docker-compose.yml`)**: Configuración complementaria para desarrollo o pruebas en nodo único.
 - **RF-19.5**: **Automatización de Despliegue y Documentación**: Scripts ejecutables para Linux/macOS (`deploy.sh`), Windows PowerShell (`deploy.ps1`) y guía paso a paso ([`deploy/README.md`](file:///d:/Projects/pachas/deploy/README.md)).
 
+### 🔒 RF-20: Restricciones de Seguridad en Modo Producción y Creación por Administrador
+- **RF-20.1**: **Bloqueo Total de Inicio de Sesión con Usuarios de Prueba en Producción**:
+  - En modo producción (`NODE_ENV === 'production'`), se oculta y desactiva completamente el listado de acceso rápido con usuarios de prueba en la pantalla de inicio de sesión ([`login/page.tsx`](file:///d:/Projects/pachas/src/app/(auth)/login/page.tsx)), en la barra superior ([`Navbar.tsx`](file:///d:/Projects/pachas/src/components/layout/Navbar.tsx)) y en el perfil ([`profile/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/profile/page.tsx)).
+  - El formulario de login valida estrictamente las credenciales contra el backend de autenticación, impidiendo cualquier suplantación o *bypass* a perfiles simulados.
+- **RF-20.2**: **Restricción de Creación y Eliminación de Usuarios Exclusiva para Administradores**:
+  - Solo los usuarios con rol de **Administrador** (`role === 'admin'`, creadores de grupos o administradores) pueden abrir el formulario o ejecutar la creación de nuevos usuarios ([`CreateUserModal.tsx`](file:///d:/Projects/pachas/src/components/profile/CreateUserModal.tsx) y `createLocalUser` en [`PachasContext.tsx`](file:///d:/Projects/pachas/src/context/PachasContext.tsx)).
+  - Para usuarios estándar, los botones de creación permanecen ocultos y cualquier intento directo es bloqueado con un mensaje de acción restringida a administradores.
+
+### 🚪 RF-21: Funcionalidad de Cierre de Sesión (Logout)
+- **RF-21.1**: **Cierre de Sesión Seguro y Completo**:
+  - Función centralizada `logout()` en [`PachasContext.tsx`](file:///d:/Projects/pachas/src/context/PachasContext.tsx) que destruye la sesión en el cliente de autenticación (Supabase `signOut()`), limpia el usuario activo del almacenamiento local (`localStorage.removeItem('pachas_user_v1')`) y restablece el estado de la aplicación.
+- **RF-21.2**: **Acceso Accesible en Navbar y Perfil**:
+  - Botón directo de **Cerrar Sesión** en el menú desplegable de usuario de la barra superior ([`Navbar.tsx`](file:///d:/Projects/pachas/src/components/layout/Navbar.tsx)) y en la tarjeta principal de ajustes ([`profile/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/profile/page.tsx)), redirigiendo al usuario de forma inmediata y limpia a la pantalla de login ([`/login`](file:///d:/Projects/pachas/src/app/(auth)/login/page.tsx)).
+
 ---
 
 ## ⚙️ 2. Requisitos No Funcionales (RNF)
@@ -181,4 +195,6 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 | **20/08/2026** | 📊 Añadido | **RF-09.1** | Inclusión de gráficas vectoriales completas en el informe PDF descargable: evolución temporal de gastos por día, distribución porcentual por categorías y comparativa pagado vs consumido por amigo. |
 | **20/08/2026** | 👤 Añadido | **RF-09.1** | Desglose individualizado de gastos por persona en el informe PDF para verificación personal: tablas dedicadas por participante con total del ticket, importe pagado, consumo asignado y saldo neto. |
 | **20/08/2026** | 🐳 Añadido | **RF-19** | Carpeta de despliegue completa (`deploy/`) con `Dockerfile` multietapa optimizado, `docker-stack.yml` para Docker Swarm, `docker-compose.yml`, scripts de automatización (`deploy.sh`, `deploy.ps1`) y auto-inicialización de base de datos PostgreSQL con esquemas y RLS. |
+| **20/08/2026** | 🔒 Añadido | **RF-20** | Restricciones de seguridad en modo producción (desactivación total de login con usuarios de prueba y selectores rápidos) y bloqueo de creación/eliminación de usuarios exclusivo para administradores. |
+| **20/08/2026** | 🚪 Añadido | **RF-21** | Funcionalidad completa de Cierre de Sesión (Logout) con limpieza de tokens/sesión y redirección a login desde la barra superior y perfil. |
 | **20/08/2026** | 📋 Actualizado | **Documentación** | Actualización continua del registro de Requisitos de Usuario (`USER_REQUIREMENTS.md`) con todas las nuevas funcionalidades y correcciones. |

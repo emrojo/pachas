@@ -24,6 +24,7 @@ import {
 import { calculateBalances, simplifyDebts } from '@/lib/algorithms/simplifyDebts';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import { createClient } from '@/lib/supabase/client';
+import { isUserAdmin, isDemoModeAllowed } from '@/lib/authConfig';
 
 export interface CreateExpenseInput {
   groupId: string;
@@ -47,6 +48,8 @@ export interface CreateExpenseInput {
 interface PachasContextType {
   currentUser: Profile;
   setCurrentUser: (user: Profile) => void;
+  isCurrentUserAdmin: boolean;
+  isDemoMode: boolean;
   groups: Group[];
   isLoading: boolean;
   createGroup: (name: string, description: string, emoji: string, currency: string, coverImageUrl?: string | null) => Promise<Group>;
@@ -88,6 +91,7 @@ interface PachasContextType {
   }) => Promise<Profile>;
   deleteLocalUser: (userId: string) => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const PachasContext = createContext<PachasContextType | null>(null);
@@ -752,6 +756,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newSettlement;
   };
 
+  const isCurrentUserAdmin = isUserAdmin(currentUser, groups, members);
+  const isDemoMode = isDemoModeAllowed();
+
   const createLocalUser = async (data: {
     full_name: string;
     email: string;
@@ -760,12 +767,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     autoSwitch?: boolean;
     addToGroupIds?: string[];
   }): Promise<Profile> => {
+    if (!isCurrentUserAdmin) {
+      throw new Error('Permiso denegado: Solo los administradores del sistema pueden crear nuevos usuarios.');
+    }
+
     const newProfile: Profile = {
       id: `user-custom-${Date.now()}`,
       full_name: data.full_name.trim(),
       email: data.email.trim().toLowerCase(),
       bizum_phone: data.bizum_phone?.trim() || null,
       avatar_url: data.avatar_url || null,
+      role: 'member',
       created_at: new Date().toISOString(),
     };
 
@@ -802,6 +814,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteLocalUser = async (userId: string): Promise<void> => {
+    if (!isCurrentUserAdmin) {
+      throw new Error('Permiso denegado: Solo los administradores del sistema pueden eliminar usuarios.');
+    }
+
     const updatedUsers = availableUsers.filter((u) => u.id !== userId);
     setAvailableUsers(updatedUsers);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
@@ -825,11 +841,27 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
   };
 
+  const logout = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Error signing out from Supabase:', e);
+    } finally {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.USER);
+      } catch (e) {}
+      _setCurrentUser(DEMO_CURRENT_USER);
+    }
+  };
+
   return (
     <PachasContext.Provider
       value={{
         currentUser,
         setCurrentUser,
+        isCurrentUserAdmin,
+        isDemoMode,
         availableUsers,
         createLocalUser,
         deleteLocalUser,
@@ -857,6 +889,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addMemberToGroup,
         removeMemberFromGroup,
         updateProfile,
+        logout,
       }}
     >
       {children}
