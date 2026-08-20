@@ -21,6 +21,11 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-03.1**: Registro e inicio de sesión obligatorio con correo electrónico / contraseña o Google OAuth.
 - **RF-03.2**: Perfil de usuario con nombre completo, avatar y campo para **teléfono de Bizum** (para facilitar los cobros de deudas).
 - **RF-03.3**: Herramienta de cambio rápido entre usuarios demo para simular la experiencia multiusuario.
+- **RF-03.4**: **Subida de Foto de Perfil Personalizada**:
+  - Posibilidad de subir una **fotografía propia directamente desde el dispositivo** (móvil o PC) con compresión y optimización automática para usar como avatar en toda la aplicación.
+  - Galería de avatares predefinidos listos para seleccionar con 1 toque.
+  - Opción para quitar la foto en cualquier momento y volver al avatar predeterminado con las iniciales del nombre.
+  - Propagación y sincronización en tiempo real del nuevo avatar en la barra de navegación, listado de miembros del grupo y tarjetas de gastos.
 
 ### 🧾 RF-04: Publicación y Formulario de Gastos
 - **RF-04.1**: Formulario optimizado para escritorio y móvil con **separación en 2 líneas principales**:
@@ -139,6 +144,7 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 - **RF-19.4**: **Soporte Docker Compose (`deploy/docker-compose.yml`)**: Configuración complementaria para desarrollo o pruebas en nodo único.
 - **RF-19.5**: **Automatización de Despliegue y Documentación**: Scripts ejecutables para Linux/macOS (`deploy.sh`), Windows PowerShell (`deploy.ps1`) y guía paso a paso ([`deploy/README.md`](file:///d:/Projects/pachas/deploy/README.md)).
 - **RF-19.6**: **Resiliencia de Compilación y Valores de Respaldo Seguros (Safe Fallbacks)**: Definición de valores por defecto en los argumentos de construcción del `Dockerfile` (`ARG NEXT_PUBLIC_SUPABASE_URL`, `ARG NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ARG NEXT_PUBLIC_ADMIN_EMAIL`) y blindaje de clientes cliente/servidor de Supabase para garantizar que la compilación y ejecución de Next.js standalone se complete sin excepciones de inicialización incluso antes de conectar servicios externos.
+- **RF-19.7**: **Herramientas de Reseteo y Vaciado de Base de Datos para Producción**: Scripts automatizados de reseteo (`deploy/reset-db.ps1`, `deploy/reset-db.sh`, `deploy/init-scripts/reset-db.sql`) para purgar volúmenes persistentes y truncar todas las tablas relacionales dejando la base de datos totalmente limpia para arrancar en producción, así como vaciado de los grupos y gastos de prueba en el arranque por defecto.
 
 ### 🔒 RF-20: Restricciones de Seguridad en Modo Producción y Creación por Administrador
 - **RF-20.1**: **Bloqueo Total de Inicio de Sesión con Usuarios de Prueba en Producción**:
@@ -200,4 +206,6 @@ Este documento es el registro oficial y permanente de todos los **requisitos de 
 | **20/08/2026** | 🐳 Añadido | **RF-19** | Carpeta de despliegue completa (`deploy/`) con `Dockerfile` multietapa optimizado, `docker-stack.yml` para Docker Swarm, `docker-compose.yml`, scripts de automatización (`deploy.sh`, `deploy.ps1`) y auto-inicialización de base de datos PostgreSQL con esquemas y RLS. |
 | **20/08/2026** | 🔒 Añadido | **RF-20** | Restricciones de seguridad en modo producción (desactivación total de login con usuarios de prueba y selectores rápidos) y bloqueo de creación/eliminación de usuarios exclusivo para administradores. |
 | **20/08/2026** | 🚪 Añadido | **RF-21** | Funcionalidad completa de Cierre de Sesión (Logout) con limpieza de tokens/sesión y redirección a login desde la barra superior y perfil. |
+| **20/08/2026** | 🧹 Añadido | **RF-19.7** | Scripts de reseteo de base de datos (`deploy/reset-db.ps1`, `deploy/reset-db.sh`, `deploy/init-scripts/reset-db.sql`) y vaciado de grupos y gastos de prueba en arranque por defecto. |
+| **20/08/2026** | 🖼️ Añadido | **RF-03.4** | Subida de foto de perfil personalizada desde el dispositivo con compresión automática, galería de avatares y opción de quitar foto en Mi Perfil y creación de usuarios. |
 | **20/08/2026** | 📋 Actualizado | **Documentación** | Actualización continua del registro de Requisitos de Usuario (`USER_REQUIREMENTS.md`) con todas las nuevas funcionalidades y correcciones. |

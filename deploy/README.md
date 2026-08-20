@@ -168,6 +168,42 @@ docker compose -f deploy/docker-compose.yml down
 
 ---
 
+## 🧹 Reseteo y Limpieza de Base de Datos para Producción
+
+Si deseas **borrar todos los datos de prueba y dejar la base de datos completamente limpia** para el despliegue oficial:
+
+### Opción 1: Script Automatizado de Reseteo (1 clic)
+
+- **En Windows (PowerShell):**
+  ```powershell
+  .\deploy\reset-db.ps1
+  ```
+- **En Linux / macOS:**
+  ```bash
+  chmod +x deploy/reset-db.sh
+  ./deploy/reset-db.sh
+  ```
+
+### Opción 2: Reseteo Manual por Comandos Docker
+```bash
+# 1. Detener el stack
+docker stack rm pachas
+
+# 2. Eliminar el volumen persistente de PostgreSQL
+docker volume rm pachas_postgres_data
+
+# 3. Volver a desplegar (inicializa el esquema limpio desde cero)
+./deploy/deploy.sh       # En Linux/macOS
+.\deploy\deploy.ps1      # En Windows PowerShell
+```
+
+### Opción 3: Truncar Tablas en Caliente con SQL (sin detener servicios)
+```bash
+docker exec -i $(docker ps -q -f name=pachas_postgres) psql -U pachas_admin -d pachas -f /docker-entrypoint-initdb.d/reset-db.sql
+```
+
+---
+
 ## 🌐 Puertos Expuestos
 
 | Servicio | Puerto Host | Descripción |

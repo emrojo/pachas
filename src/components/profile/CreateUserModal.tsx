@@ -19,6 +19,7 @@ import {
   Users,
   ShieldAlert,
   ShieldCheck,
+  Upload,
 } from 'lucide-react';
 
 export interface CreateUserModalProps {
@@ -181,11 +182,33 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </div>
           </div>
 
-          {/* Avatar Preset Selector */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
-              Elige una foto de perfil
-            </label>
+          {/* Avatar Preset Selector & Custom Upload */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                Foto de perfil
+              </label>
+              <label className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Subir foto propia</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setSelectedAvatar(event.target?.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+
             <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
               {AVATAR_PRESETS.map((url, idx) => {
                 const isSelected = selectedAvatar === url;

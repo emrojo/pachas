@@ -92,17 +92,18 @@ interface PachasContextType {
   deleteLocalUser: (userId: string) => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
   logout: () => Promise<void>;
+  resetLocalDatabase: () => Promise<void>;
 }
 
 const PachasContext = createContext<PachasContextType | null>(null);
 
 const STORAGE_KEYS = {
-  USER: 'pachas_user_v1',
-  USERS: 'pachas_available_users_v1',
-  GROUPS: 'pachas_groups_v1',
-  MEMBERS: 'pachas_members_v1',
-  EXPENSES: 'pachas_expenses_v1',
-  SETTLEMENTS: 'pachas_settlements_v1',
+  USER: 'pachas_user_v2',
+  USERS: 'pachas_available_users_v2',
+  GROUPS: 'pachas_groups_v2',
+  MEMBERS: 'pachas_members_v2',
+  EXPENSES: 'pachas_expenses_v2',
+  SETTLEMENTS: 'pachas_settlements_v2',
 };
 
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -839,6 +840,25 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedUsers = availableUsers.map((u) => (u.id === currentUser.id ? updated : u));
     setAvailableUsers(updatedUsers);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+
+    // Update member cache across groups
+    const updatedMembers: Record<string, GroupMember[]> = {};
+    for (const [gid, list] of Object.entries(members)) {
+      updatedMembers[gid] = list.map((m) =>
+        m.user_id === currentUser.id ? { ...m, profile: updated } : m
+      );
+    }
+    setMembers(updatedMembers);
+    localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(updatedMembers));
+
+    try {
+      const supabase = createClient();
+      await supabase.from('profiles').update({
+        full_name: updated.full_name,
+        bizum_phone: updated.bizum_phone,
+        avatar_url: updated.avatar_url,
+      }).eq('id', updated.id);
+    } catch (e) {}
   };
 
   const logout = async () => {
@@ -853,6 +873,24 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (e) {}
       _setCurrentUser(DEMO_CURRENT_USER);
     }
+  };
+
+  const resetLocalDatabase = async () => {
+    try {
+      Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
+      localStorage.removeItem('pachas_user_v1');
+      localStorage.removeItem('pachas_groups_v1');
+      localStorage.removeItem('pachas_expenses_v1');
+      localStorage.removeItem('pachas_members_v1');
+      localStorage.removeItem('pachas_settlements_v1');
+      localStorage.removeItem('pachas_available_users_v1');
+    } catch (e) {}
+    setGroups([]);
+    setMembers({});
+    setExpenses({});
+    setSettlements({});
+    setAvailableUsers(DEMO_USERS);
+    _setCurrentUser(DEMO_USERS[0]);
   };
 
   return (
@@ -890,6 +928,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         removeMemberFromGroup,
         updateProfile,
         logout,
+        resetLocalDatabase,
       }}
     >
       {children}
