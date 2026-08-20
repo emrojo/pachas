@@ -1,0 +1,113 @@
+# 📋 Registro de Requisitos de Usuario y Funcionalidades — Pachas
+
+Este documento es el registro oficial y permanente de todos los **requisitos de usuario**, decisiones de diseño y funcionalidades solicitadas para la aplicación **Pachas**. Se mantendrá actualizado de forma continua con cada nueva petición, ajuste o retirada de funcionalidad.
+
+---
+
+## 📌 1. Requisitos Funcionales (RF)
+
+### 👥 RF-01: Gestión de Grupos Temáticos de Vacaciones
+- **RF-01.1**: El usuario puede crear grupos específicos para cada viaje o escapada indicando: nombre, descripción, selector visual de emojis temáticos (🏖️, 🏔️, 🍕, ✈️, etc.) y moneda base del grupo.
+- **RF-01.2**: Panel de control con listado de viajes activos, total gastado y estado de saldo neto personal.
+
+### 🔗 RF-02: Invitaciones y Adhesión al Grupo
+- **RF-02.1**: Generación de un enlace de invitación único por grupo (`/join/[inviteCode]`).
+- **RF-02.2**: Generación de un **código QR** escaneable directamente desde la cámara del móvil.
+- **RF-02.3**: Botón de acceso directo para **compartir la invitación por WhatsApp** con mensaje preformateado.
+- **RF-02.4**: Opción para invitar o añadir amigos manualmente mediante su correo electrónico.
+
+### 🔐 RF-03: Modelo de Autenticación y Perfil
+- **RF-03.1**: Registro e inicio de sesión obligatorio con correo electrónico / contraseña o Google OAuth.
+- **RF-03.2**: Perfil de usuario con nombre completo, avatar y campo para **teléfono de Bizum** (para facilitar los cobros de deudas).
+- **RF-03.3**: Herramienta de cambio rápido entre usuarios demo para simular la experiencia multiusuario.
+
+### 🧾 RF-04: Publicación y Formulario de Gastos
+- **RF-04.1**: Formulario optimizado para escritorio y móvil con **separación en 2 líneas principales**:
+  - *Línea 1*: Campo amplio para el **Concepto / Título** del gasto.
+  - *Línea 2*: Fila dedicada y prominente para el **Importe numérico y selector de Divisa**.
+- **RF-04.2**: **Secciones colapsadas por defecto** para ahorrar espacio visual:
+  - *¿Quién pagó el gasto?*: Colapsada por defecto mostrando el pagador activo (tú por defecto); expandible para cambiar de pagador o dividir entre varios.
+  - *¿Con quién se comparte?*: Colapsada por defecto indicando que está compartido con todos a partes iguales; expandible para personalizar participantes o modo de reparto.
+- **RF-04.3**: Clasificación por categorías con emojis (Comida 🍽️, Alojamiento 🏨, Transporte 🚗, Ocio 🎟️, Supermercado 🛒, Otros 💡).
+- **RF-04.4**: Adjuntar foto del ticket/recibo como justificante fotográfico con visor a pantalla completa.
+- **RF-04.5**: **Comportamiento Multidivisa**:
+  - En el **listado de gastos**: Las entradas en moneda extranjera muestran directamente el **valor en su moneda original** (ej. `150,00 $` o `22.000 ¥`) con una etiqueta de divisa, sin convertirlo en la tarjeta principal.
+  - En la **vista de detalle / edición**: Se muestra un panel con el **valor en la moneda original**, el **tipo de cambio aplicado** (editable) y el **valor equivalente convertido en la moneda base del grupo** (ej. `138,89 €`).
+
+### 🍕 RF-05: Reparto Flexible de Gastos
+- **RF-05.1**: **Partes iguales**: División equitativa entre todos los amigos o seleccionando solo a quienes participaron (con distribución exacta de céntimos residuales sin pérdidas).
+- **RF-05.2**: **Cantidades exactas (€)**: Asignación de importes específicos a cada participante.
+- **RF-05.3**: **Porcentajes (%)**: Asignación porcentual asegurando la suma del 100%.
+- **RF-05.4**: **Raciones / Partes**: Asignación por raciones ponderadas (ideal para parejas, familias o consumos desiguales).
+- **RF-05.5**: **Múltiples pagadores**: Posibilidad de que varios amigos abonen diferentes partes de un mismo ticket.
+
+### ✏️ RF-06: Edición y Control de Permisos (Creador)
+- **RF-06.1**: Posibilidad de editar cualquier gasto registrado (concepto, importe, categoría, fecha, pagadores, reparto, foto y ubicación).
+- **RF-06.2**: **Restricción estricta de edición**: Solo el usuario que creó el gasto puede editarlo. Para los demás miembros los controles de edición permanecen ocultos e inaccesibles.
+- **RF-06.3**: **Restricción estricta de borrado**: Solo el usuario que creó el gasto puede eliminarlo.
+
+### 🧠 RF-07: Algoritmo de Liquidación y Saldos (Debt Simplification)
+- **RF-07.1**: Cálculo en tiempo real del balance neto individual de cada miembro ($\sum \text{Pagado} - \sum \text{Consumido} + \sum \text{Saldado}$).
+- **RF-07.2**: **Algoritmo de simplificación de deudas**: Minimiza el número total de pagos necesarios para saldar todas las cuentas del viaje ($O(N)$ transacciones).
+- **RF-07.3**: Modal de **Saldar Deuda** con sugerencia automática del número de Bizum del beneficiario, botón de copia rápida y registro de la liquidación.
+- **RF-07.4**: Animación festiva de confetti al confirmar un pago de liquidación.
+
+### 🇪🇺 RF-08: Estándares Europeos (Fechas y Cantidades)
+- **RF-08.1**: **Cantidades numéricas en formato europeo**: Uso de **coma (`,`) para decimales** y punto (`.`) para millares (ej. `1.250,50 €`).
+- **RF-08.2**: **Entrada flexible de decimales**: Acepta tanto coma `,` como punto `.` en cualquier campo de texto o importe numérico.
+- **RF-08.3**: **Formato de fecha europeo**: Presentación estándar `DD/MM/YYYY` (ej. `15/08/2026`) y `DD/MM/YYYY HH:mm` en registros y reportes.
+
+### 📄 RF-09: Exportación de Informes
+- **RF-09.1**: Descarga de informe completo en **PDF** con cabecera, resumen general, tabla de saldos por participante, transferencias sugeridas y desglose de gastos.
+- **RF-09.2**: Descarga en formato **CSV / Excel europeo** con separador de columnas punto y coma (`;`) y decimales con coma (`,`).
+
+### 📍 RF-10: Geolocalización y Mapas de Gastos (Google Maps)
+- **RF-10.1**: **Detección de presencia física**: Checkbox *"Me encuentro físicamente en el sitio del pago"* que captura con alta precisión las coordenadas GPS del dispositivo móvil/navegador y autocompleta el nombre del establecimiento o dirección mediante geocodificación inversa.
+- **RF-10.2**: **Geolocalización manual**: Buscador de lugares, restaurantes y calles para ubicar gastos a posteriori.
+- **RF-10.3**: **Visor y edición de ubicación**: Al editar un gasto, muestra un mapa interactivo con la ubicación guardada y permite cambiarla, actualizarla con la posición actual o eliminarla.
+- **RF-10.4**: **Acceso rápido desde el listado**: Cada gasto con ubicación muestra un chip/botón con icono de pin 📍 para abrir el mapa interactivo y un enlace directo para abrir el punto exacto en la app nativa de Google Maps.
+
+### 📥 RF-11: Importación Masiva de Gastos desde Excel / CSV
+- **RF-11.1**: Carga de archivos `.csv`, `.txt`, `.tsv` o pegado directo de texto desde hojas de cálculo (Excel, Numbers, Google Sheets).
+- **RF-11.2**: Soporte automático de separadores (`;`, `,`, tabulaciones) y comas decimales europeas.
+- **RF-11.3**: Botón de **descarga de plantilla oficial en CSV** con las cabeceras predefinidas (`Fecha;Concepto;Categoría;Importe;Divisa;Pagado Por;Repartir Entre;Notas`) y sugerencias personalizadas con los nombres de los miembros del grupo.
+- **RF-11.4**: Normalización automática de categorías, fechas y tipos de cambio.
+- **RF-11.5**: **Tabla interactiva de vista previa**: Validación visual de filas con estado de errores/advertencias y posibilidad de eliminar o ajustar filas antes de confirmar.
+- **RF-11.6**: **Validación Estricta de Miembros del Grupo**: Comprobación estricta de pagadores y participantes. Si se especifica un usuario que no pertenece al grupo, la fila se marca como errónea indicando el motivo exacto.
+- **RF-11.7**: **Bloqueo Preventivo de Importación**: La importación queda inhabilitada y falla si se intenta ejecutar habiendo filas con errores sin corregir o eliminar.
+- **RF-11.8**: **Opción de Deshacer Importación (Undo Import)**: Posibilidad de revertir el último lote importado con un solo clic eliminando los gastos creados y recalculando los balances del grupo.
+
+### 👥 RF-12: Creación de Usuarios de Prueba y Simulación Local
+- **RF-12.1**: **Modal de creación de usuarios locales**: Permite crear perfiles ficticios para pruebas indicando nombre completo, correo electrónico, teléfono de Bizum, selector de avatar fotográfico y opción de inclusión automática en todos los grupos existentes.
+- **RF-12.2**: **Selector rápido de usuario en Navbar**: Desplegable accesible desde cualquier pantalla para cambiar de sesión con 1 clic entre todos los usuarios disponibles o crear uno nuevo.
+- **RF-12.3**: **Gestión desde Perfil y Login**: Pantalla de perfil (`/profile`) y login (`/login`) con acceso directo a todos los usuarios de prueba y botón para eliminar perfiles creados localmente.
+- **RF-12.4**: **Persistencia Local**: Los usuarios creados se guardan en `localStorage` manteniéndose disponibles en futuras sesiones.
+
+---
+
+## ⚙️ 2. Requisitos No Funcionales (RNF)
+
+- **RNF-01**: **Diseño Mobile-First**: Experiencia nativa fluida en teléfonos móviles con barra de navegación inferior (`BottomNav`) y compatibilidad total con pantallas de escritorio.
+- **RNF-02**: **PWA (Progressive Web App)**: Manifiesto configurado para permitir la instalación de la aplicación en la pantalla de inicio del móvil.
+- **RNF-03**: **Seguridad y RLS**: Políticas de Row Level Security en PostgreSQL para garantizar que ningún usuario ajeno a un grupo pueda ver o modificar sus datos.
+- **RNF-04**: **Persistencia y Modo Offline**: Almacenamiento interactivo con `localStorage` como fallback inmediato y sincronización con Supabase.
+
+---
+
+## 📜 3. Historial de Cambios y Versiones (Changelog)
+
+| Fecha | Tipo | Requisito / Cambio | Descripción |
+|---|---|---|---|
+| **20/08/2026** | ✨ Añadido | **RF-01 a RF-05** | Creación inicial de la app: Grupos temáticos, invitaciones por enlace/QR/WhatsApp, reparto flexible (igual, exacto, %, raciones), múltiples pagadores y fotos de tickets. |
+| **20/08/2026** | ✨ Añadido | **RF-07 & RF-09** | Algoritmo de minimización de deudas, modal de liquidación con Bizum + confetti y exportación a PDF/CSV. |
+| **20/08/2026** | 🎨 Modificado | **RF-04.1 & RF-04.2** | Separación del formulario de gastos en dos líneas independientes (Concepto e Importe) y colapso por defecto de las secciones "¿Quién pagó?" y "¿Con quién se comparte?". |
+| **20/08/2026** | 🇪🇺 Modificado | **RF-08** | Adaptación al estándar europeo: coma decimal (`,`), fechas en formato `DD/MM/YYYY` y soporte de entrada con `,` y `.`. |
+| **20/08/2026** | 🔒 Añadido | **RF-06** | Funcionalidad de edición de gastos y restricción de permisos: solo el creador original de un gasto puede editarlo o borrarlo. |
+| **20/08/2026** | 🌍 Modificado | **RF-04.5** | Visualización en listado del valor original en moneda extranjera sin convertir, y desglose en edición con valor original, tipo de cambio aplicado y valor en la moneda del viaje. |
+| **20/08/2026** | 🐛 Corregido | **RF-04.5 & RF-05** | Corrección en la validación y cálculo de repartos multidivisa: el reparto se valida en la divisa de la transacción y se convierte coherentemente a la moneda base del grupo para saldos y deudas. |
+| **20/08/2026** | 📍 Añadido | **RF-10** | Geolocalización GPS automática (checkbox presencial), geocodificación inversa de nombres de locales, buscador manual de direcciones, visor embebido de Google Maps y opción de visualización/edición al modificar un gasto. |
+| **20/08/2026** | 🐛 Corregido | **RF-09** | Corrección en el cálculo y visualización de multidivisas en informes descargados (PDF y CSV): conversión precisa de cada gasto a la moneda base del grupo con desglose de importe original y tipo de cambio. |
+| **20/08/2026** | 📥 Añadido | **RF-11** | Importación masiva de gastos mediante subida de archivos CSV/Excel o pegado de tabla, con descarga de plantilla oficial, detección inteligente de separadores y vista previa interactiva. |
+| **20/08/2026** | 🛡️ Modificado | **RF-11.6 - RF-11.8** | Validación estricta de usuarios del grupo al importar (bloqueo y fallo si hay usuarios desconocidos o filas con error) y funcionalidad para **Deshacer Importación** completa. |
+| **20/08/2026** | 👥 Añadido | **RF-12** | Creación y gestión de usuarios de prueba en modo local con selector rápido en Navbar, perfil y login, auto-adhesión a grupos y persistencia en localStorage. |
+| **20/08/2026** | 📋 Añadido | **Documentación** | Creación y mantenimiento del documento de Requisitos de Usuario (`USER_REQUIREMENTS.md`) para seguimiento continuo. |
