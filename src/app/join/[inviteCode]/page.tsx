@@ -29,6 +29,11 @@ export default function JoinGroupPage() {
   const members = targetGroup ? getGroupMembers(targetGroup.id) : [];
 
   const handleJoinGroup = async () => {
+    if (!currentUser) {
+      router.push(`/login?redirectTo=/join/${inviteCode}`);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError('');
@@ -47,6 +52,7 @@ export default function JoinGroupPage() {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
@@ -98,12 +104,15 @@ export default function JoinGroupPage() {
               </div>
 
               {/* Current user confirmation */}
-              <div className="text-xs text-slate-500">
-                Te unirás con tu cuenta:{' '}
-                <strong className="text-slate-800 dark:text-slate-200">
-                  {currentUser.full_name} ({currentUser.email})
-                </strong>
-              </div>
+              {currentUser && (
+                <div className="text-xs text-slate-500">
+                  Te unirás con tu cuenta:{' '}
+                  <strong className="text-slate-800 dark:text-slate-200">
+                    {currentUser.full_name} ({currentUser.email})
+                  </strong>
+                </div>
+              )}
+
 
               {error && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-600 font-medium">
@@ -118,7 +127,7 @@ export default function JoinGroupPage() {
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                     ¡Te has unido con éxito! Redirigiendo...
                   </div>
-                ) : (
+                ) : currentUser ? (
                   <Button
                     size="lg"
                     variant="brand"
@@ -129,8 +138,16 @@ export default function JoinGroupPage() {
                     Unirme al Grupo de Gastos
                     <ArrowRight className="w-4 h-4 ml-1" />
                   </Button>
+                ) : (
+                  <Link href={`/login?redirectTo=/join/${inviteCode}`} className="block w-full">
+                    <Button size="lg" variant="brand" className="w-full shadow-md">
+                      Iniciar Sesión para Unirme
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </Link>
                 )}
               </div>
+
             </>
           ) : (
             <div className="space-y-4 py-4">

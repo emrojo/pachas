@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -10,8 +10,10 @@ import { Mail, Lock, User, Phone, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/types/database';
 
-export default function RegisterPage() {
+function RegisterFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirectTo') || '/dashboard';
   const { setCurrentUser } = usePachas();
 
   const [fullName, setFullName] = useState('');
@@ -54,13 +56,14 @@ export default function RegisterPage() {
       };
 
       setCurrentUser(newUser);
-      router.push('/dashboard');
+      router.replace(redirectTo);
     } catch (err: any) {
       setError(err.message || 'Error al registrarte');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
@@ -144,3 +147,18 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+          <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+        </div>
+      }
+    >
+      <RegisterFormContent />
+    </Suspense>
+  );
+}
+

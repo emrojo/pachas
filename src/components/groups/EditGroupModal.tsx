@@ -35,6 +35,8 @@ const PHOTO_PRESETS = [
   { label: 'Camping & Ruta', url: 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=500&auto=format&fit=crop&q=80' },
 ];
 
+import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
+
 export interface EditGroupModalProps {
   group: Group;
   isOpen: boolean;
@@ -52,8 +54,10 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
 
   const members = getGroupMembers(group.id);
   const isAdmin =
-    group.created_by === currentUser.id ||
-    members.some((m) => m.user_id === currentUser.id && m.role === 'admin');
+    currentUser
+      ? group.created_by === currentUser.id ||
+        members.some((m) => m.user_id === currentUser.id && m.role === 'admin')
+      : false;
 
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description || '');
@@ -77,17 +81,17 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
     }
   }, [isOpen, group]);
 
-  // Handle local image file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local image file upload securely
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        setCoverImageUrl(result);
+      try {
+        const compressed = await validateAndCompressImage(file, 800, 0.85);
+        setCoverImageUrl(compressed);
         setVisualMode('photo');
-      };
-      reader.readAsDataURL(file);
+      } catch (err: any) {
+        setError(err.message || 'Error al procesar la imagen seleccionada');
+      }
     }
   };
 
@@ -103,8 +107,8 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
       setError('');
 
       const updated = await updateGroup(group.id, {
-        name: name.trim(),
-        description: description.trim() || null,
+        name: sanitizeText(name, 80),
+        description: sanitizeText(description, 300) || null,
         icon_emoji: emoji,
         cover_image_url: visualMode === 'photo' ? coverImageUrl : null,
         base_currency: currency,
@@ -125,6 +129,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
       setIsLoading(false);
     }
   };
+
 
   const handleToggleArchive = async () => {
     if (group.is_archived) {

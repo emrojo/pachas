@@ -13,6 +13,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { Profile } from '@/types/database';
+import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
+
 import {
   User,
   Mail,
@@ -54,9 +56,9 @@ export default function ProfilePage() {
     logout,
   } = usePachas();
 
-  const [fullName, setFullName] = useState(currentUser.full_name);
-  const [bizumPhone, setBizumPhone] = useState(currentUser.bizum_phone || '');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(currentUser.avatar_url || null);
+  const [fullName, setFullName] = useState(currentUser?.full_name || '');
+  const [bizumPhone, setBizumPhone] = useState(currentUser?.bizum_phone || '');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(currentUser?.avatar_url || null);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
@@ -64,64 +66,43 @@ export default function ProfilePage() {
 
   // Sync state when currentUser changes
   useEffect(() => {
-    setFullName(currentUser.full_name);
-    setBizumPhone(currentUser.bizum_phone || '');
-    setAvatarUrl(currentUser.avatar_url || null);
+    if (currentUser) {
+      setFullName(currentUser.full_name);
+      setBizumPhone(currentUser.bizum_phone || '');
+      setAvatarUrl(currentUser.avatar_url || null);
+    }
   }, [currentUser]);
 
-  // Compress & read custom local photo
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Compress & read custom local photo securely
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxSize = 300;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > maxSize) {
-            height = Math.round((height * maxSize) / width);
-            width = maxSize;
-          }
-        } else {
-          if (height > maxSize) {
-            width = Math.round((width * maxSize) / height);
-            height = maxSize;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          setAvatarUrl(canvas.toDataURL('image/jpeg', 0.85));
-        } else {
-          setAvatarUrl(event.target?.result as string);
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    try {
+      const secureCompressed = await validateAndCompressImage(file, 300, 0.85);
+      setAvatarUrl(secureCompressed);
+    } catch (err: any) {
+      alert(err.message || 'Error al procesar la imagen seleccionada.');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) return;
     setIsLoading(true);
     await updateProfile({
-      full_name: fullName.trim(),
-      bizum_phone: bizumPhone.trim() || null,
+      full_name: sanitizeText(fullName, 100),
+      bizum_phone: sanitizeText(bizumPhone, 25) || null,
       avatar_url: avatarUrl || null,
     });
     setIsLoading(false);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };
+
 
   const handleSwitchUser = (user: Profile) => {
     if (!isDemoMode) return;
@@ -146,8 +127,11 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/login');
+    router.replace('/login');
   };
+
+  if (!currentUser) return null;
+
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 md:pb-12">

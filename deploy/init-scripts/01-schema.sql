@@ -31,7 +31,8 @@ begin
     );
     return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -133,19 +134,27 @@ alter table public.expense_payers enable row level security;
 alter table public.expense_participants enable row level security;
 alter table public.settlements enable row level security;
 
--- Profiles: Authenticated users can view profiles and update their own
-create policy "Users can view all profiles"
+-- Profiles: Authenticated users can ONLY view their own profile or profiles of members with whom they share at least one group
+create policy "Users can view relevant profiles"
     on public.profiles for select
     to authenticated
-    using (true);
+    using (
+        auth.uid() = id
+        or exists (
+            select 1 from public.group_members gm1
+            join public.group_members gm2 on gm1.group_id = gm2.group_id
+            where gm1.user_id = auth.uid()
+            and gm2.user_id = profiles.id
+        )
+    );
 
 create policy "Users can update own profile"
     on public.profiles for update
     to authenticated
     using (auth.uid() = id);
 
--- Groups: Users can view groups they are member of or view by invite code
-create policy "Members can view their groups"
+-- Groups: Users can view groups they are member of, created, or view by invite code
+create policy "Members and invited users can view groups"
     on public.groups for select
     to authenticated
     using (
@@ -155,7 +164,9 @@ create policy "Members can view their groups"
             and group_members.user_id = auth.uid()
         )
         or created_by = auth.uid()
+        or invite_code is not null
     );
+
 
 create policy "Authenticated users can create groups"
     on public.groups for insert
@@ -174,6 +185,11 @@ create policy "Group admins/creator can update group"
             and group_members.role = 'admin'
         )
     );
+
+create policy "Group creator can delete group"
+    on public.groups for delete
+    to authenticated
+    using (created_by = auth.uid());
 
 -- Group Members
 create policy "Members can view members of their groups"
@@ -228,6 +244,32 @@ create policy "Group members can insert expenses"
         )
     );
 
+create policy "Expense creator or group admin can update expense"
+    on public.expenses for update
+    to authenticated
+    using (
+        created_by = auth.uid()
+        or exists (
+            select 1 from public.group_members gm
+            where gm.group_id = expenses.group_id
+            and gm.user_id = auth.uid()
+            and gm.role = 'admin'
+        )
+    );
+
+create policy "Expense creator or group admin can delete expense"
+    on public.expenses for delete
+    to authenticated
+    using (
+        created_by = auth.uid()
+        or exists (
+            select 1 from public.group_members gm
+            where gm.group_id = expenses.group_id
+            and gm.user_id = auth.uid()
+            and gm.role = 'admin'
+        )
+    );
+
 -- Expense Payers & Participants
 create policy "Members can view payers"
     on public.expense_payers for select
@@ -250,6 +292,30 @@ create policy "Members can insert payers"
             join public.group_members gm on gm.group_id = e.group_id
             where e.id = expense_payers.expense_id
             and gm.user_id = auth.uid()
+        )
+    );
+
+create policy "Expense creator or admin can update payers"
+    on public.expense_payers for update
+    to authenticated
+    using (
+        exists (
+            select 1 from public.expenses e
+            join public.group_members gm on gm.group_id = e.group_id
+            where e.id = expense_payers.expense_id
+            and (e.created_by = auth.uid() or (gm.user_id = auth.uid() and gm.role = 'admin'))
+        )
+    );
+
+create policy "Expense creator or admin can delete payers"
+    on public.expense_payers for delete
+    to authenticated
+    using (
+        exists (
+            select 1 from public.expenses e
+            join public.group_members gm on gm.group_id = e.group_id
+            where e.id = expense_payers.expense_id
+            and (e.created_by = auth.uid() or (gm.user_id = auth.uid() and gm.role = 'admin'))
         )
     );
 
@@ -277,6 +343,30 @@ create policy "Members can insert participants"
         )
     );
 
+create policy "Expense creator or admin can update participants"
+    on public.expense_participants for update
+    to authenticated
+    using (
+        exists (
+            select 1 from public.expenses e
+            join public.group_members gm on gm.group_id = e.group_id
+            where e.id = expense_participants.expense_id
+            and (e.created_by = auth.uid() or (gm.user_id = auth.uid() and gm.role = 'admin'))
+        )
+    );
+
+create policy "Expense creator or admin can delete participants"
+    on public.expense_participants for delete
+    to authenticated
+    using (
+        exists (
+            select 1 from public.expenses e
+            join public.group_members gm on gm.group_id = e.group_id
+            where e.id = expense_participants.expense_id
+            and (e.created_by = auth.uid() or (gm.user_id = auth.uid() and gm.role = 'admin'))
+        )
+    );
+
 -- Settlements
 create policy "Members can view settlements"
     on public.settlements for select
@@ -299,3 +389,30 @@ create policy "Members can insert settlements"
             and group_members.user_id = auth.uid()
         )
     );
+
+create policy "Settlement payer or admin can delete settlement"
+    on public.settlements for delete
+    to authenticated
+    using (
+        from_user_id = auth.uid()
+        or exists (
+            select 1 from public.group_members gm
+            where gm.group_id = settlements.group_id
+            and gm.user_id = auth.uid()
+            and gm.role = 'admin'
+        )
+    );
+
+create policy "Settlement payer or admin can update settlement"
+    on public.settlements for update
+    to authenticated
+    using (
+        from_user_id = auth.uid()
+        or exists (
+            select 1 from public.group_members gm
+            where gm.group_id = settlements.group_id
+            and gm.user_id = auth.uid()
+            and gm.role = 'admin'
+        )
+    );
+

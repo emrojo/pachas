@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -13,8 +13,10 @@ import { Mail, Lock, Sparkles, ArrowRight, UserPlus, ShieldAlert } from 'lucide-
 import { createClient } from '@/lib/supabase/client';
 import { isDemoModeAllowed } from '@/lib/authConfig';
 
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirectTo') || '/dashboard';
   const { setCurrentUser, availableUsers, isCurrentUserAdmin } = usePachas();
 
   const [email, setEmail] = useState('');
@@ -47,7 +49,7 @@ export default function LoginPage() {
         const found = availableUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
         if (found) {
           setCurrentUser(found);
-          router.push('/dashboard');
+          router.replace(redirectTo);
           return;
         } else {
           // Create temp profile in demo mode only
@@ -58,7 +60,7 @@ export default function LoginPage() {
             created_at: new Date().toISOString(),
           };
           setCurrentUser(tempUser);
-          router.push('/dashboard');
+          router.replace(redirectTo);
           return;
         }
       }
@@ -72,7 +74,7 @@ export default function LoginPage() {
           role: data.user.user_metadata?.role || 'member',
           created_at: data.user.created_at,
         });
-        router.push('/dashboard');
+        router.replace(redirectTo);
       }
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión');
@@ -87,8 +89,9 @@ export default function LoginPage() {
       return;
     }
     setCurrentUser(user);
-    router.push('/dashboard');
+    router.replace(redirectTo);
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
@@ -204,3 +207,18 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+          <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+        </div>
+      }
+    >
+      <LoginFormContent />
+    </Suspense>
+  );
+}
+

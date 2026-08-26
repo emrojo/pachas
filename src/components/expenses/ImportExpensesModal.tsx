@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { getCategoryInfo } from '@/lib/categories';
 import { parseEuropeanAmount, getCurrencyByCode } from '@/lib/currencies';
+import { parseLocationAndCoordinates } from '@/lib/algorithms/locationParser';
 import { ExpenseCategory } from '@/types/database';
 import confetti from 'canvas-confetti';
 import {
@@ -24,6 +25,8 @@ import {
   AlertCircle,
   Info,
   HelpCircle,
+  MapPin,
+  ExternalLink,
 } from 'lucide-react';
 
 export interface ImportExpensesModalProps {
@@ -46,6 +49,10 @@ interface ParsedRow {
     payer: string;
     participantsStr: string;
     participantsCount: string;
+    locationName?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    mapsUrl?: string | null;
     notes: string;
   };
   expenseInput?: CreateExpenseInput;
@@ -124,11 +131,12 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
 
   // Strict check for member in the group
   const findMember = (nameOrEmail?: string): { memberId: string | null; error?: string } => {
+    const defaultUserId = currentUser?.id || members[0]?.user_id || '';
     if (!nameOrEmail || !nameOrEmail.trim()) {
-      return { memberId: currentUser.id };
+      return { memberId: defaultUserId };
     }
     if (isAllMembersKeyword(nameOrEmail)) {
-      return { memberId: currentUser.id };
+      return { memberId: defaultUserId };
     }
     const q = nameOrEmail.trim().toLowerCase();
     const found = members.find(
@@ -152,10 +160,12 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
     rawPayerStr: string,
     totalAmount: number
   ): { payers: { userId: string; amountPaid: number }[]; error?: string } => {
+    const defaultUserId = currentUser?.id || members[0]?.user_id || '';
     const trimmed = rawPayerStr.trim();
     if (!trimmed || isAllMembersKeyword(trimmed)) {
-      return { payers: [{ userId: currentUser.id, amountPaid: totalAmount }] };
+      return { payers: [{ userId: defaultUserId, amountPaid: totalAmount }] };
     }
+
 
     // Check if string contains colons, parentheses or equal signs with amounts: e.g. "Eduardo: 350 + Carlos: 250"
     const hasColons = trimmed.includes(':');
@@ -287,6 +297,9 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
       currency: rawHeaders.findIndex((h) => h.includes('divisa') || h.includes('moneda') || h.includes('currency')),
       payer: rawHeaders.findIndex((h) => h.includes('pagado') || h.includes('pagó') || h.includes('pago') || h.includes('payer') || h.includes('quien')),
       participants: rawHeaders.findIndex((h) => h.includes('repartir') || h.includes('participante') || h.includes('amigos') || h.includes('split')),
+      location: rawHeaders.findIndex((h) => h.includes('ubicaci') || h.includes('establecim') || h.includes('lugar') || h.includes('sitio') || h.includes('location') || h.includes('place') || h.includes('venue')),
+      coordinates: rawHeaders.findIndex((h) => h.includes('coord') || h.includes('gps') || h.includes('lat') || h.includes('lng')),
+      mapsUrl: rawHeaders.findIndex((h) => h.includes('google maps') || h.includes('maps') || h.includes('enlace') || h.includes('link')),
       notes: rawHeaders.findIndex((h) => h.includes('nota') || h.includes('comentario') || h.includes('note')),
     };
 
@@ -299,7 +312,9 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
       colIndex.currency = 4;
       colIndex.payer = 5;
       colIndex.participants = 6;
-      colIndex.notes = 7;
+      colIndex.location = 7;
+      colIndex.coordinates = 8;
+      colIndex.notes = 9;
     }
 
     const startIndex = (colIndex.title !== -1 || colIndex.amount !== -1) ? 1 : 0;
@@ -317,7 +332,12 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
       const rawCurrency = cols[colIndex.currency >= 0 ? colIndex.currency : 4] || baseCurrency;
       const rawPayer = cols[colIndex.payer >= 0 ? colIndex.payer : 5] || '';
       const rawParticipants = cols[colIndex.participants >= 0 ? colIndex.participants : 6] || '';
-      const rawNotes = cols[colIndex.notes >= 0 ? colIndex.notes : 7] || '';
+      const rawLocation = colIndex.location >= 0 ? cols[colIndex.location] || '' : '';
+      const rawCoordinates = colIndex.coordinates >= 0 ? cols[colIndex.coordinates] || '' : '';
+      const rawMapsUrl = colIndex.mapsUrl >= 0 ? cols[colIndex.mapsUrl] || '' : '';
+      const rawNotes = cols[colIndex.notes >= 0 ? colIndex.notes : 9] || '';
+
+      const locResult = parseLocationAndCoordinates(rawLocation, rawCoordinates, rawMapsUrl);
 
       const amount = parseEuropeanAmount(rawAmountStr);
       const errors: string[] = [];
@@ -338,12 +358,14 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
 
       // Strict validation for Payer(s)
       const payerResult = parsePayers(rawPayer, amount);
-      let payersList: { userId: string; amountPaid: number }[] = [{ userId: currentUser.id, amountPaid: amount }];
+      const defaultUserId = currentUser?.id || members[0]?.user_id || '';
+      let payersList: { userId: string; amountPaid: number }[] = [{ userId: defaultUserId, amountPaid: amount }];
       if (payerResult.error) {
         errors.push(payerResult.error);
       } else if (payerResult.payers && payerResult.payers.length > 0) {
         payersList = payerResult.payers;
       }
+
 
       // Strict validation for Participants
       let participantIds = members.map((m) => m.user_id);
@@ -386,6 +408,9 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
             splitType: 'EQUAL',
             payers: payersList,
             selectedParticipantIds: participantIds,
+            latitude: locResult.latitude,
+            longitude: locResult.longitude,
+            locationName: locResult.locationName,
           }
         : undefined;
 
@@ -402,6 +427,10 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
           payer: rawPayer || (members.find((m) => m.user_id === payersList[0]?.userId)?.profile?.full_name || 'Tú'),
           participantsStr: rawParticipants,
           participantsCount: isValid ? `${participantIds.length} amigos` : 'Error',
+          locationName: locResult.locationName,
+          latitude: locResult.latitude,
+          longitude: locResult.longitude,
+          mapsUrl: locResult.mapsUrl,
           notes: rawNotes,
         },
         expenseInput,
@@ -435,12 +464,12 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
     const splitSample = memberNames.slice(0, 2).join(', ');
 
     let sampleCSV = 'data:text/csv;charset=utf-8,\uFEFF';
-    sampleCSV += 'Fecha;Concepto;Categoría;Importe;Divisa;Pagado Por;Repartir Entre;Notas\n';
-    sampleCSV += `15/08/2026;Cena pizzería;food;68,50;EUR;${defaultPayer};Todos;Pizzas y bebidas varias\n`;
-    sampleCSV += `16/08/2026;Gasolina autopista;transport;60,00;EUR;${defaultPayer} + ${otherPayer};Todos;Gasolina pagada a medias (30€ c/u)\n`;
-    sampleCSV += `17/08/2026;Entradas museo;activities;30,00;EUR;${defaultPayer};${splitSample};Visita cultural guiada\n`;
-    sampleCSV += `18/08/2026;Supermercado compras;shopping;82,20;EUR;${defaultPayer};Todos;Desayunos y snacks\n`;
-    sampleCSV += `19/08/2026;Villa Vacaciones;accommodation;600,00;EUR;${defaultPayer}: 350 + ${otherPayer}: 250;Todos;Alquiler villa con pagos desglosados\n`;
+    sampleCSV += 'Fecha;Concepto;Categoría;Importe;Divisa;Pagado Por;Repartir Entre;Establecimiento / Ubicación;Coordenadas;Notas\n';
+    sampleCSV += `15/08/2026;Cena pizzería;food;68,50;EUR;${defaultPayer};Todos;Pizzería Bella Napoli;40.4168, -3.7038;Pizzas y bebidas varias\n`;
+    sampleCSV += `16/08/2026;Gasolina autopista;transport;60,00;EUR;${defaultPayer} + ${otherPayer};Todos;Repsol Autopista AP-7;41.1234, 1.2345;Gasolina pagada a medias (30€ c/u)\n`;
+    sampleCSV += `17/08/2026;Entradas museo;activities;30,00;EUR;${defaultPayer};${splitSample};Museo Arqueológico;;Visita cultural guiada (sin coordenadas)\n`;
+    sampleCSV += `18/08/2026;Supermercado compras;shopping;82,20;EUR;${defaultPayer};Todos;;39.9986, 3.8344;Desayunos y snacks (solo coordenadas GPS)\n`;
+    sampleCSV += `19/08/2026;Villa Vacaciones;accommodation;600,00;EUR;${defaultPayer}: 350 + ${otherPayer}: 250;Todos;Cala Galdana, Menorca;39.9367, 3.9631;Alquiler villa con pagos desglosados\n`;
 
     const encodedUri = encodeURI(sampleCSV);
     const link = document.createElement('a');
@@ -699,6 +728,7 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
                     <th className="p-2.5">Importe</th>
                     <th className="p-2.5">Pagado por</th>
                     <th className="p-2.5">Participantes</th>
+                    <th className="p-2.5">Ubicación / Maps</th>
                     <th className="p-2.5 text-right">Acción</th>
                   </tr>
                 </thead>
@@ -747,6 +777,31 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
                       </td>
                       <td className="p-2.5 text-slate-600 dark:text-slate-400 truncate max-w-[100px]">
                         {row.raw.participantsStr || 'Todos'}
+                      </td>
+                      <td className="p-2.5 text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
+                        {row.raw.locationName || (row.raw.latitude !== null && row.raw.latitude !== undefined) ? (
+                          <div className="space-y-0.5">
+                            {row.raw.locationName && (
+                              <span className="block truncate font-medium text-slate-800 dark:text-slate-200">
+                                {row.raw.locationName}
+                              </span>
+                            )}
+                            {row.raw.latitude !== null && row.raw.latitude !== undefined && row.raw.longitude !== null && row.raw.longitude !== undefined && (
+                              <a
+                                href={row.raw.mapsUrl || `https://www.google.com/maps?q=${row.raw.latitude},${row.raw.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 hover:underline"
+                                title="Ver ubicación en Google Maps"
+                              >
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                <span>{row.raw.latitude.toFixed(4)}, {row.raw.longitude.toFixed(4)}</span>
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="p-2.5 text-right">
                         <button
@@ -813,7 +868,7 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs pt-1">
                 <div>
                   <span className="text-[10px] text-slate-400 block uppercase font-bold">Fecha</span>
                   <span className="font-mono text-slate-700 dark:text-slate-300">{selectedErrorRow.raw.date || '—'}</span>
@@ -829,6 +884,12 @@ export const ImportExpensesModal: React.FC<ImportExpensesModalProps> = ({
                 <div>
                   <span className="text-[10px] text-slate-400 block uppercase font-bold">Repartir</span>
                   <span className="text-slate-700 dark:text-slate-300">{selectedErrorRow.raw.participantsStr || 'Todos'}</span>
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Ubicación</span>
+                  <span className="text-slate-700 dark:text-slate-300 truncate block">
+                    {selectedErrorRow.raw.locationName || (selectedErrorRow.raw.latitude ? `${selectedErrorRow.raw.latitude.toFixed(4)}, ${selectedErrorRow.raw.longitude?.toFixed(4)}` : '—')}
+                  </span>
                 </div>
               </div>
             </div>

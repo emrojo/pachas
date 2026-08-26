@@ -46,8 +46,8 @@ export interface CreateExpenseInput {
 }
 
 interface PachasContextType {
-  currentUser: Profile;
-  setCurrentUser: (user: Profile) => void;
+  currentUser: Profile | null;
+  setCurrentUser: (user: Profile | null) => void;
   isCurrentUserAdmin: boolean;
   isDemoMode: boolean;
   groups: Group[];
@@ -107,7 +107,7 @@ const STORAGE_KEYS = {
 };
 
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, _setCurrentUser] = useState<Profile>(DEMO_CURRENT_USER);
+  const [currentUser, _setCurrentUser] = useState<Profile | null>(null);
   const [availableUsers, setAvailableUsers] = useState<Profile[]>(DEMO_USERS);
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Record<string, GroupMember[]>>({});
@@ -121,74 +121,186 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isLoading, setIsLoading] = useState(true);
 
   // Helper to change current user and persist immediately to localStorage
-  const setCurrentUser = (user: Profile) => {
+  const setCurrentUser = (user: Profile | null) => {
     _setCurrentUser(user);
     try {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      if (user) {
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.USER);
+      }
     } catch (e) {
       console.error('Failed to persist current user to localStorage:', e);
     }
   };
 
-  // Initialize data from localStorage or demo defaults
+  // Initialize data from Supabase or localStorage or demo defaults
   useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
-      const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
-      const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
-      const savedMembers = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-      const savedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-      const savedSettlements = localStorage.getItem(STORAGE_KEYS.SETTLEMENTS);
+    let isMounted = true;
 
-      let currentUsersList = DEMO_USERS;
-      if (savedUsers) {
-        try {
-          currentUsersList = JSON.parse(savedUsers);
-          setAvailableUsers(currentUsersList);
-        } catch (e) {}
+    async function loadData() {
+      const demoAllowed = isDemoModeAllowed();
+
+      try {
+        const supabase = createClient();
+        const { data: authData } = await supabase.auth.getUser();
+        const authUser = authData?.user;
+
+        if (authUser) {
+          // Fetch real user profile from Supabase
+          const { data: dbProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .maybeSingle();
+
+          const activeProfile: Profile = {
+            id: authUser.id,
+            email: authUser.email || '',
+            full_name: dbProfile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuario',
+            avatar_url: dbProfile?.avatar_url || authUser.user_metadata?.avatar_url || null,
+            bizum_phone: dbProfile?.bizum_phone || authUser.user_metadata?.bizum_phone || null,
+            role: dbProfile?.role || authUser.user_metadata?.role || 'member',
+            created_at: authUser.created_at,
+          };
+
+          if (isMounted) {
+            _setCurrentUser(activeProfile);
+          }
+
+          // Fetch real groups where user is a member
+          const { data: dbGroups } = await supabase.from('groups').select('*');
+          if (dbGroups && isMounted) {
+            setGroups(dbGroups);
+          }
+
+          // Fetch group members with profiles
+          const { data: dbMembers } = await supabase
+            .from('group_members')
+            .select('*, profile:profiles(*)');
+
+          if (dbMembers && isMounted) {
+            const memberMap: Record<string, GroupMember[]> = {};
+            dbMembers.forEach((m: any) => {
+              if (!memberMap[m.group_id]) memberMap[m.group_id] = [];
+              memberMap[m.group_id].push(m);
+            });
+            setMembers(memberMap);
+          }
+
+          // Fetch expenses with payers and participants
+          const { data: dbExpenses } = await supabase
+            .from('expenses')
+            .select('*, creator:profiles(*), payers:expense_payers(*, profile:profiles(*)), participants:expense_participants(*, profile:profiles(*))');
+
+          if (dbExpenses && isMounted) {
+            const expMap: Record<string, Expense[]> = {};
+            dbExpenses.forEach((e: any) => {
+              if (!expMap[e.group_id]) expMap[e.group_id] = [];
+              expMap[e.group_id].push(e);
+            });
+            setExpenses(expMap);
+          }
+
+          // Fetch settlements
+          const { data: dbSettlements } = await supabase
+            .from('settlements')
+            .select('*, from_profile:profiles!settlements_from_user_id_fkey(*), to_profile:profiles!settlements_to_user_id_fkey(*)');
+
+          if (dbSettlements && isMounted) {
+            const settleMap: Record<string, Settlement[]> = {};
+            dbSettlements.forEach((s: any) => {
+              if (!settleMap[s.group_id]) settleMap[s.group_id] = [];
+              settleMap[s.group_id].push(s);
+            });
+            setSettlements(settleMap);
+          }
+
+          return;
+        }
+      } catch (err) {
+        console.warn('Supabase data fetch fallback to local storage:', err);
       }
 
-      if (savedUser) {
-        try {
-          const parsedUser: Profile = JSON.parse(savedUser);
-          const fresh = currentUsersList.find((u) => u.id === parsedUser.id) || parsedUser;
-          _setCurrentUser(fresh);
-        } catch (e) {}
-      }
+      // If no Supabase user or in offline/demo mode, load from localStorage
+      try {
+        const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
+        const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+        const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
+        const savedMembers = localStorage.getItem(STORAGE_KEYS.MEMBERS);
+        const savedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+        const savedSettlements = localStorage.getItem(STORAGE_KEYS.SETTLEMENTS);
 
-      if (savedGroups) {
-        setGroups(JSON.parse(savedGroups));
-      } else {
-        setGroups(DEMO_GROUPS);
-      }
+        let currentUsersList = demoAllowed ? DEMO_USERS : [];
+        if (savedUsers) {
+          try {
+            currentUsersList = JSON.parse(savedUsers);
+            if (isMounted) setAvailableUsers(currentUsersList);
+          } catch (e) {}
+        } else if (demoAllowed && isMounted) {
+          setAvailableUsers(DEMO_USERS);
+        }
 
-      if (savedMembers) {
-        setMembers(JSON.parse(savedMembers));
-      } else {
-        setMembers(DEMO_MEMBERS);
-      }
+        if (savedUser && isMounted) {
+          try {
+            const parsedUser: Profile = JSON.parse(savedUser);
+            const fresh = currentUsersList.find((u) => u.id === parsedUser.id) || parsedUser;
+            _setCurrentUser(fresh);
+          } catch (e) {
+            _setCurrentUser(null);
+          }
+        } else if (isMounted) {
+          _setCurrentUser(null);
+        }
 
-      if (savedExpenses) {
-        setExpenses(JSON.parse(savedExpenses));
-      } else {
-        setExpenses(DEMO_EXPENSES);
-      }
+        if (savedGroups && isMounted) {
+          setGroups(JSON.parse(savedGroups));
+        } else if (demoAllowed && isMounted) {
+          setGroups(DEMO_GROUPS);
+        } else if (isMounted) {
+          setGroups([]);
+        }
 
-      if (savedSettlements) {
-        setSettlements(JSON.parse(savedSettlements));
-      } else {
-        setSettlements(DEMO_SETTLEMENTS);
+        if (savedMembers && isMounted) {
+          setMembers(JSON.parse(savedMembers));
+        } else if (demoAllowed && isMounted) {
+          setMembers(DEMO_MEMBERS);
+        } else if (isMounted) {
+          setMembers({});
+        }
+
+        if (savedExpenses && isMounted) {
+          setExpenses(JSON.parse(savedExpenses));
+        } else if (demoAllowed && isMounted) {
+          setExpenses(DEMO_EXPENSES);
+        } else if (isMounted) {
+          setExpenses({});
+        }
+
+        if (savedSettlements && isMounted) {
+          setSettlements(JSON.parse(savedSettlements));
+        } else if (demoAllowed && isMounted) {
+          setSettlements(DEMO_SETTLEMENTS);
+        } else if (isMounted) {
+          setSettlements({});
+        }
+      } catch (e) {
+        console.error('Failed to parse cached data:', e);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    } catch (e) {
-      console.error('Failed to parse cached data:', e);
-      setGroups(DEMO_GROUPS);
-      setMembers(DEMO_MEMBERS);
-      setExpenses(DEMO_EXPENSES);
-      setSettlements(DEMO_SETTLEMENTS);
-    } finally {
-      setIsLoading(false);
     }
+
+    loadData().finally(() => {
+      if (isMounted) setIsLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+
 
   // Save changes to localStorage
   const saveState = (
@@ -240,6 +352,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     currency: string,
     coverImageUrl?: string | null
   ): Promise<Group> => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para crear un grupo.');
+    }
+
     const newGroup: Group = {
       id: `group-${Date.now()}`,
       name,
@@ -268,6 +384,29 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedSettlements = { ...settlements, [newGroup.id]: [] };
 
     saveState(updatedGroups, updatedMembers, updatedExpenses, updatedSettlements);
+
+    try {
+      const supabase = createClient();
+      await supabase.from('groups').insert({
+        id: newGroup.id,
+        name: newGroup.name,
+        description: newGroup.description,
+        icon_emoji: newGroup.icon_emoji,
+        cover_image_url: newGroup.cover_image_url,
+        base_currency: newGroup.base_currency,
+        invite_code: newGroup.invite_code,
+        created_by: currentUser.id,
+      });
+      await supabase.from('group_members').insert({
+        id: initialMember.id,
+        group_id: newGroup.id,
+        user_id: currentUser.id,
+        role: 'admin',
+      });
+    } catch (e) {
+      console.warn('Supabase createGroup sync warning:', e);
+    }
+
     return newGroup;
   };
 
@@ -285,6 +424,26 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updatedGroups = groups.map((g) => (g.id === groupId ? updatedGroup : g));
     saveState(updatedGroups);
+
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('groups')
+        .update({
+          name: updatedGroup.name,
+          description: updatedGroup.description,
+          icon_emoji: updatedGroup.icon_emoji,
+          cover_image_url: updatedGroup.cover_image_url,
+          base_currency: updatedGroup.base_currency,
+          is_archived: updatedGroup.is_archived,
+          archived_at: updatedGroup.archived_at,
+          updated_at: updatedGroup.updated_at,
+        })
+        .eq('id', groupId);
+    } catch (e) {
+      console.warn('Supabase updateGroup sync warning:', e);
+    }
+
     return updatedGroup;
   };
 
@@ -303,9 +462,27 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const joinGroup = async (inviteCode: string): Promise<Group | null> => {
-    const targetGroup = groups.find(
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para unirte a un grupo.');
+    }
+
+    let targetGroup = groups.find(
       (g) => g.invite_code.toLowerCase() === inviteCode.trim().toLowerCase()
     );
+
+    // If not in local state, search Supabase
+    if (!targetGroup) {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('groups')
+          .select('*')
+          .ilike('invite_code', inviteCode.trim())
+          .maybeSingle();
+        if (data) targetGroup = data;
+      } catch (e) {}
+    }
+
     if (!targetGroup) return null;
 
     if (targetGroup.is_archived) {
@@ -329,11 +506,28 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ...members,
         [targetGroup.id]: [...grpMembers, newMember],
       };
-      saveState(undefined, updatedMembers);
+      const updatedGroups = groups.some((g) => g.id === targetGroup.id)
+        ? groups
+        : [targetGroup, ...groups];
+
+      saveState(updatedGroups, updatedMembers);
+
+      try {
+        const supabase = createClient();
+        await supabase.from('group_members').upsert({
+          id: newMember.id,
+          group_id: targetGroup.id,
+          user_id: currentUser.id,
+          role: 'member',
+        });
+      } catch (e) {
+        console.warn('Supabase joinGroup sync warning:', e);
+      }
     }
 
     return targetGroup;
   };
+
 
   const removeMemberFromGroup = async (groupId: string, userId: string): Promise<boolean> => {
     const grpMembers = members[groupId] || [];
@@ -420,6 +614,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const addExpense = async (input: CreateExpenseInput): Promise<Expense> => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para registrar un gasto.');
+    }
+
     const grpMembers = getGroupMembers(input.groupId);
     const memberProfiles = new Map(grpMembers.map((m) => [m.user_id, m.profile]));
 
@@ -500,10 +698,64 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     saveState(undefined, undefined, updatedExpenses);
+
+    try {
+      const supabase = createClient();
+      await supabase.from('expenses').insert({
+        id: newExpense.id,
+        group_id: newExpense.group_id,
+        created_by: currentUser.id,
+        title: newExpense.title,
+        amount: newExpense.amount,
+        currency: newExpense.currency,
+        exchange_rate: newExpense.exchange_rate,
+        converted_amount: newExpense.converted_amount,
+        category: newExpense.category,
+        expense_date: newExpense.expense_date,
+        receipt_url: newExpense.receipt_url,
+        notes: newExpense.notes,
+        split_type: newExpense.split_type,
+        latitude: newExpense.latitude,
+        longitude: newExpense.longitude,
+        location_name: newExpense.location_name,
+      });
+
+      if (newExpense.payers && newExpense.payers.length > 0) {
+        await supabase.from('expense_payers').insert(
+          newExpense.payers.map((p) => ({
+            id: p.id,
+            expense_id: newExpense.id,
+            user_id: p.user_id,
+            amount_paid: p.amount_paid,
+          }))
+        );
+      }
+
+      if (newExpense.participants && newExpense.participants.length > 0) {
+        await supabase.from('expense_participants').insert(
+          newExpense.participants.map((pt) => ({
+            id: pt.id,
+            expense_id: newExpense.id,
+            user_id: pt.user_id,
+            amount_owed: pt.amount_owed,
+            percentage: pt.percentage || null,
+            shares: pt.shares || null,
+          }))
+        );
+      }
+    } catch (e) {
+      console.warn('Supabase addExpense sync warning:', e);
+    }
+
     return newExpense;
   };
 
+
   const importExpenses = async (groupId: string, inputs: CreateExpenseInput[]): Promise<Expense[]> => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para importar gastos.');
+    }
+
     const grpMembers = getGroupMembers(groupId);
     const memberProfiles = new Map(grpMembers.map((m) => [m.user_id, m.profile]));
     const createdExpenses: Expense[] = [];
@@ -598,19 +850,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const undoLastImport = async (groupId: string): Promise<number> => {
     if (!lastImportBatch || lastImportBatch.groupId !== groupId) return 0;
-
-    const currentExpenses = expenses[groupId] || [];
-    const toRemoveSet = new Set(lastImportBatch.expenseIds);
-    const filtered = currentExpenses.filter((e) => !toRemoveSet.has(e.id));
-    const count = lastImportBatch.count;
+    const toRemove = new Set(lastImportBatch.expenseIds);
+    const current = expenses[groupId] || [];
+    const filtered = current.filter((e) => !toRemove.has(e.id));
+    const count = current.length - filtered.length;
 
     const updatedExpenses = {
       ...expenses,
       [groupId]: filtered,
     };
-
-    setLastImportBatch(null);
     saveState(undefined, undefined, updatedExpenses);
+    setLastImportBatch(null);
     return count;
   };
 
@@ -619,14 +869,14 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     expenseId: string,
     input: CreateExpenseInput
   ): Promise<Expense> => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para editar un gasto.');
+    }
+
     const currentExpenses = expenses[groupId] || [];
     const existing = currentExpenses.find((e) => e.id === expenseId);
     if (!existing) {
       throw new Error('Gasto no encontrado');
-    }
-
-    if (existing.created_by !== currentUser.id) {
-      throw new Error('No puedes editar este gasto porque fue creado por otro amigo.');
     }
 
     const grpMembers = getGroupMembers(groupId);
@@ -702,10 +952,39 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [groupId]: updatedList,
     };
     saveState(undefined, undefined, updatedExpenses);
+
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('expenses')
+        .update({
+          title: updatedExpense.title,
+          amount: updatedExpense.amount,
+          currency: updatedExpense.currency,
+          exchange_rate: updatedExpense.exchange_rate,
+          converted_amount: updatedExpense.converted_amount,
+          category: updatedExpense.category,
+          expense_date: updatedExpense.expense_date,
+          receipt_url: updatedExpense.receipt_url,
+          notes: updatedExpense.notes,
+          split_type: updatedExpense.split_type,
+          latitude: updatedExpense.latitude,
+          longitude: updatedExpense.longitude,
+          location_name: updatedExpense.location_name,
+          updated_at: updatedExpense.updated_at,
+        })
+        .eq('id', expenseId);
+    } catch (e) {
+      console.warn('Supabase updateExpense sync warning:', e);
+    }
+
     return updatedExpense;
   };
 
   const deleteExpense = async (groupId: string, expenseId: string) => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para eliminar un gasto.');
+    }
     const currentExpenses = expenses[groupId] || [];
     const existing = currentExpenses.find((e) => e.id === expenseId);
     if (existing && existing.created_by !== currentUser.id) {
@@ -717,6 +996,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [groupId]: filtered,
     };
     saveState(undefined, undefined, updatedExpenses);
+
+    try {
+      const supabase = createClient();
+      await supabase.from('expenses').delete().eq('id', expenseId);
+    } catch (e) {
+      console.warn('Supabase deleteExpense sync warning:', e);
+    }
   };
 
   const recordSettlement = async (
@@ -727,6 +1013,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     paymentMethod: PaymentMethod,
     notes?: string
   ): Promise<Settlement> => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para saldar cuentas.');
+    }
+
     const grp = getGroup(groupId);
     const grpMembers = getGroupMembers(groupId);
     const fromProfile = grpMembers.find((m) => m.user_id === fromUserId)?.profile;
@@ -754,8 +1044,27 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     saveState(undefined, undefined, undefined, updatedSettlements);
+
+    try {
+      const supabase = createClient();
+      await supabase.from('settlements').insert({
+        id: newSettlement.id,
+        group_id: newSettlement.group_id,
+        from_user_id: newSettlement.from_user_id,
+        to_user_id: newSettlement.to_user_id,
+        amount: newSettlement.amount,
+        currency: newSettlement.currency,
+        payment_method: newSettlement.payment_method,
+        notes: newSettlement.notes,
+        settled_at: newSettlement.settled_at,
+      });
+    } catch (e) {
+      console.warn('Supabase recordSettlement sync warning:', e);
+    }
+
     return newSettlement;
   };
+
 
   const isCurrentUserAdmin = isUserAdmin(currentUser, groups, members);
   const isDemoMode = isDemoModeAllowed();
@@ -823,13 +1132,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAvailableUsers(updatedUsers);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
 
-    if (currentUser.id === userId) {
-      const fallback = updatedUsers[0] || DEMO_USERS[0];
+    if (currentUser?.id === userId) {
+      const fallback = updatedUsers[0] || null;
       setCurrentUser(fallback);
     }
   };
 
   const updateProfile = async (data: Partial<Profile>) => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para actualizar tu perfil.');
+    }
+
     const updated: Profile = {
       ...currentUser,
       ...data,
@@ -870,8 +1183,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       try {
         localStorage.removeItem(STORAGE_KEYS.USER);
+        document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       } catch (e) {}
-      _setCurrentUser(DEMO_CURRENT_USER);
+      _setCurrentUser(null);
     }
   };
 
@@ -890,7 +1205,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setExpenses({});
     setSettlements({});
     setAvailableUsers(DEMO_USERS);
-    _setCurrentUser(DEMO_USERS[0]);
+    _setCurrentUser(null);
   };
 
   return (

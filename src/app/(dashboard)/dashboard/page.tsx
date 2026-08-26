@@ -38,6 +38,8 @@ export default function DashboardPage() {
   const [joinError, setJoinError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
+  if (!currentUser) return null;
+
   // Separate active groups from archived groups
   const activeGroups = groups.filter((g) => !g.is_archived);
   const adminArchivedGroups = groups.filter((g) => {
@@ -48,6 +50,7 @@ export default function DashboardPage() {
       members.some((m) => m.user_id === currentUser.id && m.role === 'admin')
     );
   });
+
 
   // Overall calculations across active groups
   let totalNetOwedToUser = 0;

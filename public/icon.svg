@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="pachasGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#064e3b" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- App Icon Background squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#pachasGrad)" />
+
+  <!-- Inner Decorative Ring -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#ffffff" stroke-width="8" stroke-opacity="0.2" />
+
+  <!-- Main Symbol: Pachas Wallet / Split Balance Shield -->
+  <g filter="url(#shadow)" transform="translate(106, 106)">
+    <!-- Main Card Body -->
+    <rect x="20" y="50" width="260" height="190" rx="36" fill="#ffffff" />
+
+    <!-- Card Accent Band -->
+    <path d="M 20 100 L 280 100 L 280 140 L 20 140 Z" fill="#ecfdf5" />
+
+    <!-- Split Coins / Sharing Nodes -->
+    <circle cx="100" cy="145" r="28" fill="#10b981" />
+    <circle cx="200" cy="145" r="28" fill="#059669" />
+
+    <!-- Connection Beam / Equals -->
+    <rect x="120" y="140" width="60" height="10" rx="5" fill="#34d399" />
+
+    <!-- Sparkle / Star Indicator -->
+    <path d="M 150 40 L 156 60 L 176 66 L 156 72 L 150 92 L 144 72 L 124 66 L 144 60 Z" fill="#fbbf24" />
+  </g>
+</svg>

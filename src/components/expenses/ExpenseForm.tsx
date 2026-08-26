@@ -17,6 +17,8 @@ import {
 } from '@/lib/currencies';
 import { SplitType, ExpenseCategory, Expense } from '@/types/database';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
+import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
+
 import {
   toDateTimeLocalValue,
   fromDateTimeLocalToISOWithTimezone,
@@ -85,9 +87,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   // Payers state
   const [isMultiPayer, setIsMultiPayer] = useState(false);
-  const [singlePayerId, setSinglePayerId] = useState(currentUser.id);
+  const [singlePayerId, setSinglePayerId] = useState(currentUser?.id || '');
   const [customPayers, setCustomPayers] = useState<Record<string, string>>({
-    [currentUser.id]: '',
+    ...(currentUser?.id ? { [currentUser.id]: '' } : {}),
   });
 
   // Participants & Split state
@@ -159,6 +161,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       }
     } else {
       // New expense defaults
+      const defaultUserId = currentUser?.id || members[0]?.user_id || '';
       setTitle('');
       setAmountStr('');
       setCurrency(baseCurrency);
@@ -171,15 +174,16 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setLongitude(null);
       setLocationName(null);
       setIsMultiPayer(false);
-      setSinglePayerId(currentUser.id);
-      setCustomPayers({ [currentUser.id]: '' });
+      setSinglePayerId(defaultUserId);
+      setCustomPayers(defaultUserId ? { [defaultUserId]: '' } : {});
       setSelectedParticipants(members.map((m) => m.user_id));
       setSplitType('EQUAL');
       setCustomSplits({});
       setIsWhoPaidOpen(false);
       setIsSplitOpen(false);
     }
-  }, [isOpen, expenseToEdit, members, currentUser.id, baseCurrency]);
+  }, [isOpen, expenseToEdit, members, currentUser?.id, baseCurrency]);
+
 
   const handleCurrencyChange = (newCurrency: string) => {
     setCurrency(newCurrency);
@@ -215,15 +219,16 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setSelectedParticipants(members.map((m) => m.user_id));
   };
 
-  // Handle Photo Receipt upload simulation
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Photo Receipt upload securely
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setReceiptUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await validateAndCompressImage(file, 800, 0.8);
+        setReceiptUrl(compressed);
+      } catch (err: any) {
+        alert(err.message || 'Error al procesar el ticket');
+      }
     }
   };
 
@@ -285,7 +290,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       if (expenseToEdit) {
         await updateExpense(groupId, expenseToEdit.id, {
           groupId,
-          title: title.trim(),
+          title: sanitizeText(title, 120),
           amount: totalAmount,
           currency,
           exchangeRate,
@@ -294,8 +299,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           receiptUrl,
           latitude,
           longitude,
-          locationName,
-          notes: notes.trim() || undefined,
+          locationName: sanitizeText(locationName, 150) || null,
+          notes: sanitizeText(notes, 500) || undefined,
           splitType,
           payers: payersList,
           selectedParticipantIds: selectedParticipants,
@@ -304,7 +309,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       } else {
         await addExpense({
           groupId,
-          title: title.trim(),
+          title: sanitizeText(title, 120),
           amount: totalAmount,
           currency,
           exchangeRate,
@@ -313,8 +318,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           receiptUrl,
           latitude,
           longitude,
-          locationName,
-          notes: notes.trim() || undefined,
+          locationName: sanitizeText(locationName, 150) || null,
+          notes: sanitizeText(notes, 500) || undefined,
           splitType,
           payers: payersList,
           selectedParticipantIds: selectedParticipants,
@@ -511,8 +516,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     <div className="flex items-center gap-1.5">
                       <Avatar profile={currentSinglePayer} size="sm" className="w-5 h-5 text-[10px]" />
                       <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {singlePayerId === currentUser.id
-                          ? 'Tú (Eduardo)'
+                        {currentUser && singlePayerId === currentUser.id
+                          ? `Tú (${currentUser.full_name?.split(' ')[0] || ''})`
                           : currentSinglePayer?.full_name}
                       </span>
                     </div>
@@ -554,6 +559,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {members.map((m) => {
                     const isSelected = singlePayerId === m.user_id;
+                    const isMe = currentUser && m.user_id === currentUser.id;
                     return (
                       <button
                         key={m.user_id}
@@ -569,12 +575,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       >
                         <Avatar profile={m.profile} size="sm" />
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                          {m.user_id === currentUser.id ? 'Tú (Edu)' : m.profile?.full_name?.split(' ')[0]}
+                          {isMe ? 'Tú' : m.profile?.full_name?.split(' ')[0]}
                         </span>
                       </button>
                     );
                   })}
                 </div>
+
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs text-slate-500">
@@ -693,9 +700,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     >
                       <Avatar profile={m.profile} size="sm" className="w-5 h-5 text-[10px]" />
                       <span className="text-xs font-medium">
-                        {m.user_id === currentUser.id ? 'Tú' : m.profile?.full_name?.split(' ')[0]}
+                        {currentUser && m.user_id === currentUser.id ? 'Tú' : m.profile?.full_name?.split(' ')[0]}
                       </span>
                       {isSelected && <Check className="w-3.5 h-3.5" />}
+
                     </button>
                   );
                 })}

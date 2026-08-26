@@ -32,7 +32,7 @@ export function exportGroupToCSV(group: Group, expenses: Expense[], balances: Me
 
   // 2. Expenses Table (Using semicolon separator which is standard for European Excel)
   csvContent += 'HISTORIAL DETALLADO DE GASTOS\n';
-  csvContent += `Fecha;Concepto;Categoría;Importe Original;Divisa Original;Tipo de Cambio (1 ${baseCurrency});Importe en ${baseCurrency};Pagado Por;Participantes;Ubicación;Notas\n`;
+  csvContent += `Fecha;Concepto;Categoría;Importe Original;Divisa Original;Tipo de Cambio (1 ${baseCurrency});Importe en ${baseCurrency};Pagado Por;Participantes;Establecimiento / Ubicación;Coordenadas;Enlace Google Maps;Notas\n`;
 
   for (const exp of expenses) {
     const category = getCategoryInfo(exp.category).label;
@@ -56,10 +56,18 @@ export function exportGroupToCSV(group: Group, expenses: Expense[], balances: Me
 
     const rateStr = exp.exchange_rate ? formatNumber(exp.exchange_rate, 4) : '1,0000';
     const location = (exp.location_name || '').replace(/"/g, '""');
+    const coordsStr =
+      exp.latitude !== undefined && exp.latitude !== null && exp.longitude !== undefined && exp.longitude !== null
+        ? `${exp.latitude}, ${exp.longitude}`
+        : '';
+    const mapsLink =
+      exp.latitude !== undefined && exp.latitude !== null && exp.longitude !== undefined && exp.longitude !== null
+        ? `https://www.google.com/maps?q=${exp.latitude},${exp.longitude}`
+        : '';
     const notes = (exp.notes || '').replace(/"/g, '""');
     const dateFormatted = formatDate(exp.expense_date, 'dd/MM/yyyy');
 
-    csvContent += `"${dateFormatted}";"${exp.title.replace(/"/g, '""')}";"${category}";"${formatNumber(exp.amount)}";"${exp.currency}";"${rateStr}";"${formatNumber(converted)}";"${payers}";"${participants}";"${location}";"${notes}"\n`;
+    csvContent += `"${dateFormatted}";"${exp.title.replace(/"/g, '""')}";"${category}";"${formatNumber(exp.amount)}";"${exp.currency}";"${rateStr}";"${formatNumber(converted)}";"${payers}";"${participants}";"${location}";"${coordsStr}";"${mapsLink}";"${notes}"\n`;
   }
 
   // 3. Balances
@@ -612,6 +620,51 @@ export function exportGroupToPDF(
     memberCurrentY = (doc as any).lastAutoTable.finalY + 10;
   });
 
-  // Save PDF
-  doc.save(`Pachas_${group.name.replace(/\s+/g, '_')}_informe.pdf`);
+  // Save the complete PDF
+  doc.save(`Pachas_${group.name.replace(/\s+/g, '_')}_informe_completo.pdf`);
+}
+
+/**
+ * Exports group geolocated expenses to standard KML format for Google Earth / Google My Maps.
+ * Strictly contains ONLY the trip's establishments with their titles, amounts, and coordinates.
+ */
+export function exportGroupLocationsToKML(group: Group, expenses: Expense[]) {
+  const geoExpenses = expenses.filter(
+    (e) => typeof e.latitude === 'number' && typeof e.longitude === 'number'
+  );
+
+  if (geoExpenses.length === 0) return;
+
+  let kml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  kml += `<kml xmlns="http://www.opengis.net/kml/2.2">\n`;
+  kml += `  <Document>\n`;
+  kml += `    <name>${group.name.replace(/&/g, '&amp;')} - Sitios y Gastos</name>\n`;
+  kml += `    <description>Mapa de establecimientos registrados en Pachas para ${group.name.replace(/&/g, '&amp;')}</description>\n`;
+
+  geoExpenses.forEach((exp, idx) => {
+    const title = (exp.location_name || exp.title).replace(/&/g, '&amp;');
+    const payer = exp.payers?.[0]?.profile?.full_name || exp.creator?.full_name || 'Amigo';
+    const desc = `Gasto: ${exp.title.replace(/&/g, '&amp;')}\nImporte: ${exp.amount} ${exp.currency}\nFecha: ${formatDate(exp.expense_date, 'dd/MM/yyyy HH:mm')}\nPagador: ${payer}\nParada: #${idx + 1}`.replace(/&/g, '&amp;');
+
+    kml += `    <Placemark>\n`;
+    kml += `      <name>#${idx + 1} - ${title}</name>\n`;
+    kml += `      <description>${desc}</description>\n`;
+    kml += `      <Point>\n`;
+    kml += `        <coordinates>${exp.longitude},${exp.latitude},0</coordinates>\n`;
+    kml += `      </Point>\n`;
+    kml += `    </Placemark>\n`;
+  });
+
+  kml += `  </Document>\n`;
+  kml += `</kml>`;
+
+  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `Pachas_${group.name.replace(/\s+/g, '_')}_sitios.kml`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }

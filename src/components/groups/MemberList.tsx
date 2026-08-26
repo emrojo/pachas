@@ -37,8 +37,9 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
     <>
       <div className="divide-y divide-slate-100 dark:divide-slate-800">
         {members.map((member) => {
-          const isCurrentUser = member.user_id === currentUser.id;
+          const isCurrentUser = currentUser ? member.user_id === currentUser.id : false;
           const canRemove = groupId && (isAdmin || isCurrentUser);
+
 
           return (
             <div key={member.id} className="py-3.5 flex items-center justify-between gap-3">

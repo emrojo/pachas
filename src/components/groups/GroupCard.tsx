@@ -22,8 +22,9 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
     0
   );
 
-  const userBalance = balances.find((b) => b.user_id === currentUser.id);
+  const userBalance = currentUser ? balances.find((b) => b.user_id === currentUser.id) : undefined;
   const net = userBalance?.net_balance || 0;
+
 
   return (
     <Link href={`/groups/${group.id}`} className="block group">

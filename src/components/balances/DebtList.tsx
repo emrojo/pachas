@@ -46,9 +46,10 @@ export const DebtList: React.FC<{
       ) : (
         <div className="space-y-2.5">
           {debts.map((debt, idx) => {
-            const isMeDebtor = debt.from_user_id === currentUser.id;
-            const isMeCreditor = debt.to_user_id === currentUser.id;
+            const isMeDebtor = currentUser ? debt.from_user_id === currentUser.id : false;
+            const isMeCreditor = currentUser ? debt.to_user_id === currentUser.id : false;
             const isInvolved = isMeDebtor || isMeCreditor;
+
 
             return (
               <div

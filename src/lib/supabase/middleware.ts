@@ -2,6 +2,21 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function updateSession(request: NextRequest) {
+  // 1. Force HTTPS in production when behind a proxy/load balancer
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const host = request.headers.get('host') || request.nextUrl.host;
+  if (
+    process.env.NODE_ENV === 'production' &&
+    forwardedProto &&
+    forwardedProto === 'http' &&
+    !host.includes('localhost') &&
+    !host.includes('127.0.0.1')
+  ) {
+    const secureUrl = new URL(request.url);
+    secureUrl.protocol = 'https:';
+    return NextResponse.redirect(secureUrl, 301);
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -10,9 +25,11 @@ export async function updateSession(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
-    // If Supabase credentials are placeholders, let request proceed
+    // If Supabase credentials are placeholders, let request proceed in demo/dev mode
     return supabaseResponse;
   }
+
+  const isProd = process.env.NODE_ENV === 'production';
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -25,7 +42,12 @@ export async function updateSession(request: NextRequest) {
           request,
         });
         cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
+          supabaseResponse.cookies.set(name, value, {
+            ...options,
+            sameSite: options?.sameSite || 'lax',
+            secure: isProd ? true : (options?.secure ?? false),
+            path: '/',
+          })
         );
       },
     },
@@ -59,3 +81,4 @@ export async function updateSession(request: NextRequest) {
 
   return supabaseResponse;
 }
+

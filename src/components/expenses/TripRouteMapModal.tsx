@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Group, Expense } from '@/types/database';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/currencies';
 import { formatDate } from '@/lib/utils';
 import { getCategoryInfo } from '@/lib/categories';
+import { exportGroupLocationsToKML } from '@/lib/export';
 import {
   MapPin,
   ExternalLink,
@@ -19,7 +21,22 @@ import {
   ChevronRight,
   Route,
   Sparkles,
+  Download,
+  Globe,
 } from 'lucide-react';
+
+// Dynamically load interactive Leaflet map purely on client-side
+const TripInteractiveMap = dynamic(
+  () => import('./TripInteractiveMap').then((mod) => mod.TripInteractiveMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 sm:h-80 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center justify-center text-xs text-slate-400 border border-slate-200 dark:border-slate-800">
+        Cargando mapa interactivo...
+      </div>
+    ),
+  }
+);
 
 export interface TripRouteMapModalProps {
   group: Group;
@@ -46,25 +63,7 @@ export const TripRouteMapModal: React.FC<TripRouteMapModalProps> = ({
 
   const [selectedStopIndex, setSelectedStopIndex] = useState<number>(0);
 
-  const selectedExpense = geoStops[selectedStopIndex] || geoStops[0];
-
-  // Calculate center coordinates
-  const centerLat =
-    geoStops.length > 0
-      ? geoStops.reduce((sum, e) => sum + (e.latitude || 0), 0) / geoStops.length
-      : 40.4168;
-  const centerLng =
-    geoStops.length > 0
-      ? geoStops.reduce((sum, e) => sum + (e.longitude || 0), 0) / geoStops.length
-      : -3.7038;
-
-  // Active coordinates to focus in embed
-  const activeLat = selectedExpense?.latitude || centerLat;
-  const activeLng = selectedExpense?.longitude || centerLng;
-
-  const mapEmbedUrl = `https://maps.google.com/maps?q=${activeLat},${activeLng}&z=14&output=embed`;
-
-  // Build multi-stop Google Maps URL
+  // Build multi-stop Google Maps Navigation Route URL (with directions)
   const buildGoogleMapsRouteUrl = () => {
     if (geoStops.length === 0) return 'https://maps.google.com';
     if (geoStops.length === 1) {
@@ -85,6 +84,15 @@ export const TripRouteMapModal: React.FC<TripRouteMapModalProps> = ({
     return url;
   };
 
+  // Get direct Google Maps link for a single establishment
+  const getEstablishmentMapUrl = (expense: Expense) => {
+    if (!expense.latitude || !expense.longitude) return 'https://maps.google.com';
+    const query = expense.location_name
+      ? `${expense.location_name}, ${expense.latitude},${expense.longitude}`
+      : `${expense.latitude},${expense.longitude}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  };
+
   const totalGeoSpent = geoStops.reduce(
     (sum, e) => sum + (e.converted_amount || e.amount),
     0
@@ -95,7 +103,7 @@ export const TripRouteMapModal: React.FC<TripRouteMapModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Itinerario de Pagos del Viaje`}
-      description={`Ruta histórica de pagos geolocalizados en ${group.name}`}
+      description={`Ruta y fichas de establecimientos geolocalizados en ${group.name}`}
       maxWidth="xl"
     >
       <div className="space-y-4">
@@ -144,53 +152,40 @@ export const TripRouteMapModal: React.FC<TripRouteMapModalProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Left: Interactive Map Preview */}
+            {/* Left: Dedicated Interactive Map (Strictly trip places only) */}
             <div className="lg:col-span-7 space-y-2">
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 h-64 sm:h-80 bg-slate-100 dark:bg-slate-950 shadow-inner">
-                <iframe
-                  title="Mapa de ruta de gastos"
-                  width="100%"
-                  height="100%"
-                  src={mapEmbedUrl}
-                  className="border-0 w-full h-full"
-                  loading="lazy"
-                />
+              <TripInteractiveMap
+                group={group}
+                geoStops={geoStops}
+                selectedStopIndex={selectedStopIndex}
+                onSelectStop={(idx) => setSelectedStopIndex(idx)}
+                showRouteLineDefault={false}
+              />
 
-                {/* Selected stop overlay pill */}
-                {selectedExpense && (
-                  <div className="absolute top-3 left-3 right-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-md flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                        {selectedStopIndex + 1}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                          {selectedExpense.title}
-                        </span>
-                        <span className="text-[10px] text-slate-400 block truncate">
-                          {selectedExpense.location_name || 'Coordenadas GPS'}
-                        </span>
-                      </div>
-                    </div>
+              {/* Action Buttons: Open Google Maps Route & Export KML for My Maps / Earth */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportGroupLocationsToKML(group, geoStops)}
+                  className="gap-1.5 text-xs font-bold w-full justify-center"
+                  title="Descargar archivo KML con solo tus sitios para abrir en Google Earth o Google My Maps"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                  <span>KML para Google My Maps</span>
+                </Button>
 
-                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 shrink-0">
-                      {formatMoney(selectedExpense.amount, selectedExpense.currency)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Button: Open Google Maps Route */}
-              <div className="flex items-center justify-between gap-2">
                 <a
                   href={buildGoogleMapsRouteUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40 transition-colors w-full justify-center shadow-xs"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-950 px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800/60 transition-colors justify-center shadow-xs text-center"
+                  title="Abrir ruta con indicaciones y navegación paso a paso en Google Maps"
                 >
-                  <Navigation className="w-4 h-4" />
-                  <span>Abrir ruta completa en Google Maps</span>
-                  <ExternalLink className="w-3 h-3 ml-0.5" />
+                  <Navigation className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Ruta en Google Maps</span>
+                  <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
                 </a>
               </div>
             </div>
@@ -242,12 +237,23 @@ export const TripRouteMapModal: React.FC<TripRouteMapModalProps> = ({
                           </span>
                         </div>
 
-                        {/* Location Name */}
-                        {expense.location_name && (
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">
-                            📍 {expense.location_name.split(',')[0]}
+                        {/* Location Name & Google Maps Direct Link */}
+                        <div className="flex items-center justify-between gap-1 mt-0.5">
+                          <span className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
+                            📍 {expense.location_name ? expense.location_name.split(',')[0] : `${expense.latitude?.toFixed(4)}, ${expense.longitude?.toFixed(4)}`}
                           </span>
-                        )}
+                          <a
+                            href={getEstablishmentMapUrl(expense)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 shrink-0 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100"
+                            title="Abrir este local en Google Maps"
+                          >
+                            <span>Ficha</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        </div>
 
                         {/* Date and Hour with Timezone & Payer */}
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">

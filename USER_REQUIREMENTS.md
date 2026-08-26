@@ -69,7 +69,7 @@ This document serves as the official and permanent registry for all **user requi
   - *Page 2*: **Comparative Friend Chart (Total Paid vs Consumed)**, Full Balance Table by Participant, and Suggested Settlement Plan with Bizum.
   - *Page 3*: **Full Expense History Table**: Complete table of all trip expenses (date, concept, category, payer, original and converted currency amounts).
   - *Page 4 onwards*: **Individual Expense Breakdown per Person**: Dedicated section for each friend with a summary card (Total Paid, Total Consumed, Net Balance) and a detailed table of all expenses they participated in or paid for individual verification.
-- **FR-09.2**: Download in **European CSV / Excel** format with semicolon (`;`) column separators and comma (`,`) decimals.
+- **FR-09.2**: Download in **European CSV / Excel** format with semicolon (`;`) column separators, comma (`,`) decimals, and dedicated columns for `Establecimiento / Ubicación` (establishment name), `Coordenadas` (latitude, longitude), and `Enlace Google Maps` (clickable direct link).
 
 ### 📍 FR-10: Geolocation & Expense Maps (Google Maps)
 - **FR-10.1**: **Physical Presence Detection**: Checkbox *"I am physically at the payment location"* capturing high-precision GPS coordinates from mobile/browser and autocompleting establishment/address name via reverse geocoding.
@@ -80,7 +80,7 @@ This document serves as the official and permanent registry for all **user requi
 ### 📥 FR-11: Bulk Expense Import from Excel / CSV
 - **FR-11.1**: Upload of `.csv`, `.txt`, `.tsv` files or direct copy-pasting from spreadsheets (Excel, Numbers, Google Sheets).
 - **FR-11.2**: Automatic detection of separators (`;`, `,`, tabs) and European decimal commas.
-- **FR-11.3**: **Official CSV Template Download** button with predefined headers (`Date;Concept;Category;Amount;Currency;Paid By;Split Between;Notes`) and personalized suggestions with actual group member names.
+- **FR-11.3**: **Official CSV Template Download** button with predefined headers (`Date;Concept;Category;Amount;Currency;Paid By;Split Between;Establecimiento / Ubicación;Coordenadas;Notes`) and personalized suggestions with actual group member names and location examples.
 - **FR-11.4**: Automatic normalization of categories, dates, and exchange rates.
 - **FR-11.5**: **Interactive Preview Table**: Visual row validation with error/warning badges and the ability to delete or adjust rows before importing.
 - **FR-11.6**: **Strict Member Validation & "All" Alias**: Validates group member names; if `"Todos"`, `"All"`, or empty is specified in participants, it automatically maps to all registered group friends without throwing errors.
@@ -88,6 +88,10 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-11.8**: **Undo Import**: One-click rollback to revert the last imported batch, deleting created expenses and recalculating group balances immediately.
 - **FR-11.9**: **Full Error Details Modal**: Clickable error cells/buttons in the preview table opening an explanatory popup with original row values, fix suggestions, and a direct row deletion button.
 - **FR-11.10**: **Multi-Payer Import Support**: Ability to process expenses paid by multiple friends with specified amounts (`Eduardo: 350 + Carlos: 250`) or equal splits (`Eduardo + Carlos`).
+- **FR-11.11**: **Location, GPS Coordinates & Google Maps Link Import**:
+  - Support for importing establishment names, raw GPS coordinates (e.g. `39.8631, 4.2186` or European `39,8631; 4,2186`), Google Maps URLs (`https://maps.google.com/?q=...` or `@lat,lng`), or combined text (`"Restaurante El Faro (39.8631, 4.2186)"`).
+  - Graceful fallback for rows with only establishment name, rows with only GPS coordinates, or empty location columns when no physical location is specified.
+  - Interactive preview table display with establishment name and clickable 📍 GPS pin link to Google Maps.
 
 ### 👥 FR-12: Test Users & Local Simulation
 - **FR-12.1**: **Local User Creation Modal**: Create synthetic test profiles specifying full name, email, Bizum phone, avatar picker, and auto-inclusion in existing groups.
@@ -99,7 +103,13 @@ This document serves as the official and permanent registry for all **user requi
 ### 🧭 FR-13: Timezone Recording & Historical Trip Route Map
 - **FR-13.1**: **Timestamp & Timezone Capture**: Captures exact time and ISO timezone (`YYYY-MM-DDTHH:mm:ss±HH:MM`) when recording or editing expenses, displaying the user's timezone.
 - **FR-13.2**: **Timestamp Display in List**: Expense cards show formatted date and time (`d MMM, HH:mm`, e.g., `20 Aug, 20:44`).
-- **FR-13.3**: **Trip Route Map Modal (`TripRouteMapModal`)**: Interactive viewer ordering all geolocated trip expenses chronologically, showing numbered stop pins (1, 2, 3...), and providing a direct button to open the **full multi-stop navigation route in Google Maps**.
+- **FR-13.3**: **Trip Route Map & Multi-Establishment Pins Modal (`TripRouteMapModal` & `TripInteractiveMap`)**:
+  - **Exclusive Trip Venue Map**: High-performance interactive vector map displaying strictly and exclusively the trip's geolocated expenses as numbered custom pins (`1`, `2`, `3`...), completely free of third-party advertisements or unrelated nearby businesses.
+  - **Interactive Establishment Popups (Fichas)**: Clicking any map pin or list item opens an informational popup with establishment name, expense title, category emoji, amount, date, payer, and a direct Google Maps venue card button.
+  - **Toggle View Mode**: Live switch between *"Solo Fichas"* (isolated markers) and *"Con Ruta"* (dashed route polyline connecting chronological stops).
+  - **KML Export for Google My Maps & Earth**: 1-click download of a standard `.kml` file containing only the trip's registered establishments with detailed metadata for custom layers in Google My Maps and Google Earth.
+  - **Turn-by-turn Navigation Route**: Button to open the full multi-stop directions route in Google Maps (`/maps/dir/...`).
+  - **Individual Establishment Links ("Ficha")**: Direct link on each timeline stop item to inspect that specific venue on Google Maps.
 - **FR-13.4**: **Trip Timeline Feed**: Chronological activity feed with amount, currency, title, payer, and exact timestamp.
 
 ### ⏱️ FR-14: Temporal Expense List Sorting
@@ -162,6 +172,18 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-21.2**: **Accessible Logout Buttons in Navbar & Profile**:
   - Direct **Log Out** button in user dropdown ([`Navbar.tsx`](file:///d:/Projects/pachas/src/components/layout/Navbar.tsx)) and in profile settings ([`profile/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/profile/page.tsx)), smoothly redirecting to the login screen ([`/login`](file:///d:/Projects/pachas/src/app/(auth)/login/page.tsx)).
 
+### 📱 FR-22: Mobile Applications (PWA & Native Capacitor Wrapper)
+- **FR-22.1**: **Progressive Web App (PWA) Standalone**:
+  - Web App Manifest ([`public/manifest.json`](file:///d:/Projects/pachas/public/manifest.json)), high-resolution scalable SVG icons ([`public/icon.svg`](file:///d:/Projects/pachas/public/icon.svg)), and mobile viewport cover meta tags in [`src/app/layout.tsx`](file:///d:/Projects/pachas/src/app/layout.tsx).
+  - Installable on iOS (Safari *"Add to Home Screen"*) and Android (Chrome *"Install App"*) running in full-screen standalone mode without browser navigation bars.
+- **FR-22.2**: **Native Store Packaging with Capacitor.js**:
+  - Pre-configured Capacitor integration ([`capacitor.config.ts`](file:///d:/Projects/pachas/capacitor.config.ts), `@capacitor/core`, `@capacitor/android`, `@capacitor/ios`).
+  - Pre-integrated native plugins: `@capacitor/splash-screen`, `@capacitor/status-bar`, and `@capacitor/haptics`.
+  - Configurable for live remote URL loading (instant over-the-air updates without store review delays) or local bundled static export.
+  - Helper npm scripts in [`package.json`](file:///d:/Projects/pachas/package.json) (`cap:sync`, `cap:android`, `cap:ios`, `cap:add:android`, `cap:add:ios`).
+- **FR-22.3**: **Mobile Deployment & Store Submission Guide**:
+  - Comprehensive documentation in [`deploy/MOBILE.md`](file:///d:/Projects/pachas/deploy/MOBILE.md) for Google Play Store (`.aab` / `.apk`) and Apple App Store (`.ipa`) builds and signing.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -208,4 +230,6 @@ This document serves as the official and permanent registry for all **user requi
 | **20/08/2026** | 🚪 Added | **FR-21** | Full user logout functionality with session destruction and redirect to login from Navbar and Profile. |
 | **20/08/2026** | 🧹 Added | **FR-19.7** | Production database reset tools (`deploy/reset-db.ps1`, `deploy/reset-db.sh`, `deploy/init-scripts/reset-db.sql`) and clean initial demo seeds. |
 | **20/08/2026** | 🖼️ Added | **FR-03.4** | Custom profile photo upload with automated canvas compression, preset avatar gallery, and remove photo option in Profile and User Creation. |
-| **21/08/2026** | 🌐 Translated | **Documentation** | Translated all repository Markdown documentation files (`README.md`, `deploy/README.md`, `USER_REQUIREMENTS.md`) to English. |
+| **24/08/2026** | 📍 Added | **FR-11.11 & FR-09.2** | CSV export/import of establishment locations, GPS coordinates (or European comma syntax), and Google Maps URLs, with preview pin indicators and updated sample templates. |
+| **24/08/2026** | 🗺️ Added | **FR-13.3** | Dedicated interactive map (`TripInteractiveMap`) rendering exclusively trip establishments (no third-party places), interactive popups (fichas), route line toggle, KML export for Google My Maps / Earth, and individual venue Google Maps links. |
+| **24/08/2026** | 📱 Added | **FR-22** | Mobile readiness: Complete Progressive Web App (PWA) configuration with manifest and icons, plus native store packaging setup with Capacitor.js and guide (`deploy/MOBILE.md`). |

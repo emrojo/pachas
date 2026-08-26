@@ -27,6 +27,8 @@ const PHOTO_PRESETS = [
   { label: 'Camping & Ruta', url: 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=500&auto=format&fit=crop&q=80' },
 ];
 
+import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
+
 export interface CreateGroupModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -49,17 +51,17 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Handle local image file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local image file upload securely
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        setCoverImageUrl(result);
+      try {
+        const compressed = await validateAndCompressImage(file, 800, 0.85);
+        setCoverImageUrl(compressed);
         setVisualMode('photo');
-      };
-      reader.readAsDataURL(file);
+      } catch (err: any) {
+        setError(err.message || 'Error al procesar la imagen seleccionada');
+      }
     }
   };
 
@@ -74,8 +76,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       setIsLoading(true);
       setError('');
       const newGroup = await createGroup(
-        name.trim(),
-        description.trim(),
+        sanitizeText(name, 80),
+        sanitizeText(description, 300),
         emoji,
         currency,
         visualMode === 'photo' ? coverImageUrl : null
@@ -92,6 +94,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       setIsLoading(false);
     }
   };
+
 
   return (
     <Modal

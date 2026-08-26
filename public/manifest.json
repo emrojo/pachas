@@ -1,21 +1,48 @@
 {
-  "name": "Pachas - Compartir Gastos en Vacaciones",
+  "name": "Pachas — Gastos Compartidos con Amigos",
   "short_name": "Pachas",
-  "description": "Comparte y liquida gastos de viajes con amigos fácilmente",
-  "start_url": "/dashboard",
+  "description": "La app más fácil para dividir gastos de viajes, hoteles, cenas y alquileres con amigos a partes iguales o personalizadas.",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#10b981",
+  "orientation": "portrait",
+  "background_color": "#022c22",
+  "theme_color": "#059669",
+  "categories": ["finance", "travel", "lifestyle", "utilities"],
   "icons": [
     {
-      "src": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=192&auto=format&fit=crop&q=80",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=512&auto=format&fit=crop&q=80",
+      "src": "/icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mis Grupos de Viaje",
+      "short_name": "Grupos",
+      "description": "Ver lista de viajes y vacaciones activas",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Mi Perfil",
+      "short_name": "Perfil",
+      "description": "Gestionar avatar, Bizum y ajustes",
+      "url": "/profile",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
     }
   ]
 }

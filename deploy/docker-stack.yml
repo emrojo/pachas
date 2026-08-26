@@ -1,12 +1,52 @@
 version: '3.8'
 
 # ==============================================================================
-# PACHAS - DOCKER STACK SPECIFICATION (SWARM MODE)
+# PACHAS - DOCKER STACK SPECIFICATION (SWARM MODE - HARDENED PRODUCTION)
 # ==============================================================================
 # Despliegue con: docker stack deploy -c deploy/docker-stack.yml pachas
 # ==============================================================================
 
 services:
+  # ----------------------------------------------------------------------------
+  # 0. REVERSE PROXY & RATE LIMITING INGRESS (NGINX)
+  # ----------------------------------------------------------------------------
+  proxy:
+    image: nginx:alpine
+    ports:
+      - target: 80
+        published: ${HTTP_PORT:-80}
+        protocol: tcp
+        mode: ingress
+      - target: 443
+        published: ${HTTPS_PORT:-443}
+        protocol: tcp
+        mode: ingress
+    configs:
+      - source: nginx_conf
+        target: /etc/nginx/nginx.conf
+      - source: nginx_default_conf
+        target: /etc/nginx/conf.d/default.conf
+    networks:
+      - pachas_network
+    depends_on:
+      - app
+      - postgrest
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/healthz || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+
   # ----------------------------------------------------------------------------
   # 1. PACHAS NEXT.JS WEB APPLICATION
   # ----------------------------------------------------------------------------
@@ -18,11 +58,7 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:3001}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key}
-    ports:
-      - target: 3000
-        published: 3000
-        protocol: tcp
-        mode: ingress
+      - NEXT_PUBLIC_ADMIN_EMAIL=${NEXT_PUBLIC_ADMIN_EMAIL:-admin@pachas.local}
     networks:
       - pachas_network
     configs:
@@ -110,11 +146,6 @@ services:
       PGRST_DB_ANON_ROLE: ${POSTGRES_USER:-pachas_admin}
       PGRST_SERVER_PORT: 3001
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3001
-    ports:
-      - target: 3001
-        published: 3001
-        protocol: tcp
-        mode: ingress
     networks:
       - pachas_network
     healthcheck:
@@ -150,3 +181,8 @@ configs:
     file: ./env.example
   db_schema:
     file: ./init-scripts/01-schema.sql
+  nginx_conf:
+    file: ./nginx/nginx.conf
+  nginx_default_conf:
+    file: ./nginx/default.conf
+

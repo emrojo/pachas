@@ -27,7 +27,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const [showLocation, setShowLocation] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isCreator = expense.created_by === currentUser.id;
+  const isCreator = currentUser ? expense.created_by === currentUser.id : false;
   const isForeign = expense.currency !== baseCurrency;
   const hasLocation = !!(expense.latitude && expense.longitude);
   const category = getCategoryInfo(expense.category);
@@ -38,17 +38,21 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const isMultiPayer = (expense.payers?.length || 0) > 1;
 
   // Calculate user share in the original expense currency
-  const userPaidOriginal =
-    expense.payers?.find((p) => p.user_id === currentUser.id)?.amount_paid ||
-    (expense.created_by === currentUser.id && !expense.payers?.length ? expense.amount : 0);
+  const userPaidOriginal = currentUser
+    ? expense.payers?.find((p) => p.user_id === currentUser.id)?.amount_paid ||
+      (expense.created_by === currentUser.id && !expense.payers?.length ? expense.amount : 0)
+    : 0;
 
-  const userParticipant = expense.participants?.find((p) => p.user_id === currentUser.id);
+  const userParticipant = currentUser
+    ? expense.participants?.find((p) => p.user_id === currentUser.id)
+    : undefined;
   const expenseBaseAmount = expense.converted_amount || expense.amount || 1;
   const userOwedConverted = userParticipant ? userParticipant.amount_owed : 0;
   // Convert user owed portion back to the expense's original currency for display on this specific card
   const userOwedOriginal = (userOwedConverted / expenseBaseAmount) * expense.amount;
   const userInvolved = userPaidOriginal > 0 || !!userParticipant;
   const netDiff = Math.round((userPaidOriginal - userOwedOriginal) * 100) / 100;
+
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();

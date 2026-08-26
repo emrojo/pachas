@@ -23,10 +23,19 @@ yarn-debug.log*
 yarn-error.log*
 
 # Local env files
+.env
+.env.local
 .env*.local
 .env.production
 deploy/.env.production
 deploy/.env
+deploy/.env.local
+
+# SSL Certificates & Let's Encrypt
+certs/
+deploy/nginx/certs/
+deploy/nginx/certbot-www/
+
 
 # Vercel
 .vercel

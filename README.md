@@ -43,17 +43,23 @@
 - **GPS & Google Maps Integration**:
   - Automatic geolocation detection with reverse geocoding of establishment names.
   - Interactive expense map viewer with manual search.
-  - **Trip Route Map Modal**: Chronological multi-stop trip route with direct navigation in Google Maps.
+  - **Trip Route Map & Multi-Establishment Pins Modal**: Chronological multi-stop trip route with direct navigation in Google Maps, plus a standalone places view to explore all establishments as identified markers without route lines.
 
 ### 📥 Bulk Imports & 📄 Comprehensive Reports
 - **Bulk Excel / CSV Import**:
   - Upload `.csv`, `.tsv`, `.txt` files or copy-paste spreadsheet tables.
-  - Official downloadable CSV template customized with actual group member names.
+  - Official downloadable CSV template customized with actual group member names and location examples.
   - Multi-payer parsing (`Eduardo: 350 + Carlos: 250`) and `"Todos"` / `"All"` aliases.
-  - Interactive preview table with diagnostic error popup modals and **1-Click Undo Import**.
+  - **Location & Google Maps Import**: Parses establishment names, raw GPS coordinates (`39.8631, 4.2186` or `39,8631; 4,2186`), Google Maps URLs, or leaves blank for non-located expenses.
+  - Interactive preview table with location pin indicators, diagnostic error popup modals, and **1-Click Undo Import**.
 - **Vector PDF & CSV Exporting**:
   - **Full PDF Report**: Official trip header, vector charts (daily evolution, category distribution, friend comparison), complete history table, and **individualized breakdown pages per person**.
-  - **European CSV**: Clean spreadsheet export with semicolon separators and decimal commas.
+  - **European CSV with Location**: Clean spreadsheet export with semicolon separators, decimal commas, and dedicated columns for `Establecimiento / Ubicación`, `Coordenadas`, and clickable `Enlace Google Maps`.
+
+### 📱 Mobile Applications (PWA & Native Capacitor Wrapper)
+- **Progressive Web App (PWA)**: Full standalone installability on iOS (Safari) and Android (Chrome) with custom app manifest, icons, theme colors, and full-screen experience.
+- **Native Store Packaging (Capacitor.js)**: Pre-configured Capacitor integration (`capacitor.config.ts`, `@capacitor/core`, splash screen, status bar, and haptics) ready to generate native Xcode (iOS) and Android Studio projects for Google Play and the Apple App Store.
+- **Comprehensive Mobile Guide**: Detailed instructions in [`deploy/MOBILE.md`](file:///d:/Projects/pachas/deploy/MOBILE.md).
 
 ### 🔐 Security, Profiles & Production Readiness
 - **Custom Profile Photos**: Upload custom photos directly from mobile/desktop with automatic canvas compression, preset avatar gallery, and initials fallback.

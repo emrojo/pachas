@@ -1,20 +1,23 @@
-# 🐳 Pachas Deployment with Docker Stack (Docker Swarm)
+# 🐳 Pachas Deployment & Production Hardening Guide
 
-Complete guide for containerization, orchestration, and production deployment of **Pachas** and its dependent services using **Docker Stack** (Docker Swarm Mode) or **Docker Compose**.
+Complete guide for containerization, security hardening, orchestration, and production deployment of **Pachas** and its dependent services using **Docker Stack** (Docker Swarm Mode), **Docker Compose**, or **Native Mobile Packaging (Capacitor)**.
 
 ---
 
-## 🏗️ Stack Services Architecture
+## 🏗️ Secure Production Stack Architecture
 
-The [`docker-stack.yml`](./docker-stack.yml) file defines the following microservices topology:
+The [`docker-stack.yml`](./docker-stack.yml) and [`docker-compose.yml`](./docker-compose.yml) files define the following hardened microservices topology:
 
 ```
                   ┌─────────────────────────────────┐
-                  │    Ingress / Load Balancer      │
+                  │    Ingress / Port 80 & 443      │
+                  │   Hardened Nginx Reverse Proxy  │
+                  │  (Rate Limiting + CSP + SSL)    │
                   └──────────────┬──────────────────┘
                                  │
                  ┌───────────────┴───────────────┐
                  │                               │
+        Internal Proxy                  Internal Proxy
         Port 3000 (HTTP)                Port 3001 (REST)
                  │                               │
                  ▼                               ▼
@@ -25,30 +28,31 @@ The [`docker-stack.yml`](./docker-stack.yml) file defines the following microser
        └─────────┬─────────┘           └─────────┬─────────┘
                  │                               │
                  └───────────────┬───────────────┘
-                                 │ Internal Overlay Network
+                                 │ Internal Encrypted Overlay Network
                                  ▼
                        ┌───────────────────┐
                        │  pachas_postgres  │
-                       │  (PostgreSQL 15 + │
-                       │   Pachas Schema)  │
+                       │ (PostgreSQL 15 +  │
+                       │  Hardened RLS)    │
                        └─────────┬─────────┘
                                  │
                            [Data Volume]
 ```
 
 ### Included Services:
-1. **`pachas_app`**:
-   - Next.js 14 web application compiled in `standalone` mode using an ultra-lightweight image (Alpine Linux).
-   - Scaled with multiple replicas (default 2) with built-in load balancing and zero-downtime rolling updates.
-   - Active healthcheck configured every 20s.
-2. **`pachas_postgres`**:
-   - PostgreSQL 15 relational database server.
-   - Automatically executes the initialization script [`init-scripts/01-schema.sql`](./init-scripts/01-schema.sql) which creates tables, functions, triggers, and Row Level Security (RLS) policies on first boot.
-   - Persistent storage backed by named volume `postgres_data`.
-3. **`pachas_postgrest`**:
-   - RESTful API layer over PostgreSQL for data access.
-4. **`pachas_network`**:
-   - Isolated and encrypted overlay network for internal container-to-container communication.
+1. **`pachas_proxy` (Nginx Alpine)**:
+   - Point of entry with rate limiting (5 req/s on auth endpoints, 30 req/s general).
+   - Injects security headers (`X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`).
+   - Static asset caching and compression (Gzip/Brotli).
+2. **`pachas_app`**:
+   - Next.js 14 web application compiled in `standalone` mode (Alpine Linux).
+   - Scaled with multiple replicas (default 2) with zero-downtime rolling updates.
+   - Built-in CSP, HTTPS redirection, and secure cookies.
+3. **`pachas_postgres`**:
+   - PostgreSQL 15 relational database server with Row Level Security (RLS) on all tables.
+   - Auto-initializes schema, tables, triggers, and granular RLS policies (`init-scripts/01-schema.sql`).
+4. **`pachas_postgrest`**:
+   - RESTful API layer over PostgreSQL for fast data access.
 
 ---
 
@@ -58,116 +62,103 @@ The [`docker-stack.yml`](./docker-stack.yml) file defines the following microser
 deploy/
 ├── Dockerfile                  # Multi-stage build optimized for Next.js standalone
 ├── .dockerignore               # File filter to accelerate builds
-├── docker-stack.yml            # Official specification for Docker Swarm (Stack)
-├── docker-compose.yml          # Specification for local development / simple Compose
-├── env.example                 # Environment variables template
+├── docker-stack.yml            # Production Swarm Stack specification with Nginx Proxy
+├── docker-compose.yml          # Production / Local Compose specification with Nginx Proxy
+├── env.example                 # Environment variables template with security flags
+├── generate-secrets.mjs        # Cryptographic secrets generator (PostgreSQL, JWT)
+├── generate-secrets.ps1        # PowerShell wrapper for secrets generator
+├── build-native.ps1            # Automated native build pipeline for Windows (Android/iOS)
+├── build-native.sh             # Automated native build pipeline for Linux/macOS
 ├── deploy.sh                   # Automated deployment script for Linux/macOS
 ├── deploy.ps1                  # Automated deployment script for Windows PowerShell
 ├── reset-db.sh                 # Database reset script for Linux/macOS
 ├── reset-db.ps1                # Database reset script for Windows PowerShell
 ├── README.md                   # This guide
+├── MOBILE.md                   # Mobile native (Capacitor) & PWA guide
+├── nginx/
+│   ├── nginx.conf              # Global Nginx performance & rate limiting config
+│   └── default.conf            # Virtual host with auth brute-force protection
 └── init-scripts/
-    ├── 01-schema.sql           # SQL schema with tables, functions, triggers, and RLS
+    ├── 01-schema.sql           # SQL schema with tables, triggers, and full RLS policies
     └── reset-db.sql            # Clean database truncate script
 ```
 
 ---
 
-## 🚀 Quick Deployment (1 Command)
+## 🔒 Production Security Quickstart
 
-### On Linux / macOS:
+### 1. Generate High-Entropy Cryptographic Secrets
+Generate strong random keys and create `deploy/.env.production`:
 ```bash
+# Node.js:
+node deploy/generate-secrets.mjs
+
+# Or PowerShell:
+.\deploy\generate-secrets.ps1
+```
+
+### 2. Deploy the Stack
+```powershell
+# Windows (PowerShell):
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\deploy\deploy.ps1
+
+# Linux / macOS:
 chmod +x deploy/deploy.sh
 ./deploy/deploy.sh
 ```
 
-### On Windows (PowerShell):
+---
+
+## ⚡ Native Node.js Production Mode (Standalone & Cluster)
+
+If you prefer to run Pachas natively on a Node.js server (e.g. Bare Metal, VPS, AWS EC2, DigitalOcean) without Docker:
+
+### 1. Standalone Single-Process Production Server:
 ```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\deploy\deploy.ps1
+# Windows:
+.\deploy\start-node-prod.ps1
+
+# Linux / macOS / NPM:
+npm run start:prod
+```
+- Automatically prepares static assets into `.next/standalone/`.
+- Loads `deploy/.env.production`.
+- Enables production security headers and graceful process shutdown.
+
+### 2. Multi-Core Cluster Mode with PM2:
+```bash
+# Start cluster across all CPU cores:
+npm run prod:cluster
+
+# View live cluster status & CPU/RAM metrics:
+npx pm2 status
+
+# Stream production logs:
+npx pm2 logs pachas-prod
+
+# Graceful reload / stop:
+npm run prod:stop
 ```
 
 ---
 
-## 🛠️ Step-by-Step Manual Deployment (Docker Stack)
+## 📱 Mobile Native Production Builds (Android & iOS)
 
-### 1. Initialize Docker Swarm (if not active)
-```bash
-docker swarm init
+To build the secure native application wrapper with Capacitor:
+
+```powershell
+# Build Android Standalone Bundle:
+.\deploy\build-native.ps1 -Platform android
+
+# Build Android with Live Production HTTPS Server:
+.\deploy\build-native.ps1 -Platform android -ServerUrl "https://pachas.yourdomain.com"
+
+# Build iOS Release (macOS):
+./deploy/build-native.sh ios "https://pachas.yourdomain.com"
 ```
 
-### 2. Configure Environment Variables
-Copy the template and adjust values if needed:
-```bash
-cp deploy/env.example deploy/.env.production
-```
-
-### 3. Build Application Docker Image
-```bash
-docker build -f deploy/Dockerfile -t pachas:latest .
-```
-
-### 4. Deploy the Stack to the Cluster
-```bash
-docker stack deploy -c deploy/docker-stack.yml pachas
-```
-
----
-
-## 📊 Management and Monitoring Commands
-
-### Check Stack services status:
-```bash
-docker stack services pachas
-```
-
-### List running containers / tasks:
-```bash
-docker stack ps pachas
-```
-
-### View real-time application logs:
-```bash
-docker service logs -f pachas_app
-```
-
-### View PostgreSQL database logs:
-```bash
-docker service logs -f pachas_postgres
-```
-
-### Scale web application replicas:
-```bash
-docker service scale pachas_app=4
-```
-
-### Zero-downtime rolling update:
-```bash
-# After building a new image version:
-docker service update --image pachas:latest --update-parallelism 1 --update-delay 10s pachas_app
-```
-
-### Remove / Teardown the Stack:
-```bash
-docker stack rm pachas
-```
-
----
-
-## 🧪 Alternative Deployment with Docker Compose (Local Dev)
-
-If you prefer to start services without enabling Docker Swarm, run:
-
-```bash
-# Start services in background
-docker compose -f deploy/docker-compose.yml up -d --build
-
-# View logs
-docker compose -f deploy/docker-compose.yml logs -f
-
-# Stop services
-docker compose -f deploy/docker-compose.yml down
-```
+For complete store submission steps, see [`MOBILE.md`](./MOBILE.md).
 
 ---
 
@@ -176,7 +167,6 @@ docker compose -f deploy/docker-compose.yml down
 To **wipe all test data and leave the database completely clean** for official deployment:
 
 ### Option 1: Automated 1-Click Reset Script
-
 - **On Windows (PowerShell):**
   ```powershell
   .\deploy\reset-db.ps1
@@ -187,30 +177,13 @@ To **wipe all test data and leave the database completely clean** for official d
   ./deploy/reset-db.sh
   ```
 
-### Option 2: Manual Reset via Docker Commands
-```bash
-# 1. Stop and remove the stack
-docker stack rm pachas
-
-# 2. Remove the persistent PostgreSQL data volume
-docker volume rm pachas_postgres_data
-
-# 3. Redeploy (auto-initializes clean schema from scratch)
-./deploy/deploy.sh       # On Linux/macOS
-.\deploy\deploy.ps1      # On Windows PowerShell
-```
-
-### Option 3: Hot-Truncate Tables with SQL (without stopping services)
-```bash
-docker exec -i $(docker ps -q -f name=pachas_postgres) psql -U pachas_admin -d pachas -f /docker-entrypoint-initdb.d/reset-db.sql
-```
-
 ---
 
 ## 🌐 Exposed Ports
 
 | Service | Host Port | Description |
 |---|---|---|
-| **Web App (Pachas)** | `http://localhost:3000` | Next.js User Interface |
-| **PostgREST API** | `http://localhost:3001` | REST API for data |
-| **PostgreSQL** | `localhost:5432` | Relational database (Compose) |
+| **Nginx Reverse Proxy** | `http://localhost:80` / `:443` | Main secure ingress with Rate Limiting |
+| **Next.js Web App** | `http://localhost:3000` | Application container (internal) |
+| **PostgREST API** | `http://localhost:3001` | REST API (internal proxy routing) |
+

@@ -135,10 +135,17 @@ export default function GroupDetailPage() {
   }, [activeTab]);
 
   const isAdmin =
-    group?.created_by === currentUser.id ||
-    members.some((m) => m.user_id === currentUser.id && m.role === 'admin');
+    currentUser
+      ? group?.created_by === currentUser.id ||
+        members.some((m) => m.user_id === currentUser.id && m.role === 'admin')
+      : false;
+
+  if (!currentUser) {
+    return null;
+  }
 
   if (!group) {
+
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
         <Card className="text-center p-8 max-w-md w-full">

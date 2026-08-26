@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { Profile } from '@/types/database';
+import { sanitizeText } from '@/lib/security/sanitize';
 import confetti from 'canvas-confetti';
+
 import {
   User,
   Mail,
@@ -98,13 +100,15 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       const groupIdsToAdd = addToAllGroups ? groups.map((g) => g.id) : [];
 
       const created = await createLocalUser({
-        full_name: fullName.trim(),
-        email: email.trim().toLowerCase(),
-        bizum_phone: bizumPhone.trim() || undefined,
+
+        full_name: sanitizeText(fullName, 100),
+        email: sanitizeText(email, 120).toLowerCase(),
+        bizum_phone: sanitizeText(bizumPhone, 25) || undefined,
         avatar_url: selectedAvatar,
         autoSwitch,
         addToGroupIds: groupIdsToAdd,
       });
+
 
       confetti({
         particleCount: 70,

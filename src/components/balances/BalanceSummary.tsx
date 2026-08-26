@@ -15,7 +15,7 @@ export const BalanceSummary: React.FC<{
 }> = ({ group, balances, totalSpent }) => {
   const { currentUser } = usePachas();
 
-  const userBalance = balances.find((b) => b.user_id === currentUser.id);
+  const userBalance = currentUser ? balances.find((b) => b.user_id === currentUser.id) : undefined;
   const net = userBalance?.net_balance || 0;
   const userPaid = userBalance?.total_paid || 0;
   const userOwed = userBalance?.total_owed || 0;
@@ -61,7 +61,7 @@ export const BalanceSummary: React.FC<{
             </h2>
           </div>
 
-          <Avatar profile={currentUser} size="lg" className="ring-2 ring-emerald-500/30" />
+          {currentUser && <Avatar profile={currentUser} size="lg" className="ring-2 ring-emerald-500/30" />}
         </div>
 
         {/* Quick Stats Grid */}
@@ -96,7 +96,7 @@ export const BalanceSummary: React.FC<{
 
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {balances.map((b) => {
-            const isMe = b.user_id === currentUser.id;
+            const isMe = currentUser ? b.user_id === currentUser.id : false;
             return (
               <div key={b.user_id} className="py-2.5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -108,6 +108,7 @@ export const BalanceSummary: React.FC<{
                     <span className="text-[11px] text-slate-400">
                       Pagó {formatMoney(b.total_paid, group.base_currency)} • Consumió {formatMoney(b.total_owed, group.base_currency)}
                     </span>
+
                   </div>
                 </div>
 

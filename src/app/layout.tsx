@@ -1,13 +1,36 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { PachasProvider } from '@/context/PachasContext';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#059669' },
+    { media: '(prefers-color-scheme: dark)', color: '#022c22' },
+  ],
+};
 
 export const metadata: Metadata = {
   title: 'Pachas — Comparte gastos de vacaciones con amigos',
   description:
     'La app más fácil para dividir gastos de viajes, hoteles, cenas y alquileres con amigos a partes iguales o personalizadas.',
   manifest: '/manifest.json',
-  themeColor: '#10b981',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Pachas',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
