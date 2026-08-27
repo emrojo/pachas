@@ -142,6 +142,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const demoAllowed = isDemoModeAllowed();
 
       try {
+        let activeProfile: Profile | null = null;
         const supabase = createClient();
         const { data: authData } = await supabase.auth.getUser();
         const authUser = authData?.user;
@@ -154,7 +155,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             .eq('id', authUser.id)
             .maybeSingle();
 
-          const activeProfile: Profile = {
+          activeProfile = {
             id: authUser.id,
             email: authUser.email || '',
             full_name: dbProfile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuario',
@@ -163,7 +164,18 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             role: dbProfile?.role || authUser.user_metadata?.role || 'member',
             created_at: authUser.created_at,
           };
+        } else {
+          // Check native PostgreSQL auth endpoint /api/auth/me
+          const meRes = await fetch('/api/auth/me');
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            if (meData?.user) {
+              activeProfile = meData.user;
+            }
+          }
+        }
 
+        if (activeProfile) {
           if (isMounted) {
             _setCurrentUser(activeProfile);
           }
@@ -181,11 +193,16 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
           if (dbMembers && isMounted) {
             const memberMap: Record<string, GroupMember[]> = {};
+            const friendProfilesMap = new Map<string, Profile>();
+            friendProfilesMap.set(activeProfile.id, activeProfile);
+
             dbMembers.forEach((m: any) => {
               if (!memberMap[m.group_id]) memberMap[m.group_id] = [];
               memberMap[m.group_id].push(m);
+              if (m.profile) friendProfilesMap.set(m.profile.id, m.profile);
             });
             setMembers(memberMap);
+            setAvailableUsers(Array.from(friendProfilesMap.values()));
           }
 
           // Fetch expenses with payers and participants
@@ -221,6 +238,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (err) {
         console.warn('Supabase data fetch fallback to local storage:', err);
       }
+
 
       // If no Supabase user or in offline/demo mode, load from localStorage
       try {
@@ -466,11 +484,48 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw new Error('Debes iniciar sesión para unirte a un grupo.');
     }
 
+    try {
+      // 1. Try unified PostgreSQL join API route
+      const res = await fetch('/api/groups/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: inviteCode.trim() }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.group) {
+        const group: Group = data.group;
+        const groupMembers: GroupMember[] = data.members || [];
+
+        const updatedMembers = {
+          ...members,
+          [group.id]: groupMembers,
+        };
+
+        const updatedGroups = groups.some((g) => g.id === group.id)
+          ? groups.map((g) => (g.id === group.id ? group : g))
+          : [group, ...groups];
+
+        // Ensure all member profiles are added to availableUsers (friends)
+        const userMap = new Map(availableUsers.map((u) => [u.id, u]));
+        userMap.set(currentUser.id, currentUser);
+        groupMembers.forEach((m) => {
+          if (m.profile) userMap.set(m.profile.id, m.profile);
+        });
+        setAvailableUsers(Array.from(userMap.values()));
+
+        saveState(updatedGroups, updatedMembers);
+        return group;
+      }
+    } catch (e) {
+      console.warn('API joinGroup fallback:', e);
+    }
+
+    // 2. Fallback to Supabase / Local storage search
     let targetGroup = groups.find(
       (g) => g.invite_code.toLowerCase() === inviteCode.trim().toLowerCase()
     );
 
-    // If not in local state, search Supabase
     if (!targetGroup) {
       try {
         const supabase = createClient();
@@ -527,6 +582,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return targetGroup;
   };
+
 
 
   const removeMemberFromGroup = async (groupId: string, userId: string): Promise<boolean> => {
