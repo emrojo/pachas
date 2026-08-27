@@ -5,8 +5,25 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
+-- Ensure auth schema and auth.users table exist for standalone PostgreSQL / PostgREST compatibility
+create schema if not exists auth;
+
+create table if not exists auth.users (
+    id uuid primary key default uuid_generate_v4(),
+    email text unique,
+    raw_user_meta_data jsonb default '{}'::jsonb,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Function to resolve current user ID from JWT claim for Row Level Security (RLS)
+create or replace function auth.uid()
+returns uuid as $$
+    select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+$$ language sql stable;
+
 -- 1. PROFILES TABLE (Linked to auth.users)
 create table if not exists public.profiles (
+
     id uuid primary key references auth.users(id) on delete cascade,
     email text unique not null,
     full_name text not null,

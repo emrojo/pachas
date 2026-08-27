@@ -14,6 +14,8 @@
     "test": "vitest run",
     "security:audit": "node deploy/security-audit.mjs",
     "secrets:generate": "node deploy/generate-secrets.mjs",
+    "db:init": "node deploy/init-db.mjs",
+
 
     "build:native": "next build",
     "cap:sync": "cap sync",

@@ -67,6 +67,9 @@ POSTGRES_DB=${postgresDb}
 POSTGRES_USER=${postgresUser}
 POSTGRES_PASSWORD=${postgresPassword}
 POSTGRES_PORT=5432
+DATABASE_URL=postgresql://${postgresUser}:${postgresPassword}@localhost:5432/${postgresDb}
+JWT_SECRET=${jwtSecret}
+
 
 # ------------------------------------------------------------------------------
 # REVERSE PROXY / INGRESS
