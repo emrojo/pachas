@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { usePachas } from '@/context/PachasContext';
-import { WifiOff, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { WifiOff, RefreshCw, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export function OfflineBanner() {
-  const { isOnline, pendingSyncCount, syncPendingQueue } = usePachas();
+  const { isOnline, pendingSyncCount, syncPendingQueue, clearPendingSyncQueue } = usePachas();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccessMsg, setSyncSuccessMsg] = useState(false);
 
@@ -19,6 +19,12 @@ export function OfflineBanner() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleClearQueue = () => {
+    clearPendingSyncQueue();
+    setSyncSuccessMsg(true);
+    setTimeout(() => setSyncSuccessMsg(false), 2000);
   };
 
   // When online, everything synced and no message -> strictly render NOTHING
@@ -57,19 +63,30 @@ export function OfflineBanner() {
         )}
 
         {isOnline && pendingSyncCount > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleManualSync}
-            disabled={isSyncing}
-            className="text-xs h-7 py-0 px-3 bg-indigo-900/80 hover:bg-indigo-800 text-white border-indigo-700 gap-1.5 ml-auto cursor-pointer shadow-xs"
-          >
-            <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Sincronizando...' : 'Sincronizar ahora'}
-          </Button>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              onClick={handleClearQueue}
+              className="text-[11px] text-indigo-300 hover:text-white underline hover:no-underline px-2 py-1 transition-colors cursor-pointer"
+              title="Descartar registros pendientes locales"
+            >
+              Descartar
+            </button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="text-xs h-7 py-0 px-3 bg-indigo-900/80 hover:bg-indigo-800 text-white border-indigo-700 gap-1.5 cursor-pointer shadow-xs"
+            >
+              <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar ahora'}
+            </Button>
+          </div>
         )}
       </div>
     </div>
   );
 }
+
 
