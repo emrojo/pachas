@@ -3,13 +3,13 @@
 import React, { useState } from 'react';
 import { Expense } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { getCategoryInfo } from '@/lib/categories';
 import { formatMoney } from '@/lib/currencies';
 import { formatDate } from '@/lib/utils';
-import { Avatar } from '@/components/ui/Avatar';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { LocationModal } from '@/components/expenses/LocationModal';
-import { Receipt, Trash2, Pencil, Users, Globe, MapPin, CloudOff, Eye } from 'lucide-react';
+import { Receipt, Pencil, Users, Globe, MapPin, CloudOff, Eye } from 'lucide-react';
 
 export interface ExpenseCardProps {
   expense: Expense;
@@ -22,10 +22,10 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   baseCurrency = 'EUR',
   onEdit,
 }) => {
-  const { currentUser, deleteExpense } = usePachas();
+  const { currentUser } = usePachas();
+  const { t } = useTranslation();
   const [showReceipt, setShowReceipt] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const isCreator = currentUser ? expense.created_by === currentUser.id : false;
   const isForeign = expense.currency !== baseCurrency;
@@ -57,26 +57,6 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const userInvolved = userPaidOriginal > 0 || !!userParticipant;
   const netDiff = Math.round((userPaidOriginal - userOwedOriginal) * 100) / 100;
 
-
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isCreator) {
-      alert('Solo el creador de este gasto puede eliminarlo.');
-      return;
-    }
-
-    if (confirm(`¿Seguro que deseas eliminar el gasto "${expense.title}"?`)) {
-      setIsDeleting(true);
-      try {
-        await deleteExpense(expense.group_id, expense.id);
-      } catch (err: any) {
-        alert(err.message || 'Error al eliminar el gasto');
-      } finally {
-        setIsDeleting(false);
-      }
-    }
-  };
-
   const handleCardClick = () => {
     if (onEdit) {
       onEdit(expense);
@@ -89,7 +69,6 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
       onEdit(expense);
     }
   };
-
 
   return (
     <>
@@ -115,10 +94,10 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
               {expense.is_pending_sync && (
                 <span
                   className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center gap-1 shrink-0 animate-pulse border border-amber-300/50 dark:border-amber-700/50"
-                  title="Guardado localmente. Pendiente de sincronizar con el servidor."
+                  title={t('expenses.pendingSync')}
                 >
                   <CloudOff className="w-2.5 h-2.5" />
-                  Sin sincronizar
+                  {t('expenses.unsynced')}
                 </span>
               )}
               {isForeign && (
@@ -137,9 +116,9 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
               </span>
               <span>•</span>
               <div className="flex items-center gap-1">
-                <span>Pagó</span>
+                <span>{t('expenses.paid')}</span>
                 <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  {isMultiPayer ? 'Varios amigos' : firstPayer?.full_name?.split(' ')[0] || 'Alguien'}
+                  {isMultiPayer ? t('expenses.multipleFriends') : firstPayer?.full_name?.split(' ')[0] || t('common.someone')}
                 </span>
               </div>
 
@@ -160,10 +139,10 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                     setShowLocation(true);
                   }}
                   className="flex items-center gap-0.5 text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline max-w-[140px] truncate"
-                  title={expense.location_name || 'Ver en mapa'}
+                  title={expense.location_name || t('common.viewOnMap')}
                 >
                   <MapPin className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{expense.location_name?.split(',')[0] || 'En mapa'}</span>
+                  <span className="truncate">{expense.location_name?.split(',')[0] || t('common.viewOnMap')}</span>
                 </button>
               )}
             </div>
@@ -173,7 +152,6 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
         {/* Right: Amount in ORIGINAL currency + User share + Actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <div className="text-right">
-            {/* Show value in ORIGINAL currency without converting it in the list */}
             <span className="text-base font-black text-slate-900 dark:text-white block">
               {formatMoney(expense.amount, expense.currency)}
             </span>
@@ -189,10 +167,10 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 }`}
               >
                 {netDiff > 0.01
-                  ? `Prestaste ${formatMoney(userPaidOriginal - userOwedOriginal, expense.currency)}`
+                  ? `${t('expenses.youLent')} ${formatMoney(userPaidOriginal - userOwedOriginal, expense.currency)}`
                   : netDiff < -0.01
-                  ? `Tu parte: ${formatMoney(userOwedOriginal - userPaidOriginal, expense.currency)}`
-                  : 'Aportaste tu parte'}
+                  ? `${t('expenses.youOwe')} ${formatMoney(userOwedOriginal - userPaidOriginal, expense.currency)}`
+                  : t('expenses.youSettled')}
               </span>
             )}
           </div>
@@ -205,7 +183,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 setShowLocation(true);
               }}
               className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-colors"
-              title="Ver ubicación en el mapa"
+              title={t('common.viewOnMap')}
             >
               <MapPin className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </button>
@@ -219,38 +197,27 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 setShowReceipt(true);
               }}
               className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-colors"
-              title="Ver foto del ticket"
+              title={t('expenses.receiptPhoto')}
             >
               <Receipt className="w-5 h-5" />
             </button>
           )}
 
-          {/* Action buttons (Edit & Delete for Creator, View Eye for others) */}
+          {/* Action buttons (Edit for Creator, View Eye for others) */}
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {isCreator ? (
-              <>
-                <button
-                  onClick={handleEditClick}
-                  className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
-                  title="Editar gasto"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all"
-                  title="Eliminar gasto"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </>
+              <button
+                onClick={handleEditClick}
+                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
+                title={t('expenses.editExpense')}
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
             ) : (
               <button
                 onClick={handleEditClick}
                 className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
-                title="Ver detalle del asiento"
+                title={t('expenses.viewExpense')}
               >
                 <Eye className="w-4 h-4" />
               </button>
@@ -258,7 +225,6 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
           </div>
         </div>
       </div>
-
 
       <ReceiptModal
         isOpen={showReceipt}

@@ -3,13 +3,14 @@
 import React, { useState } from 'react';
 import { SimplifiedDebt, PaymentMethod } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatMoney, parseEuropeanAmount, formatNumber } from '@/lib/currencies';
 import confetti from 'canvas-confetti';
-import { ArrowRight, Phone, CheckCircle2, Sparkles, Copy, Check } from 'lucide-react';
+import { ArrowRight, Phone, CheckCircle2, Copy, Check } from 'lucide-react';
 
 export interface SettleModalProps {
   groupId: string;
@@ -27,6 +28,7 @@ export const SettleModal: React.FC<SettleModalProps> = ({
   onSuccess,
 }) => {
   const { recordSettlement } = usePachas();
+  const { t } = useTranslation();
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BIZUM');
   const [amountStr, setAmountStr] = useState('');
@@ -38,9 +40,8 @@ export const SettleModal: React.FC<SettleModalProps> = ({
   React.useEffect(() => {
     if (debt) {
       setAmountStr(Number(debt.amount || 0).toFixed(2).replace('.', ','));
-      setNotes(`Liquidación de viaje - ${debt.from_profile.full_name} a ${debt.to_profile.full_name}`);
+      setNotes(`Liquidación - ${debt.from_profile.full_name} ➔ ${debt.to_profile.full_name}`);
     }
-
   }, [debt]);
 
   if (!debt) return null;
@@ -89,18 +90,18 @@ export const SettleModal: React.FC<SettleModalProps> = ({
   };
 
   const METHODS: { id: PaymentMethod; label: string; icon: string }[] = [
-    { id: 'BIZUM', label: 'Bizum', icon: '📱' },
-    { id: 'REVOLUT', label: 'Revolut', icon: '🟣' },
-    { id: 'CASH', label: 'Efectivo', icon: '💵' },
-    { id: 'BANK_TRANSFER', label: 'Transferencia', icon: '🏦' },
+    { id: 'BIZUM', label: t('balances.paymentMethods.bizum'), icon: '📱' },
+    { id: 'REVOLUT', label: t('balances.paymentMethods.revolut'), icon: '🟣' },
+    { id: 'CASH', label: t('balances.paymentMethods.cash'), icon: '💵' },
+    { id: 'BANK_TRANSFER', label: t('balances.paymentMethods.transfer'), icon: '🏦' },
   ];
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Saldar Deuda"
-      description="Registra el pago para actualizar los balances del grupo"
+      title={t('balances.settleDebt')}
+      description={t('balances.settleModalSubtitle')}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* From -> To Visual Flow */}
@@ -110,7 +111,7 @@ export const SettleModal: React.FC<SettleModalProps> = ({
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               {debt.from_profile.full_name.split(' ')[0]}
             </span>
-            <span className="text-[10px] text-slate-500">Paga</span>
+            <span className="text-[10px] text-slate-500">{t('balances.pays')}</span>
           </div>
 
           <div className="flex flex-col items-center gap-1">
@@ -125,7 +126,7 @@ export const SettleModal: React.FC<SettleModalProps> = ({
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               {debt.to_profile.full_name.split(' ')[0]}
             </span>
-            <span className="text-[10px] text-slate-500">Recibe</span>
+            <span className="text-[10px] text-slate-500">{t('balances.receives')}</span>
           </div>
         </div>
 
@@ -135,8 +136,7 @@ export const SettleModal: React.FC<SettleModalProps> = ({
             <div className="flex items-center gap-2">
               <Phone className="w-4 h-4 text-blue-600" />
               <span className="text-xs text-blue-900 dark:text-blue-200">
-                Bizum de {debt.to_profile.full_name}:{' '}
-                <strong className="font-mono">{debt.to_profile.bizum_phone}</strong>
+                Bizum: <strong className="font-mono">{debt.to_profile.bizum_phone}</strong>
               </span>
             </div>
             <button
@@ -145,7 +145,7 @@ export const SettleModal: React.FC<SettleModalProps> = ({
               className="text-xs text-blue-600 font-semibold flex items-center gap-1 hover:underline"
             >
               {copiedPhone ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              {copiedPhone ? 'Copiado' : 'Copiar'}
+              {copiedPhone ? t('common.copied') : t('common.copy')}
             </button>
           </div>
         )}
@@ -153,7 +153,7 @@ export const SettleModal: React.FC<SettleModalProps> = ({
         {/* Payment Method Selector */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
-            Método de Pago
+            {t('balances.paymentMethod')}
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {METHODS.map((m) => (
@@ -178,7 +178,7 @@ export const SettleModal: React.FC<SettleModalProps> = ({
 
         {/* Amount Input */}
         <Input
-          label="Importe del Pago (€) *"
+          label={`${t('expenses.amount')} *`}
           type="text"
           inputMode="decimal"
           placeholder="0,00"
@@ -189,23 +189,24 @@ export const SettleModal: React.FC<SettleModalProps> = ({
 
         {/* Notes */}
         <Input
-          label="Nota / Concepto del Pago"
+          label={t('common.notes')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Ej: Pago de cenas por Bizum"
+          placeholder={t('common.notes')}
         />
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-            Cancelar
+            {t('common.cancel')}
           </Button>
           <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1">
             <CheckCircle2 className="w-4 h-4" />
-            Confirmar Liquidación
+            {t('balances.confirmSettlement')}
           </Button>
         </div>
       </form>
     </Modal>
   );
 };
+

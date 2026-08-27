@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Group } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -17,7 +18,6 @@ import {
   Camera,
   Archive,
   ArchiveRestore,
-  AlertTriangle,
   Shield,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -51,6 +51,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   onSuccess,
 }) => {
   const { updateGroup, archiveGroup, restoreGroup, currentUser, getGroupMembers } = usePachas();
+  const { t } = useTranslation();
 
   const members = getGroupMembers(group.id);
   const isAdmin =
@@ -90,7 +91,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
         setCoverImageUrl(compressed);
         setVisualMode('photo');
       } catch (err: any) {
-        setError(err.message || 'Error al procesar la imagen seleccionada');
+        setError(err.message || 'Error al procesar la imagen');
       }
     }
   };
@@ -98,7 +99,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError('El nombre del grupo es obligatorio');
+      setError(t('groups.createModalSubtitle'));
       return;
     }
 
@@ -130,7 +131,6 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
     }
   };
 
-
   const handleToggleArchive = async () => {
     if (group.is_archived) {
       try {
@@ -146,7 +146,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
     } else {
       if (
         confirm(
-          `¿Estás seguro de que deseas archivar el grupo "${group.name}"? Los miembros ya no podrán verlo en su panel principal, pero tú podrás restaurarlo cuando quieras desde tu panel de administrador.`
+          t('groups.archiveConfirm', { name: group.name })
         )
       ) {
         try {
@@ -167,8 +167,8 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Ajustes del Grupo"
-      description={`Personaliza el icono, foto y detalles de ${group.name}`}
+      title={t('groups.settings')}
+      description={`Personaliza ${group.name}`}
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -176,7 +176,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-              Icono / Fotografía del Grupo
+              {t('groups.iconOrPhoto')}
             </label>
 
             {/* Switch Tabs */}
@@ -191,7 +191,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 }`}
               >
                 <Smile className="w-3.5 h-3.5" />
-                Emoji
+                {t('groups.emojiTab')}
               </button>
 
               <button
@@ -204,7 +204,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 }`}
               >
                 <ImageIcon className="w-3.5 h-3.5" />
-                Foto / Imagen
+                {t('groups.photoTab')}
               </button>
             </div>
           </div>
@@ -243,7 +243,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <label className="p-2 bg-white text-slate-800 rounded-xl cursor-pointer text-xs font-bold hover:bg-slate-100 flex items-center gap-1.5 shadow-md">
                       <Camera className="w-4 h-4" />
-                      <span>Cambiar foto</span>
+                      <span>{t('groups.changePhoto')}</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -256,10 +256,10 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
                       type="button"
                       onClick={() => setCoverImageUrl(null)}
                       className="p-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 flex items-center gap-1.5 shadow-md"
-                      title="Eliminar foto"
+                      title={t('groups.removePhoto')}
                     >
                       <Trash2 className="w-4 h-4" />
-                      <span>Quitar</span>
+                      <span>{t('groups.removePhoto')}</span>
                     </button>
                   </div>
                 </div>
@@ -267,10 +267,10 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 <label className="flex flex-col items-center justify-center gap-2 p-5 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl hover:border-emerald-500 bg-slate-50 dark:bg-slate-800/40 cursor-pointer transition-colors text-center">
                   <Upload className="w-8 h-8 text-emerald-600" />
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Subir una fotografía desde tu dispositivo
+                    {t('groups.uploadPhoto')}
                   </span>
                   <span className="text-[11px] text-slate-400">
-                    JPG, PNG o WEBP (guardada en el grupo)
+                    JPG, PNG, WEBP
                   </span>
                   <input
                     type="file"
@@ -284,7 +284,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
               {/* Photo presets */}
               <div>
                 <span className="text-[11px] font-semibold text-slate-400 block mb-1.5">
-                  O elige una foto temática para este viaje:
+                  {t('groups.orChoosePreset')}
                 </span>
                 <div className="grid grid-cols-3 gap-2">
                   {PHOTO_PRESETS.map((preset, idx) => (
@@ -312,8 +312,8 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
 
         {/* Group Name */}
         <Input
-          label="Nombre del Viaje / Grupo *"
-          placeholder="Ej: Vacaciones Formentera 2026"
+          label={`${t('groups.groupName')} *`}
+          placeholder={t('groups.groupNamePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           error={error}
@@ -322,8 +322,8 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
 
         {/* Description */}
         <Input
-          label="Descripción o Notas (Opcional)"
-          placeholder="Ej: Gastos compartidos de hotel, cenas y barco"
+          label={t('groups.groupDescription')}
+          placeholder={t('groups.groupDescriptionPlaceholder')}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
@@ -331,7 +331,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
         {/* Base Currency */}
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-            Moneda Principal del Grupo
+            {t('groups.baseCurrency')}
           </label>
           <select
             value={currency}
@@ -351,18 +351,18 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
               <Shield className="w-3.5 h-3.5 text-amber-500" />
-              <span>Zona de Administrador</span>
+              <span>{t('groups.adminZone')}</span>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                  {group.is_archived ? 'Grupo archivado' : 'Archivar este grupo'}
+                  {group.is_archived ? t('groups.restoreGroup') : t('groups.archiveGroup')}
                 </span>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
                   {group.is_archived
-                    ? 'Restaura el grupo para que vuelva a estar visible para todos los miembros.'
-                    : 'Oculta el viaje de la vista principal. Solo tú podrás restaurarlo desde el panel.'}
+                    ? 'Restaura el grupo para que vuelva a estar visible.'
+                    : 'Oculta el viaje de la vista principal.'}
                 </span>
               </div>
 
@@ -377,12 +377,12 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 {group.is_archived ? (
                   <>
                     <ArchiveRestore className="w-3.5 h-3.5" />
-                    <span>Restaurar</span>
+                    <span>{t('groups.restoreGroup')}</span>
                   </>
                 ) : (
                   <>
                     <Archive className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Archivar</span>
+                    <span>{t('groups.archiveGroup')}</span>
                   </>
                 )}
               </Button>
@@ -393,14 +393,15 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
         {/* Action Buttons */}
         <div className="flex gap-3 pt-2">
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-            Cancelar
+            {t('common.cancel')}
           </Button>
           <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-xs font-bold gap-1.5">
             <Check className="w-4 h-4" />
-            Guardar Cambios
+            {t('groups.saveChanges')}
           </Button>
         </div>
       </form>
     </Modal>
   );
 };
+

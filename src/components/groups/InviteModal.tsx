@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import { Group, Profile } from '@/types/database';
+import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { QRCodeSVG } from 'qrcode.react';
-import { Copy, Check, Share2, Mail, MessageCircle, UserPlus, Sparkles } from 'lucide-react';
-import { usePachas } from '@/context/PachasContext';
+import { Copy, Check, Mail, MessageCircle, UserPlus, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export interface InviteModalProps {
@@ -19,6 +20,7 @@ export interface InviteModalProps {
 
 export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose }) => {
   const { addMemberByEmail, addMemberToGroup, availableUsers, getGroupMembers, isDemoMode } = usePachas();
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState('');
   const [emailStatus, setEmailStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -40,14 +42,14 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
   };
 
   const handleWhatsAppShare = () => {
-    const text = `¡Hola! Únete al grupo "${group.name}" en Pachas para compartir los gastos de las vacaciones: ${inviteUrl}`;
+    const text = t('groups.whatsAppShareText', { name: group.name, url: inviteUrl });
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleEmailInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      setErrorMessage('Introduce un email o nombre de usuario');
+      setErrorMessage(t('groups.inviteByEmailPlaceholder'));
       return;
     }
 
@@ -66,11 +68,11 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
         });
         setTimeout(() => setEmailStatus('idle'), 3000);
       } else {
-        setErrorMessage('Este usuario ya forma parte del grupo');
+        setErrorMessage(t('groups.inviteError'));
         setEmailStatus('error');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error al añadir');
+      setErrorMessage(err.message || t('groups.inviteError'));
       setEmailStatus('error');
     }
   };
@@ -96,8 +98,8 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Invitar amigos a ${group.name}`}
-      description="Comparte este enlace o añade a tus amigos de prueba locales al grupo"
+      title={t('groups.inviteFriendsModalTitle', { name: group.name })}
+      description={t('groups.inviteSubtitle')}
       maxWidth="md"
     >
       <div className="space-y-5">
@@ -107,10 +109,10 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 dark:text-emerald-200">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Añadir usuarios de prueba disponibles ({nonMemberUsers.length}):</span>
+                <span>{t('groups.quickAddLocal', { count: nonMemberUsers.length })}</span>
               </div>
               <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">
-                Modo Local
+                Demo
               </span>
             </div>
 
@@ -139,7 +141,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
                     className="text-xs h-7 px-2.5 shrink-0 gap-1"
                   >
                     <UserPlus className="w-3 h-3" />
-                    <span>Añadir</span>
+                    <span>{t('common.add')}</span>
                   </Button>
                 </div>
               ))}
@@ -153,14 +155,14 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
             <QRCodeSVG value={inviteUrl} size={130} level="M" />
           </div>
           <span className="text-xs text-slate-500 dark:text-slate-400 mt-2.5">
-            Escanea con la cámara del móvil
+            {t('groups.scanQr')}
           </span>
         </div>
 
         {/* Copy Link Input */}
         <div className="space-y-2">
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-            Enlace de Invitación
+            {t('groups.inviteLink')}
           </label>
           <div className="flex gap-2">
             <input
@@ -176,7 +178,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
               className="shrink-0"
             >
               {copied ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
-              {copied ? '¡Copiado!' : 'Copiar'}
+              {copied ? t('common.copied') : t('common.copy')}
             </Button>
           </div>
         </div>
@@ -189,18 +191,18 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
             className="w-full bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold py-2.5 flex items-center justify-center gap-2 shadow-xs"
           >
             <MessageCircle className="w-4 h-4 fill-current" />
-            Compartir por WhatsApp
+            {t('groups.shareWhatsApp')}
           </Button>
         </div>
 
         {/* Invite by Email / Name */}
         <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-            O añadir escribiendo su email o nombre
+            {t('groups.orInviteByEmail')}
           </label>
           <form onSubmit={handleEmailInvite} className="flex gap-2">
             <Input
-              placeholder="Ej: sofia@pachas.com o Sofía"
+              placeholder={t('groups.inviteByEmailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="py-2 text-xs"
@@ -213,12 +215,12 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
               className="shrink-0"
             >
               <Mail className="w-4 h-4" />
-              Añadir
+              {t('common.add')}
             </Button>
           </form>
           {emailStatus === 'success' && (
             <p className="text-xs text-emerald-600 font-medium mt-1.5 flex items-center gap-1">
-              <Check className="w-3.5 h-3.5" /> ¡Amigo añadido con éxito al grupo!
+              <Check className="w-3.5 h-3.5" /> {t('groups.inviteSuccess')}
             </p>
           )}
           {errorMessage && <p className="text-xs text-rose-500 font-medium mt-1.5">{errorMessage}</p>}
@@ -227,3 +229,4 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
     </Modal>
   );
 };
+

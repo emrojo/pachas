@@ -4,8 +4,9 @@ import React from 'react';
 import { Card } from '@/components/ui/Card';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
 import { DONATION_CONFIG } from '@/lib/constants/donations';
+import { useTranslation } from '@/context/LanguageContext';
 import { useDonationUrl } from '@/lib/useDonationUrl';
-import { Coffee, Heart, Sparkles, Server, ShieldCheck, ExternalLink } from 'lucide-react';
+import { Heart, Sparkles, Server } from 'lucide-react';
 
 export interface DonationCardProps {
   className?: string;
@@ -17,6 +18,7 @@ export const DonationCard: React.FC<DonationCardProps> = ({
   compact = false,
 }) => {
   const donationUrl = useDonationUrl();
+  const { t } = useTranslation();
 
   return (
     <Card className={`p-6 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-amber-200/80 dark:border-amber-900/40 relative overflow-hidden shadow-xs ${className}`}>
@@ -35,14 +37,14 @@ export const DonationCard: React.FC<DonationCardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                  {DONATION_CONFIG.title}
+                  {t('donations.title')}
                 </h3>
                 <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                  Apoyo Voluntario
+                  {t('donations.voluntarySupport')}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {DONATION_CONFIG.subtitle}
+                {t('donations.subtitle')}
               </p>
             </div>
           </div>
@@ -50,7 +52,7 @@ export const DonationCard: React.FC<DonationCardProps> = ({
 
         {/* Text Body */}
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          {DONATION_CONFIG.description}
+          {t('donations.description')}
         </p>
 
         {/* Feature Pills */}
@@ -58,16 +60,16 @@ export const DonationCard: React.FC<DonationCardProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 py-1">
             <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-700 dark:text-slate-300">
               <Heart className="w-4 h-4 text-rose-500 shrink-0 fill-rose-500/20" />
-              <span>100% Gratis y sin publicidad</span>
+              <span>{t('donations.freeAndNoAds')}</span>
             </div>
 
             <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-700 dark:text-slate-300">
               <Server className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Ayuda a pagar servidores</span>
+              <span>{t('donations.serverSupport')}</span>
             </div>
             <div className="flex items-center gap-2 p-2 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-700 dark:text-slate-300">
               <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-              <span>Impulsa nuevas funciones</span>
+              <span>{t('donations.futureFeatures')}</span>
             </div>
           </div>
         )}
@@ -81,7 +83,6 @@ export const DonationCard: React.FC<DonationCardProps> = ({
                 href={donationUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-
                 className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-all shadow-2xs"
               >
                 <span>{opt.emoji}</span>
@@ -98,4 +99,5 @@ export const DonationCard: React.FC<DonationCardProps> = ({
       </div>
     </Card>
   );
+
 };

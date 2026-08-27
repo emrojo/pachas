@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/Button';
@@ -31,23 +32,18 @@ import {
   ArrowLeft,
   Plus,
   QrCode,
-  Share2,
   FileDown,
   Receipt,
   Users,
   HandCoins,
   History,
   Search,
-  CheckCircle2,
-  Calendar,
-  Layers,
   UploadCloud,
   Undo2,
   Settings,
   Camera,
   Pencil,
   Compass,
-  MapPin,
   ArrowUpDown,
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -79,6 +75,7 @@ export default function GroupDetailPage() {
     undoLastImport,
     restoreGroup,
   } = usePachas();
+  const { t } = useTranslation();
 
   const group = getGroup(groupId);
   const members = getGroupMembers(groupId);
@@ -103,12 +100,13 @@ export default function GroupDetailPage() {
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const TABS = [
-    { id: 'expenses' as TabType, label: `Gastos (${expenses.length})`, shortLabel: `Gastos (${expenses.length})`, icon: Receipt },
-    { id: 'balances' as TabType, label: 'Saldos & Liquidación', shortLabel: 'Saldos', icon: HandCoins, badgeDot: debts.length > 0 },
-    { id: 'charts' as TabType, label: 'Gráficas & Análisis', shortLabel: 'Gráficas', icon: BarChart3 },
-    { id: 'members' as TabType, label: `Amigos (${members.length})`, shortLabel: `Amigos (${members.length})`, icon: Users },
-    { id: 'history' as TabType, label: `Pagos Realizados (${settlements.length})`, shortLabel: `Pagos (${settlements.length})`, icon: History },
+    { id: 'expenses' as TabType, label: `${t('groups.expensesTab')} (${expenses.length})`, shortLabel: `${t('groups.expensesTab')} (${expenses.length})`, icon: Receipt },
+    { id: 'balances' as TabType, label: t('groups.balancesTab'), shortLabel: t('balances.balancesTab'), icon: HandCoins, badgeDot: debts.length > 0 },
+    { id: 'charts' as TabType, label: t('groups.chartsTab'), shortLabel: t('groups.chartsTab'), icon: BarChart3 },
+    { id: 'members' as TabType, label: `${t('groups.membersTab')} (${members.length})`, shortLabel: `${t('groups.membersTab')} (${members.length})`, icon: Users },
+    { id: 'history' as TabType, label: `${t('groups.historyTab')} (${settlements.length})`, shortLabel: `${t('groups.historyTab')} (${settlements.length})`, icon: History },
   ];
+
 
   const currentTabIndex = TABS.findIndex((t) => t.id === activeTab);
 
@@ -147,7 +145,7 @@ export default function GroupDetailPage() {
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-            Cargando grupo de viaje...
+            {t('common.loading')}
           </p>
         </div>
       </div>
@@ -166,21 +164,20 @@ export default function GroupDetailPage() {
             🏖️
           </div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            Grupo no encontrado
+            {t('groups.groupNotFound')}
           </h2>
           <p className="text-xs text-slate-500 mt-1 mb-4">
-            El grupo que buscas no existe o ha sido eliminado.
+            {t('groups.groupNotFoundSubtitle')}
           </p>
           <Link href="/dashboard">
             <Button variant="brand" className="w-full">
-              Volver al inicio
+              {t('groups.backToTrips')}
             </Button>
           </Link>
         </Card>
       </div>
     );
   }
-
 
   if (group.is_archived && !isAdmin) {
     return (
@@ -190,14 +187,14 @@ export default function GroupDetailPage() {
             📦
           </div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            Grupo archivado
+            {t('groups.groupArchived')}
           </h2>
           <p className="text-xs text-slate-500 mt-1 mb-4">
-            Este viaje ha sido archivado por el administrador y no está disponible para visualización.
+            {t('groups.groupArchivedSubtitle')}
           </p>
           <Link href="/dashboard">
             <Button variant="brand" className="w-full">
-              Volver a mis viajes
+              {t('groups.backToTrips')}
             </Button>
           </Link>
         </Card>
@@ -249,10 +246,10 @@ export default function GroupDetailPage() {
               </div>
               <div>
                 <span className="text-xs font-black text-amber-900 dark:text-amber-200 block">
-                  Este viaje está actualmente archivado
+                  {t('groups.groupArchived')}
                 </span>
                 <span className="text-[11px] text-amber-800/80 dark:text-amber-300/90 block">
-                  Está oculto para los demás miembros. Como administrador, puedes restaurarlo en cualquier momento.
+                  {t('groups.groupArchivedSubtitle')}
                 </span>
               </div>
             </div>
@@ -266,7 +263,7 @@ export default function GroupDetailPage() {
               className="text-xs font-bold gap-1.5 shrink-0"
             >
               <ArchiveRestore className="w-4 h-4" />
-              <span>Restaurar Grupo</span>
+              <span>{t('groups.restoreGroup')}</span>
             </Button>
           </div>
         )}
@@ -278,7 +275,7 @@ export default function GroupDetailPage() {
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 mb-3 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Volver a mis viajes
+            {t('groups.backToTrips')}
           </Link>
 
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
@@ -297,7 +294,7 @@ export default function GroupDetailPage() {
                   className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-md flex items-center gap-1.5 transition-all shadow-md"
                 >
                   <Camera className="w-3.5 h-3.5" />
-                  <span>Cambiar foto</span>
+                  <span>{t('groups.changePhoto')}</span>
                 </button>
               </div>
             )}
@@ -310,7 +307,7 @@ export default function GroupDetailPage() {
                     type="button"
                     onClick={() => setIsEditGroupOpen(true)}
                     className="relative group shrink-0"
-                    title="Haz clic para cambiar el icono o foto del grupo"
+                    title={t('groups.iconOrPhoto')}
                   >
                     <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center text-4xl shadow-xs group-hover:scale-105 transition-transform">
                       {group.icon_emoji}
@@ -335,9 +332,9 @@ export default function GroupDetailPage() {
                       </p>
                     )}
                     <div className="flex items-center gap-3 text-xs text-slate-400 mt-2">
-                      <span>{members.length} amigos</span>
+                      <span>{members.length} {t('nav.friends').toLowerCase()}</span>
                       <span>•</span>
-                      <span>{expenses.length} gastos</span>
+                      <span>{expenses.length} {t('nav.expenses').toLowerCase()}</span>
                       <span>•</span>
                       <span className="font-bold text-slate-700 dark:text-slate-300">
                         Total: {formatMoney(totalSpent, group.base_currency)}
@@ -352,11 +349,11 @@ export default function GroupDetailPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setIsEditGroupOpen(true)}
-                    title="Ajustes y foto del viaje"
+                    title={t('groups.settings')}
                     className="gap-1.5"
                   >
                     <Settings className="w-4 h-4 text-slate-500" />
-                    <span className="hidden sm:inline">Ajustes</span>
+                    <span className="hidden sm:inline">{t('groups.settings')}</span>
                   </Button>
 
                   <Button
@@ -366,29 +363,29 @@ export default function GroupDetailPage() {
                     className="gap-1.5"
                   >
                     <QrCode className="w-4 h-4 text-emerald-600" />
-                    Invitar
+                    {t('groups.inviteFriends')}
                   </Button>
 
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setIsRouteMapOpen(true)}
-                    title="Ver ruta e itinerario de gastos en el mapa"
+                    title={t('tripMap.title')}
                     className="gap-1.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
                   >
                     <Compass className="w-4 h-4 text-emerald-600" />
-                    <span className="hidden sm:inline font-bold">Mapa</span>
+                    <span className="hidden sm:inline font-bold">{t('tripMap.tabTitle')}</span>
                   </Button>
 
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setActiveTab('charts')}
-                    title="Ver gráficas y estadísticas de gastos temporales y por persona"
+                    title={t('charts.title')}
                     className="gap-1.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
                   >
                     <BarChart3 className="w-4 h-4 text-emerald-600" />
-                    <span className="hidden sm:inline font-bold">Gráficas</span>
+                    <span className="hidden sm:inline font-bold">{t('groups.chartsTab')}</span>
                   </Button>
 
                   {/* Export Dropdown / Buttons */}
@@ -396,7 +393,7 @@ export default function GroupDetailPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => exportGroupToPDF(group, expenses, balances, debts)}
-                    title="Descargar resumen en PDF"
+                    title={t('groups.exportPDF')}
                     className="gap-1.5"
                   >
                     <FileDown className="w-4 h-4 text-rose-500" />
@@ -407,7 +404,7 @@ export default function GroupDetailPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => exportGroupToCSV(group, expenses, balances)}
-                    title="Descargar en Excel/CSV"
+                    title={t('groups.exportCSV')}
                     className="gap-1.5"
                   >
                     CSV
@@ -417,11 +414,11 @@ export default function GroupDetailPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setIsImportModalOpen(true)}
-                    title="Importar gastos desde Excel o CSV"
+                    title={t('groups.importExpenses')}
                     className="gap-1.5"
                   >
                     <UploadCloud className="w-4 h-4 text-emerald-600" />
-                    Importar
+                    {t('common.import')}
                   </Button>
 
                   <Button
@@ -431,13 +428,14 @@ export default function GroupDetailPage() {
                     className="gap-1.5 shadow-xs"
                   >
                     <Plus className="w-4 h-4" />
-                    Añadir Gasto
+                    {t('expenses.addExpense')}
                   </Button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
 
         {/* Tab Navigation with Mobile Arrow Controls */}
         <div className="relative flex items-center gap-1.5 sm:gap-2">
@@ -518,10 +516,10 @@ export default function GroupDetailPage() {
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-amber-900 dark:text-amber-200 block">
-                      Se han importado {lastImportBatch.count} gasto{lastImportBatch.count > 1 ? 's' : ''} desde archivo
+                      {t('groups.importExpenses')}: {lastImportBatch.count}
                     </span>
                     <span className="text-[11px] text-amber-700/80 dark:text-amber-400 block truncate">
-                      ¿Te has equivocado? Puedes revertir esta importación ahora mismo.
+                      {t('groups.importExpensesSubtitle')}
                     </span>
                   </div>
                 </div>
@@ -538,7 +536,7 @@ export default function GroupDetailPage() {
                   className="text-xs font-bold bg-white dark:bg-slate-900 border-amber-300 text-amber-900 dark:text-amber-200 hover:bg-amber-100 shrink-0 gap-1"
                 >
                   <Undo2 className="w-3.5 h-3.5" />
-                  Deshacer importación
+                  {t('common.cancel')}
                 </Button>
               </div>
             )}
@@ -554,7 +552,7 @@ export default function GroupDetailPage() {
                     : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
                 }`}
               >
-                Todas las categorías
+                {t('expenses.filterCategory')}
               </button>
               {Object.values(CATEGORIES).map((cat) => {
                 const isSelected = selectedCategory === cat.id;
@@ -570,7 +568,7 @@ export default function GroupDetailPage() {
                     }`}
                   >
                     <span>{cat.emoji}</span>
-                    <span>{cat.label.split(' ')[0]}</span>
+                    <span>{t(`categories.${cat.id}` as any) || cat.label.split(' ')[0]}</span>
                   </button>
                 );
               })}
@@ -580,7 +578,7 @@ export default function GroupDetailPage() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div className="flex-1 max-w-md">
                 <Input
-                  placeholder="Buscar por concepto o notas..."
+                  placeholder={t('dashboard.searchGroups')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   leftIcon={<Search className="w-4 h-4" />}
@@ -591,7 +589,7 @@ export default function GroupDetailPage() {
               <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-800 self-start sm:self-auto shadow-2xs">
                 <span className="text-[11px] font-semibold text-slate-400 pl-2 pr-1 hidden sm:inline-flex items-center gap-1">
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
-                  Orden:
+                  {t('dashboard.sort')}:
                 </span>
                 <button
                   type="button"
@@ -601,10 +599,10 @@ export default function GroupDetailPage() {
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
-                  title="Ordenar por más recientes primero"
+                  title={t('dashboard.newestFirst')}
                 >
                   <ArrowDownWideNarrow className="w-3.5 h-3.5" />
-                  <span>Más recientes</span>
+                  <span>{t('dashboard.newestFirst')}</span>
                 </button>
                 <button
                   type="button"
@@ -614,10 +612,10 @@ export default function GroupDetailPage() {
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
-                  title="Ordenar por más antiguas primero"
+                  title={t('dashboard.oldestFirst')}
                 >
                   <ArrowUpNarrowWide className="w-3.5 h-3.5" />
-                  <span>Más antiguas</span>
+                  <span>{t('dashboard.oldestFirst')}</span>
                 </button>
               </div>
             </div>
@@ -629,14 +627,14 @@ export default function GroupDetailPage() {
                   🧾
                 </div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  No hay gastos en esta categoría
+                  {t('expenses.noExpensesTitle')}
                 </h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
-                  Añade un gasto de cena, alojamiento o transporte para repartirlo con tus amigos.
+                  {t('expenses.noExpensesSubtitle')}
                 </p>
                 <Button variant="brand" onClick={handleOpenNewExpense}>
                   <Plus className="w-4 h-4 mr-1.5" />
-                  Añadir el primer gasto
+                  {t('expenses.addExpense')}
                 </Button>
               </Card>
             ) : (
@@ -674,10 +672,10 @@ export default function GroupDetailPage() {
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-emerald-600" />
-                  Gráficas y Estadísticas de Gastos
+                  {t('charts.title')}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Visualización temporal por horas, días o semanas y reparto entre amigos
+                  {t('charts.subtitle')}
                 </p>
               </div>
             </div>
@@ -698,10 +696,10 @@ export default function GroupDetailPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Amigos en el Grupo
+                  {t('groups.membersInGroup')}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Todos los miembros que participan en los gastos de este viaje
+                  {t('groups.membersSubtitle')}
                 </p>
               </div>
               <Button
@@ -710,7 +708,7 @@ export default function GroupDetailPage() {
                 onClick={() => setIsInviteOpen(true)}
               >
                 <QrCode className="w-4 h-4 mr-1" />
-                Invitar amigos
+                {t('groups.inviteFriends')}
               </Button>
             </div>
 
@@ -720,17 +718,17 @@ export default function GroupDetailPage() {
           </div>
         )}
 
-        {/* Tab 4: Historial de Liquidaciones */}
+        {/* Tab 5: Historial de Liquidaciones */}
         {activeTab === 'history' && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Historial de Pagos y Liquidaciones
+              {t('balances.historyTitle')}
             </h3>
 
             {settlements.length === 0 ? (
               <Card className="text-center py-10 border-dashed">
                 <p className="text-xs text-slate-500">
-                  Aún no se ha registrado ningún pago entre amigos en este viaje.
+                  {t('balances.noHistory')}
                 </p>
               </Card>
             ) : (
@@ -746,8 +744,7 @@ export default function GroupDetailPage() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
-                          {s.from_profile?.full_name || 'Amigo'} pagó a{' '}
-                          {s.to_profile?.full_name || 'Amigo'}
+                          {s.from_profile?.full_name || t('common.friend')} ➔ {s.to_profile?.full_name || t('common.friend')}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2">
                           <span>{formatDate(s.settled_at, 'dd/MM/yyyy HH:mm')}</span>
@@ -774,6 +771,7 @@ export default function GroupDetailPage() {
             )}
           </div>
         )}
+
       </main>
 
       <BottomNav onAddClick={handleOpenNewExpense} groupId={group.id} />

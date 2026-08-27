@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -40,6 +41,7 @@ import {
   Globe,
   MapPin,
   Clock,
+  Trash2,
 } from 'lucide-react';
 
 export interface ExpenseFormProps {
@@ -59,7 +61,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   expenseToEdit,
   isReadOnly: explicitReadOnly,
 }) => {
-  const { getGroup, getGroupMembers, currentUser, addExpense, updateExpense } = usePachas();
+  const { getGroup, getGroupMembers, currentUser, addExpense, updateExpense, deleteExpense } = usePachas();
+  const { t } = useTranslation();
+
 
   const group = getGroup(groupId);
   const members = getGroupMembers(groupId);
@@ -119,7 +123,24 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   >({});
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const handleDeleteExpense = async () => {
+    if (!expenseToEdit) return;
+    if (confirm(`¿Estás seguro de que deseas eliminar definitivamente el gasto "${expenseToEdit.title}"?`)) {
+      try {
+        setIsDeleting(true);
+        await deleteExpense(groupId, expenseToEdit.id);
+        onClose();
+        if (onSuccess) onSuccess();
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Error al eliminar el gasto');
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
 
   // Default exchange rate calculator
   const getDefaultExchangeRate = (currCode: string): number => {
@@ -127,6 +148,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     const baseObj = getCurrencyByCode(baseCurrency);
     return currObj.rateToEur / baseObj.rateToEur;
   };
+
 
   // Initialize or populate form when opening or changing expenseToEdit
   useEffect(() => {
@@ -374,8 +396,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isReadOnly ? 'Detalle del Asiento' : expenseToEdit ? 'Editar Gasto' : 'Añadir Nuevo Gasto'}
-      description={`Grupo: ${group?.name || ''}`}
+      title={isReadOnly ? t('expenses.viewExpense') : expenseToEdit ? t('expenses.editExpense') : t('expenses.addExpense')}
+      description={`${t('nav.groups')}: ${group?.name || ''}`}
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -388,10 +410,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="font-extrabold text-slate-900 dark:text-white block">
-                  Modo sólo lectura
-                </span>
-                <span className="text-slate-500 dark:text-slate-400 block truncate">
-                  Asiento registrado por <strong className="text-slate-700 dark:text-slate-300">{creatorProfile?.full_name || 'otro amigo'}</strong>. Solo el creador o un admin pueden modificarlo.
+                  {t('expenses.readOnlyBanner', { name: creatorProfile?.full_name || t('common.someone') })}
                 </span>
               </div>
             </div>
@@ -401,8 +420,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         {/* LÍNEA 1: Concepto del Gasto */}
         <div>
           <Input
-            label="Concepto del Gasto *"
-            placeholder="Ej: Cena restaurante, Alquiler furgoneta, Supermercado..."
+            label={`${t('expenses.expenseTitle')} *`}
+            placeholder={t('expenses.expenseTitlePlaceholder')}
             value={title}
             onChange={(e) => !isReadOnly && setTitle(e.target.value)}
             required
@@ -415,12 +434,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         {/* LÍNEA 2: Importe y Divisa */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-            Importe y Divisa *
+            {t('expenses.amount')} *
           </label>
           <div className="flex rounded-2xl border-2 border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs bg-white dark:bg-slate-900 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
             <div className="flex items-center pl-4 pr-1 text-slate-400 font-extrabold text-2xl select-none">
               {currencyObj.symbol}
             </div>
+
             <input
               type="text"
               inputMode="decimal"
@@ -505,10 +525,25 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           </div>
         )}
 
+        {/* BOTÓN RÁPIDO "GUARDAR GASTO" (Justo debajo de los datos de la cantidad) */}
+        {!isReadOnly && (
+          <div className="pt-0.5">
+            <Button
+              type="submit"
+              variant="brand"
+              isLoading={isLoading || isDeleting}
+              className="w-full text-sm font-bold shadow-md shadow-emerald-600/15 py-2.5 flex items-center justify-center gap-2"
+            >
+              <Check className="w-4 h-4" />
+              <span>{expenseToEdit ? t('expenses.saveChanges') : t('expenses.quickSave', { amount: formatMoney(totalAmount, currency) })}</span>
+            </Button>
+          </div>
+        )}
+
         {/* GEOLOCALIZACIÓN Y MAPA DE GOOGLE */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-            Ubicación del Gasto
+            {t('expenses.location')}
           </label>
           <LocationPicker
             latitude={latitude}
@@ -529,7 +564,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         {/* Categoría del gasto */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
-            Categoría
+            {t('expenses.category')}
           </label>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {Object.values(CATEGORIES).map((cat) => {
@@ -552,7 +587,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       isSelected ? cat.textColor : 'text-slate-600 dark:text-slate-300'
                     }`}
                   >
-                    {cat.label.split(' ')[0]}
+                    {t(`categories.${cat.id}` as any) || cat.label.split(' ')[0]}
                   </span>
                 </button>
               );
@@ -573,7 +608,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                  ¿Quién pagó el gasto?
+                  {t('expenses.whoPaid')}
                 </span>
                 <div className="flex items-center gap-2 mt-0.5">
                   {!isMultiPayer ? (
@@ -581,13 +616,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       <Avatar profile={currentSinglePayer} size="sm" className="w-5 h-5 text-[10px]" />
                       <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {currentUser && singlePayerId === currentUser.id
-                          ? `Tú (${currentUser.full_name?.split(' ')[0] || ''})`
+                          ? `${t('common.you')} (${currentUser.full_name?.split(' ')[0] || ''})`
                           : currentSinglePayer?.full_name}
                       </span>
                     </div>
                   ) : (
                     <span className="text-xs font-bold text-slate-900 dark:text-white">
-                      Varios amigos pagaron a medias
+                      {t('expenses.paidByMultiple')}
                     </span>
                   )}
                 </div>
@@ -596,7 +631,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline">
-                {isWhoPaidOpen ? 'Cerrar' : isReadOnly ? 'Ver pagadores' : 'Cambiar pagador'}
+                {isWhoPaidOpen ? t('common.close') : isReadOnly ? t('common.details') : t('common.edit')}
               </span>
               {isWhoPaidOpen ? (
                 <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -610,7 +645,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 space-y-3 mt-3">
               <div className="flex items-center justify-between pt-3">
                 <span className="text-xs text-slate-500">
-                  {isReadOnly ? 'Detalle de los pagos realizados:' : 'Selecciona quién realizó el pago:'}
+                  {isReadOnly ? t('expenses.whoPaid') : t('expenses.whoPaid')}
                 </span>
                 {!isReadOnly && (
                   <button
@@ -618,10 +653,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     onClick={() => setIsMultiPayer(!isMultiPayer)}
                     className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
                   >
-                    {isMultiPayer ? 'Volver a un solo pagador' : 'Varios amigos pagaron'}
+                    {isMultiPayer ? t('expenses.singlePayer') : t('expenses.multiPayer')}
                   </button>
                 )}
               </div>
+
 
               {!isMultiPayer ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -715,20 +751,20 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                  ¿Con quién se comparte?
+                  {t('expenses.whoShares')}
                 </span>
                 <span className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
                   {selectedParticipants.length === members.length
-                    ? `Todos los amigos (${members.length}) • `
-                    : `${selectedParticipants.length} de ${members.length} amigos • `}
+                    ? `${t('common.all')} (${members.length}) • `
+                    : `${selectedParticipants.length} / ${members.length} • `}
                   <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
                     {splitType === 'EQUAL'
-                      ? 'A partes iguales'
+                      ? t('expenses.splitModes.equal')
                       : splitType === 'EXACT'
-                      ? 'Importes exactos'
+                      ? t('expenses.splitModes.exact')
                       : splitType === 'PERCENTAGE'
-                      ? 'Porcentajes'
-                      : 'Raciones'}
+                      ? t('expenses.splitModes.percentage')
+                      : t('expenses.splitModes.shares')}
                   </span>
                 </span>
               </div>
@@ -736,7 +772,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline">
-                {isSplitOpen ? 'Cerrar' : isReadOnly ? 'Ver reparto' : 'Personalizar reparto'}
+                {isSplitOpen ? t('common.close') : isReadOnly ? t('common.details') : t('common.edit')}
               </span>
               {isSplitOpen ? (
                 <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -750,7 +786,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 space-y-4 mt-3">
               <div className="flex items-center justify-between pt-3">
                 <span className="text-xs text-slate-500">
-                  Amigos que participan en este gasto:
+                  {t('expenses.whoShares')}
                 </span>
                 {!isReadOnly && (
                   <button
@@ -758,7 +794,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     onClick={selectAllParticipants}
                     className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
                   >
-                    Seleccionar todos
+                    {t('common.all')}
                   </button>
                 )}
               </div>
@@ -783,7 +819,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     >
                       <Avatar profile={m.profile} size="sm" className="w-5 h-5 text-[10px]" />
                       <span className="text-xs font-medium">
-                        {currentUser && m.user_id === currentUser.id ? 'Tú' : m.profile?.full_name?.split(' ')[0] || 'Amigo'}
+                        {currentUser && m.user_id === currentUser.id ? t('common.you') : m.profile?.full_name?.split(' ')[0] || t('common.friend')}
                       </span>
 
                       {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -795,7 +831,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               {/* Split Mode Selector Tabs */}
               <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
-                  Modo de reparto
+                  {t('expenses.splitModes.equal')}
                 </label>
                 <div className="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                   <button
@@ -809,7 +845,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     }`}
                   >
                     <Split className="w-3.5 h-3.5" />
-                    Igual
+                    {t('expenses.splitModes.equal')}
                   </button>
                   <button
                     type="button"
@@ -822,7 +858,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     }`}
                   >
                     <Calculator className="w-3.5 h-3.5" />
-                    Exacto ({currencyObj.symbol})
+                    {t('expenses.splitModes.exact')}
                   </button>
                   <button
                     type="button"
@@ -835,7 +871,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     }`}
                   >
                     <Percent className="w-3.5 h-3.5" />
-                    % Porc.
+                    {t('expenses.splitModes.percentage')}
                   </button>
                   <button
                     type="button"
@@ -848,7 +884,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     }`}
                   >
                     <PieChart className="w-3.5 h-3.5" />
-                    Raciones
+                    {t('expenses.splitModes.shares')}
                   </button>
                 </div>
 
@@ -865,7 +901,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                           <div className="flex items-center gap-2">
                             <Avatar profile={m?.profile} size="sm" />
                             <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                              {m?.profile?.full_name || expenseToEdit?.participants?.find((p) => p.user_id === userId)?.profile?.full_name || 'Amigo'}
+                              {m?.profile?.full_name || expenseToEdit?.participants?.find((p) => p.user_id === userId)?.profile?.full_name || t('common.friend')}
                             </span>
                           </div>
 
@@ -926,11 +962,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         {/* NOTAS Y OBSERVACIONES */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-            Notas / Observaciones
+            {t('common.notes')}
           </label>
           <textarea
             rows={2}
-            placeholder={isReadOnly ? 'Sin notas adicionales' : 'Añade detalles, enlace o descripción...'}
+            placeholder={isReadOnly ? 'Sin notas' : 'Añade detalles, enlace o descripción...'}
             value={notes}
             onChange={(e) => !isReadOnly && setNotes(e.target.value)}
             readOnly={isReadOnly}
@@ -946,7 +982,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Fecha y Hora
+                {t('expenses.dateTime')}
               </label>
               <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-medium truncate max-w-[130px]" title={getUserTimezoneLabel()}>
                 {getUserTimezoneLabel()}
@@ -966,14 +1002,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           {/* Receipt Photo Upload / View */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-              Foto de Ticket / Recibo
+              {t('expenses.receiptPhoto')}
             </label>
             <div className="flex items-center gap-2">
               {!isReadOnly ? (
                 <>
                   <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-xs">
                     <ImageIcon className="w-4 h-4 text-emerald-600" />
-                    <span>{receiptUrl ? 'Foto añadida ✓' : 'Subir foto'}</span>
+                    <span>{receiptUrl ? t('expenses.changeReceipt') : t('expenses.uploadReceipt')}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -987,7 +1023,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       onClick={() => setReceiptUrl(null)}
                       className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg text-xs font-semibold"
                     >
-                      Quitar
+                      {t('expenses.removeReceipt')}
                     </button>
                   )}
                 </>
@@ -999,11 +1035,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/60 transition-colors shadow-xs"
                 >
                   <Receipt className="w-4 h-4" />
-                  <span>Ver Ticket Adjunto ↗</span>
+                  <span>{t('expenses.viewReceipt')}</span>
                 </a>
               ) : (
                 <div className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-xs text-slate-400 text-center">
-                  Sin ticket adjunto
+                  {t('expenses.noReceipt')}
                 </div>
               )}
             </div>
@@ -1017,7 +1053,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           </div>
         )}
 
-        {/* Submit Buttons / ReadOnly Action */}
+        {/* Submit Buttons / Delete Action / ReadOnly Action */}
         <div className="pt-2">
           {isReadOnly ? (
             <Button
@@ -1026,19 +1062,55 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               onClick={onClose}
               className="w-full text-sm font-bold shadow-md shadow-emerald-600/20"
             >
-              Cerrar Detalle
+              {t('expenses.closeDetail')}
             </Button>
+          ) : expenseToEdit ? (
+            <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={handleDeleteExpense}
+                disabled={isDeleting || isLoading}
+                className="px-3.5 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all flex items-center gap-1.5 border border-rose-200 dark:border-rose-900/50 cursor-pointer"
+                title={t('expenses.deleteExpense')}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeleting ? '...' : t('expenses.deleteExpense')}</span>
+              </button>
+
+              <div className="flex items-center gap-2 flex-1 justify-end">
+                <Button type="button" variant="outline" onClick={onClose} className="px-4">
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  type="submit"
+                  variant="brand"
+                  isLoading={isLoading}
+                  disabled={isDeleting}
+                  className="text-sm font-bold px-5"
+                >
+                  {t('expenses.saveChanges')}
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-                Cancelar
+                {t('common.cancel')}
               </Button>
-              <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-sm font-bold">
-                {expenseToEdit ? 'Guardar Cambios' : `Guardar Gasto (${formatMoney(totalAmount, currency)})`}
+              <Button
+                type="submit"
+                variant="brand"
+                isLoading={isLoading}
+                disabled={isDeleting}
+                className="flex-1 text-sm font-bold"
+              >
+                {t('expenses.quickSave', { amount: formatMoney(totalAmount, currency) })}
               </Button>
             </div>
           )}
         </div>
+
+
       </form>
     </Modal>
   );

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -41,6 +42,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   onSuccess,
 }) => {
   const { createGroup } = usePachas();
+  const { t } = useTranslation();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -60,7 +62,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         setCoverImageUrl(compressed);
         setVisualMode('photo');
       } catch (err: any) {
-        setError(err.message || 'Error al procesar la imagen seleccionada');
+        setError(err.message || 'Error al procesar la imagen');
       }
     }
   };
@@ -68,7 +70,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError('El nombre del grupo es obligatorio');
+      setError(t('groups.createModalSubtitle'));
       return;
     }
 
@@ -95,13 +97,12 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     }
   };
 
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Nuevo Grupo de Gastos"
-      description="Crea un grupo para tus vacaciones, escapada o viaje con amigos"
+      title={t('groups.createGroup')}
+      description={t('groups.createModalSubtitle')}
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -109,7 +110,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-              Icono / Fotografía del Grupo
+              {t('groups.iconOrPhoto')}
             </label>
 
             {/* Switch Tabs */}
@@ -124,7 +125,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                 }`}
               >
                 <Smile className="w-3.5 h-3.5" />
-                Emoji
+                {t('groups.emojiTab')}
               </button>
 
               <button
@@ -137,7 +138,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                 }`}
               >
                 <ImageIcon className="w-3.5 h-3.5" />
-                Foto / Imagen
+                {t('groups.photoTab')}
               </button>
             </div>
           </div>
@@ -175,7 +176,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <label className="p-2 bg-white text-slate-800 rounded-xl cursor-pointer text-xs font-bold hover:bg-slate-100 flex items-center gap-1.5 shadow-md">
                       <Camera className="w-4 h-4" />
-                      <span>Cambiar foto</span>
+                      <span>{t('groups.changePhoto')}</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -188,10 +189,10 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                       type="button"
                       onClick={() => setCoverImageUrl(null)}
                       className="p-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 flex items-center gap-1.5 shadow-md"
-                      title="Eliminar foto"
+                      title={t('groups.removePhoto')}
                     >
                       <Trash2 className="w-4 h-4" />
-                      <span>Quitar</span>
+                      <span>{t('groups.removePhoto')}</span>
                     </button>
                   </div>
                 </div>
@@ -199,10 +200,10 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                 <label className="flex flex-col items-center justify-center gap-2 p-5 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl hover:border-emerald-500 bg-slate-50 dark:bg-slate-800/40 cursor-pointer transition-colors text-center">
                   <Upload className="w-8 h-8 text-emerald-600" />
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Subir una fotografía desde tu dispositivo
+                    {t('groups.uploadPhoto')}
                   </span>
                   <span className="text-[11px] text-slate-400">
-                    JPG, PNG o WEBP (guardada en el grupo)
+                    JPG, PNG, WEBP
                   </span>
                   <input
                     type="file"
@@ -216,7 +217,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               {/* Photo presets */}
               <div>
                 <span className="text-[11px] font-semibold text-slate-400 block mb-1.5">
-                  O elige una foto temática para este viaje:
+                  {t('groups.orChoosePreset')}
                 </span>
                 <div className="grid grid-cols-3 gap-2">
                   {PHOTO_PRESETS.map((preset, idx) => (
@@ -244,8 +245,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
         {/* Group Name */}
         <Input
-          label="Nombre del Viaje / Grupo *"
-          placeholder="Ej: Vacaciones Formentera 2026"
+          label={`${t('groups.groupName')} *`}
+          placeholder={t('groups.groupNamePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           error={error}
@@ -254,8 +255,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
         {/* Description */}
         <Input
-          label="Descripción o Notas (Opcional)"
-          placeholder="Ej: Gastos compartidos de hotel, cenas y barco"
+          label={t('groups.groupDescription')}
+          placeholder={t('groups.groupDescriptionPlaceholder')}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
@@ -263,7 +264,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         {/* Base Currency */}
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-            Moneda Principal del Grupo
+            {t('groups.baseCurrency')}
           </label>
           <select
             value={currency}
@@ -286,7 +287,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             onClick={onClose}
             className="flex-1"
           >
-            Cancelar
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
@@ -294,10 +295,11 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             isLoading={isLoading}
             className="flex-1 text-xs font-bold"
           >
-            Crear Grupo
+            {t('groups.createGroupBtn')}
           </Button>
         </div>
       </form>
     </Modal>
   );
 };
+

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { PachasProvider } from '@/context/PachasContext';
+import { LanguageProvider } from '@/context/LanguageContext';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -41,10 +42,13 @@ export default function RootLayout({
   return (
     <html lang="es" className="scroll-smooth">
       <body className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-emerald-500 selection:text-white">
-        <PachasProvider>
-          {children}
-        </PachasProvider>
+        <LanguageProvider>
+          <PachasProvider>
+            {children}
+          </PachasProvider>
+        </LanguageProvider>
       </body>
     </html>
   );
 }
+
