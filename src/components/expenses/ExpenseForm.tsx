@@ -48,6 +48,7 @@ export interface ExpenseFormProps {
   onClose: () => void;
   onSuccess?: () => void;
   expenseToEdit?: Expense | null;
+  isReadOnly?: boolean;
 }
 
 export const ExpenseForm: React.FC<ExpenseFormProps> = ({
@@ -56,6 +57,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   onClose,
   onSuccess,
   expenseToEdit,
+  isReadOnly: explicitReadOnly,
 }) => {
   const { getGroup, getGroupMembers, currentUser, addExpense, updateExpense } = usePachas();
 
@@ -63,6 +65,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const members = getGroupMembers(groupId);
 
   const baseCurrency = group?.base_currency || 'EUR';
+
+  // Permission calculation
+  const isCreator = currentUser && expenseToEdit ? expenseToEdit.created_by === currentUser.id : true;
+  const isGroupAdmin = currentUser
+    ? group?.created_by === currentUser.id ||
+      members.some((m) => m.user_id === currentUser.id && m.role === 'admin')
+    : false;
+  const isReadOnly =
+    explicitReadOnly !== undefined
+      ? explicitReadOnly
+      : expenseToEdit
+      ? !isCreator && !isGroupAdmin
+      : false;
+
+  const creatorProfile = expenseToEdit
+    ? members.find((m) => m.user_id === expenseToEdit.created_by)?.profile || expenseToEdit.creator
+    : null;
 
   // Form State
   const [title, setTitle] = useState('');
@@ -81,7 +100,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [longitude, setLongitude] = useState<number | null>(null);
   const [locationName, setLocationName] = useState<string | null>(null);
 
-  // Accordion collapsed states (both collapsed by default)
+  // Accordion collapsed states (both collapsed by default, expanded in read-only mode)
   const [isWhoPaidOpen, setIsWhoPaidOpen] = useState(false);
   const [isSplitOpen, setIsSplitOpen] = useState(false);
 
@@ -124,6 +143,15 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setNotes(expenseToEdit.notes || '');
       setReceiptUrl(expenseToEdit.receipt_url || null);
       setSplitType(expenseToEdit.split_type);
+
+      // Auto expand accordions in read-only mode to see all details immediately
+      if (isReadOnly) {
+        setIsWhoPaidOpen(true);
+        setIsSplitOpen(true);
+      } else {
+        setIsWhoPaidOpen(false);
+        setIsSplitOpen(false);
+      }
 
       // Populate location
       setLatitude(expenseToEdit.latitude || null);
@@ -182,7 +210,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setIsWhoPaidOpen(false);
       setIsSplitOpen(false);
     }
-  }, [isOpen, expenseToEdit, members, currentUser?.id, baseCurrency]);
+  }, [isOpen, expenseToEdit, members, currentUser?.id, baseCurrency, isReadOnly]);
+
 
 
   const handleCurrencyChange = (newCurrency: string) => {
@@ -341,21 +370,41 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={expenseToEdit ? 'Editar Gasto' : 'Añadir Nuevo Gasto'}
+      title={isReadOnly ? 'Detalle del Asiento' : expenseToEdit ? 'Editar Gasto' : 'Añadir Nuevo Gasto'}
       description={`Grupo: ${group?.name || ''}`}
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Banner de Modo Sólo Lectura */}
+        {isReadOnly && (
+          <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 flex items-center justify-center text-base shrink-0">
+                👁️
+              </div>
+              <div className="min-w-0">
+                <span className="font-extrabold text-slate-900 dark:text-white block">
+                  Modo sólo lectura
+                </span>
+                <span className="text-slate-500 dark:text-slate-400 block truncate">
+                  Asiento registrado por <strong className="text-slate-700 dark:text-slate-300">{creatorProfile?.full_name || 'otro amigo'}</strong>. Solo el creador o un admin pueden modificarlo.
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* LÍNEA 1: Concepto del Gasto */}
         <div>
           <Input
             label="Concepto del Gasto *"
             placeholder="Ej: Cena restaurante, Alquiler furgoneta, Supermercado..."
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => !isReadOnly && setTitle(e.target.value)}
             required
-            autoFocus
-            className="text-base py-3"
+            autoFocus={!isReadOnly}
+            disabled={isReadOnly}
+            className={`text-base py-3 ${isReadOnly ? 'bg-slate-50 dark:bg-slate-800/50 cursor-default' : ''}`}
           />
         </div>
 
@@ -373,14 +422,20 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               inputMode="decimal"
               placeholder="0,00"
               value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
-              className="w-full px-2 py-3 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white bg-transparent focus:outline-none placeholder:text-slate-300"
+              onChange={(e) => !isReadOnly && setAmountStr(e.target.value)}
+              readOnly={isReadOnly}
+              className={`w-full px-2 py-3 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white bg-transparent focus:outline-none placeholder:text-slate-300 ${
+                isReadOnly ? 'cursor-default' : ''
+              }`}
               required
             />
             <select
               value={currency}
-              onChange={(e) => handleCurrencyChange(e.target.value)}
-              className="bg-slate-100 dark:bg-slate-800 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 px-3.5 border-l border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
+              onChange={(e) => !isReadOnly && handleCurrencyChange(e.target.value)}
+              disabled={isReadOnly}
+              className={`bg-slate-100 dark:bg-slate-800 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 px-3.5 border-l border-slate-200 dark:border-slate-700 focus:outline-none ${
+                isReadOnly ? 'cursor-default' : 'cursor-pointer'
+              }`}
             >
               {SUPPORTED_CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -426,7 +481,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     type="text"
                     inputMode="decimal"
                     value={exchangeRateStr}
-                    onChange={(e) => setExchangeRateStr(e.target.value)}
+                    onChange={(e) => !isReadOnly && setExchangeRateStr(e.target.value)}
+                    readOnly={isReadOnly}
                     className="w-20 text-xs font-bold px-2 py-0.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 text-right"
                   />
                   <span className="text-xs text-slate-500 font-semibold">{currency}</span>
@@ -448,18 +504,21 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         {/* GEOLOCALIZACIÓN Y MAPA DE GOOGLE */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-            Ubicación del Gasto (Google Maps)
+            Ubicación del Gasto
           </label>
           <LocationPicker
             latitude={latitude}
             longitude={longitude}
             locationName={locationName}
             onChange={({ latitude, longitude, locationName }) => {
-              setLatitude(latitude);
-              setLongitude(longitude);
-              setLocationName(locationName);
+              if (!isReadOnly) {
+                setLatitude(latitude);
+                setLongitude(longitude);
+                setLocationName(locationName);
+              }
             }}
             isEditing={!!expenseToEdit}
+            disabled={isReadOnly}
           />
         </div>
 
@@ -475,12 +534,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => setCategory(cat.id)}
+                  onClick={() => !isReadOnly && setCategory(cat.id)}
+                  disabled={isReadOnly}
                   className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
                     isSelected
                       ? `${cat.bgColor} ${cat.borderColor} ring-2 ring-emerald-500 shadow-sm scale-105`
                       : 'border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
+                  } ${isReadOnly && !isSelected ? 'opacity-40' : ''}`}
                 >
                   <span className="text-xl">{cat.emoji}</span>
                   <span
@@ -496,7 +556,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           </div>
         </div>
 
-        {/* SECCIÓN 1: ¿Quién pagó el gasto? (COLAPSADA POR DEFECTO) */}
+        {/* SECCIÓN 1: ¿Quién pagó el gasto? */}
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all">
           <button
             type="button"
@@ -532,7 +592,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline">
-                {isWhoPaidOpen ? 'Cerrar' : 'Cambiar pagador'}
+                {isWhoPaidOpen ? 'Cerrar' : isReadOnly ? 'Ver pagadores' : 'Cambiar pagador'}
               </span>
               {isWhoPaidOpen ? (
                 <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -545,14 +605,18 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           {isWhoPaidOpen && (
             <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 space-y-3 mt-3">
               <div className="flex items-center justify-between pt-3">
-                <span className="text-xs text-slate-500">Selecciona quién realizó el pago:</span>
-                <button
-                  type="button"
-                  onClick={() => setIsMultiPayer(!isMultiPayer)}
-                  className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
-                >
-                  {isMultiPayer ? 'Volver a un solo pagador' : 'Varios amigos pagaron'}
-                </button>
+                <span className="text-xs text-slate-500">
+                  {isReadOnly ? 'Detalle de los pagos realizados:' : 'Selecciona quién realizó el pago:'}
+                </span>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setIsMultiPayer(!isMultiPayer)}
+                    className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                  >
+                    {isMultiPayer ? 'Volver a un solo pagador' : 'Varios amigos pagaron'}
+                  </button>
+                )}
               </div>
 
               {!isMultiPayer ? (
@@ -565,13 +629,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                         key={m.user_id}
                         type="button"
                         onClick={() => {
-                          setSinglePayerId(m.user_id);
+                          if (!isReadOnly) setSinglePayerId(m.user_id);
                         }}
+                        disabled={isReadOnly}
                         className={`p-2.5 rounded-xl border flex items-center gap-2 text-left transition-all ${
                           isSelected
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 ring-2 ring-emerald-500/50 shadow-xs'
                             : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                        }`}
+                        } ${isReadOnly && !isSelected ? 'opacity-40' : ''}`}
                       >
                         <Avatar profile={m.profile} size="sm" />
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
@@ -581,42 +646,49 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     );
                   })}
                 </div>
-
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs text-slate-500">
-                    Indica cuánto pagó cada amigo (Total: {formatMoney(totalAmount, currency)}):
+                    Aportación por amigo (Total: {formatMoney(totalAmount, currency)}):
                   </p>
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    {members.map((m) => (
-                      <div
-                        key={m.user_id}
-                        className="flex items-center justify-between gap-3 p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Avatar profile={m.profile} size="sm" />
-                          <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                            {m.profile?.full_name}
-                          </span>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {members.map((m) => {
+                      const val = customPayers[m.user_id] || '';
+                      const amt = parseEuropeanAmount(val);
+                      if (isReadOnly && amt <= 0) return null;
+
+                      return (
+                        <div
+                          key={m.user_id}
+                          className="flex items-center justify-between gap-3 p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Avatar profile={m.profile} size="sm" />
+                            <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                              {m.profile?.full_name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 w-28">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0,00"
+                              value={customPayers[m.user_id] || ''}
+                              onChange={(e) =>
+                                !isReadOnly &&
+                                setCustomPayers({
+                                  ...customPayers,
+                                  [m.user_id]: e.target.value,
+                                })
+                              }
+                              readOnly={isReadOnly}
+                              className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
+                            />
+                            <span className="text-xs text-slate-500">{currencyObj.symbol}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 w-28">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0,00"
-                            value={customPayers[m.user_id] || ''}
-                            onChange={(e) =>
-                              setCustomPayers({
-                                ...customPayers,
-                                [m.user_id]: e.target.value,
-                              })
-                            }
-                            className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
-                          />
-                          <span className="text-xs text-slate-500">{currencyObj.symbol}</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -624,7 +696,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           )}
         </div>
 
-        {/* SECCIÓN 2: ¿Con quién se comparte? (COLAPSADA POR DEFECTO) */}
+        {/* SECCIÓN 2: ¿Con quién se comparte? */}
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all">
           <button
             type="button"
@@ -658,7 +730,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline">
-                {isSplitOpen ? 'Cerrar' : 'Personalizar reparto'}
+                {isSplitOpen ? 'Cerrar' : isReadOnly ? 'Ver reparto' : 'Personalizar reparto'}
               </span>
               {isSplitOpen ? (
                 <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -672,26 +744,31 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 space-y-4 mt-3">
               <div className="flex items-center justify-between pt-3">
                 <span className="text-xs text-slate-500">
-                  Elige los amigos que participan en este gasto:
+                  Amigos que participan en este gasto:
                 </span>
-                <button
-                  type="button"
-                  onClick={selectAllParticipants}
-                  className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
-                >
-                  Seleccionar todos
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={selectAllParticipants}
+                    className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                  >
+                    Seleccionar todos
+                  </button>
+                )}
               </div>
 
               {/* Participants Chips */}
               <div className="flex flex-wrap gap-2">
                 {members.map((m) => {
                   const isSelected = selectedParticipants.includes(m.user_id);
+                  if (isReadOnly && !isSelected) return null;
+
                   return (
                     <button
                       key={m.user_id}
                       type="button"
-                      onClick={() => toggleParticipant(m.user_id)}
+                      onClick={() => !isReadOnly && toggleParticipant(m.user_id)}
+                      disabled={isReadOnly}
                       className={`px-3 py-1.5 rounded-full border flex items-center gap-2 transition-all ${
                         isSelected
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
@@ -703,7 +780,6 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                         {currentUser && m.user_id === currentUser.id ? 'Tú' : m.profile?.full_name?.split(' ')[0]}
                       </span>
                       {isSelected && <Check className="w-3.5 h-3.5" />}
-
                     </button>
                   );
                 })}
@@ -717,7 +793,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <div className="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                   <button
                     type="button"
-                    onClick={() => setSplitType('EQUAL')}
+                    onClick={() => !isReadOnly && setSplitType('EQUAL')}
+                    disabled={isReadOnly}
                     className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       splitType === 'EQUAL'
                         ? 'bg-emerald-500 text-white shadow-xs'
@@ -729,7 +806,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSplitType('EXACT')}
+                    onClick={() => !isReadOnly && setSplitType('EXACT')}
+                    disabled={isReadOnly}
                     className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       splitType === 'EXACT'
                         ? 'bg-emerald-500 text-white shadow-xs'
@@ -737,11 +815,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     }`}
                   >
                     <Calculator className="w-3.5 h-3.5" />
-                    Exacto (€)
+                    Exacto ({currencyObj.symbol})
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSplitType('PERCENTAGE')}
+                    onClick={() => !isReadOnly && setSplitType('PERCENTAGE')}
+                    disabled={isReadOnly}
                     className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       splitType === 'PERCENTAGE'
                         ? 'bg-emerald-500 text-white shadow-xs'
@@ -753,7 +832,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSplitType('SHARES')}
+                    onClick={() => !isReadOnly && setSplitType('SHARES')}
+                    disabled={isReadOnly}
                     className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       splitType === 'SHARES'
                         ? 'bg-emerald-500 text-white shadow-xs'
@@ -767,7 +847,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
                 {/* Custom Split Inputs per Participant (if not EQUAL) */}
                 {splitType !== 'EQUAL' && (
-                  <div className="mt-3 space-y-2 max-h-40 overflow-y-auto">
+                  <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
                     {selectedParticipants.map((userId) => {
                       const m = members.find((mem) => mem.user_id === userId);
                       return (
@@ -806,6 +886,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                                   : ''
                               }
                               onChange={(e) => {
+                                if (isReadOnly) return;
                                 const val = parseEuropeanAmount(e.target.value);
                                 setCustomSplits({
                                   ...customSplits,
@@ -817,10 +898,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                                   },
                                 });
                               }}
+                              readOnly={isReadOnly}
                               className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
                             />
                             <span className="text-xs text-slate-500 font-semibold">
-                              {splitType === 'EXACT' ? '€' : splitType === 'PERCENTAGE' ? '%' : 'partes'}
+                              {splitType === 'EXACT' ? currencyObj.symbol : splitType === 'PERCENTAGE' ? '%' : 'partes'}
                             </span>
                           </div>
                         </div>
@@ -831,6 +913,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               </div>
             </div>
           )}
+        </div>
+
+        {/* NOTAS Y OBSERVACIONES */}
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+            Notas / Observaciones
+          </label>
+          <textarea
+            rows={2}
+            placeholder={isReadOnly ? 'Sin notas adicionales' : 'Añade detalles, enlace o descripción...'}
+            value={notes}
+            onChange={(e) => !isReadOnly && setNotes(e.target.value)}
+            readOnly={isReadOnly}
+            className={`w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm resize-none ${
+              isReadOnly ? 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300' : ''
+            }`}
+          />
         </div>
 
         {/* Fecha y Hora del gasto y Foto de Ticket */}
@@ -849,36 +948,55 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <input
                 type="datetime-local"
                 value={expenseDateTime}
-                onChange={(e) => setExpenseDateTime(e.target.value)}
+                onChange={(e) => !isReadOnly && setExpenseDateTime(e.target.value)}
+                disabled={isReadOnly}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
               />
             </div>
           </div>
 
-          {/* Receipt Photo Upload */}
+          {/* Receipt Photo Upload / View */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
               Foto de Ticket / Recibo
             </label>
             <div className="flex items-center gap-2">
-              <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-xs">
-                <ImageIcon className="w-4 h-4 text-emerald-600" />
-                <span>{receiptUrl ? 'Foto añadida ✓' : 'Subir foto'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
-              </label>
-              {receiptUrl && (
-                <button
-                  type="button"
-                  onClick={() => setReceiptUrl(null)}
-                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg text-xs"
+              {!isReadOnly ? (
+                <>
+                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-xs">
+                    <ImageIcon className="w-4 h-4 text-emerald-600" />
+                    <span>{receiptUrl ? 'Foto añadida ✓' : 'Subir foto'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {receiptUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setReceiptUrl(null)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg text-xs font-semibold"
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </>
+              ) : receiptUrl ? (
+                <a
+                  href={receiptUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/60 transition-colors shadow-xs"
                 >
-                  Quitar
-                </button>
+                  <Receipt className="w-4 h-4" />
+                  <span>Ver Ticket Adjunto ↗</span>
+                </a>
+              ) : (
+                <div className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-xs text-slate-400 text-center">
+                  Sin ticket adjunto
+                </div>
               )}
             </div>
           </div>
@@ -891,16 +1009,30 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           </div>
         )}
 
-        {/* Submit Buttons */}
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-            Cancelar
-          </Button>
-          <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-sm font-bold">
-            {expenseToEdit ? 'Guardar Cambios' : `Guardar Gasto (${formatMoney(totalAmount, currency)})`}
-          </Button>
+        {/* Submit Buttons / ReadOnly Action */}
+        <div className="pt-2">
+          {isReadOnly ? (
+            <Button
+              type="button"
+              variant="brand"
+              onClick={onClose}
+              className="w-full text-sm font-bold shadow-md shadow-emerald-600/20"
+            >
+              Cerrar Detalle
+            </Button>
+          ) : (
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+                Cancelar
+              </Button>
+              <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-sm font-bold">
+                {expenseToEdit ? 'Guardar Cambios' : `Guardar Gasto (${formatMoney(totalAmount, currency)})`}
+              </Button>
+            </div>
+          )}
         </div>
       </form>
     </Modal>
   );
 };
+

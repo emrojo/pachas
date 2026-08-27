@@ -21,6 +21,7 @@ export interface LocationPickerProps {
   locationName?: string | null;
   onChange: (data: { latitude: number | null; longitude: number | null; locationName: string | null }) => void;
   isEditing?: boolean;
+  disabled?: boolean;
 }
 
 export const LocationPicker: React.FC<LocationPickerProps> = ({
@@ -29,7 +30,9 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   locationName,
   onChange,
   isEditing = false,
+  disabled = false,
 }) => {
+
   const [isPhysicallyHere, setIsPhysicallyHere] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -190,6 +193,67 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   const googleMapsExternalUrl = hasLocation
     ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
     : null;
+
+  if (disabled) {
+    if (!hasLocation) {
+      return (
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 text-xs text-slate-400 dark:text-slate-500 flex items-center gap-2">
+          <MapPin className="w-4 h-4 opacity-50" />
+          <span>Sin ubicación registrada para este gasto.</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3">
+        {/* Location details card */}
+        <div className="flex items-center justify-between gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-emerald-500/30 shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                {locationName || 'Ubicación registrada'}
+              </span>
+              <span className="text-[10px] text-slate-400 block font-mono">
+                {latitude?.toFixed(5)}, {longitude?.toFixed(5)}
+              </span>
+            </div>
+          </div>
+
+          {googleMapsExternalUrl && (
+            <a
+              href={googleMapsExternalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0"
+              title="Abrir en Google Maps"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Google Maps</span>
+            </a>
+          )}
+        </div>
+
+        {/* Embedded Google Map Preview */}
+        {googleMapEmbedUrl && (
+          <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-44 sm:h-52 w-full bg-slate-100 dark:bg-slate-800 relative shadow-inner">
+            <iframe
+              title="Mapa de la ubicación del gasto"
+              src={googleMapEmbedUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen={false}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3">
@@ -363,3 +427,4 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
     </div>
   );
 };
+
