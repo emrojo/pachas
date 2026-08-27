@@ -2,10 +2,72 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { verifyJwt } from '@/lib/auth/jwt';
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const token = request.cookies.get('sb-access-token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    const payload = await verifyJwt(token);
+    if (!payload?.sub) {
+      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
+    }
+
+    const groupId = params?.id;
+    const pool = getDbPool();
+    if (!pool) {
+      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
+    }
+
+    const query = `
+      SELECT g.*,
+             COALESCE(
+               json_agg(
+                 jsonb_build_object(
+                   'id', gm.id,
+                   'group_id', gm.group_id,
+                   'user_id', gm.user_id,
+                   'role', gm.role,
+                   'joined_at', gm.joined_at,
+                   'profile', jsonb_build_object(
+                     'id', p.id,
+                     'full_name', p.full_name,
+                     'avatar_url', p.avatar_url,
+                     'email', p.email,
+                     'bizum_phone', p.bizum_phone
+                   )
+                 )
+               ) FILTER (WHERE gm.id IS NOT NULL),
+               '[]'::json
+             ) as members
+      FROM public.groups g
+      LEFT JOIN public.group_members gm ON gm.group_id = g.id
+      LEFT JOIN public.profiles p ON p.id = gm.user_id
+      WHERE g.id = $1
+      GROUP BY g.id
+    `;
+
+    const res = await pool.query(query, [groupId]);
+    if (res.rows.length === 0) {
+      return NextResponse.json({ error: 'Grupo no encontrado' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, group: res.rows[0] });
+  } catch (err: any) {
+    console.error('API get single group error:', err);
+    return NextResponse.json({ error: err.message || 'Error al obtener grupo' }, { status: 500 });
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+
   try {
     const token = request.cookies.get('sb-access-token')?.value;
     if (!token) {
