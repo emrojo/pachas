@@ -9,7 +9,7 @@ import { formatDate } from '@/lib/utils';
 import { Avatar } from '@/components/ui/Avatar';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { LocationModal } from '@/components/expenses/LocationModal';
-import { Receipt, Trash2, Pencil, Users, Globe, MapPin } from 'lucide-react';
+import { Receipt, Trash2, Pencil, Users, Globe, MapPin, CloudOff } from 'lucide-react';
 
 export interface ExpenseCardProps {
   expense: Expense;
@@ -96,10 +96,19 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
           </div>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
                 {expense.title}
               </h4>
+              {expense.is_pending_sync && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center gap-1 shrink-0 animate-pulse border border-amber-300/50 dark:border-amber-700/50"
+                  title="Guardado localmente. Pendiente de sincronizar con el servidor."
+                >
+                  <CloudOff className="w-2.5 h-2.5" />
+                  Sin sincronizar
+                </span>
+              )}
               {isForeign && (
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center gap-0.5 shrink-0">
                   <Globe className="w-2.5 h-2.5" />
@@ -107,6 +116,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 </span>
               )}
             </div>
+
 
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               <span title={formatDate(expense.expense_date, "dd/MM/yyyy HH:mm")}>

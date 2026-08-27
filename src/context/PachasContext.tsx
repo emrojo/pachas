@@ -25,6 +25,12 @@ import { calculateBalances, simplifyDebts } from '@/lib/algorithms/simplifyDebts
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import { createClient } from '@/lib/supabase/client';
 import { isUserAdmin, isDemoModeAllowed } from '@/lib/authConfig';
+import {
+  getSyncQueue,
+  enqueueSyncAction,
+  processSyncQueue,
+  SyncAction,
+} from '@/lib/sync/syncManager';
 
 export interface CreateExpenseInput {
   groupId: string;
@@ -93,6 +99,9 @@ interface PachasContextType {
   updateProfile: (data: Partial<Profile>) => Promise<void>;
   logout: () => Promise<void>;
   resetLocalDatabase: () => Promise<void>;
+  isOnline: boolean;
+  pendingSyncCount: number;
+  syncPendingQueue: () => Promise<void>;
 }
 
 const PachasContext = createContext<PachasContextType | null>(null);
@@ -107,7 +116,15 @@ const STORAGE_KEYS = {
 };
 
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, _setCurrentUser] = useState<Profile | null>(null);
+  const [currentUser, _setCurrentUser] = useState<Profile | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.USER);
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return null;
+  });
   const [availableUsers, setAvailableUsers] = useState<Profile[]>(DEMO_USERS);
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Record<string, GroupMember[]>>({});
@@ -119,6 +136,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     count: number;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
 
   // Helper to change current user and persist immediately to localStorage
   const setCurrentUser = (user: Profile | null) => {
@@ -144,36 +163,44 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         let activeProfile: Profile | null = null;
         const supabase = createClient();
-        const { data: authData } = await supabase.auth.getUser();
-        const authUser = authData?.user;
 
-        if (authUser) {
-          // Fetch real user profile from Supabase
-          const { data: dbProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .maybeSingle();
+        // 1. Try checking auth with timeout protection (max 2500ms)
+        const authPromise = async () => {
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            if (authData?.user) {
+              const { data: dbProfile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', authData.user.id)
+                .maybeSingle();
 
-          activeProfile = {
-            id: authUser.id,
-            email: authUser.email || '',
-            full_name: dbProfile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuario',
-            avatar_url: dbProfile?.avatar_url || authUser.user_metadata?.avatar_url || null,
-            bizum_phone: dbProfile?.bizum_phone || authUser.user_metadata?.bizum_phone || null,
-            role: dbProfile?.role || authUser.user_metadata?.role || 'member',
-            created_at: authUser.created_at,
-          };
-        } else {
-          // Check native PostgreSQL auth endpoint /api/auth/me
-          const meRes = await fetch('/api/auth/me');
-          if (meRes.ok) {
-            const meData = await meRes.json();
-            if (meData?.user) {
-              activeProfile = meData.user;
+              return {
+                id: authData.user.id,
+                email: authData.user.email || '',
+                full_name: dbProfile?.full_name || authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'Usuario',
+                avatar_url: dbProfile?.avatar_url || authData.user.user_metadata?.avatar_url || null,
+                bizum_phone: dbProfile?.bizum_phone || authData.user.user_metadata?.bizum_phone || null,
+                role: dbProfile?.role || authData.user.user_metadata?.role || 'member',
+                created_at: authData.user.created_at,
+              };
             }
-          }
-        }
+          } catch {}
+
+          try {
+            const meRes = await fetch('/api/auth/me');
+            if (meRes.ok) {
+              const meData = await meRes.json();
+              if (meData?.user) return meData.user;
+            }
+          } catch {}
+
+          return null;
+        };
+
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
+        activeProfile = await Promise.race([authPromise(), timeoutPromise]);
+
 
         if (activeProfile) {
           if (isMounted) {
@@ -309,14 +336,71 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    loadData().finally(() => {
-      if (isMounted) setIsLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  // Listen to network status and initialize pending count
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsOnline(navigator.onLine);
+      setPendingSyncCount(getSyncQueue().length);
+
+      const handleOnline = () => {
+        setIsOnline(true);
+        syncPendingQueue();
+      };
+      const handleOffline = () => {
+        setIsOnline(false);
+      };
+
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+  }, []);
+
+  const syncPendingQueue = async () => {
+    if (typeof window === 'undefined' || !navigator.onLine) return;
+    try {
+      const supabase = createClient();
+      await processSyncQueue(supabase, (syncedItem: SyncAction) => {
+        if (syncedItem.type === 'CREATE_EXPENSE' || syncedItem.type === 'UPDATE_EXPENSE') {
+          const exp: Expense = syncedItem.payload;
+          setExpenses((prev) => {
+            const list = prev[exp.group_id] || [];
+            const updated = list.map((e) =>
+              e.id === exp.id ? { ...e, is_pending_sync: false } : e
+            );
+            localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify({ ...prev, [exp.group_id]: updated }));
+            return {
+              ...prev,
+              [exp.group_id]: updated,
+            };
+          });
+        } else if (syncedItem.type === 'CREATE_SETTLEMENT') {
+          const settle: Settlement = syncedItem.payload;
+          setSettlements((prev) => {
+            const list = prev[settle.group_id] || [];
+            const updated = list.map((s) =>
+              s.id === settle.id ? { ...s, is_pending_sync: false } : s
+            );
+            localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify({ ...prev, [settle.group_id]: updated }));
+            return {
+              ...prev,
+              [settle.group_id]: updated,
+            };
+          });
+        }
+      });
+      setPendingSyncCount(getSyncQueue().length);
+    } catch (err) {
+      console.warn('Sync pending queue warning:', err);
+    }
+  };
+
 
 
 
@@ -747,6 +831,75 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       participants: convertedParticipants,
     };
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      newExpense.is_pending_sync = true;
+      enqueueSyncAction({
+        type: 'CREATE_EXPENSE',
+        entityId: newExpense.id,
+        groupId: input.groupId,
+        payload: newExpense,
+      });
+      setPendingSyncCount(getSyncQueue().length);
+    } else {
+      try {
+        const supabase = createClient();
+        const { error: expErr } = await supabase.from('expenses').insert({
+          id: newExpense.id,
+          group_id: newExpense.group_id,
+          created_by: currentUser.id,
+          title: newExpense.title,
+          amount: newExpense.amount,
+          currency: newExpense.currency,
+          exchange_rate: newExpense.exchange_rate,
+          converted_amount: newExpense.converted_amount,
+          category: newExpense.category,
+          expense_date: newExpense.expense_date,
+          receipt_url: newExpense.receipt_url,
+          notes: newExpense.notes,
+          split_type: newExpense.split_type,
+          latitude: newExpense.latitude,
+          longitude: newExpense.longitude,
+          location_name: newExpense.location_name,
+        });
+
+        if (expErr) throw expErr;
+
+        if (newExpense.payers && newExpense.payers.length > 0) {
+          await supabase.from('expense_payers').insert(
+            newExpense.payers.map((p) => ({
+              id: p.id,
+              expense_id: newExpense.id,
+              user_id: p.user_id,
+              amount_paid: p.amount_paid,
+            }))
+          );
+        }
+
+        if (newExpense.participants && newExpense.participants.length > 0) {
+          await supabase.from('expense_participants').insert(
+            newExpense.participants.map((pt) => ({
+              id: pt.id,
+              expense_id: newExpense.id,
+              user_id: pt.user_id,
+              amount_owed: pt.amount_owed,
+              percentage: pt.percentage || null,
+              shares: pt.shares || null,
+            }))
+          );
+        }
+      } catch (e) {
+        console.warn('Supabase addExpense sync fallback to queue:', e);
+        newExpense.is_pending_sync = true;
+        enqueueSyncAction({
+          type: 'CREATE_EXPENSE',
+          entityId: newExpense.id,
+          groupId: input.groupId,
+          payload: newExpense,
+        });
+        setPendingSyncCount(getSyncQueue().length);
+      }
+    }
+
     const currentExpenses = expenses[input.groupId] || [];
     const updatedExpenses = {
       ...expenses,
@@ -754,57 +907,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     saveState(undefined, undefined, updatedExpenses);
-
-    try {
-      const supabase = createClient();
-      await supabase.from('expenses').insert({
-        id: newExpense.id,
-        group_id: newExpense.group_id,
-        created_by: currentUser.id,
-        title: newExpense.title,
-        amount: newExpense.amount,
-        currency: newExpense.currency,
-        exchange_rate: newExpense.exchange_rate,
-        converted_amount: newExpense.converted_amount,
-        category: newExpense.category,
-        expense_date: newExpense.expense_date,
-        receipt_url: newExpense.receipt_url,
-        notes: newExpense.notes,
-        split_type: newExpense.split_type,
-        latitude: newExpense.latitude,
-        longitude: newExpense.longitude,
-        location_name: newExpense.location_name,
-      });
-
-      if (newExpense.payers && newExpense.payers.length > 0) {
-        await supabase.from('expense_payers').insert(
-          newExpense.payers.map((p) => ({
-            id: p.id,
-            expense_id: newExpense.id,
-            user_id: p.user_id,
-            amount_paid: p.amount_paid,
-          }))
-        );
-      }
-
-      if (newExpense.participants && newExpense.participants.length > 0) {
-        await supabase.from('expense_participants').insert(
-          newExpense.participants.map((pt) => ({
-            id: pt.id,
-            expense_id: newExpense.id,
-            user_id: pt.user_id,
-            amount_owed: pt.amount_owed,
-            percentage: pt.percentage || null,
-            shares: pt.shares || null,
-          }))
-        );
-      }
-    } catch (e) {
-      console.warn('Supabase addExpense sync warning:', e);
-    }
-
     return newExpense;
   };
+
 
 
   const importExpenses = async (groupId: string, inputs: CreateExpenseInput[]): Promise<Expense[]> => {
@@ -1002,38 +1107,58 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       participants: convertedParticipants,
     };
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      updatedExpense.is_pending_sync = true;
+      enqueueSyncAction({
+        type: 'UPDATE_EXPENSE',
+        entityId: updatedExpense.id,
+        groupId,
+        payload: updatedExpense,
+      });
+      setPendingSyncCount(getSyncQueue().length);
+    } else {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase
+          .from('expenses')
+          .update({
+            title: updatedExpense.title,
+            amount: updatedExpense.amount,
+            currency: updatedExpense.currency,
+            exchange_rate: updatedExpense.exchange_rate,
+            converted_amount: updatedExpense.converted_amount,
+            category: updatedExpense.category,
+            expense_date: updatedExpense.expense_date,
+            receipt_url: updatedExpense.receipt_url,
+            notes: updatedExpense.notes,
+            split_type: updatedExpense.split_type,
+            latitude: updatedExpense.latitude,
+            longitude: updatedExpense.longitude,
+            location_name: updatedExpense.location_name,
+            updated_at: updatedExpense.updated_at,
+          })
+          .eq('id', expenseId);
+
+        if (error) throw error;
+      } catch (e) {
+        console.warn('Supabase updateExpense sync fallback to queue:', e);
+        updatedExpense.is_pending_sync = true;
+        enqueueSyncAction({
+          type: 'UPDATE_EXPENSE',
+          entityId: updatedExpense.id,
+          groupId,
+          payload: updatedExpense,
+        });
+        setPendingSyncCount(getSyncQueue().length);
+      }
+    }
+
     const updatedList = currentExpenses.map((e) => (e.id === expenseId ? updatedExpense : e));
     const updatedExpenses = {
       ...expenses,
       [groupId]: updatedList,
     };
     saveState(undefined, undefined, updatedExpenses);
-
-    try {
-      const supabase = createClient();
-      await supabase
-        .from('expenses')
-        .update({
-          title: updatedExpense.title,
-          amount: updatedExpense.amount,
-          currency: updatedExpense.currency,
-          exchange_rate: updatedExpense.exchange_rate,
-          converted_amount: updatedExpense.converted_amount,
-          category: updatedExpense.category,
-          expense_date: updatedExpense.expense_date,
-          receipt_url: updatedExpense.receipt_url,
-          notes: updatedExpense.notes,
-          split_type: updatedExpense.split_type,
-          latitude: updatedExpense.latitude,
-          longitude: updatedExpense.longitude,
-          location_name: updatedExpense.location_name,
-          updated_at: updatedExpense.updated_at,
-        })
-        .eq('id', expenseId);
-    } catch (e) {
-      console.warn('Supabase updateExpense sync warning:', e);
-    }
-
     return updatedExpense;
   };
 
@@ -1053,11 +1178,29 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     saveState(undefined, undefined, updatedExpenses);
 
-    try {
-      const supabase = createClient();
-      await supabase.from('expenses').delete().eq('id', expenseId);
-    } catch (e) {
-      console.warn('Supabase deleteExpense sync warning:', e);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      enqueueSyncAction({
+        type: 'DELETE_EXPENSE',
+        entityId: expenseId,
+        groupId,
+        payload: null,
+      });
+      setPendingSyncCount(getSyncQueue().length);
+    } else {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('Supabase deleteExpense fallback to queue:', e);
+        enqueueSyncAction({
+          type: 'DELETE_EXPENSE',
+          entityId: expenseId,
+          groupId,
+          payload: null,
+        });
+        setPendingSyncCount(getSyncQueue().length);
+      }
     }
   };
 
@@ -1093,6 +1236,43 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       to_profile: toProfile,
     };
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      newSettlement.is_pending_sync = true;
+      enqueueSyncAction({
+        type: 'CREATE_SETTLEMENT',
+        entityId: newSettlement.id,
+        groupId,
+        payload: newSettlement,
+      });
+      setPendingSyncCount(getSyncQueue().length);
+    } else {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from('settlements').insert({
+          id: newSettlement.id,
+          group_id: newSettlement.group_id,
+          from_user_id: newSettlement.from_user_id,
+          to_user_id: newSettlement.to_user_id,
+          amount: newSettlement.amount,
+          currency: newSettlement.currency,
+          payment_method: newSettlement.payment_method,
+          notes: newSettlement.notes,
+          settled_at: newSettlement.settled_at,
+        });
+        if (error) throw error;
+      } catch (e) {
+        console.warn('Supabase recordSettlement sync fallback to queue:', e);
+        newSettlement.is_pending_sync = true;
+        enqueueSyncAction({
+          type: 'CREATE_SETTLEMENT',
+          entityId: newSettlement.id,
+          groupId,
+          payload: newSettlement,
+        });
+        setPendingSyncCount(getSyncQueue().length);
+      }
+    }
+
     const currentSettlements = settlements[groupId] || [];
     const updatedSettlements = {
       ...settlements,
@@ -1100,26 +1280,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     saveState(undefined, undefined, undefined, updatedSettlements);
-
-    try {
-      const supabase = createClient();
-      await supabase.from('settlements').insert({
-        id: newSettlement.id,
-        group_id: newSettlement.group_id,
-        from_user_id: newSettlement.from_user_id,
-        to_user_id: newSettlement.to_user_id,
-        amount: newSettlement.amount,
-        currency: newSettlement.currency,
-        payment_method: newSettlement.payment_method,
-        notes: newSettlement.notes,
-        settled_at: newSettlement.settled_at,
-      });
-    } catch (e) {
-      console.warn('Supabase recordSettlement sync warning:', e);
-    }
-
     return newSettlement;
   };
+
 
 
   const isCurrentUserAdmin = isUserAdmin(currentUser, groups, members);
@@ -1305,8 +1468,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateProfile,
         logout,
         resetLocalDatabase,
+        isOnline,
+        pendingSyncCount,
+        syncPendingQueue,
       }}
     >
+
       {children}
     </PachasContext.Provider>
   );
