@@ -33,26 +33,29 @@ export function getCurrencyByCode(code: string): Currency {
  * Formats a monetary number in European format:
  * Uses dot (.) for thousands and comma (,) for decimals. (e.g. 1.250,50 €)
  */
-export function formatMoney(amount: number, currencyCode: string = 'EUR'): string {
+export function formatMoney(amount: number | string | null | undefined, currencyCode: string = 'EUR'): string {
+  const numeric = typeof amount === 'number' ? (isNaN(amount) ? 0 : amount) : parseFloat(String(amount ?? 0)) || 0;
   const currency = getCurrencyByCode(currencyCode);
-  const formatted = Math.abs(amount).toLocaleString('es-ES', {
+  const formatted = Math.abs(numeric).toLocaleString('es-ES', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-  const sign = amount < 0 ? '-' : '';
+  const sign = numeric < 0 ? '-' : '';
   return `${sign}${formatted} ${currency.symbol}`;
 }
 
 /**
  * Formats standard numbers with European decimal comma (e.g. 25,50)
  */
-export function formatNumber(amount: number, decimals: number = 2): string {
-  return amount.toLocaleString('es-ES', {
+export function formatNumber(amount: number | string | null | undefined, decimals: number = 2): string {
+  const numeric = typeof amount === 'number' ? (isNaN(amount) ? 0 : amount) : parseFloat(String(amount ?? 0)) || 0;
+  return numeric.toLocaleString('es-ES', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
 }
+
 
 /**
  * Parses user input amounts supporting both commas (12,50) and dots (12.50)

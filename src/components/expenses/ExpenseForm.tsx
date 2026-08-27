@@ -133,16 +133,18 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     if (!isOpen) return;
 
     if (expenseToEdit) {
-      setTitle(expenseToEdit.title);
-      setAmountStr(expenseToEdit.amount.toFixed(2).replace('.', ','));
-      setCurrency(expenseToEdit.currency);
-      const rate = expenseToEdit.exchange_rate || getDefaultExchangeRate(expenseToEdit.currency);
+      const numAmount = Number(expenseToEdit.amount) || 0;
+      setTitle(expenseToEdit.title || '');
+      setAmountStr(numAmount.toFixed(2).replace('.', ','));
+      setCurrency(expenseToEdit.currency || baseCurrency);
+      const rawRate = Number(expenseToEdit.exchange_rate);
+      const rate = rawRate && !isNaN(rawRate) ? rawRate : getDefaultExchangeRate(expenseToEdit.currency || baseCurrency);
       setExchangeRateStr(rate.toFixed(4).replace('.', ','));
-      setCategory(expenseToEdit.category);
-      setExpenseDateTime(toDateTimeLocalValue(expenseToEdit.expense_date));
+      setCategory(expenseToEdit.category || 'food');
+      setExpenseDateTime(toDateTimeLocalValue(expenseToEdit.expense_date || getCurrentDateTimeISOWithTimezone()));
       setNotes(expenseToEdit.notes || '');
       setReceiptUrl(expenseToEdit.receipt_url || null);
-      setSplitType(expenseToEdit.split_type);
+      setSplitType(expenseToEdit.split_type || 'EQUAL');
 
       // Auto expand accordions in read-only mode to see all details immediately
       if (isReadOnly) {
@@ -154,8 +156,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       }
 
       // Populate location
-      setLatitude(expenseToEdit.latitude || null);
-      setLongitude(expenseToEdit.longitude || null);
+      setLatitude(expenseToEdit.latitude !== null && expenseToEdit.latitude !== undefined ? Number(expenseToEdit.latitude) : null);
+      setLongitude(expenseToEdit.longitude !== null && expenseToEdit.longitude !== undefined ? Number(expenseToEdit.longitude) : null);
       setLocationName(expenseToEdit.location_name || null);
 
       // Populate payers
@@ -163,7 +165,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         setIsMultiPayer(true);
         const map: Record<string, string> = {};
         expenseToEdit.payers.forEach((p) => {
-          map[p.user_id] = p.amount_paid.toFixed(2).replace('.', ',');
+          const amt = Number(p.amount_paid) || 0;
+          map[p.user_id] = amt.toFixed(2).replace('.', ',');
         });
         setCustomPayers(map);
       } else if (expenseToEdit.payers && expenseToEdit.payers.length === 1) {
@@ -180,14 +183,15 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         const customMap: Record<string, { exact?: number; percentage?: number; shares?: number }> = {};
         expenseToEdit.participants.forEach((p) => {
           customMap[p.user_id] = {
-            exact: p.amount_owed,
-            percentage: p.percentage || undefined,
-            shares: p.shares || undefined,
+            exact: p.amount_owed !== undefined && p.amount_owed !== null ? Number(p.amount_owed) : undefined,
+            percentage: p.percentage !== undefined && p.percentage !== null ? Number(p.percentage) : undefined,
+            shares: p.shares !== undefined && p.shares !== null ? Number(p.shares) : undefined,
           };
         });
         setCustomSplits(customMap);
       }
     } else {
+
       // New expense defaults
       const defaultUserId = currentUser?.id || members[0]?.user_id || '';
       setTitle('');
@@ -640,8 +644,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       >
                         <Avatar profile={m.profile} size="sm" />
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                          {isMe ? 'Tú' : m.profile?.full_name?.split(' ')[0]}
+                          {isMe ? 'Tú' : m.profile?.full_name?.split(' ')[0] || 'Amigo'}
                         </span>
+
                       </button>
                     );
                   })}
@@ -665,8 +670,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                           <div className="flex items-center gap-2">
                             <Avatar profile={m.profile} size="sm" />
                             <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                              {m.profile?.full_name}
+                              {m.profile?.full_name || expenseToEdit?.payers?.find((p) => p.user_id === m.user_id)?.profile?.full_name || 'Amigo'}
                             </span>
+
                           </div>
                           <div className="flex items-center gap-1 w-28">
                             <input
@@ -777,8 +783,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     >
                       <Avatar profile={m.profile} size="sm" className="w-5 h-5 text-[10px]" />
                       <span className="text-xs font-medium">
-                        {currentUser && m.user_id === currentUser.id ? 'Tú' : m.profile?.full_name?.split(' ')[0]}
+                        {currentUser && m.user_id === currentUser.id ? 'Tú' : m.profile?.full_name?.split(' ')[0] || 'Amigo'}
                       </span>
+
                       {isSelected && <Check className="w-3.5 h-3.5" />}
                     </button>
                   );
@@ -858,9 +865,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                           <div className="flex items-center gap-2">
                             <Avatar profile={m?.profile} size="sm" />
                             <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                              {m?.profile?.full_name}
+                              {m?.profile?.full_name || expenseToEdit?.participants?.find((p) => p.user_id === userId)?.profile?.full_name || 'Amigo'}
                             </span>
                           </div>
+
                           <div className="flex items-center gap-1 w-28">
                             <input
                               type="text"

@@ -37,9 +37,10 @@ export const SettleModal: React.FC<SettleModalProps> = ({
   // Set initial debt amount when opened with European formatting
   React.useEffect(() => {
     if (debt) {
-      setAmountStr(debt.amount.toFixed(2).replace('.', ','));
+      setAmountStr(Number(debt.amount || 0).toFixed(2).replace('.', ','));
       setNotes(`Liquidación de viaje - ${debt.from_profile.full_name} a ${debt.to_profile.full_name}`);
     }
+
   }, [debt]);
 
   if (!debt) return null;
