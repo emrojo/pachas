@@ -105,58 +105,38 @@ export async function processSyncQueue(
       switch (item.type) {
         case 'CREATE_EXPENSE': {
           const expense: Expense = item.payload;
-          const { error: expError } = await supabaseClient.from('expenses').upsert({
-            id: expense.id,
-            group_id: expense.group_id,
-            created_by: expense.created_by,
-            title: expense.title,
-            amount: expense.amount,
-            currency: expense.currency,
-            exchange_rate: expense.exchange_rate,
-            converted_amount: expense.converted_amount,
-            category: expense.category,
-            expense_date: expense.expense_date,
-            receipt_url: expense.receipt_url,
-            notes: expense.notes,
-            split_type: expense.split_type,
-            latitude: expense.latitude,
-            longitude: expense.longitude,
-            location_name: expense.location_name,
-          });
+          try {
+            const res = await fetch('/api/expenses', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: expense.id,
+                groupId: expense.group_id,
+                title: expense.title,
+                amount: expense.amount,
+                currency: expense.currency,
+                exchangeRate: expense.exchange_rate,
+                convertedAmount: expense.converted_amount,
+                category: expense.category,
+                expenseDate: expense.expense_date,
+                receiptUrl: expense.receipt_url,
+                notes: expense.notes,
+                splitType: expense.split_type,
+                latitude: expense.latitude,
+                longitude: expense.longitude,
+                locationName: expense.location_name,
+                payers: expense.payers,
+                participants: expense.participants,
+              }),
+            });
+            if (res.ok) isSuccess = true;
+          } catch {}
 
-          if (!expError) {
-            if (expense.payers && expense.payers.length > 0) {
-              await supabaseClient.from('expense_payers').upsert(
-                expense.payers.map((p) => ({
-                  id: p.id,
-                  expense_id: expense.id,
-                  user_id: p.user_id,
-                  amount_paid: p.amount_paid,
-                }))
-              );
-            }
-            if (expense.participants && expense.participants.length > 0) {
-              await supabaseClient.from('expense_participants').upsert(
-                expense.participants.map((pt) => ({
-                  id: pt.id,
-                  expense_id: expense.id,
-                  user_id: pt.user_id,
-                  amount_owed: pt.amount_owed,
-                  percentage: pt.percentage || null,
-                  shares: pt.shares || null,
-                }))
-              );
-            }
-            isSuccess = true;
-          }
-          break;
-        }
-
-        case 'UPDATE_EXPENSE': {
-          const expense: Expense = item.payload;
-          const { error } = await supabaseClient
-            .from('expenses')
-            .update({
+          if (!isSuccess && supabaseClient?.from) {
+            const { error: expError } = await supabaseClient.from('expenses').upsert({
+              id: expense.id,
+              group_id: expense.group_id,
+              created_by: expense.created_by,
               title: expense.title,
               amount: expense.amount,
               currency: expense.currency,
@@ -170,39 +150,122 @@ export async function processSyncQueue(
               latitude: expense.latitude,
               longitude: expense.longitude,
               location_name: expense.location_name,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', expense.id);
+            });
 
-          if (!error) isSuccess = true;
+            if (!expError) isSuccess = true;
+          }
+          break;
+        }
+
+        case 'UPDATE_EXPENSE': {
+          const expense: Expense = item.payload;
+          try {
+            const res = await fetch(`/api/expenses/${encodeURIComponent(expense.id)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: expense.title,
+                amount: expense.amount,
+                currency: expense.currency,
+                exchangeRate: expense.exchange_rate,
+                convertedAmount: expense.converted_amount,
+                category: expense.category,
+                expenseDate: expense.expense_date,
+                receiptUrl: expense.receipt_url,
+                notes: expense.notes,
+                splitType: expense.split_type,
+                latitude: expense.latitude,
+                longitude: expense.longitude,
+                locationName: expense.location_name,
+                payers: expense.payers,
+                participants: expense.participants,
+              }),
+            });
+            if (res.ok) isSuccess = true;
+          } catch {}
+
+          if (!isSuccess && supabaseClient?.from) {
+            const { error } = await supabaseClient
+              .from('expenses')
+              .update({
+                title: expense.title,
+                amount: expense.amount,
+                currency: expense.currency,
+                exchange_rate: expense.exchange_rate,
+                converted_amount: expense.converted_amount,
+                category: expense.category,
+                expense_date: expense.expense_date,
+                receipt_url: expense.receipt_url,
+                notes: expense.notes,
+                split_type: expense.split_type,
+                latitude: expense.latitude,
+                longitude: expense.longitude,
+                location_name: expense.location_name,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', expense.id);
+
+            if (!error) isSuccess = true;
+          }
           break;
         }
 
         case 'DELETE_EXPENSE': {
-          const { error } = await supabaseClient
-            .from('expenses')
-            .delete()
-            .eq('id', item.entityId);
-          if (!error) isSuccess = true;
+          try {
+            const res = await fetch(`/api/expenses/${encodeURIComponent(item.entityId)}`, {
+              method: 'DELETE',
+            });
+            if (res.ok) isSuccess = true;
+          } catch {}
+
+          if (!isSuccess && supabaseClient?.from) {
+            const { error } = await supabaseClient
+              .from('expenses')
+              .delete()
+              .eq('id', item.entityId);
+            if (!error) isSuccess = true;
+          }
           break;
         }
 
         case 'CREATE_SETTLEMENT': {
           const settlement: Settlement = item.payload;
-          const { error } = await supabaseClient.from('settlements').upsert({
-            id: settlement.id,
-            group_id: settlement.group_id,
-            from_user_id: settlement.from_user_id,
-            to_user_id: settlement.to_user_id,
-            amount: settlement.amount,
-            currency: settlement.currency,
-            payment_method: settlement.payment_method,
-            notes: settlement.notes,
-            settled_at: settlement.settled_at,
-          });
-          if (!error) isSuccess = true;
+          try {
+            const res = await fetch('/api/settlements', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: settlement.id,
+                groupId: settlement.group_id,
+                fromUserId: settlement.from_user_id,
+                toUserId: settlement.to_user_id,
+                amount: settlement.amount,
+                currency: settlement.currency,
+                paymentMethod: settlement.payment_method,
+                notes: settlement.notes,
+                settledAt: settlement.settled_at,
+              }),
+            });
+            if (res.ok) isSuccess = true;
+          } catch {}
+
+          if (!isSuccess && supabaseClient?.from) {
+            const { error } = await supabaseClient.from('settlements').upsert({
+              id: settlement.id,
+              group_id: settlement.group_id,
+              from_user_id: settlement.from_user_id,
+              to_user_id: settlement.to_user_id,
+              amount: settlement.amount,
+              currency: settlement.currency,
+              payment_method: settlement.payment_method,
+              notes: settlement.notes,
+              settled_at: settlement.settled_at,
+            });
+            if (!error) isSuccess = true;
+          }
           break;
         }
+
 
         case 'CREATE_GROUP': {
           const group: Group = item.payload;
