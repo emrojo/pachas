@@ -49,25 +49,47 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Initialize language from localStorage or navigator
   useEffect(() => {
     setIsMounted(true);
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY) as LanguageCode | null;
-      if (saved && (saved === 'es' || saved === 'en')) {
-        setLanguageState(saved);
-        return;
-      }
+    const readInitialLanguage = () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY) as LanguageCode | null;
+        if (saved && (saved === 'es' || saved === 'en')) {
+          setLanguageState(saved);
+          if (typeof document !== 'undefined') {
+            document.documentElement.lang = saved;
+          }
+          return;
+        }
 
-      // Detect browser language
-      if (typeof navigator !== 'undefined' && navigator.language) {
-        const browserLang = navigator.language.slice(0, 2).toLowerCase();
-        if (browserLang === 'es') {
-          setLanguageState('es');
-        } else if (browserLang === 'en') {
-          setLanguageState('en');
+        // Detect browser language
+        if (typeof navigator !== 'undefined') {
+          const rawLang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+          const browserLang = rawLang.slice(0, 2).toLowerCase();
+          if (browserLang === 'es') {
+            setLanguageState('es');
+            if (typeof document !== 'undefined') document.documentElement.lang = 'es';
+          } else if (browserLang === 'en') {
+            setLanguageState('en');
+            if (typeof document !== 'undefined') document.documentElement.lang = 'en';
+          }
+        }
+      } catch (e) {
+        console.warn('Could not read language preference:', e);
+      }
+    };
+
+    readInitialLanguage();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue && (e.newValue === 'es' || e.newValue === 'en')) {
+        setLanguageState(e.newValue as LanguageCode);
+        if (typeof document !== 'undefined') {
+          document.documentElement.lang = e.newValue;
         }
       }
-    } catch (e) {
-      console.warn('Could not read language preference:', e);
-    }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const setLanguage = useCallback((code: LanguageCode) => {
@@ -81,6 +103,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('Could not save language preference:', e);
     }
   }, []);
+
 
   const dictionary = LOCALES[language] || LOCALES[DEFAULT_LANGUAGE];
   const fallbackDictionary = LOCALES[DEFAULT_LANGUAGE];

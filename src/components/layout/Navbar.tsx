@@ -180,7 +180,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
 
                     {/* Menu actions */}
                     <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1">
-                      {isCurrentUserAdmin && (
+                      {isDemoMode && isCurrentUserAdmin && (
                         <button
                           type="button"
                           onClick={() => {

@@ -4,23 +4,20 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { useTranslation } from '@/context/LanguageContext';
 
 import {
-  Users,
   Split,
   HandCoins,
-  Receipt,
   Sparkles,
-  QrCode,
   ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
   Phone,
-  Plane,
-  HeartHandshake,
 } from 'lucide-react';
 
 export default function LandingPage() {
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-screen flex flex-col justify-between">
       {/* Top Header */}
@@ -35,14 +32,16 @@ export default function LandingPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <LanguageSelector />
+
           <Link href="/login">
             <Button variant="ghost" size="sm">
-              Iniciar Sesión
+              {t('auth.loginTitle')}
             </Button>
           </Link>
           <Link href="/dashboard">
             <Button variant="brand" size="sm">
-              Abrir App
+              {t('landing.openApp')}
               <ArrowRight className="w-4 h-4" />
             </Button>
           </Link>
@@ -53,28 +52,32 @@ export default function LandingPage() {
       <main className="max-w-5xl mx-auto px-4 py-12 sm:py-20 flex flex-col items-center text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 text-xs font-semibold mb-6 shadow-xs animate-fade-in">
           <Sparkles className="w-4 h-4" />
-          <span>¡La forma más justa y rápida de compartir gastos de viaje!</span>
+          <span>{t('landing.heroBadge')}</span>
         </div>
 
         <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-slate-900 dark:text-white max-w-3xl leading-[1.15]">
-          A <span className="text-emerald-600 dark:text-emerald-400 underline decoration-emerald-300 underline-offset-8">pachas</span> en las vacaciones con tus amigos
+          {t('landing.heroTitlePart1')}{' '}
+          <span className="text-emerald-600 dark:text-emerald-400 underline decoration-emerald-300 underline-offset-8">
+            {t('landing.heroTitleHighlight')}
+          </span>{' '}
+          {t('landing.heroTitlePart2')}
         </h1>
 
         <p className="mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl">
-          Crea grupos temáticos para tus viajes. Publica tus gastos, elige quién participa en cada ticket, y deja que nuestro algoritmo simplifique las deudas para saldar cuentas con el mínimo número de transferencias por Bizum.
+          {t('landing.heroSubtitle')}
         </p>
 
         {/* CTA Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-3.5 w-full sm:w-auto">
           <Link href="/dashboard" className="w-full sm:w-auto">
             <Button size="lg" variant="brand" className="w-full sm:w-auto shadow-lg shadow-emerald-600/25">
-              Comenzar ahora gratis
+              {t('landing.startFree')}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </Link>
           <Link href="/login" className="w-full sm:w-auto">
             <Button size="lg" variant="outline" className="w-full sm:w-auto">
-              Iniciar Sesión
+              {t('auth.loginTitle')}
             </Button>
           </Link>
         </div>
@@ -86,13 +89,13 @@ export default function LandingPage() {
               <span className="text-3xl">🏖️</span>
               <div className="text-left">
                 <h3 className="font-extrabold text-slate-900 dark:text-white text-base">
-                  Vacaciones Menorca 2026
+                  {t('landing.mockTripName')}
                 </h3>
-                <span className="text-xs text-slate-400">5 amigos • 1.210,50 € gastados</span>
+                <span className="text-xs text-slate-400">{t('landing.mockTripStats')}</span>
               </div>
             </div>
             <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full">
-              Te deben 145,20 €
+              {t('landing.mockOwed')}
             </span>
           </div>
 
@@ -102,9 +105,9 @@ export default function LandingPage() {
                 <span className="text-2xl">🚗</span>
                 <div>
                   <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                    Alquiler Furgoneta
+                    {t('landing.mockVan')}
                   </h4>
-                  <span className="text-[11px] text-slate-400">Pagado por Edu • 5 amigos</span>
+                  <span className="text-[11px] text-slate-400">{t('landing.mockVanDetail')}</span>
                 </div>
               </div>
               <span className="font-black text-sm text-slate-900 dark:text-white">280,00 €</span>
@@ -115,9 +118,9 @@ export default function LandingPage() {
                 <span className="text-2xl">🍽️</span>
                 <div>
                   <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                    Cena El Faro
+                    {t('landing.mockDinner')}
                   </h4>
-                  <span className="text-[11px] text-slate-400">Pagado por Lucía • 4 amigos</span>
+                  <span className="text-[11px] text-slate-400">{t('landing.mockDinnerDetail')}</span>
                 </div>
               </div>
               <span className="font-black text-sm text-slate-900 dark:text-white">175,00 €</span>
@@ -132,10 +135,10 @@ export default function LandingPage() {
               <Split className="w-6 h-6" />
             </div>
             <h3 className="font-bold text-base text-slate-900 dark:text-white">
-              Reparto Totalmente Flexible
+              {t('landing.feature1Title')}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-              Divide a partes iguales entre todos o desmarca a quien no haya asistido. Admite cantidades exactas, porcentajes y raciones personalizadas.
+              {t('landing.feature1Desc')}
             </p>
           </div>
 
@@ -144,10 +147,10 @@ export default function LandingPage() {
               <HandCoins className="w-6 h-6" />
             </div>
             <h3 className="font-bold text-base text-slate-900 dark:text-white">
-              Liquidación Inteligente
+              {t('landing.feature2Title')}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-              Nuestro algoritmo calcula el número mínimo de pagos entre amigos para evitar transferencias innecesarias de ida y vuelta.
+              {t('landing.feature2Desc')}
             </p>
           </div>
 
@@ -156,10 +159,10 @@ export default function LandingPage() {
               <Phone className="w-6 h-6" />
             </div>
             <h3 className="font-bold text-base text-slate-900 dark:text-white">
-              Saldar por Bizum
+              {t('landing.feature3Title')}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-              Guarda tu teléfono de Bizum en tu perfil para que tus amigos puedan copiarlo y pagarte directamente en un segundo.
+              {t('landing.feature3Desc')}
             </p>
           </div>
         </div>
@@ -167,10 +170,11 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="w-full max-w-5xl mx-auto px-4 py-8 border-t border-slate-200/60 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-        <p>© 2026 Pachas — Diseñado para viajar con amigos sin líos de dinero.</p>
-        <BuyMeACoffeeButton size="sm" showHeart customText="Invítame a un café" />
+        <p>{t('landing.footerText')}</p>
+        <BuyMeACoffeeButton size="sm" showHeart customText={t('donations.buttonText')} />
       </footer>
     </div>
   );
 }
+
 

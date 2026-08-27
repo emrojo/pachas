@@ -3,15 +3,18 @@
 import React, { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslation } from '@/context/LanguageContext';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Lock, CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { Lock, ArrowRight, ArrowLeft, ShieldCheck } from 'lucide-react';
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
+  const { t } = useTranslation();
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,15 +25,15 @@ function ResetPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) {
-      setError('Enlace de recuperación no válido. Falta el token de seguridad.');
+      setError(t('auth.error'));
       return;
     }
     if (newPassword.length < 6) {
-      setError('La nueva contraseña debe tener al menos 6 caracteres.');
+      setError(t('auth.passwordLength'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError('Las contraseñas no coinciden.');
+      setError(t('auth.passwordsDoNotMatch'));
       return;
     }
 
@@ -47,13 +50,13 @@ function ResetPasswordForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Error al restablecer la contraseña.');
+        setError(data.error || t('common.error'));
         return;
       }
 
       setIsSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Error de conexión');
+      setError(err.message || t('common.error'));
     } finally {
       setIsLoading(false);
     }
@@ -67,15 +70,12 @@ function ResetPasswordForm() {
             <ShieldCheck className="w-8 h-8" />
           </div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            ¡Contraseña Actualizada!
+            {t('auth.passwordResetSuccess')}
           </h2>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            Tu contraseña se ha restablecido correctamente en la base de datos. Ya puedes iniciar sesión con tus nuevas credenciales.
-          </p>
           <div className="pt-2">
             <Link href="/login" className="block">
               <Button variant="brand" size="lg" className="w-full shadow-md">
-                Iniciar Sesión
+                {t('auth.loginTitle')}
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </Link>
@@ -92,18 +92,18 @@ function ResetPasswordForm() {
           {!token ? (
             <div className="text-center py-4 space-y-3">
               <p className="text-xs text-rose-500 font-medium">
-                No se ha proporcionado un token de recuperación válido en el enlace.
+                {t('auth.forgotPasswordSubtitle')}
               </p>
               <Link href="/forgot-password" className="inline-flex items-center text-xs font-semibold text-emerald-600 hover:text-emerald-500">
                 <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-                Solicitar nuevo enlace
+                {t('auth.sendResetLink')}
               </Link>
             </div>
           ) : (
             <>
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Nueva Contraseña
+                  {t('auth.password')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -113,7 +113,7 @@ function ResetPasswordForm() {
                     minLength={6}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="••••••••"
                     className="pl-10"
                     disabled={isLoading}
                   />
@@ -122,7 +122,7 @@ function ResetPasswordForm() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Confirmar Contraseña
+                  {t('auth.confirmPassword')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -132,7 +132,7 @@ function ResetPasswordForm() {
                     minLength={6}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repite la nueva contraseña"
+                    placeholder="••••••••"
                     className="pl-10"
                     disabled={isLoading}
                   />
@@ -146,13 +146,13 @@ function ResetPasswordForm() {
                 className="w-full shadow-md"
                 isLoading={isLoading}
               >
-                Guardar Nueva Contraseña
+                {t('auth.setNewPassword')}
               </Button>
 
               <div className="text-center pt-2">
                 <Link href="/login" className="inline-flex items-center text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
                   <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-                  Cancelar y volver al login
+                  {t('auth.backToLogin')}
                 </Link>
               </div>
             </>
@@ -164,8 +164,14 @@ function ResetPasswordForm() {
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslation();
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 relative">
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
+
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <Link href="/login" className="inline-flex items-center gap-2 mb-2">
@@ -174,17 +180,18 @@ export default function ResetPasswordPage() {
             </div>
           </Link>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-            Nueva Contraseña
+            {t('auth.resetPasswordTitle')}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Introduce y confirma tu nueva contraseña de acceso
+            {t('auth.resetPasswordSubtitle')}
           </p>
         </div>
 
-        <Suspense fallback={<div className="p-8 text-center text-xs text-slate-400">Cargando...</div>}>
+        <Suspense fallback={<div className="p-8 text-center text-xs text-slate-400">{t('common.loading')}</div>}>
           <ResetPasswordForm />
         </Suspense>
       </div>
     </div>
   );
 }
+

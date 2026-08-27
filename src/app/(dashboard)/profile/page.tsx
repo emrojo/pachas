@@ -144,7 +144,7 @@ export default function ProfilePage() {
             {t('profile.title')} & {t('nav.settings')}
           </h1>
 
-          {isCurrentUserAdmin && (
+          {isDemoMode && isCurrentUserAdmin && (
             <Button
               size="sm"
               variant="outline"
