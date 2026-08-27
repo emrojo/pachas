@@ -290,7 +290,24 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Subtle Buy Me a Coffee Project Support Footer */}
+        <div className="pt-8 pb-4 text-center">
+          <div className="inline-flex flex-col sm:flex-row items-center gap-3 px-5 py-3 rounded-2xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 shadow-2xs backdrop-blur-xs text-xs text-slate-500 dark:text-slate-400">
+            <span>¿Te resulta útil Pachas para viajar con tus amigos?</span>
+            <a
+              href="https://www.buymeacoffee.com/emrojo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200 bg-[#FFDD00] hover:bg-[#FFE53B] text-slate-900 px-3 py-1 rounded-xl shadow-2xs transition-transform hover:scale-105 active:scale-95"
+            >
+              <span>☕</span>
+              <span>Invítame a un café</span>
+            </a>
+          </div>
+        </div>
       </main>
+
 
       <BottomNav onAddClick={() => setIsCreateOpen(true)} />
 

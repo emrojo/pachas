@@ -3,6 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
+import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
+
 import {
   Users,
   Split,
@@ -164,9 +166,11 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full max-w-5xl mx-auto px-4 py-8 border-t border-slate-200/60 dark:border-slate-800 text-center text-xs text-slate-400">
+      <footer className="w-full max-w-5xl mx-auto px-4 py-8 border-t border-slate-200/60 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
         <p>© 2026 Pachas — Diseñado para viajar con amigos sin líos de dinero.</p>
+        <BuyMeACoffeeButton size="sm" showHeart customText="Invítame a un café" />
       </footer>
     </div>
   );
 }
+
