@@ -1,9 +1,24 @@
 -- ==============================================================================
--- PACHAS DATABASE SCHEMA & RLS POLICIES (AUTO-INITIALIZED ON DOCKER START)
+-- PACHAS DATABASE SCHEMA & RLS POLICIES (AUTO-INITIALIZED ON DOCKER / NATIVE PG)
 -- ==============================================================================
 
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
+
+-- Ensure standard roles exist for PostgREST / Supabase / Native PostgreSQL
+do $$
+begin
+    if not exists (select from pg_roles where rolname = 'anon') then
+        create role anon nologin;
+    end if;
+    if not exists (select from pg_roles where rolname = 'authenticated') then
+        create role authenticated nologin;
+    end if;
+    if not exists (select from pg_roles where rolname = 'service_role') then
+        create role service_role nologin;
+    end if;
+end
+$$;
 
 -- Ensure auth schema and auth.users table exist for standalone PostgreSQL / PostgREST compatibility
 create schema if not exists auth;
@@ -23,7 +38,6 @@ $$ language sql stable;
 
 -- 1. PROFILES TABLE (Linked to auth.users)
 create table if not exists public.profiles (
-
     id uuid primary key references auth.users(id) on delete cascade,
     email text unique not null,
     full_name text not null,
@@ -49,7 +63,6 @@ begin
     return new;
 end;
 $$ language plpgsql security definer set search_path = public;
-
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -140,6 +153,21 @@ create table if not exists public.settlements (
 );
 
 -- ==============================================================================
+-- GRANT PERMISSIONS TO ROLES
+-- ==============================================================================
+
+grant usage on schema public to anon, authenticated, service_role;
+grant usage on schema auth to anon, authenticated, service_role;
+
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
+grant all on all routines in schema public to anon, authenticated, service_role;
+
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges in schema public grant all on routines to anon, authenticated, service_role;
+
+-- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ==============================================================================
 
@@ -152,6 +180,7 @@ alter table public.expense_participants enable row level security;
 alter table public.settlements enable row level security;
 
 -- Profiles: Authenticated users can ONLY view their own profile or profiles of members with whom they share at least one group
+drop policy if exists "Users can view relevant profiles" on public.profiles;
 create policy "Users can view relevant profiles"
     on public.profiles for select
     to authenticated
@@ -165,12 +194,14 @@ create policy "Users can view relevant profiles"
         )
     );
 
+drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
     on public.profiles for update
     to authenticated
     using (auth.uid() = id);
 
 -- Groups: Users can view groups they are member of, created, or view by invite code
+drop policy if exists "Members and invited users can view groups" on public.groups;
 create policy "Members and invited users can view groups"
     on public.groups for select
     to authenticated
@@ -184,12 +215,13 @@ create policy "Members and invited users can view groups"
         or invite_code is not null
     );
 
-
+drop policy if exists "Authenticated users can create groups" on public.groups;
 create policy "Authenticated users can create groups"
     on public.groups for insert
     to authenticated
     with check (auth.uid() = created_by);
 
+drop policy if exists "Group admins/creator can update group" on public.groups;
 create policy "Group admins/creator can update group"
     on public.groups for update
     to authenticated
@@ -203,12 +235,14 @@ create policy "Group admins/creator can update group"
         )
     );
 
+drop policy if exists "Group creator can delete group" on public.groups;
 create policy "Group creator can delete group"
     on public.groups for delete
     to authenticated
     using (created_by = auth.uid());
 
 -- Group Members
+drop policy if exists "Members can view members of their groups" on public.group_members;
 create policy "Members can view members of their groups"
     on public.group_members for select
     to authenticated
@@ -220,11 +254,13 @@ create policy "Members can view members of their groups"
         )
     );
 
+drop policy if exists "Users can join groups" on public.group_members;
 create policy "Users can join groups"
     on public.group_members for insert
     to authenticated
     with check (auth.uid() = user_id);
 
+drop policy if exists "Admins or self can remove members" on public.group_members;
 create policy "Admins or self can remove members"
     on public.group_members for delete
     to authenticated
@@ -239,6 +275,7 @@ create policy "Admins or self can remove members"
     );
 
 -- Expenses
+drop policy if exists "Group members can view expenses" on public.expenses;
 create policy "Group members can view expenses"
     on public.expenses for select
     to authenticated
@@ -250,6 +287,7 @@ create policy "Group members can view expenses"
         )
     );
 
+drop policy if exists "Group members can insert expenses" on public.expenses;
 create policy "Group members can insert expenses"
     on public.expenses for insert
     to authenticated
@@ -261,6 +299,7 @@ create policy "Group members can insert expenses"
         )
     );
 
+drop policy if exists "Expense creator or group admin can update expense" on public.expenses;
 create policy "Expense creator or group admin can update expense"
     on public.expenses for update
     to authenticated
@@ -274,6 +313,7 @@ create policy "Expense creator or group admin can update expense"
         )
     );
 
+drop policy if exists "Expense creator or group admin can delete expense" on public.expenses;
 create policy "Expense creator or group admin can delete expense"
     on public.expenses for delete
     to authenticated
@@ -288,6 +328,7 @@ create policy "Expense creator or group admin can delete expense"
     );
 
 -- Expense Payers & Participants
+drop policy if exists "Members can view payers" on public.expense_payers;
 create policy "Members can view payers"
     on public.expense_payers for select
     to authenticated
@@ -300,6 +341,7 @@ create policy "Members can view payers"
         )
     );
 
+drop policy if exists "Members can insert payers" on public.expense_payers;
 create policy "Members can insert payers"
     on public.expense_payers for insert
     to authenticated
@@ -312,6 +354,7 @@ create policy "Members can insert payers"
         )
     );
 
+drop policy if exists "Expense creator or admin can update payers" on public.expense_payers;
 create policy "Expense creator or admin can update payers"
     on public.expense_payers for update
     to authenticated
@@ -324,6 +367,7 @@ create policy "Expense creator or admin can update payers"
         )
     );
 
+drop policy if exists "Expense creator or admin can delete payers" on public.expense_payers;
 create policy "Expense creator or admin can delete payers"
     on public.expense_payers for delete
     to authenticated
@@ -336,6 +380,7 @@ create policy "Expense creator or admin can delete payers"
         )
     );
 
+drop policy if exists "Members can view participants" on public.expense_participants;
 create policy "Members can view participants"
     on public.expense_participants for select
     to authenticated
@@ -348,6 +393,7 @@ create policy "Members can view participants"
         )
     );
 
+drop policy if exists "Members can insert participants" on public.expense_participants;
 create policy "Members can insert participants"
     on public.expense_participants for insert
     to authenticated
@@ -360,6 +406,7 @@ create policy "Members can insert participants"
         )
     );
 
+drop policy if exists "Expense creator or admin can update participants" on public.expense_participants;
 create policy "Expense creator or admin can update participants"
     on public.expense_participants for update
     to authenticated
@@ -372,6 +419,7 @@ create policy "Expense creator or admin can update participants"
         )
     );
 
+drop policy if exists "Expense creator or admin can delete participants" on public.expense_participants;
 create policy "Expense creator or admin can delete participants"
     on public.expense_participants for delete
     to authenticated
@@ -385,6 +433,7 @@ create policy "Expense creator or admin can delete participants"
     );
 
 -- Settlements
+drop policy if exists "Members can view settlements" on public.settlements;
 create policy "Members can view settlements"
     on public.settlements for select
     to authenticated
@@ -396,6 +445,7 @@ create policy "Members can view settlements"
         )
     );
 
+drop policy if exists "Members can insert settlements" on public.settlements;
 create policy "Members can insert settlements"
     on public.settlements for insert
     to authenticated
@@ -407,6 +457,7 @@ create policy "Members can insert settlements"
         )
     );
 
+drop policy if exists "Settlement payer or admin can delete settlement" on public.settlements;
 create policy "Settlement payer or admin can delete settlement"
     on public.settlements for delete
     to authenticated
@@ -420,6 +471,7 @@ create policy "Settlement payer or admin can delete settlement"
         )
     );
 
+drop policy if exists "Settlement payer or admin can update settlement" on public.settlements;
 create policy "Settlement payer or admin can update settlement"
     on public.settlements for update
     to authenticated
@@ -432,4 +484,3 @@ create policy "Settlement payer or admin can update settlement"
             and gm.role = 'admin'
         )
     );
-
