@@ -223,9 +223,32 @@ export async function GET(request: NextRequest) {
     query += ` GROUP BY e.id, pcreator.id ORDER BY e.expense_date DESC, e.created_at DESC`;
 
     const res = await pool.query(query, params);
-    return NextResponse.json({ success: true, expenses: res.rows });
+    const expenses = res.rows.map((row: any) => ({
+      ...row,
+      amount: parseFloat(row.amount) || 0,
+      exchange_rate: parseFloat(row.exchange_rate) || 1.0,
+      converted_amount: parseFloat(row.converted_amount) || parseFloat(row.amount) || 0,
+      latitude: row.latitude !== null && row.latitude !== undefined ? parseFloat(row.latitude) : null,
+      longitude: row.longitude !== null && row.longitude !== undefined ? parseFloat(row.longitude) : null,
+      creator: row.creator && row.creator.id ? row.creator : undefined,
+      payers: (row.payers || []).map((p: any) => ({
+        ...p,
+        amount_paid: parseFloat(p.amount_paid) || 0,
+        profile: p.profile && p.profile.id ? p.profile : undefined,
+      })),
+      participants: (row.participants || []).map((pt: any) => ({
+        ...pt,
+        amount_owed: parseFloat(pt.amount_owed) || 0,
+        percentage: pt.percentage !== null && pt.percentage !== undefined ? parseFloat(pt.percentage) : null,
+        shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
+        profile: pt.profile && pt.profile.id ? pt.profile : undefined,
+      })),
+    }));
+
+    return NextResponse.json({ success: true, expenses });
   } catch (err: any) {
     console.error('API get expenses error:', err);
     return NextResponse.json({ error: err.message || 'Error al obtener gastos' }, { status: 500 });
   }
 }
+

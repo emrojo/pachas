@@ -65,12 +65,12 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
         const city = data.address?.city || data.address?.town || data.address?.village || '';
         const name = venue && city && venue !== city ? `${venue}, ${city}` : venue || data.display_name;
 
-        return name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        return name || `${Number(lat).toFixed(4)}, ${Number(lon).toFixed(4)}`;
       }
     } catch (err) {
       console.warn('Could not reverse geocode:', err);
     }
-    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    return `${Number(lat).toFixed(4)}, ${Number(lon).toFixed(4)}`;
   };
 
   // Get current mobile/browser position
@@ -217,7 +217,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
                 {locationName || 'Ubicación registrada'}
               </span>
               <span className="text-[10px] text-slate-400 block font-mono">
-                {latitude?.toFixed(5)}, {longitude?.toFixed(5)}
+                {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
               </span>
             </div>
           </div>
@@ -368,10 +368,11 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
                   {locationName || 'Ubicación registrada'}
                 </span>
                 <span className="text-[10px] text-slate-400 block font-mono">
-                  {latitude?.toFixed(5)}, {longitude?.toFixed(5)}
+                  {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
                 </span>
               </div>
             </div>
+
 
             <div className="flex items-center gap-1.5 shrink-0">
               {googleMapsExternalUrl && (

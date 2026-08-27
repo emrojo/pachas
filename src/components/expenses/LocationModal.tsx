@@ -61,8 +61,9 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                 {locationName || title}
               </span>
               <span className="text-[11px] text-slate-400 font-mono block">
-                {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
               </span>
+
             </div>
           </div>
 

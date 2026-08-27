@@ -240,8 +240,9 @@ export const TripRouteMapModal: React.FC<TripRouteMapModalProps> = ({
                         {/* Location Name & Google Maps Direct Link */}
                         <div className="flex items-center justify-between gap-1 mt-0.5">
                           <span className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
-                            📍 {expense.location_name ? expense.location_name.split(',')[0] : `${expense.latitude?.toFixed(4)}, ${expense.longitude?.toFixed(4)}`}
+                            📍 {expense.location_name ? expense.location_name.split(',')[0] : `${Number(expense.latitude).toFixed(4)}, ${Number(expense.longitude).toFixed(4)}`}
                           </span>
+
                           <a
                             href={getEstablishmentMapUrl(expense)}
                             target="_blank"

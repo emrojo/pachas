@@ -38,20 +38,25 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const isMultiPayer = (expense.payers?.length || 0) > 1;
 
   // Calculate user share in the original expense currency
+  const userPayer = currentUser ? expense.payers?.find((p) => p.user_id === currentUser.id) : undefined;
   const userPaidOriginal = currentUser
-    ? expense.payers?.find((p) => p.user_id === currentUser.id)?.amount_paid ||
-      (expense.created_by === currentUser.id && !expense.payers?.length ? expense.amount : 0)
+    ? userPayer !== undefined
+      ? Number(userPayer.amount_paid) || 0
+      : expense.created_by === currentUser.id && !expense.payers?.length
+      ? Number(expense.amount) || 0
+      : 0
     : 0;
 
   const userParticipant = currentUser
     ? expense.participants?.find((p) => p.user_id === currentUser.id)
     : undefined;
-  const expenseBaseAmount = expense.converted_amount || expense.amount || 1;
-  const userOwedConverted = userParticipant ? userParticipant.amount_owed : 0;
+  const expenseBaseAmount = Number(expense.converted_amount) || Number(expense.amount) || 1;
+  const userOwedConverted = userParticipant ? Number(userParticipant.amount_owed) || 0 : 0;
   // Convert user owed portion back to the expense's original currency for display on this specific card
-  const userOwedOriginal = (userOwedConverted / expenseBaseAmount) * expense.amount;
+  const userOwedOriginal = (userOwedConverted / expenseBaseAmount) * (Number(expense.amount) || 0);
   const userInvolved = userPaidOriginal > 0 || !!userParticipant;
   const netDiff = Math.round((userPaidOriginal - userOwedOriginal) * 100) / 100;
+
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
