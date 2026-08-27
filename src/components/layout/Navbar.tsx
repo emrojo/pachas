@@ -9,6 +9,9 @@ import { Plus, Users, User, Compass, Sparkles, ChevronDown, UserPlus, Check, Log
 import { Button } from '@/components/ui/Button';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { Profile } from '@/types/database';
+import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
+import { BUY_ME_A_COFFEE_URL } from '@/lib/constants/donations';
+
 
 export interface NavbarProps {
   onCreateGroupClick?: () => void;
@@ -185,6 +188,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                         </button>
                       )}
 
+                      <a
+                        href={BUY_ME_A_COFFEE_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="w-full flex items-center gap-2 p-2 rounded-xl text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                      >
+                        <span className="text-sm">☕</span>
+                        <span>Apoyar en Buy Me a Coffee</span>
+                      </a>
+
                       <Link
                         href="/profile"
                         onClick={() => setIsDropdownOpen(false)}
@@ -213,6 +227,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                 </Button>
               </Link>
             )}
+
+            {/* Support button in header */}
+            <BuyMeACoffeeButton size="sm" customText="Apoyar" showHeart className="hidden sm:inline-flex" />
+
 
           </div>
         </div>

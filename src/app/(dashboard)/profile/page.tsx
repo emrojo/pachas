@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
+import { DonationCard } from '@/components/donations/DonationCard';
 import { Profile } from '@/types/database';
+
 import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
 
 import {
@@ -317,8 +319,12 @@ export default function ProfilePage() {
           </form>
         </Card>
 
+        {/* Buy Me a Coffee Support Card */}
+        <DonationCard />
+
         {/* Demo Fast User Switcher & Local Testing Users (Only visible in Demo / Development Mode) */}
         {isDemoMode && (
+
           <Card className="p-6 bg-slate-50/80 dark:bg-slate-900/80">
             <div className="flex items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-2">
