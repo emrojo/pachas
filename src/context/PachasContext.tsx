@@ -351,20 +351,32 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsOnline(navigator.onLine);
       setPendingSyncCount(getSyncQueue().length);
 
-      const handleOnline = () => {
-        setIsOnline(true);
-        syncPendingQueue();
+      const handleOnlineOrFocus = () => {
+        setIsOnline(navigator.onLine);
+        if (navigator.onLine) {
+          syncPendingQueue();
+        }
       };
+
       const handleOffline = () => {
         setIsOnline(false);
       };
 
-      window.addEventListener('online', handleOnline);
+      window.addEventListener('online', handleOnlineOrFocus);
       window.addEventListener('offline', handleOffline);
+      window.addEventListener('focus', handleOnlineOrFocus);
+      document.addEventListener('visibilitychange', handleOnlineOrFocus);
+
+      // Check on initial mount if there is any pending queue to sync immediately
+      if (navigator.onLine && getSyncQueue().length > 0) {
+        syncPendingQueue();
+      }
 
       return () => {
-        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('online', handleOnlineOrFocus);
         window.removeEventListener('offline', handleOffline);
+        window.removeEventListener('focus', handleOnlineOrFocus);
+        document.removeEventListener('visibilitychange', handleOnlineOrFocus);
       };
     }
   }, []);
@@ -387,6 +399,18 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               [exp.group_id]: updated,
             };
           });
+        } else if (syncedItem.type === 'DELETE_EXPENSE') {
+          if (syncedItem.groupId) {
+            setExpenses((prev) => {
+              const list = prev[syncedItem.groupId!] || [];
+              const updated = list.filter((e) => e.id !== syncedItem.entityId);
+              localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify({ ...prev, [syncedItem.groupId!]: updated }));
+              return {
+                ...prev,
+                [syncedItem.groupId!]: updated,
+              };
+            });
+          }
         } else if (syncedItem.type === 'CREATE_SETTLEMENT') {
           const settle: Settlement = syncedItem.payload;
           setSettlements((prev) => {
@@ -407,6 +431,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('Sync pending queue warning:', err);
     }
   };
+
 
 
 
