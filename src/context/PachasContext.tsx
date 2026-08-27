@@ -162,6 +162,62 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     async function loadData() {
       const demoAllowed = isDemoModeAllowed();
 
+      // Initial fast hydrate from localStorage to prevent UI flashing
+      try {
+        const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
+        const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+        const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
+        const savedMembers = localStorage.getItem(STORAGE_KEYS.MEMBERS);
+        const savedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+        const savedSettlements = localStorage.getItem(STORAGE_KEYS.SETTLEMENTS);
+
+        if (savedUsers && isMounted) {
+          try {
+            setAvailableUsers(JSON.parse(savedUsers));
+          } catch {}
+        } else if (demoAllowed && isMounted) {
+          setAvailableUsers(DEMO_USERS);
+        }
+
+        if (savedUser && isMounted) {
+          try {
+            _setCurrentUser(JSON.parse(savedUser));
+          } catch {}
+        }
+
+        if (savedGroups && isMounted) {
+          try {
+            setGroups(JSON.parse(savedGroups));
+          } catch {}
+        } else if (demoAllowed && isMounted) {
+          setGroups(DEMO_GROUPS);
+        }
+
+        if (savedMembers && isMounted) {
+          try {
+            setMembers(JSON.parse(savedMembers));
+          } catch {}
+        } else if (demoAllowed && isMounted) {
+          setMembers(DEMO_MEMBERS);
+        }
+
+        if (savedExpenses && isMounted) {
+          try {
+            setExpenses(JSON.parse(savedExpenses));
+          } catch {}
+        } else if (demoAllowed && isMounted) {
+          setExpenses(DEMO_EXPENSES);
+        }
+
+        if (savedSettlements && isMounted) {
+          try {
+            setSettlements(JSON.parse(savedSettlements));
+          } catch {}
+        } else if (demoAllowed && isMounted) {
+          setSettlements(DEMO_SETTLEMENTS);
+        }
+      } catch {}
+
       try {
         let activeProfile: Profile | null = null;
         const supabase = createClient();
@@ -203,11 +259,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
         activeProfile = await Promise.race([authPromise(), timeoutPromise]);
 
-
         if (activeProfile) {
           if (isMounted) {
             _setCurrentUser(activeProfile);
           }
+
+          let loadedGroups: Group[] = [];
+          let loadedMembers: Record<string, GroupMember[]> = {};
+          let loadedExpenses: Record<string, Expense[]> = {};
+          let loadedSettlements: Record<string, Settlement[]> = {};
 
           // 1. Fetch real groups and their members from native API
           try {
@@ -215,6 +275,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (grpRes.ok) {
               const grpData = await grpRes.json();
               if (grpData?.groups && isMounted) {
+                loadedGroups = grpData.groups;
                 setGroups(grpData.groups);
                 const memberMap: Record<string, GroupMember[]> = {};
                 const friendProfilesMap = new Map<string, Profile>();
@@ -228,6 +289,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     });
                   }
                 });
+                loadedMembers = memberMap;
                 setMembers(memberMap);
                 setAvailableUsers(Array.from(friendProfilesMap.values()));
               }
@@ -236,8 +298,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             console.warn('API get groups error:', e);
           }
 
-
-          // Fetch expenses with payers and participants
+          // 2. Fetch expenses
           try {
             const expRes = await fetch('/api/expenses');
             if (expRes.ok) {
@@ -248,12 +309,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   if (!expMap[e.group_id]) expMap[e.group_id] = [];
                   expMap[e.group_id].push(e);
                 });
+                loadedExpenses = expMap;
                 setExpenses(expMap);
               }
             }
-          } catch {}
+          } catch (e) {
+            console.warn('API get expenses error:', e);
+          }
 
-          // Fetch settlements
+          // 3. Fetch settlements
           try {
             const setRes = await fetch('/api/settlements');
             if (setRes.ok) {
@@ -264,89 +328,31 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   if (!setMap[s.group_id]) setMap[s.group_id] = [];
                   setMap[s.group_id].push(s);
                 });
+                loadedSettlements = setMap;
                 setSettlements(setMap);
               }
             }
-          } catch {}
+          } catch (e) {
+            console.warn('API get settlements error:', e);
+          }
 
-          return;
+          // Save fresh state to cache
+          saveState(loadedGroups, loadedMembers, loadedExpenses, loadedSettlements);
         }
       } catch (err) {
-        console.warn('Data fetch fallback to local storage:', err);
-      }
-
-
-
-      // If no Supabase user or in offline/demo mode, load from localStorage
-      try {
-        const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
-        const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
-        const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
-        const savedMembers = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-        const savedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-        const savedSettlements = localStorage.getItem(STORAGE_KEYS.SETTLEMENTS);
-
-        let currentUsersList = demoAllowed ? DEMO_USERS : [];
-        if (savedUsers) {
-          try {
-            currentUsersList = JSON.parse(savedUsers);
-            if (isMounted) setAvailableUsers(currentUsersList);
-          } catch (e) {}
-        } else if (demoAllowed && isMounted) {
-          setAvailableUsers(DEMO_USERS);
-        }
-
-        if (savedUser && isMounted) {
-          try {
-            const parsedUser: Profile = JSON.parse(savedUser);
-            const fresh = currentUsersList.find((u) => u.id === parsedUser.id) || parsedUser;
-            _setCurrentUser(fresh);
-          } catch (e) {
-            _setCurrentUser(null);
-          }
-        } else if (isMounted) {
-          _setCurrentUser(null);
-        }
-
-        if (savedGroups && isMounted) {
-          setGroups(JSON.parse(savedGroups));
-        } else if (demoAllowed && isMounted) {
-          setGroups(DEMO_GROUPS);
-        } else if (isMounted) {
-          setGroups([]);
-        }
-
-        if (savedMembers && isMounted) {
-          setMembers(JSON.parse(savedMembers));
-        } else if (demoAllowed && isMounted) {
-          setMembers(DEMO_MEMBERS);
-        } else if (isMounted) {
-          setMembers({});
-        }
-
-        if (savedExpenses && isMounted) {
-          setExpenses(JSON.parse(savedExpenses));
-        } else if (demoAllowed && isMounted) {
-          setExpenses(DEMO_EXPENSES);
-        } else if (isMounted) {
-          setExpenses({});
-        }
-
-        if (savedSettlements && isMounted) {
-          setSettlements(JSON.parse(savedSettlements));
-        } else if (demoAllowed && isMounted) {
-          setSettlements(DEMO_SETTLEMENTS);
-        } else if (isMounted) {
-          setSettlements({});
-        }
-      } catch (e) {
-        console.error('Failed to parse cached data:', e);
+        console.warn('Data fetch error in loadData:', err);
       } finally {
         if (isMounted) setIsLoading(false);
       }
     }
 
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
 
   // Listen to network status and initialize pending count
   useEffect(() => {
