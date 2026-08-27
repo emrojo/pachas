@@ -18,7 +18,7 @@ function generateHex(bytes = 32) {
 }
 
 function generatePassword(length = 24) {
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~';
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-~';
   const randomValues = randomBytes(length);
   let result = '';
   for (let i = 0; i < length; i++) {
@@ -67,8 +67,9 @@ POSTGRES_DB=${postgresDb}
 POSTGRES_USER=${postgresUser}
 POSTGRES_PASSWORD=${postgresPassword}
 POSTGRES_PORT=5432
-DATABASE_URL=postgresql://${postgresUser}:${postgresPassword}@localhost:5432/${postgresDb}
+DATABASE_URL=postgresql://${encodeURIComponent(postgresUser)}:${encodeURIComponent(postgresPassword)}@localhost:5432/${postgresDb}
 JWT_SECRET=${jwtSecret}
+
 
 
 # ------------------------------------------------------------------------------
