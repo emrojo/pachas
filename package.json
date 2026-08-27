@@ -16,6 +16,8 @@
     "secrets:generate": "node deploy/generate-secrets.mjs",
     "db:init": "node deploy/init-db.mjs",
     "db:setup-user": "node deploy/setup-postgres-user.mjs",
+    "db:reset": "node deploy/reset-postgres-db.mjs",
+
 
     "build:native": "next build",
     "cap:sync": "cap sync",

@@ -89,6 +89,7 @@ export interface Expense {
   creator?: Profile;
   payers?: ExpensePayer[];
   participants?: ExpenseParticipant[];
+  is_pending_sync?: boolean;
 }
 
 export interface Settlement {
@@ -104,7 +105,9 @@ export interface Settlement {
   created_at: string;
   from_profile?: Profile;
   to_profile?: Profile;
+  is_pending_sync?: boolean;
 }
+
 
 export interface MemberBalance {
   user_id: string;
