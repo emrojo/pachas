@@ -137,8 +137,9 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public, auth GRANT ALL ON ROUTINES TO "${user
   if (process.platform === 'linux') {
     try {
       console.log('1️⃣ Limpiando esquemas public y auth...');
-      execSync(`sudo -u postgres psql -d "${db}" -c "${wipeSchemasSql.replace(/"/g, '\\"')}"`, {
-        stdio: 'inherit',
+      execSync(`sudo -u postgres psql -d "${db}"`, {
+        input: wipeSchemasSql,
+        stdio: ['pipe', 'inherit', 'inherit'],
       });
 
       console.log('2️⃣ Importando esquema completo desde 01-schema.sql...');
@@ -147,8 +148,9 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public, auth GRANT ALL ON ROUTINES TO "${user
       });
 
       console.log('3️⃣ Configurando permisos y usuario de aplicación...');
-      execSync(`sudo -u postgres psql -d "${db}" -c "${setupPermissionsSql.replace(/"/g, '\\"')}"`, {
-        stdio: 'inherit',
+      execSync(`sudo -u postgres psql -d "${db}"`, {
+        input: setupPermissionsSql,
+        stdio: ['pipe', 'inherit', 'inherit'],
       });
 
       automatedSuccess = true;
@@ -160,6 +162,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public, auth GRANT ALL ON ROUTINES TO "${user
       console.log('\n⚠️ No se pudo ejecutar sudo directamente.');
     }
   }
+
 
   if (!automatedSuccess) {
     console.log(`
