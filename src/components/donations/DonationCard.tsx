@@ -3,9 +3,9 @@
 import React from 'react';
 import { Card } from '@/components/ui/Card';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
-import { BUY_ME_A_COFFEE_URL, DONATION_CONFIG } from '@/lib/constants/donations';
+import { DONATION_CONFIG } from '@/lib/constants/donations';
+import { useDonationUrl } from '@/lib/useDonationUrl';
 import { Coffee, Heart, Sparkles, Server, ShieldCheck, ExternalLink } from 'lucide-react';
-
 
 export interface DonationCardProps {
   className?: string;
@@ -16,6 +16,8 @@ export const DonationCard: React.FC<DonationCardProps> = ({
   className = '',
   compact = false,
 }) => {
+  const donationUrl = useDonationUrl();
+
   return (
     <Card className={`p-6 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-amber-200/80 dark:border-amber-900/40 relative overflow-hidden shadow-xs ${className}`}>
       {/* Decorative background coffee pattern */}
@@ -76,9 +78,10 @@ export const DonationCard: React.FC<DonationCardProps> = ({
             {DONATION_CONFIG.presetOptions.map((opt) => (
               <a
                 key={opt.count}
-                href={BUY_ME_A_COFFEE_URL}
+                href={donationUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+
                 className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-all shadow-2xs"
               >
                 <span>{opt.emoji}</span>

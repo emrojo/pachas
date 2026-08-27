@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { Profile } from '@/types/database';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
-import { BUY_ME_A_COFFEE_URL } from '@/lib/constants/donations';
+import { useDonationUrl } from '@/lib/useDonationUrl';
 
 
 export interface NavbarProps {
@@ -21,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, availableUsers, setCurrentUser, isCurrentUserAdmin, isDemoMode, logout } = usePachas();
+  const donationUrl = useDonationUrl();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
@@ -189,9 +190,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                       )}
 
                       <a
-                        href={BUY_ME_A_COFFEE_URL}
+                        href={donationUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+
                         onClick={() => setIsDropdownOpen(false)}
                         className="w-full flex items-center gap-2 p-2 rounded-xl text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
                       >

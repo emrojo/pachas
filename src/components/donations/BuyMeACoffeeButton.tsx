@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { BUY_ME_A_COFFEE_URL } from '@/lib/constants/donations';
+import { useDonationUrl } from '@/lib/useDonationUrl';
 import { Heart } from 'lucide-react';
 
 export interface BuyMeACoffeeButtonProps {
@@ -17,6 +17,8 @@ export const BuyMeACoffeeButton: React.FC<BuyMeACoffeeButtonProps> = ({
   className = '',
   customText = 'Invítame a un café',
 }) => {
+  const donationUrl = useDonationUrl();
+
   const sizeClasses = {
     sm: 'text-xs py-1.5 px-3 gap-1.5 h-8',
     md: 'text-xs sm:text-sm py-2 px-4 gap-2 h-9 sm:h-10',
@@ -25,9 +27,10 @@ export const BuyMeACoffeeButton: React.FC<BuyMeACoffeeButtonProps> = ({
 
   return (
     <a
-      href={BUY_ME_A_COFFEE_URL}
+      href={donationUrl}
       target="_blank"
       rel="noopener noreferrer"
+
       className={`inline-flex items-center justify-center font-bold rounded-2xl bg-[#FFDD00] text-slate-900 hover:bg-[#FFE53B] hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all duration-200 cursor-pointer shadow-xs border border-amber-300/60 shrink-0 select-none ${sizeClasses[size]} ${className}`}
       title="Apoya el proyecto en Buy Me a Coffee"
     >
