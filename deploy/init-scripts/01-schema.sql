@@ -26,9 +26,13 @@ create schema if not exists auth;
 create table if not exists auth.users (
     id uuid primary key default uuid_generate_v4(),
     email text unique,
+    encrypted_password text,
     raw_user_meta_data jsonb default '{}'::jsonb,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table auth.users add column if not exists encrypted_password text;
+
 
 -- Function to resolve current user ID from JWT claim for Row Level Security (RLS)
 create or replace function auth.uid()

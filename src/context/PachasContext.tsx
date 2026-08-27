@@ -1176,6 +1176,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const logout = async () => {
     try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+
+    try {
       const supabase = createClient();
       await supabase.auth.signOut();
     } catch (e) {
@@ -1189,6 +1193,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       _setCurrentUser(null);
     }
   };
+
 
   const resetLocalDatabase = async () => {
     try {

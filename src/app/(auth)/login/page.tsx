@@ -33,55 +33,42 @@ function LoginFormContent() {
     setError('');
 
     try {
-      const supabase = createClient();
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // 1. Try unified PostgreSQL auth API
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
       });
 
-      if (authError) {
-        if (!isDemoAllowed) {
-          setError('Credenciales no válidas. Introduce un correo y contraseña registrados en el sistema.');
-          return;
-        }
+      const resData = await res.json();
 
-        // Development/Demo fallback to local match in availableUsers
+      if (res.ok && resData.user) {
+        setCurrentUser(resData.user);
+        router.replace(redirectTo);
+        return;
+      }
+
+      // If API returned error and demo mode is permitted, check local availableUsers
+      if (isDemoAllowed) {
         const found = availableUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
         if (found) {
           setCurrentUser(found);
           router.replace(redirectTo);
           return;
-        } else {
-          // Create temp profile in demo mode only
-          const tempUser = {
-            id: `user-${Date.now()}`,
-            email,
-            full_name: email.split('@')[0],
-            created_at: new Date().toISOString(),
-          };
-          setCurrentUser(tempUser);
-          router.replace(redirectTo);
-          return;
         }
       }
 
-      if (data.user) {
-        setCurrentUser({
-          id: data.user.id,
-          email: data.user.email || email,
-          full_name: data.user.user_metadata?.full_name || email.split('@')[0],
-          avatar_url: data.user.user_metadata?.avatar_url,
-          role: data.user.user_metadata?.role || 'member',
-          created_at: data.user.created_at,
-        });
-        router.replace(redirectTo);
-      }
+      setError(resData.error || 'Credenciales no válidas. Introduce un correo y contraseña registrados.');
     } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+      setError(err.message || 'Error de conexión al iniciar sesión');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const handleQuickDemoSelect = (user: Profile) => {
     if (!isDemoAllowed) {

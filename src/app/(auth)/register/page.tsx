@@ -33,36 +33,39 @@ function RegisterFormContent() {
     try {
       setIsLoading(true);
       setError('');
-      const supabase = createClient();
 
-      const { data, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName.trim(),
-            bizum_phone: phone.trim() || null,
-          },
-        },
+      // 1. Try unified PostgreSQL auth API
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim() || undefined,
+          password,
+        }),
       });
 
-      const newUser: Profile = {
-        id: data?.user?.id || `user-${Date.now()}`,
-        email: data?.user?.email || email.trim().toLowerCase(),
-        full_name: fullName.trim(),
-        bizum_phone: phone.trim() || null,
-        role: email.trim().toLowerCase() === process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ? 'admin' : 'member',
-        created_at: new Date().toISOString(),
-      };
+      const resData = await res.json();
 
-      setCurrentUser(newUser);
-      router.replace(redirectTo);
+      if (!res.ok) {
+        // If API returned error, show error message
+        setError(resData.error || 'Error al registrarte');
+        return;
+      }
+
+      if (resData.user) {
+        setCurrentUser(resData.user);
+        router.replace(redirectTo);
+        return;
+      }
     } catch (err: any) {
-      setError(err.message || 'Error al registrarte');
+      setError(err.message || 'Error de conexión al registrarte');
     } finally {
       setIsLoading(false);
     }
   };
+
 
 
   return (
