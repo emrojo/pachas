@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatMoney } from '@/lib/currencies';
 import { Sparkles, Users, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { GroupMember } from '@/types/database';
+
+
 
 export default function JoinGroupPage() {
   const params = useParams();
@@ -17,16 +20,51 @@ export default function JoinGroupPage() {
 
   const { groups, joinGroup, currentUser, getGroupMembers } = usePachas();
 
+  const [remoteGroup, setRemoteGroup] = useState<any>(null);
+  const [remoteMembers, setRemoteMembers] = useState<GroupMember[]>([]);
+  const [isFetchingGroup, setIsFetchingGroup] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Find target group by invite code
-  const targetGroup = groups.find(
+  // 1. Check local groups first
+  const localGroup = groups.find(
     (g) => g.invite_code.toLowerCase() === inviteCode?.toLowerCase()
   );
 
-  const members = targetGroup ? getGroupMembers(targetGroup.id) : [];
+  // 2. Fetch group info from API if not already in local state
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchInvite() {
+      if (!inviteCode) {
+        setIsFetchingGroup(false);
+        return;
+      }
+      try {
+        setIsFetchingGroup(true);
+        const res = await fetch(`/api/groups/invite/${encodeURIComponent(inviteCode)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.group && isMounted) {
+            setRemoteGroup(data.group);
+            setRemoteMembers(data.members || []);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch invite:', err);
+      } finally {
+        if (isMounted) setIsFetchingGroup(false);
+      }
+    }
+
+    fetchInvite();
+    return () => {
+      isMounted = false;
+    };
+  }, [inviteCode]);
+
+  const targetGroup = localGroup || remoteGroup;
+  const members = localGroup ? getGroupMembers(localGroup.id) : remoteMembers;
 
   const handleJoinGroup = async () => {
     if (!currentUser) {
@@ -42,7 +80,7 @@ export default function JoinGroupPage() {
         setIsSuccess(true);
         setTimeout(() => {
           router.push(`/groups/${group.id}`);
-        }, 1500);
+        }, 1200);
       } else {
         setError('No se pudo unir al grupo. El enlace puede haber caducado.');
       }
@@ -52,6 +90,7 @@ export default function JoinGroupPage() {
       setIsLoading(false);
     }
   };
+
 
 
   return (
@@ -68,7 +107,12 @@ export default function JoinGroupPage() {
         </div>
 
         <Card className="p-6 sm:p-8 text-center space-y-6">
-          {targetGroup ? (
+          {isFetchingGroup && !targetGroup ? (
+            <div className="py-12 space-y-3">
+              <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-xs text-slate-500 font-medium">Buscando grupo de viaje...</p>
+            </div>
+          ) : targetGroup ? (
             <>
               {/* Trip info */}
               <div className="space-y-2">
@@ -168,6 +212,7 @@ export default function JoinGroupPage() {
             </div>
           )}
         </Card>
+
       </div>
     </div>
   );

@@ -79,18 +79,26 @@ BEGIN
 END
 $$;
 
+ALTER ROLE "${user}" BYPASSRLS;
 GRANT ALL PRIVILEGES ON DATABASE "${db}" TO "${user}";
 `;
 
+
 const setupPermissionsSql = `
-GRANT USAGE ON SCHEMA public TO "${user}";
-GRANT USAGE ON SCHEMA auth TO "${user}";
+GRANT USAGE, CREATE ON SCHEMA public TO "${user}";
+GRANT USAGE, CREATE ON SCHEMA auth TO "${user}";
 GRANT ALL ON ALL TABLES IN SCHEMA public TO "${user}";
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO "${user}";
 GRANT ALL ON ALL ROUTINES IN SCHEMA public TO "${user}";
+GRANT ALL ON ALL TABLES IN SCHEMA auth TO "${user}";
+GRANT ALL ON ALL SEQUENCES IN SCHEMA auth TO "${user}";
+GRANT ALL ON ALL ROUTINES IN SCHEMA auth TO "${user}";
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "${user}";
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "${user}";
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO "${user}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON TABLES TO "${user}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON SEQUENCES TO "${user}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON ROUTINES TO "${user}";
 `;
 
 // 3. Attempt automated execution via sudo if on Linux
@@ -106,7 +114,7 @@ if (process.platform === 'linux') {
       stdio: ['pipe', 'inherit', 'inherit'],
     });
     executedAutomatically = true;
-    console.log(`\n✅ ¡Usuario "${user}" y permisos configurados exitosamente en PostgreSQL!`);
+    console.log(`\n✅ ¡Usuario "${user}" y permisos de esquemas public y auth configurados exitosamente en PostgreSQL!`);
   } catch (err) {
     console.log('⚠️ No se pudo ejecutar sudo directamente. Ejecuta los comandos manuales abajo:');
   }
@@ -119,9 +127,10 @@ if (!executedAutomatically) {
 1️⃣ Crear o actualizar la contraseña del usuario:
    sudo -u postgres psql -c "DO \\$\\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${user}') THEN CREATE ROLE \\"${user}\\" WITH LOGIN PASSWORD '${escapedPass}'; ELSE ALTER ROLE \\"${user}\\" WITH LOGIN PASSWORD '${escapedPass}'; END IF; END \\$\\$; GRANT ALL PRIVILEGES ON DATABASE \\"${db}\\" TO \\"${user}\\";"
 
-2️⃣ Conceder permisos sobre las tablas del esquema:
-   sudo -u postgres psql -d "${db}" -c "GRANT USAGE ON SCHEMA public, auth TO \\"${user}\\"; GRANT ALL ON ALL TABLES IN SCHEMA public TO \\"${user}\\"; GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO \\"${user}\\"; GRANT ALL ON ALL ROUTINES IN SCHEMA public TO \\"${user}\\"; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \\"${user}\\"; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \\"${user}\\";"
+2️⃣ Conceder permisos sobre las tablas de los esquemas public y auth:
+   sudo -u postgres psql -d "${db}" -c "GRANT USAGE, CREATE ON SCHEMA public, auth TO \\"${user}\\"; GRANT ALL ON ALL TABLES IN SCHEMA public, auth TO \\"${user}\\"; GRANT ALL ON ALL SEQUENCES IN SCHEMA public, auth TO \\"${user}\\"; GRANT ALL ON ALL ROUTINES IN SCHEMA public, auth TO \\"${user}\\"; ALTER DEFAULT PRIVILEGES IN SCHEMA public, auth GRANT ALL ON TABLES TO \\"${user}\\"; ALTER DEFAULT PRIVILEGES IN SCHEMA public, auth GRANT ALL ON SEQUENCES TO \\"${user}\\";"
 
-✅ Una vez ejecutado, tu backend podrá autenticarse inmediatamente en PostgreSQL.
+✅ Una vez ejecutado, tu backend tendrá acceso completo a las tablas auth.users y public.*.
 `);
 }
+

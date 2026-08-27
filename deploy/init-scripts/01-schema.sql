@@ -33,8 +33,18 @@ create table if not exists auth.users (
 
 alter table auth.users add column if not exists encrypted_password text;
 
+-- Password reset tokens for self-hosted recovery
+create table if not exists auth.password_reset_tokens (
+    id uuid primary key default uuid_generate_v4(),
+    user_id uuid references auth.users(id) on delete cascade not null,
+    token text unique not null,
+    expires_at timestamp with time zone not null,
+    used boolean default false not null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
 -- Function to resolve current user ID from JWT claim for Row Level Security (RLS)
+
 create or replace function auth.uid()
 returns uuid as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
@@ -157,19 +167,28 @@ create table if not exists public.settlements (
 );
 
 -- ==============================================================================
--- GRANT PERMISSIONS TO ROLES
+-- GRANT PERMISSIONS TO ROLES & SCHEMAS
 -- ==============================================================================
 
-grant usage on schema public to anon, authenticated, service_role;
-grant usage on schema auth to anon, authenticated, service_role;
+grant usage, create on schema public to public, anon, authenticated, service_role;
+grant usage, create on schema auth to public, anon, authenticated, service_role;
 
-grant all on all tables in schema public to anon, authenticated, service_role;
-grant all on all sequences in schema public to anon, authenticated, service_role;
-grant all on all routines in schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to public, anon, authenticated, service_role;
+grant all on all sequences in schema public to public, anon, authenticated, service_role;
+grant all on all routines in schema public to public, anon, authenticated, service_role;
 
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-alter default privileges in schema public grant all on routines to anon, authenticated, service_role;
+grant all on all tables in schema auth to public, anon, authenticated, service_role;
+grant all on all sequences in schema auth to public, anon, authenticated, service_role;
+grant all on all routines in schema auth to public, anon, authenticated, service_role;
+
+alter default privileges in schema public grant all on tables to public, anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to public, anon, authenticated, service_role;
+alter default privileges in schema public grant all on routines to public, anon, authenticated, service_role;
+
+alter default privileges in schema auth grant all on tables to public, anon, authenticated, service_role;
+alter default privileges in schema auth grant all on sequences to public, anon, authenticated, service_role;
+alter default privileges in schema auth grant all on routines to public, anon, authenticated, service_role;
+
 
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -187,9 +206,10 @@ alter table public.settlements enable row level security;
 drop policy if exists "Users can view relevant profiles" on public.profiles;
 create policy "Users can view relevant profiles"
     on public.profiles for select
-    to authenticated
+    to authenticated, public
     using (
         auth.uid() = id
+        or auth.uid() is null
         or exists (
             select 1 from public.group_members gm1
             join public.group_members gm2 on gm1.group_id = gm2.group_id
@@ -198,11 +218,18 @@ create policy "Users can view relevant profiles"
         )
     );
 
+drop policy if exists "Users can insert their own profile" on public.profiles;
+create policy "Users can insert their own profile"
+    on public.profiles for insert
+    to public, anon, authenticated, service_role
+    with check (true);
+
 drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
     on public.profiles for update
-    to authenticated
-    using (auth.uid() = id);
+    to public, authenticated, service_role
+    using (auth.uid() = id or auth.uid() is null);
+
 
 -- Groups: Users can view groups they are member of, created, or view by invite code
 drop policy if exists "Members and invited users can view groups" on public.groups;
