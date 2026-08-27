@@ -44,6 +44,13 @@ export async function POST(request: NextRequest) {
            id, name, description, icon_emoji, cover_image_url, base_currency,
            invite_code, created_by, is_archived, created_at, updated_at
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, NOW(), NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           name = EXCLUDED.name,
+           description = EXCLUDED.description,
+           icon_emoji = EXCLUDED.icon_emoji,
+           cover_image_url = EXCLUDED.cover_image_url,
+           base_currency = EXCLUDED.base_currency,
+           updated_at = NOW()
          RETURNING *`,
         [id, name, description, icon_emoji, cover_image_url, base_currency, invite_code, payload.sub]
       );
@@ -92,11 +99,33 @@ export async function GET(request: NextRequest) {
     }
 
     const query = `
-      SELECT g.*
+      SELECT g.*,
+             COALESCE(
+               json_agg(
+                 jsonb_build_object(
+                   'id', gm.id,
+                   'group_id', gm.group_id,
+                   'user_id', gm.user_id,
+                   'role', gm.role,
+                   'joined_at', gm.joined_at,
+                   'profile', jsonb_build_object(
+                     'id', p.id,
+                     'full_name', p.full_name,
+                     'avatar_url', p.avatar_url,
+                     'email', p.email,
+                     'bizum_phone', p.bizum_phone
+                   )
+                 )
+               ) FILTER (WHERE gm.id IS NOT NULL),
+               '[]'::json
+             ) as members
       FROM public.groups g
+      LEFT JOIN public.group_members gm ON gm.group_id = g.id
+      LEFT JOIN public.profiles p ON p.id = gm.user_id
       WHERE g.id IN (
-        SELECT gm.group_id FROM public.group_members gm WHERE gm.user_id = $1
+        SELECT gm2.group_id FROM public.group_members gm2 WHERE gm2.user_id = $1
       ) OR g.created_by = $1
+      GROUP BY g.id
       ORDER BY g.created_at DESC
     `;
 

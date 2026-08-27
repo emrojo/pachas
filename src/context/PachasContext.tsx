@@ -209,30 +209,33 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             _setCurrentUser(activeProfile);
           }
 
-          // Fetch real groups where user is a member
-          const { data: dbGroups } = await supabase.from('groups').select('*');
-          if (dbGroups && isMounted) {
-            setGroups(dbGroups);
+          // 1. Fetch real groups and their members from native API
+          try {
+            const grpRes = await fetch('/api/groups');
+            if (grpRes.ok) {
+              const grpData = await grpRes.json();
+              if (grpData?.groups && isMounted) {
+                setGroups(grpData.groups);
+                const memberMap: Record<string, GroupMember[]> = {};
+                const friendProfilesMap = new Map<string, Profile>();
+                friendProfilesMap.set(activeProfile.id, activeProfile);
+
+                grpData.groups.forEach((g: any) => {
+                  if (g.members && Array.isArray(g.members)) {
+                    memberMap[g.id] = g.members;
+                    g.members.forEach((m: any) => {
+                      if (m.profile) friendProfilesMap.set(m.profile.id, m.profile);
+                    });
+                  }
+                });
+                setMembers(memberMap);
+                setAvailableUsers(Array.from(friendProfilesMap.values()));
+              }
+            }
+          } catch (e) {
+            console.warn('API get groups error:', e);
           }
 
-          // Fetch group members with profiles
-          const { data: dbMembers } = await supabase
-            .from('group_members')
-            .select('*, profile:profiles(*)');
-
-          if (dbMembers && isMounted) {
-            const memberMap: Record<string, GroupMember[]> = {};
-            const friendProfilesMap = new Map<string, Profile>();
-            friendProfilesMap.set(activeProfile.id, activeProfile);
-
-            dbMembers.forEach((m: any) => {
-              if (!memberMap[m.group_id]) memberMap[m.group_id] = [];
-              memberMap[m.group_id].push(m);
-              if (m.profile) friendProfilesMap.set(m.profile.id, m.profile);
-            });
-            setMembers(memberMap);
-            setAvailableUsers(Array.from(friendProfilesMap.values()));
-          }
 
           // Fetch expenses with payers and participants
           try {
@@ -559,10 +562,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveState(updatedGroups);
 
     try {
-      const supabase = createClient();
-      await supabase
-        .from('groups')
-        .update({
+      await fetch(`/api/groups/${encodeURIComponent(groupId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: updatedGroup.name,
           description: updatedGroup.description,
           icon_emoji: updatedGroup.icon_emoji,
@@ -570,15 +573,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           base_currency: updatedGroup.base_currency,
           is_archived: updatedGroup.is_archived,
           archived_at: updatedGroup.archived_at,
-          updated_at: updatedGroup.updated_at,
-        })
-        .eq('id', groupId);
+        }),
+      });
     } catch (e) {
-      console.warn('Supabase updateGroup sync warning:', e);
+      console.warn('API updateGroup fallback:', e);
     }
 
     return updatedGroup;
   };
+
 
   const archiveGroup = async (groupId: string): Promise<Group> => {
     return updateGroup(groupId, {
@@ -721,7 +724,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const newMember: GroupMember = {
-      id: `gm-${Date.now()}-${userId}`,
+      id: generateUUID(),
       group_id: groupId,
       user_id: targetUser.id,
       role: 'member',
@@ -752,7 +755,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (!targetUser) {
       targetUser = {
-        id: `user-${Date.now()}`,
+        id: generateUUID(),
         email: normalized.includes('@') ? normalized : `${normalized}@pachas.com`,
         full_name: emailOrName.split('@')[0],
         created_at: new Date().toISOString(),
@@ -768,7 +771,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const newMember: GroupMember = {
-      id: `gm-${Date.now()}`,
+      id: generateUUID(),
       group_id: groupId,
       user_id: targetUser.id,
       role: 'member',
@@ -783,6 +786,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveState(undefined, updatedMembers);
     return true;
   };
+
 
   const addExpense = async (input: CreateExpenseInput): Promise<Expense> => {
     if (!currentUser) {
