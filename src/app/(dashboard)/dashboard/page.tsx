@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { GroupCard } from '@/components/groups/GroupCard';
@@ -17,22 +18,17 @@ import { formatMoney } from '@/lib/currencies';
 import { formatDate } from '@/lib/utils';
 import {
   Plus,
-  Compass,
   Search,
   KeyRound,
-  Sparkles,
-  TrendingUp,
-  TrendingDown,
   Layers,
-  ArrowRight,
   Archive,
   ArchiveRestore,
   ArrowUpRight,
-  Shield,
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { groups, currentUser, joinGroup, getGroupBalances, getGroupMembers, restoreGroup } = usePachas();
+  const { t } = useTranslation();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,7 +48,6 @@ export default function DashboardPage() {
       members.some((m) => m.user_id === currentUser.id && m.role === 'admin')
     );
   });
-
 
   // Overall calculations across active groups
   let totalNetOwedToUser = 0;
@@ -80,12 +75,12 @@ export default function DashboardPage() {
       setJoinError('');
       const group = await joinGroup(joinCode.trim());
       if (!group) {
-        setJoinError('Código de grupo no encontrado');
+        setJoinError(t('dashboard.joinGroupError'));
       } else {
         setJoinCode('');
       }
     } catch (err: any) {
-      setJoinError('Error al unirte al grupo');
+      setJoinError(t('dashboard.joinGroupError'));
     } finally {
       setIsJoining(false);
     }
@@ -101,13 +96,13 @@ export default function DashboardPage() {
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-emerald-100 block mb-1">
-                Panel General de Vacaciones
+                {t('dashboard.welcome')}
               </span>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
                 ¡Hola, {currentUser.full_name.split(' ')[0]}! 🌴
               </h1>
               <p className="text-xs sm:text-sm text-emerald-50 mt-1 max-w-md">
-                Gestiona los gastos compartidos de tus viajes y mantén tus cuentas al día.
+                {t('dashboard.welcomeSubtitle')}
               </p>
             </div>
 
@@ -115,7 +110,7 @@ export default function DashboardPage() {
             <div className="flex gap-2">
               <div className="bg-white/15 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20">
                 <span className="text-[10px] uppercase font-bold text-emerald-100 block">
-                  Te deben en total
+                  {t('dashboard.totalOwedToYou')}
                 </span>
                 <span className="text-base sm:text-lg font-black text-white">
                   +{formatMoney(totalNetOwedToUser, 'EUR')}
@@ -123,7 +118,7 @@ export default function DashboardPage() {
               </div>
               <div className="bg-white/15 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20">
                 <span className="text-[10px] uppercase font-bold text-emerald-100 block">
-                  Debes en total
+                  {t('dashboard.totalYouOwe')}
                 </span>
                 <span className="text-base sm:text-lg font-black text-emerald-100">
                   -{formatMoney(totalNetUserOwes, 'EUR')}
@@ -137,7 +132,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2">
             <Input
-              placeholder="Buscar viaje o grupo..."
+              placeholder={t('dashboard.searchGroups')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               leftIcon={<Search className="w-4 h-4" />}
@@ -146,7 +141,7 @@ export default function DashboardPage() {
 
           <form onSubmit={handleJoin} className="flex gap-2">
             <Input
-              placeholder="Código de grupo (ej: menorca26)"
+              placeholder={t('dashboard.joinByCodePlaceholder')}
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value)}
               leftIcon={<KeyRound className="w-4 h-4" />}
@@ -159,7 +154,7 @@ export default function DashboardPage() {
               isLoading={isJoining}
               className="shrink-0 font-bold"
             >
-              Unirse
+              {t('dashboard.joinGroupBtn')}
             </Button>
           </form>
         </div>
@@ -169,7 +164,7 @@ export default function DashboardPage() {
           <div>
             <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Layers className="w-5 h-5 text-emerald-600" />
-              Tus Grupos de Viaje
+              {t('dashboard.yourGroups')}
               <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">
                 {activeGroups.length}
               </span>
@@ -183,7 +178,7 @@ export default function DashboardPage() {
             className="flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
-            Crear Viaje
+            {t('nav.newGroup')}
           </Button>
         </div>
 
@@ -194,14 +189,14 @@ export default function DashboardPage() {
               🏖️
             </div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              No tienes ningún grupo de viaje activo
+              {t('dashboard.noGroupsTitle')}
             </h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-5">
-              Crea tu primer grupo para las vacaciones o únete a uno mediante el enlace o código de un amigo.
+              {t('dashboard.noGroupsSubtitle')}
             </p>
             <Button variant="brand" onClick={() => setIsCreateOpen(true)}>
               <Plus className="w-4 h-4 mr-1.5" />
-              Crear mi primer grupo
+              {t('dashboard.createFirstGroup')}
             </Button>
           </Card>
         ) : (
@@ -222,13 +217,13 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                    Viajes Archivados
+                    {t('dashboard.archivedTrips')}
                     <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold">
                       {adminArchivedGroups.length}
                     </span>
                   </h2>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Solo visible para ti como administrador. Los demás miembros no pueden verlos.
+                    {t('dashboard.archivedTripsHelp')}
                   </span>
                 </div>
               </div>
@@ -250,13 +245,13 @@ export default function DashboardPage() {
                           {group.name}
                         </h3>
                         <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium block">
-                          Archivado {group.archived_at ? `el ${formatDate(group.archived_at, 'dd/MM/yyyy')}` : ''}
+                          {t('dashboard.archivedOn', { date: group.archived_at ? formatDate(group.archived_at, 'dd/MM/yyyy') : '' })}
                         </span>
                       </div>
                     </div>
 
                     <Badge variant="amber" size="sm">
-                      Archivado
+                      {t('groups.archiveGroup')}
                     </Badge>
                   </div>
 
@@ -271,7 +266,7 @@ export default function DashboardPage() {
                       href={`/groups/${group.id}`}
                       className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 transition-colors"
                     >
-                      <span>Ver historial</span>
+                      <span>{t('dashboard.viewHistory')}</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
                     </Link>
 
@@ -284,7 +279,7 @@ export default function DashboardPage() {
                       className="text-xs font-bold gap-1 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 border-amber-300 dark:border-amber-800"
                     >
                       <ArchiveRestore className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Restaurar</span>
+                      <span>{t('groups.restoreGroup')}</span>
                     </Button>
                   </div>
                 </div>
@@ -296,13 +291,11 @@ export default function DashboardPage() {
         {/* Subtle Buy Me a Coffee Project Support Footer */}
         <div className="pt-8 pb-4 text-center">
           <div className="inline-flex flex-col sm:flex-row items-center gap-3 px-5 py-3 rounded-2xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 shadow-2xs backdrop-blur-xs text-xs text-slate-500 dark:text-slate-400">
-            <span>¿Te resulta útil Pachas para viajar con tus amigos?</span>
-            <BuyMeACoffeeButton size="sm" customText="Invítame a un café" showHeart />
+            <span>{t('donations.usefulPrompt')}</span>
+            <BuyMeACoffeeButton size="sm" customText={t('donations.buttonText')} showHeart />
           </div>
         </div>
       </main>
-
-
 
       <BottomNav onAddClick={() => setIsCreateOpen(true)} />
 
@@ -313,3 +306,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

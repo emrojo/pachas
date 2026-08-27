@@ -3,18 +3,20 @@
 import React, { useState } from 'react';
 import { Group, SimplifiedDebt } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { SettleModal } from '@/components/balances/SettleModal';
 import { formatMoney } from '@/lib/currencies';
-import { ArrowRight, CheckCircle2, Sparkles, HandCoins } from 'lucide-react';
+import { ArrowRight, CheckCircle2, HandCoins } from 'lucide-react';
 
 export const DebtList: React.FC<{
   group: Group;
   debts: SimplifiedDebt[];
 }> = ({ group, debts }) => {
   const { currentUser } = usePachas();
+  const { t } = useTranslation();
   const [selectedDebt, setSelectedDebt] = useState<SimplifiedDebt | null>(null);
 
   return (
@@ -23,10 +25,10 @@ export const DebtList: React.FC<{
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
             <HandCoins className="w-4 h-4 text-emerald-600" />
-            Liquidación Sugerida (Mínimos Pagos)
+            {t('balances.suggestedSettlement')}
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Algoritmo optimizado para liquidar el viaje con el menor número de transferencias
+            {t('balances.suggestedSettlementSubtitle')}
           </p>
         </div>
       </div>
@@ -37,10 +39,10 @@ export const DebtList: React.FC<{
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-            ¡Todos los amigos están en paz! 🎉
+            {t('balances.allSettled')}
           </h4>
           <p className="text-xs text-slate-500 mt-1">
-            No hay deudas pendientes en este grupo.
+            {t('balances.noDebts')}
           </p>
         </Card>
       ) : (
@@ -49,7 +51,6 @@ export const DebtList: React.FC<{
             const isMeDebtor = currentUser ? debt.from_user_id === currentUser.id : false;
             const isMeCreditor = currentUser ? debt.to_user_id === currentUser.id : false;
             const isInvolved = isMeDebtor || isMeCreditor;
-
 
             return (
               <div
@@ -75,7 +76,7 @@ export const DebtList: React.FC<{
                       <span className={isMeDebtor ? 'text-rose-600 font-extrabold' : ''}>
                         {debt.from_profile.full_name}
                       </span>
-                      <span className="text-slate-400 font-normal">debe pagar a</span>
+                      <span className="text-slate-400 font-normal">{t('balances.mustPayTo')}</span>
                       <span className={isMeCreditor ? 'text-emerald-600 font-extrabold' : ''}>
                         {debt.to_profile.full_name}
                       </span>
@@ -101,7 +102,7 @@ export const DebtList: React.FC<{
                     onClick={() => setSelectedDebt(debt)}
                     className="text-xs py-1.5 px-3"
                   >
-                    Saldar
+                    {t('balances.settleDebtBtn')}
                   </Button>
                 </div>
               </div>
@@ -120,3 +121,4 @@ export const DebtList: React.FC<{
     </div>
   );
 };
+

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { GroupMember } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -17,6 +18,7 @@ export interface MemberListProps {
 
 export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmin }) => {
   const { currentUser, removeMemberFromGroup } = usePachas();
+  const { t } = useTranslation();
   const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
 
@@ -40,7 +42,6 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
           const isCurrentUser = currentUser ? member.user_id === currentUser.id : false;
           const canRemove = groupId && (isAdmin || isCurrentUser);
 
-
           return (
             <div key={member.id} className="py-3.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -48,22 +49,22 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                      {member.profile?.full_name || 'Usuario'}
+                      {member.profile?.full_name || t('common.friend')}
                     </span>
                     {isCurrentUser && (
                       <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold px-1.5 py-0.5 rounded">
-                        Tú
+                        {t('common.you')}
                       </span>
                     )}
                     {member.role === 'admin' ? (
                       <Badge variant="amber" size="sm">
                         <Shield className="w-2.5 h-2.5" />
-                        Admin
+                        {t('common.admin')}
                       </Badge>
                     ) : null}
                   </div>
                   <span className="text-xs text-slate-500 dark:text-slate-400 block truncate">
-                    {member.profile?.email || 'Sin email'}
+                    {member.profile?.email || ''}
                   </span>
                 </div>
               </div>
@@ -98,16 +99,15 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
       <Modal
         isOpen={!!memberToRemove}
         onClose={() => setMemberToRemove(null)}
-        title="Quitar Amigo del Grupo"
-        description="Esta acción eliminará al miembro de los gastos y saldos del viaje."
+        title={t('groups.removeMemberTitle')}
+        description={t('groups.removeMemberSubtitle')}
         maxWidth="sm"
       >
         <div className="space-y-4">
           <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-2xl flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-900 dark:text-amber-200">
-              ¿Estás seguro de que quieres quitar a <strong>{memberToRemove?.profile?.full_name || 'este usuario'}</strong> del grupo?
-              Ya no formará parte de los nuevos repartos del viaje.
+              {t('groups.removeMemberConfirm', { name: memberToRemove?.profile?.full_name || t('common.friend') })}
             </div>
           </div>
 
@@ -118,7 +118,7 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
               onClick={() => setMemberToRemove(null)}
               disabled={isRemoving}
             >
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -128,7 +128,7 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
               className="gap-1.5 font-bold"
             >
               <UserMinus className="w-4 h-4" />
-              <span>Quitar del Grupo</span>
+              <span>{t('groups.removeMemberBtn')}</span>
             </Button>
           </div>
         </div>
@@ -136,3 +136,4 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
     </>
   );
 };
+

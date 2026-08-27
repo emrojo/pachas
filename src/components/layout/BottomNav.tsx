@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslation } from '@/context/LanguageContext';
 import { Compass, User, PlusCircle, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +14,7 @@ export interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ onAddClick, groupId }) => {
   const pathname = usePathname();
+  const { t } = useTranslation();
 
   const isHome = pathname === '/dashboard' || pathname === '/';
   const isProfile = pathname === '/profile';
@@ -30,7 +32,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onAddClick, groupId }) => 
           )}
         >
           <Layers className="w-5 h-5" />
-          <span>Grupos</span>
+          <span>{t('nav.groups')}</span>
         </Link>
 
         {onAddClick && (
@@ -42,7 +44,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onAddClick, groupId }) => 
               <PlusCircle className="w-7 h-7" />
             </div>
             <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1">
-              Gasto
+              {t('nav.expenses')}
             </span>
           </button>
         )}
@@ -57,9 +59,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onAddClick, groupId }) => 
           )}
         >
           <User className="w-5 h-5" />
-          <span>Perfil</span>
+          <span>{t('nav.profile')}</span>
         </Link>
       </div>
     </nav>
   );
 };
+

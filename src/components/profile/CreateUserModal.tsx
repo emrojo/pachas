@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -15,12 +16,7 @@ import {
   Mail,
   Phone,
   UserPlus,
-  Sparkles,
-  Check,
-  CheckCircle2,
-  Users,
   ShieldAlert,
-  ShieldCheck,
   Upload,
 } from 'lucide-react';
 
@@ -47,6 +43,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   onSuccess,
 }) => {
   const { createLocalUser, groups, availableUsers, isCurrentUserAdmin } = usePachas();
+  const { t } = useTranslation();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -76,11 +73,11 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) {
-      setErrorMessage('Introduce el nombre completo del usuario');
+      setErrorMessage(t('auth.nameRequired'));
       return;
     }
     if (!email.trim()) {
-      setErrorMessage('Introduce un correo electrónico');
+      setErrorMessage(t('auth.email'));
       return;
     }
 
@@ -89,7 +86,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       (u) => u.email.toLowerCase() === email.trim().toLowerCase()
     );
     if (existing) {
-      setErrorMessage(`Ya existe un usuario con el correo "${email}". Usa otro diferente.`);
+      setErrorMessage(`Ya existe un usuario con el correo "${email}".`);
       return;
     }
 
@@ -100,7 +97,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       const groupIdsToAdd = addToAllGroups ? groups.map((g) => g.id) : [];
 
       const created = await createLocalUser({
-
         full_name: sanitizeText(fullName, 100),
         email: sanitizeText(email, 120).toLowerCase(),
         bizum_phone: sanitizeText(bizumPhone, 25) || undefined,
@@ -108,7 +104,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         autoSwitch,
         addToGroupIds: groupIdsToAdd,
       });
-
 
       confetti({
         particleCount: 70,
@@ -144,7 +139,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Crear Usuario"
-      description="Registra nuevos perfiles para asociar gastos, repartos y saldos en el sistema"
+      description="Registra nuevos perfiles para asociar gastos y repartos"
       maxWidth="md"
     >
       {!isCurrentUserAdmin ? (
@@ -156,13 +151,13 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 Acción restringida a Administradores
               </h4>
               <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
-                No tienes permisos de administrador. Solo los administradores pueden crear y registrar nuevos usuarios en el sistema.
+                No tienes permisos de administrador. Solo los administradores pueden crear nuevos usuarios.
               </p>
             </div>
           </div>
           <div className="flex justify-end">
             <Button type="button" variant="outline" onClick={onClose}>
-              Entendido
+              {t('common.close')}
             </Button>
           </div>
         </div>
@@ -190,11 +185,11 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Foto de perfil
+                {t('profile.changeAvatar')}
               </label>
               <label className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer">
                 <Upload className="w-3.5 h-3.5" />
-                <span>Subir foto propia</span>
+                <span>{t('groups.uploadPhoto')}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -237,8 +232,8 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           {/* Input Fields */}
           <div className="space-y-3">
             <Input
-              label="Nombre Completo *"
-              placeholder="Ej: Laura Gómez, Pablo Ruiz..."
+              label={`${t('auth.fullName')} *`}
+              placeholder="Laura Gómez"
               value={fullName}
               onChange={(e) => handleNameChange(e.target.value)}
               leftIcon={<User className="w-4 h-4" />}
@@ -247,7 +242,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             />
 
             <Input
-              label="Correo Electrónico *"
+              label={`${t('auth.email')} *`}
               placeholder="laura@pachas.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -256,7 +251,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             />
 
             <Input
-              label="Teléfono para Bizum (Opcional)"
+              label={t('auth.phoneForBizum')}
               placeholder="+34 611 222 333"
               value={bizumPhone}
               onChange={(e) => setBizumPhone(e.target.value)}
@@ -313,7 +308,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-xs font-bold gap-1.5">
               <UserPlus className="w-4 h-4" />
@@ -325,3 +320,4 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     </Modal>
   );
 };
+

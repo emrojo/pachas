@@ -2,12 +2,15 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useTranslation } from '@/context/LanguageContext';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { ArrowLeft, KeyRound, CheckCircle2, Mail, ArrowRight } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -16,7 +19,7 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
-      setError('Por favor introduce un correo electrónico válido');
+      setError(t('auth.invalidCredentials'));
       return;
     }
 
@@ -34,7 +37,7 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Error al procesar la solicitud');
+        setError(data.error || t('auth.invalidCredentials'));
         return;
       }
 
@@ -43,14 +46,18 @@ export default function ForgotPasswordPage() {
         resetUrl: data.resetUrl,
       });
     } catch (err: any) {
-      setError(err.message || 'Error de conexión');
+      setError(err.message || t('auth.invalidCredentials'));
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 relative">
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
+
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-6">
@@ -60,10 +67,10 @@ export default function ForgotPasswordPage() {
             </div>
           </Link>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-            Recuperar Contraseña
+            {t('auth.forgotPasswordTitle')}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Introduce el correo asociado a tu cuenta de Pachas
+            {t('auth.forgotPasswordSubtitle')}
           </p>
         </div>
 
@@ -74,7 +81,7 @@ export default function ForgotPasswordPage() {
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                Solicitud Recibida
+                {t('auth.requestReceived')}
               </h2>
               <p className="text-xs text-slate-600 dark:text-slate-400">
                 {resetInfo.message}
@@ -83,11 +90,11 @@ export default function ForgotPasswordPage() {
               {resetInfo.resetUrl && (
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-2">
                   <span className="text-[11px] font-semibold text-slate-500 block uppercase tracking-wider">
-                    Enlace de Restablecimiento:
+                    {t('auth.resetLink')}:
                   </span>
                   <Link href={resetInfo.resetUrl} className="block">
                     <Button variant="brand" size="sm" className="w-full justify-between shadow-xs">
-                      <span>Restablecer mi contraseña ahora</span>
+                      <span>{t('auth.resetPasswordNow')}</span>
                       <ArrowRight className="w-4 h-4" />
                     </Button>
                   </Link>
@@ -97,7 +104,7 @@ export default function ForgotPasswordPage() {
               <div className="pt-2">
                 <Link href="/login" className="inline-flex items-center text-xs font-semibold text-emerald-600 hover:text-emerald-500">
                   <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-                  Volver al inicio de sesión
+                  {t('auth.backToLogin')}
                 </Link>
               </div>
             </div>
@@ -111,7 +118,7 @@ export default function ForgotPasswordPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Correo Electrónico
+                  {t('auth.email')}
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -135,13 +142,13 @@ export default function ForgotPasswordPage() {
                 isLoading={isLoading}
               >
                 <KeyRound className="w-4 h-4 mr-2" />
-                Continuar
+                {t('auth.sendResetLink')}
               </Button>
 
               <div className="text-center pt-2">
                 <Link href="/login" className="inline-flex items-center text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
                   <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-                  Volver al inicio de sesión
+                  {t('auth.backToLogin')}
                 </Link>
               </div>
             </form>
@@ -151,3 +158,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+

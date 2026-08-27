@@ -4,17 +4,18 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { Mail, Lock, User, Phone, ArrowRight } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { Profile } from '@/types/database';
 
 function RegisterFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams?.get('redirectTo') || '/dashboard';
   const { setCurrentUser } = usePachas();
+  const { t } = useTranslation();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -26,7 +27,7 @@ function RegisterFormContent() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) {
-      setError('Por favor introduce tu nombre completo');
+      setError(t('auth.nameRequired'));
       return;
     }
 
@@ -49,8 +50,7 @@ function RegisterFormContent() {
       const resData = await res.json();
 
       if (!res.ok) {
-        // If API returned error, show error message
-        setError(resData.error || 'Error al registrarte');
+        setError(resData.error || t('auth.registerError'));
         return;
       }
 
@@ -60,16 +60,18 @@ function RegisterFormContent() {
         return;
       }
     } catch (err: any) {
-      setError(err.message || 'Error de conexión al registrarte');
+      setError(err.message || t('auth.registerError'));
     } finally {
       setIsLoading(false);
     }
   };
 
-
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 relative">
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
+
       <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
         <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center gap-2 mb-2">
@@ -81,17 +83,17 @@ function RegisterFormContent() {
             </span>
           </Link>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-            Crear Cuenta
+            {t('auth.registerTitle')}
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Únete a Pachas para compartir gastos en todos tus viajes
+            {t('auth.registerSubtitle')}
           </p>
         </div>
 
         <form onSubmit={handleRegister} className="space-y-4">
           <Input
-            label="Nombre Completo *"
-            placeholder="Ej: Laura Sánchez"
+            label={`${t('auth.fullName')} *`}
+            placeholder="Laura Sánchez"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             leftIcon={<User className="w-4 h-4" />}
@@ -99,7 +101,7 @@ function RegisterFormContent() {
           />
 
           <Input
-            label="Correo Electrónico *"
+            label={`${t('auth.email')} *`}
             type="email"
             placeholder="laura@ejemplo.com"
             value={email}
@@ -109,7 +111,7 @@ function RegisterFormContent() {
           />
 
           <Input
-            label="Teléfono para Bizum (Opcional)"
+            label={t('auth.phoneForBizum')}
             type="tel"
             placeholder="+34 600 000 000"
             value={phone}
@@ -118,9 +120,9 @@ function RegisterFormContent() {
           />
 
           <Input
-            label="Contraseña *"
+            label={`${t('auth.password')} *`}
             type="password"
-            placeholder="Mínimo 6 caracteres"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             leftIcon={<Lock className="w-4 h-4" />}
@@ -135,15 +137,15 @@ function RegisterFormContent() {
           )}
 
           <Button type="submit" variant="brand" className="w-full py-3" isLoading={isLoading}>
-            Completar Registro
+            {t('auth.registerButton')}
             <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </form>
 
         <p className="text-center text-xs text-slate-500 mt-6">
-          ¿Ya tienes una cuenta?{' '}
+          {t('auth.haveAccount')}{' '}
           <Link href="/login" className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
-            Inicia sesión
+            {t('auth.loginButton')}
           </Link>
         </p>
       </div>
@@ -164,4 +166,5 @@ export default function RegisterPage() {
     </Suspense>
   );
 }
+
 

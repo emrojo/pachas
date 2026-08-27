@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/Card';
@@ -11,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { DonationCard } from '@/components/donations/DonationCard';
 import { Profile } from '@/types/database';
@@ -30,7 +32,7 @@ import {
   Trash2,
   Camera,
   Upload,
-  Image as ImageIcon,
+  Globe,
   X,
 } from 'lucide-react';
 
@@ -57,6 +59,7 @@ export default function ProfilePage() {
     isDemoMode,
     logout,
   } = usePachas();
+  const { t } = useTranslation();
 
   const [fullName, setFullName] = useState(currentUser?.full_name || '');
   const [bizumPhone, setBizumPhone] = useState(currentUser?.bizum_phone || '');
@@ -77,7 +80,6 @@ export default function ProfilePage() {
 
   // Compress & read custom local photo securely
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -105,7 +107,6 @@ export default function ProfilePage() {
     setTimeout(() => setIsSaved(false), 2500);
   };
 
-
   const handleSwitchUser = (user: Profile) => {
     if (!isDemoMode) return;
     setCurrentUser(user);
@@ -119,8 +120,7 @@ export default function ProfilePage() {
   const handleDeleteUser = async (e: React.MouseEvent, user: Profile) => {
     e.stopPropagation();
     if (!isCurrentUserAdmin) {
-      alert('Solo los administradores pueden eliminar usuarios de prueba.');
-      return;
+      alert('Solo los administradores pueden eliminar usuarios.');
     }
     if (confirm(`¿Eliminar el usuario "${user.full_name}"?`)) {
       await deleteLocalUser(user.id);
@@ -134,7 +134,6 @@ export default function ProfilePage() {
 
   if (!currentUser) return null;
 
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 md:pb-12">
       <Navbar />
@@ -142,7 +141,7 @@ export default function ProfilePage() {
       <main className="max-w-3xl mx-auto px-4 py-6 sm:py-8 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Mi Perfil & Ajustes
+            {t('profile.title')} & {t('nav.settings')}
           </h1>
 
           {isCurrentUserAdmin && (
@@ -172,10 +171,10 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute inset-0 rounded-full bg-black/45 text-white flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-xs shadow-inner cursor-pointer"
-                title="Cambiar foto de perfil"
+                title={t('profile.changeAvatar')}
               >
                 <Camera className="w-5 h-5 text-white drop-shadow" />
-                <span className="text-[9px] font-bold uppercase tracking-wider text-white">Cambiar</span>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-white">{t('common.edit')}</span>
               </button>
             </div>
 
@@ -194,7 +193,7 @@ export default function ProfilePage() {
                 </h2>
                 {isCurrentUserAdmin && (
                   <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shrink-0">
-                    Admin
+                    {t('common.admin')}
                   </span>
                 )}
               </div>
@@ -202,17 +201,17 @@ export default function ProfilePage() {
               <div className="flex items-center justify-center sm:justify-start gap-2 mt-2">
                 <Badge variant="emerald" size="sm">
                   <ShieldCheck className="w-3 h-3" />
-                  Cuenta Activa
+                  {t('profile.activeAccount')}
                 </Badge>
                 {avatarUrl && (
                   <button
                     type="button"
                     onClick={() => setAvatarUrl(null)}
                     className="text-[11px] text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1"
-                    title="Quitar foto y usar iniciales"
+                    title={t('groups.removePhoto')}
                   >
                     <X className="w-3 h-3" />
-                    Quitar foto
+                    {t('groups.removePhoto')}
                   </button>
                 )}
               </div>
@@ -223,7 +222,7 @@ export default function ProfilePage() {
           <div className="py-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Foto de Perfil
+                {t('profile.changeAvatar')}
               </label>
               <button
                 type="button"
@@ -231,7 +230,7 @@ export default function ProfilePage() {
                 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1.5 cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
-                Subir foto desde tu dispositivo
+                {t('groups.uploadPhoto')}
               </button>
             </div>
 
@@ -245,7 +244,7 @@ export default function ProfilePage() {
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 ring-2 ring-emerald-500/30'
                     : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                 }`}
-                title="Sin foto (Iniciales)"
+                title="Sin foto"
               >
                 ABC
               </button>
@@ -273,7 +272,7 @@ export default function ProfilePage() {
           {/* Edit Form */}
           <form onSubmit={handleSave} className="space-y-4 pt-4">
             <Input
-              label="Nombre Completo"
+              label={t('profile.name')}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               leftIcon={<User className="w-4 h-4" />}
@@ -281,7 +280,7 @@ export default function ProfilePage() {
             />
 
             <Input
-              label="Correo Electrónico (No editable)"
+              label={`${t('profile.email')} (${t('profile.readOnlyBadge')})`}
               value={currentUser.email}
               disabled
               leftIcon={<Mail className="w-4 h-4" />}
@@ -289,21 +288,21 @@ export default function ProfilePage() {
 
             <div>
               <Input
-                label="Teléfono para Bizum"
+                label={t('profile.bizumPhone')}
                 placeholder="+34 600 000 000"
                 value={bizumPhone}
                 onChange={(e) => setBizumPhone(e.target.value)}
                 leftIcon={<Phone className="w-4 h-4" />}
               />
               <p className="text-[11px] text-slate-400 mt-1">
-                Tus amigos podrán ver este número para saldar deudas directamente por Bizum.
+                {t('profile.bizumHelp')}
               </p>
             </div>
 
             <div className="flex items-center justify-between pt-2">
               <Button type="submit" variant="brand" isLoading={isLoading} className="gap-1.5">
                 {isSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                {isSaved ? '¡Guardado con Éxito!' : 'Guardar Cambios'}
+                {isSaved ? t('profile.savedSuccess') : t('profile.saveChanges')}
               </Button>
 
               <Button
@@ -313,10 +312,31 @@ export default function ProfilePage() {
                 className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
               >
                 <LogOut className="w-4 h-4 mr-1.5" />
-                Cerrar Sesión
+                {t('nav.logout')}
               </Button>
             </div>
           </form>
+        </Card>
+
+        {/* Language Preference Card */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {t('profile.languagePreference')}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {t('profile.languagePreferenceSubtitle')}
+                </p>
+              </div>
+            </div>
+
+            <LanguageSelector variant="buttons" />
+          </div>
         </Card>
 
         {/* Buy Me a Coffee Support Card */}
@@ -324,7 +344,6 @@ export default function ProfilePage() {
 
         {/* Demo Fast User Switcher & Local Testing Users (Only visible in Demo / Development Mode) */}
         {isDemoMode && (
-
           <Card className="p-6 bg-slate-50/80 dark:bg-slate-900/80">
             <div className="flex items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-2">
@@ -422,3 +441,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

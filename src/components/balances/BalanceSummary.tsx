@@ -3,10 +3,11 @@
 import React from 'react';
 import { Group, MemberBalance } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatMoney } from '@/lib/currencies';
-import { TrendingUp, TrendingDown, CheckCircle2, Wallet, Users, PiggyBank } from 'lucide-react';
+import { TrendingUp, TrendingDown, CheckCircle2, Users } from 'lucide-react';
 
 export const BalanceSummary: React.FC<{
   group: Group;
@@ -14,6 +15,7 @@ export const BalanceSummary: React.FC<{
   totalSpent: number;
 }> = ({ group, balances, totalSpent }) => {
   const { currentUser } = usePachas();
+  const { t } = useTranslation();
 
   const userBalance = currentUser ? balances.find((b) => b.user_id === currentUser.id) : undefined;
   const net = userBalance?.net_balance || 0;
@@ -35,26 +37,26 @@ export const BalanceSummary: React.FC<{
         <div className="flex items-center justify-between gap-3">
           <div>
             <span className="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
-              Tu Estado en el Viaje
+              {t('balances.yourStatus')}
             </span>
             <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
               {net > 0.01 ? (
                 <>
                   <span className="text-emerald-600 dark:text-emerald-400">
-                    Te deben {formatMoney(net, group.base_currency)}
+                    {t('balances.youAreOwed', { amount: formatMoney(net, group.base_currency) })}
                   </span>
                   <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                 </>
               ) : net < -0.01 ? (
                 <>
                   <span className="text-rose-600 dark:text-rose-400">
-                    Debes {formatMoney(Math.abs(net), group.base_currency)}
+                    {t('balances.youOwe', { amount: formatMoney(Math.abs(net), group.base_currency) })}
                   </span>
                   <TrendingDown className="w-6 h-6 text-rose-600 dark:text-rose-400" />
                 </>
               ) : (
                 <>
-                  <span className="text-slate-700 dark:text-slate-200">Estás en paz</span>
+                  <span className="text-slate-700 dark:text-slate-200">{t('balances.allSettled')}</span>
                   <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 </>
               )}
@@ -67,19 +69,19 @@ export const BalanceSummary: React.FC<{
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-800/60 text-center">
           <div className="p-2 rounded-xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xs">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 block">Total Viaje</span>
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block">{t('balances.totalTrip')}</span>
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               {formatMoney(totalSpent, group.base_currency)}
             </span>
           </div>
           <div className="p-2 rounded-xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xs">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 block">Has Pagado</span>
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block">{t('balances.youPaid')}</span>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
               {formatMoney(userPaid, group.base_currency)}
             </span>
           </div>
           <div className="p-2 rounded-xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xs">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 block">Tu Consumo</span>
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block">{t('balances.yourShare')}</span>
             <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
               {formatMoney(userOwed, group.base_currency)}
             </span>
@@ -91,7 +93,7 @@ export const BalanceSummary: React.FC<{
       <Card className="space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
           <Users className="w-4 h-4" />
-          Saldos Individuales del Grupo
+          {t('balances.individualBalances')}
         </h4>
 
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -103,12 +105,11 @@ export const BalanceSummary: React.FC<{
                   <Avatar profile={b.profile} size="sm" />
                   <div>
                     <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                      {b.profile.full_name} {isMe && '(Tú)'}
+                      {b.profile.full_name} {isMe && `(${t('common.you')})`}
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      Pagó {formatMoney(b.total_paid, group.base_currency)} • Consumió {formatMoney(b.total_owed, group.base_currency)}
+                      {t('balances.paidAndOwed', { paid: formatMoney(b.total_paid, group.base_currency), owed: formatMoney(b.total_owed, group.base_currency) })}
                     </span>
-
                   </div>
                 </div>
 
@@ -134,3 +135,4 @@ export const BalanceSummary: React.FC<{
     </div>
   );
 };
+

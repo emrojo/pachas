@@ -4,14 +4,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Plus, Users, User, Compass, Sparkles, ChevronDown, UserPlus, Check, LogOut, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { Profile } from '@/types/database';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
 import { useDonationUrl } from '@/lib/useDonationUrl';
-
 
 export interface NavbarProps {
   onCreateGroupClick?: () => void;
@@ -21,6 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, availableUsers, setCurrentUser, isCurrentUserAdmin, isDemoMode, logout } = usePachas();
+  const { t } = useTranslation();
   const donationUrl = useDonationUrl();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -76,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                 pathname === '/dashboard' ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''
               }`}
             >
-              Mis Grupos
+              {t('nav.dashboard')}
             </Link>
             <Link
               href="/profile"
@@ -84,12 +86,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                 pathname === '/profile' ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''
               }`}
             >
-              Mi Perfil
+              {t('nav.profile')}
             </Link>
           </nav>
 
           {/* Action Button & User Dropdown */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Language Selector */}
+            <LanguageSelector />
+
             {onCreateGroupClick && (
               <Button
                 size="sm"
@@ -98,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                 className="hidden sm:inline-flex shadow-xs"
               >
                 <Plus className="w-4 h-4" />
-                Nuevo Grupo
+                {t('nav.newGroup')}
               </Button>
             )}
 
@@ -109,11 +114,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                   type="button"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-left"
-                  title={isDemoMode ? 'Cambiar de usuario (Simulación local)' : 'Menú de usuario'}
+                  title={isDemoMode ? 'Cambiar de usuario' : 'Menú de usuario'}
                 >
                   <Avatar profile={currentUser} size="sm" className="w-7 h-7 text-xs" />
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hidden sm:inline max-w-[90px] truncate">
-                    {currentUser.full_name ? currentUser.full_name.split(' ')[0] : 'Usuario'}
+                    {currentUser.full_name ? currentUser.full_name.split(' ')[0] : t('common.someone')}
                   </span>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 </button>
@@ -129,7 +134,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                         </span>
                         {isCurrentUserAdmin && (
                           <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-                            Admin
+                            {t('common.admin')}
                           </span>
                         )}
                       </div>
@@ -193,12 +198,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                         href={donationUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-
                         onClick={() => setIsDropdownOpen(false)}
                         className="w-full flex items-center gap-2 p-2 rounded-xl text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
                       >
                         <span className="text-sm">☕</span>
-                        <span>Apoyar en Buy Me a Coffee</span>
+                        <span>{t('donations.buttonText')}</span>
                       </a>
 
                       <Link
@@ -207,7 +211,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                         className="w-full flex items-center gap-2 p-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                       >
                         <User className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Mi Perfil & Ajustes</span>
+                        <span>{t('profile.title')} & {t('nav.settings')}</span>
                       </Link>
 
                       <button
@@ -216,7 +220,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                         className="w-full flex items-center gap-2 p-2 rounded-xl text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors text-left"
                       >
                         <LogOut className="w-3.5 h-3.5" />
-                        <span>Cerrar Sesión</span>
+                        <span>{t('nav.logout')}</span>
                       </button>
                     </div>
                   </div>
@@ -225,18 +229,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
             ) : (
               <Link href="/login">
                 <Button size="sm" variant="brand">
-                  Iniciar Sesión
+                  {t('nav.login')}
                 </Button>
               </Link>
             )}
 
             {/* Support button in header */}
-            <BuyMeACoffeeButton size="sm" customText="Apoyar" showHeart className="hidden sm:inline-flex" />
-
-
+            <BuyMeACoffeeButton size="sm" customText={t('donations.badge')} showHeart className="hidden sm:inline-flex" />
           </div>
         </div>
       </header>
+
 
       <CreateUserModal
         isOpen={isCreateUserOpen}

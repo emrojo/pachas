@@ -4,13 +4,14 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { Profile } from '@/types/database';
-import { Mail, Lock, Sparkles, ArrowRight, UserPlus, ShieldAlert } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { Mail, Lock, ArrowRight, UserPlus } from 'lucide-react';
 import { isDemoModeAllowed } from '@/lib/authConfig';
 
 function LoginFormContent() {
@@ -18,6 +19,7 @@ function LoginFormContent() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams?.get('redirectTo') || '/dashboard';
   const { setCurrentUser, availableUsers, isCurrentUserAdmin } = usePachas();
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,27 +63,29 @@ function LoginFormContent() {
         }
       }
 
-      setError(resData.error || 'Credenciales no válidas. Introduce un correo y contraseña registrados.');
+      setError(resData.error || t('auth.invalidCredentials'));
     } catch (err: any) {
-      setError(err.message || 'Error de conexión al iniciar sesión');
+      setError(err.message || t('auth.invalidCredentials'));
     } finally {
       setIsLoading(false);
     }
   };
 
-
   const handleQuickDemoSelect = (user: Profile) => {
     if (!isDemoAllowed) {
-      setError('El inicio de sesión con usuarios de prueba está deshabilitado en modo producción.');
+      setError('Demo mode is disabled');
       return;
     }
     setCurrentUser(user);
     router.replace(redirectTo);
   };
 
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 relative">
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
+
       <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
         {/* Logo */}
         <div className="text-center mb-6">
@@ -94,17 +98,17 @@ function LoginFormContent() {
             </span>
           </Link>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-            Iniciar Sesión
+            {t('auth.loginTitle')}
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Accede a tus grupos de vacaciones y gastos compartidos
+            {t('auth.loginSubtitle')}
           </p>
         </div>
 
         {/* Login Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <Input
-            label="Correo Electrónico"
+            label={t('auth.email')}
             type="email"
             placeholder="tu@email.com"
             value={email}
@@ -115,7 +119,7 @@ function LoginFormContent() {
 
           <div>
             <Input
-              label="Contraseña"
+              label={t('auth.password')}
               type="password"
               placeholder="••••••••"
               value={password}
@@ -128,11 +132,10 @@ function LoginFormContent() {
                 href="/forgot-password"
                 className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 transition-colors"
               >
-                ¿Has olvidado tu contraseña?
+                {t('auth.forgotPasswordLink')}
               </Link>
             </div>
           </div>
-
 
           {error && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-600 font-medium">
@@ -141,7 +144,7 @@ function LoginFormContent() {
           )}
 
           <Button type="submit" variant="brand" className="w-full py-3" isLoading={isLoading}>
-            Entrar a Pachas
+            {t('auth.loginButton')}
             <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </form>
@@ -151,7 +154,7 @@ function LoginFormContent() {
           <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between gap-2 mb-3">
               <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
-                Usuarios de prueba ({availableUsers.length}):
+                Demo ({availableUsers.length}):
               </span>
               {isCurrentUserAdmin && (
                 <button
@@ -188,9 +191,9 @@ function LoginFormContent() {
 
         {/* Footer link */}
         <p className="text-center text-xs text-slate-500 mt-6">
-          ¿No tienes cuenta aún?{' '}
+          {t('auth.noAccount')}{' '}
           <Link href="/register" className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
-            Regístrate aquí
+            {t('auth.registerHere')}
           </Link>
         </p>
       </div>
@@ -205,6 +208,7 @@ function LoginFormContent() {
     </div>
   );
 }
+
 
 export default function LoginPage() {
   return (

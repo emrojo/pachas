@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { usePachas } from '@/context/PachasContext';
-import { WifiOff, RefreshCw, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { useTranslation } from '@/context/LanguageContext';
+import { WifiOff, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export function OfflineBanner() {
   const { isOnline, pendingSyncCount, syncPendingQueue, clearPendingSyncQueue } = usePachas();
+  const { t } = useTranslation();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccessMsg, setSyncSuccessMsg] = useState(false);
 
@@ -44,20 +46,20 @@ export function OfflineBanner() {
         {!isOnline ? (
           <div className="flex items-center gap-2 font-medium">
             <WifiOff className="w-4 h-4 shrink-0 text-amber-300 animate-pulse" />
-            <span>
-              <strong>Sin conexión a internet:</strong> Tus cambios se han guardado en este dispositivo y se sincronizarán automáticamente en cuanto vuelva la red.
-            </span>
+            <span>{t('sync.offlineNotice')}</span>
           </div>
         ) : syncSuccessMsg ? (
           <div className="flex items-center gap-2 font-bold text-emerald-300">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>¡Todos tus registros se han sincronizado con la base de datos!</span>
+            <span>{t('sync.syncedSuccess')}</span>
           </div>
         ) : (
           <div className="flex items-center gap-2 font-medium">
             <AlertCircle className="w-4 h-4 shrink-0 text-indigo-300" />
             <span>
-              Tienes <strong>{pendingSyncCount}</strong> {pendingSyncCount === 1 ? 'registro pendiente' : 'registros pendientes'} de sincronizar con la base de datos.
+              {pendingSyncCount === 1
+                ? t('sync.pendingNotice', { count: pendingSyncCount })
+                : t('sync.pendingNoticePlural', { count: pendingSyncCount })}
             </span>
           </div>
         )}
@@ -68,9 +70,9 @@ export function OfflineBanner() {
               type="button"
               onClick={handleClearQueue}
               className="text-[11px] text-indigo-300 hover:text-white underline hover:no-underline px-2 py-1 transition-colors cursor-pointer"
-              title="Descartar registros pendientes locales"
+              title={t('sync.discardTooltip')}
             >
-              Descartar
+              {t('sync.discard')}
             </button>
             <Button
               size="sm"
@@ -80,7 +82,7 @@ export function OfflineBanner() {
               className="text-xs h-7 py-0 px-3 bg-indigo-900/80 hover:bg-indigo-800 text-white border-indigo-700 gap-1.5 cursor-pointer shadow-xs"
             >
               <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Sincronizando...' : 'Sincronizar ahora'}
+              {isSyncing ? t('sync.syncing') : t('sync.syncNow')}
             </Button>
           </div>
         )}
@@ -88,5 +90,6 @@ export function OfflineBanner() {
     </div>
   );
 }
+
 
 
