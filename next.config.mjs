@@ -56,7 +56,11 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   output: 'standalone',
+  experimental: {
+    serverComponentsExternalPackages: ['pg'],
+  },
   images: {
+
     remotePatterns: [
       {
         protocol: 'https',
