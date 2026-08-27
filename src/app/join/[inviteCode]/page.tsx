@@ -4,14 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
-import { formatMoney } from '@/lib/currencies';
-import { Sparkles, Users, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { GroupMember } from '@/types/database';
-
-
 
 export default function JoinGroupPage() {
   const params = useParams();
@@ -19,6 +18,7 @@ export default function JoinGroupPage() {
   const inviteCode = params?.inviteCode as string;
 
   const { groups, joinGroup, currentUser, getGroupMembers } = usePachas();
+  const { t } = useTranslation();
 
   const [remoteGroup, setRemoteGroup] = useState<any>(null);
   const [remoteMembers, setRemoteMembers] = useState<GroupMember[]>([]);
@@ -82,19 +82,21 @@ export default function JoinGroupPage() {
           router.push(`/groups/${group.id}`);
         }, 1200);
       } else {
-        setError('No se pudo unir al grupo. El enlace puede haber caducado.');
+        setError(t('join.errorJoining'));
       }
     } catch (err: any) {
-      setError(err.message || 'Error al unirse al grupo');
+      setError(err.message || t('common.error'));
     } finally {
       setIsLoading(false);
     }
   };
 
-
-
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative">
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
+
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-6">
@@ -110,7 +112,7 @@ export default function JoinGroupPage() {
           {isFetchingGroup && !targetGroup ? (
             <div className="py-12 space-y-3">
               <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs text-slate-500 font-medium">Buscando grupo de viaje...</p>
+              <p className="text-xs text-slate-500 font-medium">{t('join.searching')}</p>
             </div>
           ) : targetGroup ? (
             <>
@@ -120,7 +122,7 @@ export default function JoinGroupPage() {
                   {targetGroup.icon_emoji}
                 </div>
                 <span className="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 block">
-                  Invitación a Viaje
+                  {t('join.title')}
                 </span>
                 <h1 className="text-2xl font-black text-slate-900 dark:text-white">
                   {targetGroup.name}
@@ -133,7 +135,7 @@ export default function JoinGroupPage() {
               {/* Members participating */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <span className="text-xs text-slate-500 block mb-2">
-                  Amigos ya en este grupo ({members.length}):
+                  {t('join.friendsInGroup', { count: members.length })}
                 </span>
                 <div className="flex items-center justify-center -space-x-2">
                   {members.map((m) => (
@@ -150,13 +152,9 @@ export default function JoinGroupPage() {
               {/* Current user confirmation */}
               {currentUser && (
                 <div className="text-xs text-slate-500">
-                  Te unirás con tu cuenta:{' '}
-                  <strong className="text-slate-800 dark:text-slate-200">
-                    {currentUser.full_name} ({currentUser.email})
-                  </strong>
+                  {t('join.joinWithAccount', { name: currentUser.full_name, email: currentUser.email })}
                 </div>
               )}
-
 
               {error && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-600 font-medium">
@@ -169,7 +167,7 @@ export default function JoinGroupPage() {
                 {isSuccess ? (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-bold flex items-center justify-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    ¡Te has unido con éxito! Redirigiendo...
+                    {t('join.joinedSuccess')}
                   </div>
                 ) : currentUser ? (
                   <Button
@@ -179,19 +177,18 @@ export default function JoinGroupPage() {
                     isLoading={isLoading}
                     className="w-full shadow-md"
                   >
-                    Unirme al Grupo de Gastos
+                    {t('join.joinGroupBtn')}
                     <ArrowRight className="w-4 h-4 ml-1" />
                   </Button>
                 ) : (
                   <Link href={`/login?redirectTo=/join/${inviteCode}`} className="block w-full">
                     <Button size="lg" variant="brand" className="w-full shadow-md">
-                      Iniciar Sesión para Unirme
+                      {t('join.loginToJoin')}
                       <ArrowRight className="w-4 h-4 ml-1" />
                     </Button>
                   </Link>
                 )}
               </div>
-
             </>
           ) : (
             <div className="space-y-4 py-4">
@@ -199,21 +196,21 @@ export default function JoinGroupPage() {
                 ⚠️
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Código de invitación no válido
+                {t('join.invalidCodeTitle')}
               </h3>
               <p className="text-xs text-slate-500">
-                El código "{inviteCode}" no corresponde a ningún grupo de viaje activo.
+                {t('join.invalidCodeDesc', { code: inviteCode })}
               </p>
               <Link href="/dashboard">
                 <Button variant="brand" className="w-full">
-                  Ir al Panel de Grupos
+                  {t('join.goToDashboard')}
                 </Button>
               </Link>
             </div>
           )}
         </Card>
-
       </div>
     </div>
   );
 }
+

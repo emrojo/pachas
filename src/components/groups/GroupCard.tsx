@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Group } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -12,6 +13,7 @@ import { ArrowUpRight, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-rea
 
 export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
   const { getGroupMembers, getGroupExpenses, getGroupBalances, currentUser } = usePachas();
+  const { t } = useTranslation();
 
   const members = getGroupMembers(group.id);
   const expenses = getGroupExpenses(group.id);
@@ -24,7 +26,6 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
 
   const userBalance = currentUser ? balances.find((b) => b.user_id === currentUser.id) : undefined;
   const net = userBalance?.net_balance || 0;
-
 
   return (
     <Link href={`/groups/${group.id}`} className="block group">
@@ -47,17 +48,17 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
               {net > 0.01 ? (
                 <Badge variant="emerald" className="shadow-sm backdrop-blur-md">
                   <TrendingUp className="w-3 h-3 text-emerald-600" />
-                  Te deben {formatMoney(net, group.base_currency)}
+                  {t('balances.youAreOwed')} {formatMoney(net, group.base_currency)}
                 </Badge>
               ) : net < -0.01 ? (
                 <Badge variant="rose" className="shadow-sm backdrop-blur-md">
                   <TrendingDown className="w-3 h-3 text-rose-600" />
-                  Debes {formatMoney(Math.abs(net), group.base_currency)}
+                  {t('balances.youOwe')} {formatMoney(Math.abs(net), group.base_currency)}
                 </Badge>
               ) : (
                 <Badge variant="gray" className="shadow-sm backdrop-blur-md bg-white/90 dark:bg-slate-900/90">
                   <CheckCircle2 className="w-3 h-3 text-slate-500" />
-                  En paz
+                  {t('balances.allSettled')}
                 </Badge>
               )}
             </div>
@@ -77,17 +78,17 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
                 {net > 0.01 ? (
                   <Badge variant="emerald">
                     <TrendingUp className="w-3 h-3 text-emerald-600" />
-                    Te deben {formatMoney(net, group.base_currency)}
+                    {t('balances.youAreOwed')} {formatMoney(net, group.base_currency)}
                   </Badge>
                 ) : net < -0.01 ? (
                   <Badge variant="rose">
                     <TrendingDown className="w-3 h-3 text-rose-600" />
-                    Debes {formatMoney(Math.abs(net), group.base_currency)}
+                    {t('balances.youOwe')} {formatMoney(Math.abs(net), group.base_currency)}
                   </Badge>
                 ) : (
                   <Badge variant="gray">
                     <CheckCircle2 className="w-3 h-3 text-slate-500" />
-                    En paz
+                    {t('balances.allSettled')}
                   </Badge>
                 )}
               </div>
@@ -127,7 +128,7 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
 
             <div className="text-right">
               <span className="text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500 block">
-                Gasto total
+                {t('balances.totalTrip')}
               </span>
               <span className="text-sm font-black text-slate-900 dark:text-white">
                 {formatMoney(totalSpent, group.base_currency)}
@@ -139,3 +140,4 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
     </Link>
   );
 };
+
