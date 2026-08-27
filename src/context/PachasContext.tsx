@@ -29,8 +29,10 @@ import {
   getSyncQueue,
   enqueueSyncAction,
   processSyncQueue,
+  clearSyncQueue,
   SyncAction,
 } from '@/lib/sync/syncManager';
+
 import { generateUUID } from '@/lib/id';
 
 
@@ -104,7 +106,9 @@ interface PachasContextType {
   isOnline: boolean;
   pendingSyncCount: number;
   syncPendingQueue: () => Promise<void>;
+  clearPendingSyncQueue: () => void;
 }
+
 
 const PachasContext = createContext<PachasContextType | null>(null);
 
@@ -440,6 +444,32 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('Sync pending queue warning:', err);
     }
   };
+
+  const clearPendingSyncQueue = () => {
+    clearSyncQueue();
+    setPendingSyncCount(0);
+    setExpenses((prev) => {
+      const updated: Record<string, Expense[]> = {};
+      for (const [gid, list] of Object.entries(prev)) {
+        updated[gid] = list.map((e) => ({ ...e, is_pending_sync: false }));
+      }
+      try {
+        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    setSettlements((prev) => {
+      const updated: Record<string, Settlement[]> = {};
+      for (const [gid, list] of Object.entries(prev)) {
+        updated[gid] = list.map((s) => ({ ...s, is_pending_sync: false }));
+      }
+      try {
+        localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
 
 
 
@@ -1495,8 +1525,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isOnline,
         pendingSyncCount,
         syncPendingQueue,
+        clearPendingSyncQueue,
       }}
     >
+
 
       {children}
     </PachasContext.Provider>

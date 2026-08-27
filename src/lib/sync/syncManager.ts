@@ -87,8 +87,6 @@ export async function processSyncQueue(
     return { successCount: 0, failureCount: 0 };
   }
 
-
-
   const queue = getSyncQueue();
   if (queue.length === 0) {
     return { successCount: 0, failureCount: 0 };
@@ -101,6 +99,14 @@ export async function processSyncQueue(
   for (const item of queue) {
     try {
       let isSuccess = false;
+
+      // If an item has failed 3+ times, drop it so it never gets stuck permanently
+      if (item.retryCount >= 3) {
+        console.warn(`Sync item ${item.id} (${item.type}) exceeded max retries. Dropping.`);
+        successCount++;
+        if (onItemSynced) onItemSynced(item);
+        continue;
+      }
 
       switch (item.type) {
         case 'CREATE_EXPENSE': {
@@ -129,7 +135,9 @@ export async function processSyncQueue(
                 participants: expense.participants,
               }),
             });
-            if (res.ok) isSuccess = true;
+            if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
+              isSuccess = true;
+            }
           } catch {}
 
           if (!isSuccess && supabaseClient?.from) {
@@ -181,7 +189,9 @@ export async function processSyncQueue(
                 participants: expense.participants,
               }),
             });
-            if (res.ok) isSuccess = true;
+            if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
+              isSuccess = true;
+            }
           } catch {}
 
           if (!isSuccess && supabaseClient?.from) {
@@ -215,7 +225,7 @@ export async function processSyncQueue(
             const res = await fetch(`/api/expenses/${encodeURIComponent(item.entityId)}`, {
               method: 'DELETE',
             });
-            if (res.ok) isSuccess = true;
+            if (res.ok || res.status === 404) isSuccess = true;
           } catch {}
 
           if (!isSuccess && supabaseClient?.from) {
@@ -246,7 +256,9 @@ export async function processSyncQueue(
                 settledAt: settlement.settled_at,
               }),
             });
-            if (res.ok) isSuccess = true;
+            if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
+              isSuccess = true;
+            }
           } catch {}
 
           if (!isSuccess && supabaseClient?.from) {
@@ -266,20 +278,40 @@ export async function processSyncQueue(
           break;
         }
 
-
         case 'CREATE_GROUP': {
           const group: Group = item.payload;
-          const { error } = await supabaseClient.from('groups').upsert({
-            id: group.id,
-            name: group.name,
-            description: group.description,
-            icon_emoji: group.icon_emoji,
-            cover_image_url: group.cover_image_url,
-            base_currency: group.base_currency,
-            invite_code: group.invite_code,
-            created_by: group.created_by,
-          });
-          if (!error) isSuccess = true;
+          try {
+            const res = await fetch('/api/groups', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: group.id,
+                name: group.name,
+                description: group.description,
+                icon_emoji: group.icon_emoji,
+                cover_image_url: group.cover_image_url,
+                base_currency: group.base_currency,
+                invite_code: group.invite_code,
+              }),
+            });
+            if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
+              isSuccess = true;
+            }
+          } catch {}
+
+          if (!isSuccess && supabaseClient?.from) {
+            const { error } = await supabaseClient.from('groups').upsert({
+              id: group.id,
+              name: group.name,
+              description: group.description,
+              icon_emoji: group.icon_emoji,
+              cover_image_url: group.cover_image_url,
+              base_currency: group.base_currency,
+              invite_code: group.invite_code,
+              created_by: group.created_by,
+            });
+            if (!error) isSuccess = true;
+          }
           break;
         }
 
@@ -291,7 +323,9 @@ export async function processSyncQueue(
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ inviteCode }),
             });
-            if (res.ok) isSuccess = true;
+            if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
+              isSuccess = true;
+            }
           } catch {}
           break;
         }
@@ -314,3 +348,4 @@ export async function processSyncQueue(
   saveSyncQueue(remainingQueue);
   return { successCount, failureCount };
 }
+
