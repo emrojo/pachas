@@ -107,10 +107,12 @@ let executedAutomatically = false;
 if (process.platform === 'linux') {
   try {
     console.log('\n⚙️  Intentando aplicar credenciales con sudo en PostgreSQL local...');
-    execSync(`sudo -u postgres psql -c "${setupUserSql.replace(/"/g, '\\"')}"`, {
+    execSync(`sudo -u postgres psql`, {
+      input: setupUserSql,
       stdio: ['pipe', 'inherit', 'inherit'],
     });
-    execSync(`sudo -u postgres psql -d "${db}" -c "${setupPermissionsSql.replace(/"/g, '\\"')}"`, {
+    execSync(`sudo -u postgres psql -d "${db}"`, {
+      input: setupPermissionsSql,
       stdio: ['pipe', 'inherit', 'inherit'],
     });
     executedAutomatically = true;
@@ -119,6 +121,7 @@ if (process.platform === 'linux') {
     console.log('⚠️ No se pudo ejecutar sudo directamente. Ejecuta los comandos manuales abajo:');
   }
 }
+
 
 if (!executedAutomatically) {
   console.log(`
