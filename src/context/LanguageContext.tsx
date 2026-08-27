@@ -49,27 +49,39 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Initialize language from localStorage or navigator
   useEffect(() => {
     setIsMounted(true);
+    const validCodes = new Set(SUPPORTED_LANGUAGES.map((l) => l.code));
+
+    const applyLanguageAttributes = (code: LanguageCode) => {
+      if (typeof document !== 'undefined') {
+        document.documentElement.lang = code;
+        const info = SUPPORTED_LANGUAGES.find((l) => l.code === code);
+        if (info?.dir === 'rtl') {
+          document.documentElement.dir = 'rtl';
+        } else {
+          document.documentElement.dir = 'ltr';
+        }
+      }
+    };
+
     const readInitialLanguage = () => {
       try {
         const saved = localStorage.getItem(STORAGE_KEY) as LanguageCode | null;
-        if (saved && (saved === 'es' || saved === 'en')) {
+        if (saved && validCodes.has(saved)) {
           setLanguageState(saved);
-          if (typeof document !== 'undefined') {
-            document.documentElement.lang = saved;
-          }
+          applyLanguageAttributes(saved);
           return;
         }
 
         // Detect browser language
         if (typeof navigator !== 'undefined') {
-          const rawLang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
-          const browserLang = rawLang.slice(0, 2).toLowerCase();
-          if (browserLang === 'es') {
-            setLanguageState('es');
-            if (typeof document !== 'undefined') document.documentElement.lang = 'es';
-          } else if (browserLang === 'en') {
-            setLanguageState('en');
-            if (typeof document !== 'undefined') document.documentElement.lang = 'en';
+          const rawLanguages = navigator.languages || [navigator.language || ''];
+          for (const raw of rawLanguages) {
+            const code = raw.slice(0, 2).toLowerCase() as LanguageCode;
+            if (validCodes.has(code)) {
+              setLanguageState(code);
+              applyLanguageAttributes(code);
+              return;
+            }
           }
         }
       } catch (e) {
@@ -80,11 +92,10 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     readInitialLanguage();
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue && (e.newValue === 'es' || e.newValue === 'en')) {
-        setLanguageState(e.newValue as LanguageCode);
-        if (typeof document !== 'undefined') {
-          document.documentElement.lang = e.newValue;
-        }
+      if (e.key === STORAGE_KEY && e.newValue && validCodes.has(e.newValue as LanguageCode)) {
+        const newCode = e.newValue as LanguageCode;
+        setLanguageState(newCode);
+        applyLanguageAttributes(newCode);
       }
     };
 
@@ -98,11 +109,18 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem(STORAGE_KEY, code);
       if (typeof document !== 'undefined') {
         document.documentElement.lang = code;
+        const info = SUPPORTED_LANGUAGES.find((l) => l.code === code);
+        if (info?.dir === 'rtl') {
+          document.documentElement.dir = 'rtl';
+        } else {
+          document.documentElement.dir = 'ltr';
+        }
       }
     } catch (e) {
       console.warn('Could not save language preference:', e);
     }
   }, []);
+
 
 
   const dictionary = LOCALES[language] || LOCALES[DEFAULT_LANGUAGE];
