@@ -70,17 +70,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   const baseCurrency = group?.base_currency || 'EUR';
 
-  // Permission calculation
+  // Permission calculation: Only the creator of the expense can edit or delete it
   const isCreator = currentUser && expenseToEdit ? expenseToEdit.created_by === currentUser.id : true;
-  const isGroupAdmin = currentUser
-    ? group?.created_by === currentUser.id ||
-      members.some((m) => m.user_id === currentUser.id && m.role === 'admin')
-    : false;
   const isReadOnly =
     explicitReadOnly !== undefined
       ? explicitReadOnly
       : expenseToEdit
-      ? !isCreator && !isGroupAdmin
+      ? !isCreator
       : false;
 
   const creatorProfile = expenseToEdit
@@ -289,8 +285,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) {
+      onClose();
+      return;
+    }
     if (!title.trim()) {
-      setErrorMessage('Introduce el concepto o título del gasto');
+      setErrorMessage(t('expenses.expenseTitle'));
       return;
     }
     if (totalAmount <= 0) {
@@ -477,18 +477,18 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <div className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 <span className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-200">
-                  Conversión de Divisa ({currency} ➔ {baseCurrency})
+                  {t('expenses.currency')} ({currency} ➔ {baseCurrency})
                 </span>
               </div>
               <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-                Moneda del viaje: {baseCurrency}
+                {t('groups.baseCurrency')}: {baseCurrency}
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-200/80 dark:border-amber-800/40 shadow-xs">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Valor Original ({currency})
+                  {t('expenses.amount')} ({currency})
                 </span>
                 <span className="text-base font-extrabold text-slate-900 dark:text-white block mt-0.5">
                   {formatMoney(totalAmount, currency)}
@@ -497,7 +497,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-200/80 dark:border-amber-800/40 shadow-xs">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Tipo de Cambio
+                  {t('expenses.exchangeRate')}
                 </span>
                 <div className="flex items-center gap-1 mt-0.5">
                   <span className="text-xs text-slate-500 font-semibold">1 {baseCurrency} =</span>
@@ -515,7 +515,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl border border-emerald-500/30 shadow-xs">
                 <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300 block">
-                  En Moneda del Viaje
+                  {t('groups.baseCurrency')}
                 </span>
                 <span className="text-base font-black text-emerald-700 dark:text-emerald-300 block mt-0.5">
                   {formatMoney(convertedTotal, baseCurrency)}
@@ -680,7 +680,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       >
                         <Avatar profile={m.profile} size="sm" />
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                          {isMe ? 'Tú' : m.profile?.full_name?.split(' ')[0] || 'Amigo'}
+                          {isMe ? t('common.you') : m.profile?.full_name?.split(' ')[0] || t('common.friend')}
                         </span>
 
                       </button>
@@ -690,7 +690,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs text-slate-500">
-                    Aportación por amigo (Total: {formatMoney(totalAmount, currency)}):
+                    {t('expenses.splitSummary')} ({t('common.total')}: {formatMoney(totalAmount, currency)}):
                   </p>
                   <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                     {members.map((m) => {
@@ -706,7 +706,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                           <div className="flex items-center gap-2">
                             <Avatar profile={m.profile} size="sm" />
                             <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                              {m.profile?.full_name || expenseToEdit?.payers?.find((p) => p.user_id === m.user_id)?.profile?.full_name || 'Amigo'}
+                              {m.profile?.full_name || expenseToEdit?.payers?.find((p) => p.user_id === m.user_id)?.profile?.full_name || t('common.friend')}
                             </span>
 
                           </div>
@@ -946,7 +946,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                               className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
                             />
                             <span className="text-xs text-slate-500 font-semibold">
-                              {splitType === 'EXACT' ? currencyObj.symbol : splitType === 'PERCENTAGE' ? '%' : 'partes'}
+                              {splitType === 'EXACT' ? currencyObj.symbol : splitType === 'PERCENTAGE' ? '%' : t('expenses.splitModes.shares')}
                             </span>
                           </div>
                         </div>
@@ -966,7 +966,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           </label>
           <textarea
             rows={2}
-            placeholder={isReadOnly ? 'Sin notas' : 'Añade detalles, enlace o descripción...'}
+            placeholder={isReadOnly ? '' : t('common.notes')}
             value={notes}
             onChange={(e) => !isReadOnly && setNotes(e.target.value)}
             readOnly={isReadOnly}

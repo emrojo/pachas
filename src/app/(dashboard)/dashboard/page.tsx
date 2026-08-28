@@ -96,10 +96,10 @@ export default function DashboardPage() {
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-emerald-100 block mb-1">
-                {t('dashboard.welcome')}
+                {t('dashboard.myGroups')}
               </span>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-                ¡Hola, {currentUser.full_name.split(' ')[0]}! 🌴
+                {t('dashboard.welcome', { name: currentUser.full_name.split(' ')[0] })} 🌴
               </h1>
               <p className="text-xs sm:text-sm text-emerald-50 mt-1 max-w-md">
                 {t('dashboard.welcomeSubtitle')}

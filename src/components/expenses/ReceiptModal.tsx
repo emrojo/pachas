@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
+import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
-import { Download, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export interface ReceiptModalProps {
@@ -18,14 +19,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   receiptUrl,
   title,
 }) => {
+  const { t } = useTranslation();
   if (!receiptUrl) return null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Ticket: ${title}`}
-      description="Justificante fotográfico del gasto"
+      title={`${t('expenses.receiptPhoto')}: ${title}`}
+      description={t('expenses.receiptPhoto')}
       maxWidth="lg"
     >
       <div className="flex flex-col items-center gap-4">
@@ -46,11 +48,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           >
             <Button variant="secondary" size="sm">
               <ExternalLink className="w-4 h-4" />
-              Abrir original
+              {t('expenses.viewReceipt')}
             </Button>
           </a>
           <Button variant="brand" size="sm" onClick={onClose}>
-            Cerrar
+            {t('common.close')}
           </Button>
         </div>
       </div>
