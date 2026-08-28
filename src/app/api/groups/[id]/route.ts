@@ -4,9 +4,10 @@ import { verifyJwt } from '@/lib/auth/jwt';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await props.params;
     const token = request.cookies.get('sb-access-token')?.value;
     if (!token) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -65,10 +66,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
-
   try {
+    const params = await props.params;
     const token = request.cookies.get('sb-access-token')?.value;
     if (!token) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -128,9 +129,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await props.params;
     const token = request.cookies.get('sb-access-token')?.value;
     if (!token) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -154,3 +156,4 @@ export async function DELETE(
     return NextResponse.json({ error: err.message || 'Error al eliminar grupo' }, { status: 500 });
   }
 }
+

@@ -3,9 +3,10 @@ import { getDbPool } from '@/lib/db/postgres';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { inviteCode: string } }
+  props: { params: Promise<{ inviteCode: string }> }
 ) {
   try {
+    const params = await props.params;
     const inviteCode = params?.inviteCode?.trim();
     if (!inviteCode) {
       return NextResponse.json({ error: 'Código de invitación no válido' }, { status: 400 });

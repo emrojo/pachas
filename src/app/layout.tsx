@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import 'leaflet/dist/leaflet.css';
 import './globals.css';
 import { PachasProvider } from '@/context/PachasContext';
 import { LanguageProvider } from '@/context/LanguageContext';
