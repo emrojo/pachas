@@ -1,16 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useTranslation } from '@/context/LanguageContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
   MapPin,
-  Navigation,
   Loader2,
   ExternalLink,
   Trash2,
   Search,
-  CheckCircle2,
   AlertCircle,
   LocateFixed,
 } from 'lucide-react';
@@ -32,7 +31,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   isEditing = false,
   disabled = false,
 }) => {
-
+  const { t } = useTranslation();
   const [isPhysicallyHere, setIsPhysicallyHere] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,7 +75,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   // Get current mobile/browser position
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
-      setErrorMessage('La geolocalización no está soportada en tu navegador.');
+      setErrorMessage(t('common.error'));
       return;
     }
 
@@ -102,15 +101,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       (err) => {
         setIsLocating(false);
         setIsPhysicallyHere(false);
-        let msg = 'No se pudo obtener la ubicación.';
-        if (err.code === err.PERMISSION_DENIED) {
-          msg = 'Permiso de ubicación denegado. Actívalo en los ajustes de tu navegador o busca el lugar manualmente.';
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          msg = 'Información de ubicación no disponible.';
-        } else if (err.code === err.TIMEOUT) {
-          msg = 'Tiempo de espera agotado al obtener la ubicación.';
-        }
-        setErrorMessage(msg);
+        setErrorMessage(t('common.error'));
       },
       {
         enableHighAccuracy: true,
@@ -125,8 +116,6 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
     setIsPhysicallyHere(checked);
     if (checked) {
       handleGetLocation();
-    } else {
-      // Don't necessarily delete location unless user chooses to
     }
   };
 
@@ -152,11 +141,11 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
           }))
         );
         if (data.length === 0) {
-          setErrorMessage('No se encontraron resultados para esa búsqueda.');
+          setErrorMessage(t('common.error'));
         }
       }
     } catch (e) {
-      setErrorMessage('Error al buscar la dirección.');
+      setErrorMessage(t('common.error'));
     } finally {
       setIsSearching(false);
     }
@@ -199,7 +188,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       return (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 text-xs text-slate-400 dark:text-slate-500 flex items-center gap-2">
           <MapPin className="w-4 h-4 opacity-50" />
-          <span>Sin ubicación registrada para este gasto.</span>
+          <span>{t('tripMap.noLocationsTitle')}</span>
         </div>
       );
     }
@@ -214,7 +203,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                {locationName || 'Ubicación registrada'}
+                {locationName || t('expenses.locationRegistered')}
               </span>
               <span className="text-[10px] text-slate-400 block font-mono">
                 {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
@@ -228,10 +217,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0"
-              title="Abrir en Google Maps"
+              title={t('common.openInGoogleMaps')}
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Google Maps</span>
+              <span className="hidden sm:inline">{t('common.openInGoogleMaps')}</span>
             </a>
           )}
         </div>
@@ -240,7 +229,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
         {googleMapEmbedUrl && (
           <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-44 sm:h-52 w-full bg-slate-100 dark:bg-slate-800 relative shadow-inner">
             <iframe
-              title="Mapa de la ubicación del gasto"
+              title={locationName || t('expenses.location')}
               src={googleMapEmbedUrl}
               width="100%"
               height="100%"
@@ -268,10 +257,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
           />
           <div>
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-              📍 Me encuentro físicamente en el sitio del pago
+              📍 {t('expenses.locationPhysicallyHere')}
             </span>
             <span className="text-[11px] text-slate-400 block">
-              Geolocaliza automáticamente la posición de este gasto con el GPS
+              {t('expenses.locationPhysicallyHereHelp')}
             </span>
           </div>
         </label>
@@ -279,7 +268,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
         {isLocating && (
           <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold shrink-0">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Obteniendo GPS...</span>
+            <span>{t('expenses.locationLocating')}</span>
           </div>
         )}
       </div>
@@ -287,14 +276,14 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       {/* Manual Geolocation Toggle or Status */}
       {!hasLocation && !isLocating && (
         <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
-          <span className="text-xs text-slate-500">¿No estás ahí ahora mismo?</span>
+          <span className="text-xs text-slate-500">{t('tripMap.tabTitle')}</span>
           <button
             type="button"
             onClick={() => setShowManualPicker(!showManualPicker)}
             className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1"
           >
             <MapPin className="w-3.5 h-3.5" />
-            {showManualPicker ? 'Cerrar buscador de mapa' : 'Buscar ubicación en el mapa'}
+            {showManualPicker ? t('expenses.locationCloseSearch') : t('expenses.locationSearch')}
           </button>
         </div>
       )}
@@ -304,7 +293,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
         <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
           <div className="flex gap-2">
             <Input
-              placeholder="Escribe el restaurante, ciudad o calle..."
+              placeholder={t('expenses.locationSearchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -323,7 +312,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
               onClick={handleSearchPlaces}
               isLoading={isSearching}
             >
-              Buscar
+              {t('expenses.locationSearchBtn')}
             </Button>
           </div>
 
@@ -365,14 +354,13 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                  {locationName || 'Ubicación registrada'}
+                  {locationName || t('expenses.locationRegistered')}
                 </span>
                 <span className="text-[10px] text-slate-400 block font-mono">
                   {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
                 </span>
               </div>
             </div>
-
 
             <div className="flex items-center gap-1.5 shrink-0">
               {googleMapsExternalUrl && (
@@ -381,10 +369,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1"
-                  title="Abrir en Google Maps"
+                  title={t('common.openInGoogleMaps')}
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Google Maps</span>
+                  <span className="hidden sm:inline">{t('common.openInGoogleMaps')}</span>
                 </a>
               )}
 
@@ -392,7 +380,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
                 type="button"
                 onClick={handleGetLocation}
                 className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
-                title="Actualizar con mi posición actual"
+                title={t('expenses.locationLocating')}
               >
                 <LocateFixed className="w-3.5 h-3.5" />
               </button>
@@ -401,7 +389,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
                 type="button"
                 onClick={handleClearLocation}
                 className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg"
-                title="Eliminar ubicación"
+                title={t('common.delete')}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -412,7 +400,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
           {googleMapEmbedUrl && (
             <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-44 sm:h-52 w-full bg-slate-100 dark:bg-slate-800 relative shadow-inner">
               <iframe
-                title="Mapa de la ubicación del gasto"
+                title={locationName || t('expenses.location')}
                 src={googleMapEmbedUrl}
                 width="100%"
                 height="100%"
@@ -428,4 +416,3 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
     </div>
   );
 };
-

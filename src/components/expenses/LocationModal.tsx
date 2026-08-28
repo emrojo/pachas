@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
+import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { MapPin, ExternalLink, Navigation } from 'lucide-react';
+import { MapPin, ExternalLink } from 'lucide-react';
 
 export interface LocationModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   longitude,
   locationName,
 }) => {
+  const { t } = useTranslation();
   if (!latitude || !longitude) return null;
 
   const googleMapEmbedUrl = `https://maps.google.com/maps?q=${latitude},${longitude}&hl=es&z=15&output=embed`;
@@ -31,15 +33,15 @@ export const LocationModal: React.FC<LocationModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={locationName || 'Ubicación del Gasto'}
-      description={`Gasto: ${title}`}
+      title={locationName || t('expenses.location')}
+      description={`${t('expenses.title')}: ${title}`}
       maxWidth="md"
     >
       <div className="space-y-4">
         {/* Map iframe */}
         <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 h-64 sm:h-72 w-full bg-slate-100 dark:bg-slate-800 shadow-inner">
           <iframe
-            title={`Ubicación de ${title}`}
+            title={locationName || title}
             src={googleMapEmbedUrl}
             width="100%"
             height="100%"
@@ -63,7 +65,6 @@ export const LocationModal: React.FC<LocationModalProps> = ({
               <span className="text-[11px] text-slate-400 font-mono block">
                 {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
               </span>
-
             </div>
           </div>
 
@@ -75,7 +76,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
           >
             <Button size="sm" variant="brand" className="gap-1.5 text-xs">
               <ExternalLink className="w-3.5 h-3.5" />
-              Abrir en Google Maps
+              {t('common.openInGoogleMaps')}
             </Button>
           </a>
         </div>
