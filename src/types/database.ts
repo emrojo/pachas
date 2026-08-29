@@ -74,8 +74,8 @@ export interface Expense {
   title: string;
   amount: number;
   currency: string;
-  exchange_rate: number;
-  converted_amount: number;
+  exchange_rate?: number; // Dynamically resolved from public.exchange_rates
+  converted_amount?: number; // Dynamically calculated (amount * exchange_rate)
   category: ExpenseCategory;
   expense_date: string;
   receipt_url?: string | null;
