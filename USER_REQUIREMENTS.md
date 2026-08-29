@@ -318,11 +318,13 @@ This document serves as the official and permanent registry for all **user requi
   - Guarantees structured JSON output `{ title, amount, amountFormatted, date, category, currency }`.
 - **FR-31.2**: **Resilient Hybrid Fallback Engine ([`receiptScanner.ts`](file:///d:/Projects/pachas/src/lib/ocr/receiptScanner.ts))**:
   - Automatically queries the Gemini 1.5 Flash Vision endpoint first.
-  - If no API key is configured or the device is offline, gracefully switches to local `tesseract.js` OCR and heuristic text extraction without throwing user errors.
 - **FR-31.3**: **Hero Scan Card & 1-Click Autofill Banner ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
   - Prominent top action card with 📸 **"Hacer foto al ticket"** (`capture="environment"`) and 🖼️ **"Subir archivo"**.
-  - Visual badge indicating model source (`✨ Gemini 1.5 Flash` vs `IA OCR`).
+  - Visual badge indicating model source (`✨ Gemini Flash` vs `IA OCR`).
   - 1-click **"Autocompletar gasto"** button filling title, amount, date, and category in seconds.
+- **FR-31.4**: **Location & Precise Datetime Auto-Extraction ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
+  - Automatically identifies physical store addresses (street, number, postal code, city) printed on receipts and populates the expense `locationName` field.
+  - Automatically extracts exact timestamps (hours and minutes: `HH:mm`) and updates both date and time pickers.
 
 ### 💬 FR-32: In-Expense Discussion Threads & Comments
 - **FR-32.1**: **Discussion Thread Section ([`ExpenseCommentsSection.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseCommentsSection.tsx))**:
@@ -411,5 +413,6 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 🛡️ Fixed | **FR-31** | **CSP `script-src` / `script-src-elem` CDN Authorization**: Added `https://cdn.jsdelivr.net` and `https://tessdata.projectnaptha.com` to `script-src` and `script-src-elem` in `next.config.mjs`, permitting `tesseract.js` workers to dynamically load `worker.min.js` and language dictionary models without `importScripts` NetworkErrors. |
 | **30/08/2026** | 📸 Added | **FR-04.4 & FR-31** | **Direct Mobile Camera Receipt Capture**: Added dedicated **"Hacer foto"** (`capture="environment"`) camera button alongside **"Subir archivo"** in `ExpenseForm`, and enabled `camera=(self)` in `Permissions-Policy` HTTP security headers, allowing instant mobile camera capture and subsequent AI OCR autofill. |
 | **30/08/2026** | 🌟 Changed | **FR-04.4 & FR-31** | **Top Hero Quick-Scan Card in Add Expense**: Positioned the **"Hacer foto al ticket"** camera action and AI OCR scanning card at the very top of `ExpenseForm`, allowing users to photograph physical receipts immediately upon opening the modal and auto-populate title, amount, date, and category in 1 tap before typing. |
-| **30/08/2026** | 🤖 Added | **FR-31** | **Google Gemini 1.5 Flash Vision Multimodal Extraction**: Created `/api/ocr/scan` route integrating Google Gemini 1.5 Flash (~99% precision, free tier 15 RPM) for high-accuracy receipt extraction with structured JSON schemas, visual model badge (`✨ Gemini 1.5 Flash`), and automatic graceful fallback to local `tesseract.js` when offline or unconfigured. |
+| **30/08/2026** | 🤖 Added | **FR-31** | **Google Gemini 1.5 Flash Vision Multimodal Extraction**: Created `/api/ocr/scan` route integrating Google Gemini 1.5 Flash (~99% precision, free tier 15 RPM) for high-accuracy receipt extraction with structured JSON schemas, visual model badge (`✨ Gemini Flash`), and automatic graceful fallback to local `tesseract.js` when offline or unconfigured. |
+| **30/08/2026** | 📍 Added | **FR-31.4** | **Location & Precise Datetime Receipt Autocomplete**: Enhanced the AI vision receipt scanner to extract physical establishment addresses (`locationName`) and exact timestamps (`HH:mm`), populating both the location picker and the date/time selectors upon clicking "Autocompletar gasto". |
 

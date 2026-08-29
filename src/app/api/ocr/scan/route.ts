@@ -10,9 +10,10 @@ export interface VisionScanResult {
   amountFormatted?: string;
   date?: string; // YYYY-MM-DDTHH:mm
   category?: ExpenseCategory;
+  locationName?: string;
   currency?: string;
   confidence: number;
-  source: 'gemini-1.5-flash' | 'fallback';
+  source: string;
 }
 
 const VALID_CATEGORIES: ExpenseCategory[] = [
@@ -122,13 +123,14 @@ Esquema JSON requerido:
   "amountFormatted": "0,00",
   "date": "YYYY-MM-DDTHH:mm",
   "category": "food" | "shopping" | "transport" | "accommodation" | "activities" | "other",
+  "locationName": "Dirección física (calle, número, código postal y/o ciudad) del establecimiento si aparece en el ticket (ej: 'C/ Gran Vía 28, Madrid') o null",
   "currency": "EUR"
 }
 
 Reglas críticas de extracción:
 1. amount: Número decimal puro (ej: 42.50). Busca el total final pagado (TOTAL, TOTAL FACTURA, IMPORTE A PAGAR, TOTAL EUR/€). Nunca tomes subtotales ni bases imponibles si hay un total final con impuestos.
 2. amountFormatted: Representación con coma decimal europea (ej: "42,50").
-3. date: Fecha y hora en formato ISO "YYYY-MM-DDTHH:mm". Si no se indican minutos o solo fecha, usa las 12:00 (ej: "2026-08-15T12:00"). Si el año no aparece, usa el año actual.
+3. date: Fecha y hora EXACTA en formato ISO "YYYY-MM-DDTHH:mm". Busca activamente la hora y minutos impresos en el ticket (ej: 14:35 o 21:10). Si solo aparece fecha sin hora, usa las 12:00. Si el año no aparece, usa el año actual.
 4. category: Clasifica según el negocio:
    - "food": restaurantes, bares, cafeterías, tapas, pizzas, comida rápida.
    - "shopping": supermercados (Mercadona, Carrefour, Lidl, Día), tiendas, farmacias, ropa, compras generales.
@@ -136,7 +138,8 @@ Reglas críticas de extracción:
    - "accommodation": hoteles, hostales, pensiones, airbnb, campings.
    - "activities": museos, cine, teatro, parques de atracciones, tours, excursiones, espectáculos.
    - "other": cualquier otro concepto.
-5. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").`;
+5. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay dirección legible, devuelve null.
+6. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").`;
 
     // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
     const candidateModels = [
@@ -290,12 +293,13 @@ Reglas críticas de extracción:
       amountFormatted: detectedAmountFormatted,
       date: parsed.date ? String(parsed.date).trim() : undefined,
       category: detectedCategory,
+      locationName: parsed.locationName ? String(parsed.locationName).trim() : undefined,
       currency: parsed.currency || 'EUR',
       confidence: 0.98,
-      source: 'gemini-1.5-flash',
+      source: successfulModel || 'gemini-1.5-flash',
     };
 
-    console.log(`[Gemini 1.5 Flash] ✨ Resultado extraído con éxito: Comercio="${result.title}", Total=${result.amount}€, Fecha=${result.date}, Categoría=${result.category}`);
+    console.log(`[Gemini 1.5 Flash] ✨ Resultado extraído con éxito: Comercio="${result.title}", Total=${result.amount}€, Fecha=${result.date}, Categoría=${result.category}, Ubicación="${result.locationName || 'N/A'}"`);
 
     return NextResponse.json({
       success: true,

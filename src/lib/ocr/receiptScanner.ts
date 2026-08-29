@@ -6,10 +6,11 @@ export interface ScannedReceiptData {
   date?: string; // YYYY-MM-DDTHH:mm
   title?: string;
   category?: ExpenseCategory;
+  locationName?: string;
   currency?: string;
   rawText?: string;
   confidence: number;
-  source?: 'gemini-1.5-flash' | 'tesseract-ocr';
+  source?: string;
 }
 
 /**
@@ -176,7 +177,17 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
     }
   }
 
-  // 4. DETECT CATEGORY
+  // 4. EXTRACT LOCATION / ADDRESS
+  let detectedLocation: string | undefined;
+  const addressRegex = /(?:c\/|calle|avda|avenida|plaza|pza|p\.º|paseo|crta|carretera|poligono|pol\.)\s+[^,\n\r]+/i;
+  for (const line of lines) {
+    if (addressRegex.test(line) && line.length >= 6 && line.length <= 80) {
+      detectedLocation = line.trim();
+      break;
+    }
+  }
+
+  // 5. DETECT CATEGORY
   const fullTextLower = rawText.toLowerCase();
   for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (cat === 'other') continue;
@@ -188,9 +199,10 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
 
   // Calculate confidence score (0 to 1)
   let score = 0;
-  if (detectedAmount) score += 0.45;
+  if (detectedAmount) score += 0.40;
   if (detectedDate) score += 0.25;
-  if (detectedTitle) score += 0.20;
+  if (detectedTitle) score += 0.15;
+  if (detectedLocation) score += 0.10;
   if (detectedCategory) score += 0.10;
 
   return {
@@ -199,6 +211,7 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
     date: detectedDate,
     title: detectedTitle,
     category: detectedCategory,
+    locationName: detectedLocation,
     rawText,
     confidence: Math.round(score * 100) / 100,
   };
@@ -235,9 +248,10 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
           date: d.date,
           title: d.title,
           category: d.category,
+          locationName: d.locationName,
           currency: d.currency,
           confidence: d.confidence || 0.98,
-          source: 'gemini-1.5-flash',
+          source: d.source || 'gemini-1.5-flash',
         };
       } else if (json.fallback) {
         console.warn('[ReceiptScanner] Servidor solicitó fallback:', json.message || json.error);
