@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { ExpenseCategory } from '@/types/database';
 
@@ -22,6 +24,42 @@ const VALID_CATEGORIES: ExpenseCategory[] = [
   'other',
 ];
 
+export function getGeminiApiKey(): string | undefined {
+  // 1. Direct process.env check
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
+    return process.env.GEMINI_API_KEY.trim();
+  }
+
+  // 2. Direct filesystem read from deploy/.env.production, .env.production, etc.
+  const candidatePaths = [
+    path.resolve(process.cwd(), 'deploy/.env.production'),
+    path.resolve(process.cwd(), '.env.production'),
+    path.resolve(process.cwd(), '.env.local'),
+    path.resolve(process.cwd(), 'deploy/.env'),
+    path.resolve(process.cwd(), '.env'),
+    '/app/deploy/.env.production',
+    '/app/.env.production',
+    '/app/.env.local',
+  ];
+
+  for (const p of candidatePaths) {
+    try {
+      if (fs.existsSync(/* turbopackIgnore: true */ p)) {
+        const content = fs.readFileSync(/* turbopackIgnore: true */ p, 'utf-8');
+        const match = content.match(/^\s*GEMINI_API_KEY\s*=\s*(["']?)(.*?)\1\s*$/m);
+        if (match && match[2] && match[2].trim()) {
+          const key = match[2].trim();
+          process.env.GEMINI_API_KEY = key;
+          console.log(`[Gemini OCR] 🔑 GEMINI_API_KEY cargada con éxito desde ${p}`);
+          return key;
+        }
+      }
+    } catch {}
+  }
+
+  return undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Session verification (Optional in local mode, enforced when tokens present)
@@ -34,7 +72,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getGeminiApiKey();
     if (!apiKey || !apiKey.trim()) {
       console.log('[Gemini OCR] ⚠️ GEMINI_API_KEY no configurada. Activando fallback a OCR local.');
       return NextResponse.json(
