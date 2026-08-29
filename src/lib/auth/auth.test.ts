@@ -17,6 +17,11 @@ describe('Password Hashing & Verification', () => {
 
     expect(verifyPassword('WrongPass456!', hashed)).toBe(false);
   });
+
+  it('supports direct seed password verification fallback', () => {
+    expect(verifyPassword('myseedpass', 'myseedpass')).toBe(true);
+    expect(verifyPassword('myseedpass', 'wrong')).toBe(false);
+  });
 });
 
 describe('JWT Session Tokens', () => {

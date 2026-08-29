@@ -145,14 +145,29 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
 
-  // Helper to change current user and persist immediately to localStorage
+  // Helper to change current user and persist immediately to localStorage and session cookie
   const setCurrentUser = (user: Profile | null) => {
     _setCurrentUser(user);
     try {
       if (user) {
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        if (typeof document !== 'undefined') {
+          document.cookie = `pachas_demo_user=${encodeURIComponent(
+            JSON.stringify({ id: user.id, email: user.email })
+          )}; path=/; max-age=604800; SameSite=Lax`;
+        }
+        fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user }),
+        }).catch(() => {});
       } else {
         localStorage.removeItem(STORAGE_KEYS.USER);
+        if (typeof document !== 'undefined') {
+          document.cookie = 'pachas_demo_user=; path=/; max-age=0; SameSite=Lax';
+          document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax';
+        }
+        fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
       }
     } catch (e) {
       console.error('Failed to persist current user to localStorage:', e);

@@ -35,7 +35,7 @@ function LoginFormContent() {
     setError('');
 
     try {
-      // 1. Try unified PostgreSQL auth API
+      // 1. Try unified PostgreSQL / Server auth API
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,9 +53,9 @@ function LoginFormContent() {
         return;
       }
 
-      // If API returned error and demo mode is permitted, check local availableUsers
+      // 2. If API returned error and demo mode is permitted, check local availableUsers
       if (isDemoAllowed) {
-        const found = availableUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+        const found = availableUsers.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
         if (found) {
           setCurrentUser(found);
           router.replace(redirectTo);
@@ -65,18 +65,36 @@ function LoginFormContent() {
 
       setError(resData.error || t('auth.invalidCredentials'));
     } catch (err: any) {
+      if (isDemoAllowed) {
+        const found = availableUsers.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+        if (found) {
+          setCurrentUser(found);
+          router.replace(redirectTo);
+          return;
+        }
+      }
       setError(err.message || t('auth.invalidCredentials'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleQuickDemoSelect = (user: Profile) => {
+  const handleQuickDemoSelect = async (user: Profile) => {
     if (!isDemoAllowed) {
       setError('Demo mode is disabled');
       return;
     }
     setCurrentUser(user);
+    try {
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          isDemo: true,
+        }),
+      });
+    } catch {}
     router.replace(redirectTo);
   };
 

@@ -14,7 +14,9 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
+import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal';
 import { DonationCard } from '@/components/donations/DonationCard';
+import { Footer } from '@/components/layout/Footer';
 import { Profile } from '@/types/database';
 
 import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
@@ -34,6 +36,9 @@ import {
   Upload,
   Globe,
   X,
+  Download,
+  Shield,
+  FileText,
 } from 'lucide-react';
 
 const AVATAR_PRESETS = [
@@ -67,7 +72,47 @@ export default function ProfilePage() {
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportData = async () => {
+    try {
+      setIsExporting(true);
+      const res = await fetch('/api/user/export-data');
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pachas-mis-datos-${currentUser?.id.slice(0, 8)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        const localData = {
+          export_date: new Date().toISOString(),
+          user: currentUser,
+          local_groups: JSON.parse(localStorage.getItem('pachas_groups_v2') || '[]'),
+          local_expenses: JSON.parse(localStorage.getItem('pachas_expenses_v2') || '[]'),
+        };
+        const blob = new Blob([JSON.stringify(localData, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pachas-mis-datos-${currentUser?.id.slice(0, 8)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (err) {
+      alert('Error al exportar datos personales.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Sync state when currentUser changes
   useEffect(() => {
@@ -339,6 +384,87 @@ export default function ProfilePage() {
           </div>
         </Card>
 
+        {/* Privacy & GDPR Data Management */}
+        <Card className="p-6">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {t('profile.gdprTitle')}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {t('profile.gdprSubtitle')}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{t('profile.exportDataBtn')}</span>
+                  </span>
+                  <p className="text-[11px] text-slate-500 leading-normal">
+                    {t('profile.exportDataDesc')}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportData}
+                  isLoading={isExporting}
+                  className="w-full text-xs font-bold gap-1.5 justify-center shadow-xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isExporting ? t('profile.exporting') : t('profile.exportDataBtn')}</span>
+                </Button>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex flex-col justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>{t('profile.deleteAccountBtn')}</span>
+                  </span>
+                  <p className="text-[11px] text-rose-600/80 dark:text-rose-400/80 leading-normal">
+                    {t('profile.deleteAccountDesc')}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsDeleteAccountOpen(true)}
+                  className="w-full text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-100/50 border border-rose-200 dark:border-rose-800 justify-center shadow-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  <span>{t('profile.deleteAccountBtn')}</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+              <span className="text-slate-400">Políticas y Términos:</span>
+              <div className="flex items-center gap-3">
+                <Link href="/terms" className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
+                  {t('nav.terms')}
+                </Link>
+                <Link href="/privacy" className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
+                  {t('nav.privacy')}
+                </Link>
+                <Link href="/cookies" className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
+                  {t('nav.cookies')}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {/* Buy Me a Coffee Support Card */}
         <DonationCard />
 
@@ -429,6 +555,7 @@ export default function ProfilePage() {
         )}
       </main>
 
+      <Footer />
       <BottomNav />
 
       <CreateUserModal
@@ -437,6 +564,11 @@ export default function ProfilePage() {
         onSuccess={(newUser) => {
           handleSwitchUser(newUser);
         }}
+      />
+
+      <DeleteAccountModal
+        isOpen={isDeleteAccountOpen}
+        onClose={() => setIsDeleteAccountOpen(false)}
       />
     </div>
   );
