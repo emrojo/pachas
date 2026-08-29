@@ -231,6 +231,13 @@ export const gl: TranslationDictionary = {
     importExpensesSubtitle: 'Engade múltiples gastos subindo un modelo ou ficheiro CSV',
   },
   expenses: {
+    scanReceiptQuick: 'Escanear factura',
+    analyzingReceipt: 'Analizando ticket con IA...',
+    processingOcr: 'Procesando con IA...',
+    scanFailedReview: 'Ticket non recoñecido (Require revisión)',
+    reviewRequired: 'Require revisión',
+    saveAndProcessAsync: 'Gardar e procesar con IA',
+    saveAndProcessAsyncHint: 'Tes presa? Garda agora e a IA completará os datos en segundo plano.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

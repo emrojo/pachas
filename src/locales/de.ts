@@ -231,6 +231,13 @@ export const de: TranslationDictionary = {
     importExpensesSubtitle: 'Mehrere Ausgaben auf einmal per CSV oder Excel hochladen',
   },
   expenses: {
+    scanReceiptQuick: 'Beleg scannen',
+    analyzingReceipt: 'Beleg wird mit KI analysiert...',
+    processingOcr: 'KI-Verarbeitung...',
+    scanFailedReview: 'Beleg nicht erkannt (Überprüfung erforderlich)',
+    reviewRequired: 'Überprüfung erforderlich',
+    saveAndProcessAsync: 'Speichern & mit KI verarbeiten',
+    saveAndProcessAsyncHint: 'In Eile? Jetzt speichern und die KI vervollständigt die Daten im Hintergrund.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

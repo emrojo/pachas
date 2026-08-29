@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       id = randomUUID(),
       groupId,
       title,
-      amount,
+      amount = 0,
       currency = 'EUR',
       exchangeRate = 1.0,
       convertedAmount = amount,
@@ -33,11 +33,13 @@ export async function POST(request: NextRequest) {
       latitude = null,
       longitude = null,
       locationName = null,
+      ocrStatus = 'completed',
+      ocr_status = ocrStatus,
       payers = [],
       participants = [],
     } = body;
 
-    if (!groupId || !title || !amount) {
+    if (!groupId || !title || amount === undefined || amount === null) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
     }
 
@@ -50,13 +52,16 @@ export async function POST(request: NextRequest) {
     try {
       await client.query('BEGIN');
 
+      // Auto-heal ocr_status column if needed
+      await client.query("ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'completed'");
+
       // 1. Insert into public.expenses
       await client.query(
         `INSERT INTO public.expenses (
           id, group_id, created_by, title, amount, currency,
           category, expense_date, receipt_url, notes,
-          split_type, latitude, longitude, location_name, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+          split_type, latitude, longitude, location_name, ocr_status, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
         ON CONFLICT (id) DO UPDATE SET
           title = EXCLUDED.title,
           amount = EXCLUDED.amount,
@@ -69,6 +74,7 @@ export async function POST(request: NextRequest) {
           latitude = EXCLUDED.latitude,
           longitude = EXCLUDED.longitude,
           location_name = EXCLUDED.location_name,
+          ocr_status = EXCLUDED.ocr_status,
           updated_at = NOW()`,
         [
           id,
@@ -85,6 +91,7 @@ export async function POST(request: NextRequest) {
           latitude,
           longitude,
           locationName,
+          ocr_status || 'completed',
         ]
       );
 

@@ -231,6 +231,13 @@ export const ru: TranslationDictionary = {
     importExpensesSubtitle: 'Загрузите несколько расходов сразу с помощью CSV-шаблона',
   },
   expenses: {
+    scanReceiptQuick: 'Сканировать чек',
+    analyzingReceipt: 'Анализ чека с помощью ИИ...',
+    processingOcr: 'Обработка ИИ...',
+    scanFailedReview: 'Чек не распознан (Требуется проверка)',
+    reviewRequired: 'Требуется проверка',
+    saveAndProcessAsync: 'Сохранить и обработать с ИИ',
+    saveAndProcessAsyncHint: 'Спешите? Сохраните сейчас, и ИИ заполнит данные в фоновом режиме.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

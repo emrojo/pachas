@@ -325,6 +325,8 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-31.4**: **Location & Precise Datetime Auto-Extraction ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
   - Automatically identifies physical store addresses (street, number, postal code, city) printed on receipts and populates the expense `locationName` field.
   - Automatically extracts exact timestamps (hours and minutes: `HH:mm`) and updates both date and time pickers.
+- **FR-31.5**: **Automatic Geocoding & Google Maps GPS Pinpoint Save ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
+  - Automatically performs forward geocoding on the extracted address to resolve exact GPS coordinates (`latitude`, `longitude`) and generate Google Maps deep links (`https://www.google.com/maps?q=lat,lng`), saving the geographical location directly into the PostgreSQL database.
 
 ### 💬 FR-32: In-Expense Discussion Threads & Comments
 - **FR-32.1**: **Discussion Thread Section ([`ExpenseCommentsSection.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseCommentsSection.tsx))**:
@@ -334,6 +336,18 @@ This document serves as the official and permanent registry for all **user requi
   - Offline sync with `localStorage` (`pachas_expense_comments_v2`) and optimistic local updates.
 - **FR-32.3**: **Comments Counter Badge ([`ExpenseCard.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseCard.tsx))**:
   - Visual badge with comment count (`💬 N`) on each expense card in the trip list.
+
+### ⚡ FR-33: Quick Instant Receipt Scanning & Background Asynchronous AI Processing
+- **FR-33.1**: **1-Tap Direct Camera Action ([`GroupActionMenu.tsx`](file:///d:/Projects/pachas/src/components/groups/GroupActionMenu.tsx) & [`page.tsx`](file:///d:/Projects/pachas/src/app/%28dashboard%29/groups/%5Bid%5D/page.tsx))**:
+  - Dedicated **"Escanear factura"** camera button in the trip header allowing instant receipt snapping without opening modal forms.
+- **FR-33.2**: **Instant Unblocked Creation (`ocr_status: 'processing'`)**:
+  - Immediately creates a placeholder expense entry with receipt thumbnail and pulsing badge (`⏳ Analizando ticket con IA...`), allowing the user to continue using the app without waiting for AI processing.
+- **FR-33.3**: **Asynchronous Background Completion ([`PachasContext.tsx`](file:///d:/Projects/pachas/src/context/PachasContext.tsx))**:
+  - Calls Gemini 1.5 Flash Vision in the background, resolving merchant title, amount, category, date/time, and geocoded Google Maps GPS coordinates, and automatically updates the expense in the PostgreSQL database and UI feed upon completion.
+- **FR-33.4**: **Resilient Error Recovery (`ocr_status: 'failed'`)**:
+  - If a receipt is unreadable, sets status to `'failed'` with amber badge (`⚠️ Requiere revisión`), allowing members to tap and edit the expense manually.
+- **FR-33.5**: **Asynchronous Save in Expense Modal ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
+  - Allows saving a photographed receipt immediately via **"Guardar y procesar con IA"** to complete the expense in the background.
 
 ---
 
@@ -415,4 +429,6 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 🌟 Changed | **FR-04.4 & FR-31** | **Top Hero Quick-Scan Card in Add Expense**: Positioned the **"Hacer foto al ticket"** camera action and AI OCR scanning card at the very top of `ExpenseForm`, allowing users to photograph physical receipts immediately upon opening the modal and auto-populate title, amount, date, and category in 1 tap before typing. |
 | **30/08/2026** | 🤖 Added | **FR-31** | **Google Gemini 1.5 Flash Vision Multimodal Extraction**: Created `/api/ocr/scan` route integrating Google Gemini 1.5 Flash (~99% precision, free tier 15 RPM) for high-accuracy receipt extraction with structured JSON schemas, visual model badge (`✨ Gemini Flash`), and automatic graceful fallback to local `tesseract.js` when offline or unconfigured. |
 | **30/08/2026** | 📍 Added | **FR-31.4** | **Location & Precise Datetime Receipt Autocomplete**: Enhanced the AI vision receipt scanner to extract physical establishment addresses (`locationName`) and exact timestamps (`HH:mm`), populating both the location picker and the date/time selectors upon clicking "Autocompletar gasto". |
+| **30/08/2026** | 🗺️ Added | **FR-31.5** | **Automatic Geocoding & Google Maps GPS Pinpoint Save**: Integrated automatic forward geocoding in the receipt vision scanner to resolve exact GPS coordinates (`latitude`, `longitude`) from extracted receipt addresses and generate Google Maps deep links, automatically attaching the geographical pinpoint to the expense. |
+| **30/08/2026** | ⚡ Added | **FR-33** | **Quick Instant Receipt Scanning & Background Asynchronous AI Processing**: Added 1-tap **"Escanear factura"** camera action in trip headers, instant unblocked expense creation with `ocr_status = 'processing'`, non-blocking background Gemini Vision processing updating merchant, amount, category, date/time and Google Maps coordinates in real-time, resilient `'failed'` review status, and asynchronous save option in `ExpenseForm`. |
 

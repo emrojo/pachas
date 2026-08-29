@@ -231,6 +231,13 @@ export const ja: TranslationDictionary = {
     importExpensesSubtitle: 'テンプレートをアップロードして複数の支出を一度に追加',
   },
   expenses: {
+    scanReceiptQuick: 'レシートをスキャン',
+    analyzingReceipt: 'AIでレシートを解析中...',
+    processingOcr: 'AIで処理中...',
+    scanFailedReview: 'レシートを認識できませんでした（確認が必要）',
+    reviewRequired: '要確認',
+    saveAndProcessAsync: '保存してAIでバックグラウンド処理',
+    saveAndProcessAsyncHint: 'お急ぎですか？保存すればAIがバックグラウンドで自動入力します。',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

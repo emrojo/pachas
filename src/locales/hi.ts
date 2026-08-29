@@ -231,6 +231,13 @@ export const hi: TranslationDictionary = {
     importExpensesSubtitle: 'CSV टेम्पलेट अपलोड करके एक साथ कई खर्चे जोड़ें',
   },
   expenses: {
+    scanReceiptQuick: 'रसीद स्कैन करें',
+    analyzingReceipt: 'AI रसीद का विश्लेषण कर रहा है...',
+    processingOcr: 'AI प्रोसेसिंग जारी है...',
+    scanFailedReview: 'रसीद पहचानी नहीं गई (समीक्षा आवश्यक)',
+    reviewRequired: 'समीक्षा आवश्यक',
+    saveAndProcessAsync: 'सहेजें और AI द्वारा बैकग्राउंड में संसाधित करें',
+    saveAndProcessAsyncHint: 'जल्दी में हैं? अभी सहेजें और AI बैकग्राउंड में डेटा भर देगा।',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

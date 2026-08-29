@@ -231,6 +231,13 @@ export const fr: TranslationDictionary = {
     importExpensesSubtitle: 'Ajoutez plusieurs dépenses d’un coup via un fichier CSV ou Excel',
   },
   expenses: {
+    scanReceiptQuick: 'Scanner reçu',
+    analyzingReceipt: 'Analyse du reçu par IA...',
+    processingOcr: 'Traitement par IA...',
+    scanFailedReview: 'Reçu non reconnu (Révision requise)',
+    reviewRequired: 'Révision requise',
+    saveAndProcessAsync: 'Enregistrer et traiter par IA',
+    saveAndProcessAsyncHint: 'Pressé ? Enregistrez maintenant et l\'IA complétera en arrière-plan.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

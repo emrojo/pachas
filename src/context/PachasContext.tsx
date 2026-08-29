@@ -34,9 +34,9 @@ import {
   SyncAction,
 } from '@/lib/sync/syncManager';
 import { recalculateAllExpensesForNewBaseCurrency } from '@/lib/currencies/exchangeRateService';
-
+import { scanReceipt } from '@/lib/ocr/receiptScanner';
+import { getCurrentDateTimeISOWithTimezone } from '@/lib/utils';
 import { generateUUID } from '@/lib/id';
-
 
 export interface CreateExpenseInput {
   groupId: string;
@@ -55,6 +55,7 @@ export interface CreateExpenseInput {
   latitude?: number | null;
   longitude?: number | null;
   locationName?: string | null;
+  ocr_status?: 'processing' | 'completed' | 'failed' | null;
 }
 
 interface PachasContextType {
@@ -73,6 +74,7 @@ interface PachasContextType {
   getGroupBalances: (groupId: string) => MemberBalance[];
   getGroupDebts: (groupId: string) => SimplifiedDebt[];
   addExpense: (input: CreateExpenseInput) => Promise<Expense>;
+  scanAndCreateExpenseAsync: (groupId: string, receiptDataUrl: string) => Promise<Expense>;
   importExpenses: (groupId: string, inputs: CreateExpenseInput[]) => Promise<Expense[]>;
   lastImportBatch: { groupId: string; expenseIds: string[]; count: number } | null;
   undoLastImport: (groupId: string) => Promise<number>;
@@ -959,6 +961,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       latitude: input.latitude !== undefined ? input.latitude : null,
       longitude: input.longitude !== undefined ? input.longitude : null,
       location_name: input.locationName || null,
+      ocr_status: input.ocr_status || 'completed',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       creator: currentUser,
@@ -996,6 +999,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             latitude: newExpense.latitude,
             longitude: newExpense.longitude,
             locationName: newExpense.location_name,
+            ocrStatus: newExpense.ocr_status,
             payers: newExpense.payers,
             participants: newExpense.participants,
           }),
@@ -1031,8 +1035,95 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newExpense;
   };
 
+  const scanAndCreateExpenseAsync = async (groupId: string, receiptDataUrl: string): Promise<Expense> => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para escanear un gasto.');
+    }
 
+    const targetGroup = getGroup(groupId);
+    const groupCurrency = targetGroup?.base_currency || 'EUR';
+    const grpMembers = getGroupMembers(groupId);
+    const allMemberIds = grpMembers.map((m) => m.user_id);
 
+    // 1. Create immediate placeholder expense in 'processing' state
+    const initialExpense = await addExpense({
+      groupId,
+      title: 'Analizando ticket con IA...',
+      amount: 0,
+      currency: groupCurrency,
+      category: 'other',
+      expenseDate: getCurrentDateTimeISOWithTimezone(),
+      receiptUrl: receiptDataUrl,
+      splitType: 'EQUAL',
+      payers: [{ userId: currentUser.id, amountPaid: 0 }],
+      selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
+      ocr_status: 'processing',
+    });
+
+    // 2. Launch background asynchronous OCR analysis (non-blocking)
+    (async () => {
+      try {
+        const scannedData = await scanReceipt(receiptDataUrl);
+        if (scannedData && (scannedData.amount || scannedData.title)) {
+          const finalAmount = typeof scannedData.amount === 'number' && !isNaN(scannedData.amount) ? scannedData.amount : 0;
+          const finalTitle = scannedData.title || 'Ticket escaneado';
+          const finalCategory = scannedData.category || 'food';
+          const finalDate = scannedData.date || initialExpense.expense_date;
+
+          await updateExpense(groupId, initialExpense.id, {
+            groupId,
+            title: finalTitle,
+            amount: finalAmount,
+            currency: scannedData.currency || groupCurrency,
+            category: finalCategory,
+            expenseDate: finalDate,
+            receiptUrl: receiptDataUrl,
+            splitType: 'EQUAL',
+            locationName: scannedData.locationName || null,
+            latitude: scannedData.latitude !== undefined ? scannedData.latitude : null,
+            longitude: scannedData.longitude !== undefined ? scannedData.longitude : null,
+            payers: [{ userId: currentUser.id, amountPaid: finalAmount }],
+            selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
+            ocr_status: 'completed',
+          });
+        } else {
+          // Scan could not extract data - mark as failed for manual user review
+          await updateExpense(groupId, initialExpense.id, {
+            groupId,
+            title: 'Ticket pendiente de revisión',
+            amount: 0,
+            currency: groupCurrency,
+            category: 'other',
+            expenseDate: initialExpense.expense_date,
+            receiptUrl: receiptDataUrl,
+            splitType: 'EQUAL',
+            payers: [{ userId: currentUser.id, amountPaid: 0 }],
+            selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
+            ocr_status: 'failed',
+          });
+        }
+      } catch (err) {
+        console.warn('[PachasContext] Async OCR background error:', err);
+        try {
+          await updateExpense(groupId, initialExpense.id, {
+            groupId,
+            title: 'Ticket pendiente de revisión',
+            amount: 0,
+            currency: groupCurrency,
+            category: 'other',
+            expenseDate: initialExpense.expense_date,
+            receiptUrl: receiptDataUrl,
+            splitType: 'EQUAL',
+            payers: [{ userId: currentUser.id, amountPaid: 0 }],
+            selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
+            ocr_status: 'failed',
+          });
+        } catch {}
+      }
+    })();
+
+    return initialExpense;
+  };
 
   const importExpenses = async (groupId: string, inputs: CreateExpenseInput[]): Promise<Expense[]> => {
     if (!currentUser) {
@@ -1218,6 +1309,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       latitude: input.latitude !== undefined ? input.latitude : existing.latitude,
       longitude: input.longitude !== undefined ? input.longitude : existing.longitude,
       location_name: input.locationName !== undefined ? input.locationName : existing.location_name,
+      ocr_status: input.ocr_status !== undefined ? input.ocr_status : existing.ocr_status,
       updated_at: new Date().toISOString(),
       payers: input.payers.map((p, idx) => ({
         id: `p-${expenseId}-${idx}`,
@@ -1250,6 +1342,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             latitude: updatedExpense.latitude,
             longitude: updatedExpense.longitude,
             locationName: updatedExpense.location_name,
+            ocrStatus: updatedExpense.ocr_status,
             payers: updatedExpense.payers,
             participants: updatedExpense.participants,
           }),
@@ -1705,6 +1798,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         getGroupBalances,
         getGroupDebts,
         addExpense,
+        scanAndCreateExpenseAsync,
         importExpenses,
         lastImportBatch,
         undoLastImport,

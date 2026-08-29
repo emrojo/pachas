@@ -11,6 +11,9 @@ export interface VisionScanResult {
   date?: string; // YYYY-MM-DDTHH:mm
   category?: ExpenseCategory;
   locationName?: string;
+  latitude?: number;
+  longitude?: number;
+  mapsUrl?: string;
   currency?: string;
   confidence: number;
   source: string;
@@ -287,19 +290,64 @@ Reglas críticas de extracción:
       ? parsed.category
       : 'food';
 
+    const detectedLocationName = parsed.locationName ? String(parsed.locationName).trim() : undefined;
+
+    // 6. Geocode address to resolve GPS coordinates & Google Maps location
+    let detectedLatitude: number | undefined;
+    let detectedLongitude: number | undefined;
+    let detectedMapsUrl: string | undefined;
+
+    if (detectedLocationName) {
+      const queriesToTry = [
+        detectedLocationName,
+        parsed.title ? `${parsed.title}, ${detectedLocationName}` : undefined,
+        detectedLocationName.replace(/^[Cc]\/|calle|avda|avenida|pza|plaza/i, '').trim(),
+      ].filter(Boolean) as string[];
+
+      for (const query of queriesToTry) {
+        try {
+          const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+          const geoRes = await fetch(geoUrl, {
+            headers: {
+              'User-Agent': 'Pachas-Receipt-Scanner/1.0',
+              'Accept-Language': 'es,en',
+            },
+            signal: AbortSignal.timeout(3000),
+          });
+          if (geoRes.ok) {
+            const geoList = await geoRes.json();
+            if (geoList && geoList.length > 0) {
+              const lat = parseFloat(geoList[0].lat);
+              const lon = parseFloat(geoList[0].lon);
+              if (!isNaN(lat) && !isNaN(lon)) {
+                detectedLatitude = Math.round(lat * 100000) / 100000;
+                detectedLongitude = Math.round(lon * 100000) / 100000;
+                detectedMapsUrl = `https://www.google.com/maps?q=${detectedLatitude},${detectedLongitude}`;
+                console.log(`[Gemini OCR] 📍 Coordenadas geolocalizadas: lat=${detectedLatitude}, lon=${detectedLongitude} (${detectedMapsUrl})`);
+                break;
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
     const result: VisionScanResult = {
       title: parsed.title ? String(parsed.title).trim() : undefined,
       amount: detectedAmount,
       amountFormatted: detectedAmountFormatted,
       date: parsed.date ? String(parsed.date).trim() : undefined,
       category: detectedCategory,
-      locationName: parsed.locationName ? String(parsed.locationName).trim() : undefined,
+      locationName: detectedLocationName,
+      latitude: detectedLatitude,
+      longitude: detectedLongitude,
+      mapsUrl: detectedMapsUrl,
       currency: parsed.currency || 'EUR',
       confidence: 0.98,
       source: successfulModel || 'gemini-1.5-flash',
     };
 
-    console.log(`[Gemini 1.5 Flash] ✨ Resultado extraído con éxito: Comercio="${result.title}", Total=${result.amount}€, Fecha=${result.date}, Categoría=${result.category}, Ubicación="${result.locationName || 'N/A'}"`);
+    console.log(`[Gemini 1.5 Flash] ✨ Resultado extraído con éxito: Comercio="${result.title}", Total=${result.amount}€, Fecha=${result.date}, Categoría=${result.category}, Ubicación="${result.locationName || 'N/A'}", GPS=${result.latitude ? `${result.latitude},${result.longitude}` : 'No'}`);
 
     return NextResponse.json({
       success: true,

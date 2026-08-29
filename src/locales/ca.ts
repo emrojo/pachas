@@ -231,6 +231,13 @@ export const ca: TranslationDictionary = {
     importExpensesSubtitle: 'Afegeix múltiples despeses pujant una plantilla o fitxer CSV',
   },
   expenses: {
+    scanReceiptQuick: 'Escanejar factura',
+    analyzingReceipt: 'Analitzant tiquet amb IA...',
+    processingOcr: 'Processant amb IA...',
+    scanFailedReview: 'Tiquet no reconegut (Requereix revisió)',
+    reviewRequired: 'Requereix revisió',
+    saveAndProcessAsync: 'Desar i processar amb IA',
+    saveAndProcessAsyncHint: 'Tens pressa? Desar ara i la IA completarà les dades en segon pla.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

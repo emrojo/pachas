@@ -231,6 +231,13 @@ export const ar: TranslationDictionary = {
     importExpensesSubtitle: 'إضافة عدة مصاريف دفعة واحدة برفع ملف قالب CSV',
   },
   expenses: {
+    scanReceiptQuick: 'مسح الفاتورة',
+    analyzingReceipt: 'جارٍ تحليل الإيصال بالذكاء الاصطناعي...',
+    processingOcr: 'معالجة بالذكاء الاصطناعي...',
+    scanFailedReview: 'لم يتم التعرف على الإيصال (يتطلب مراجعة)',
+    reviewRequired: 'يتطلب مراجعة',
+    saveAndProcessAsync: 'حفظ ومعالجة بالذكاء الاصطناعي',
+    saveAndProcessAsyncHint: 'هل أنت في عجلة؟ احفظ الآن وسيكمل الذكاء الاصطناعي البيانات في الخلفية.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',
