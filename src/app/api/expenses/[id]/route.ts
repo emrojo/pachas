@@ -46,38 +46,72 @@ export async function PUT(
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
+    // Auto-heal column outside transaction if database permissions allow
+    try {
+      await pool.query("ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'completed'");
+    } catch {
+      // Ignored if permissions are restricted
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Auto-heal column if needed
-      await client.query("ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'completed'");
-
-      await client.query(
-        `UPDATE public.expenses SET
-           title = $1, amount = $2, currency = $3,
-           category = $4, expense_date = $5,
-           receipt_url = $6, notes = $7, split_type = $8,
-           latitude = $9, longitude = $10, location_name = $11,
-           ocr_status = COALESCE($12, ocr_status),
-           updated_at = NOW()
-         WHERE id = $13`,
-        [
-          title,
-          amount,
-          currency,
-          category,
-          expenseDate?.includes('T') ? expenseDate.split('T')[0] : expenseDate,
-          receiptUrl,
-          notes,
-          splitType,
-          latitude,
-          longitude,
-          locationName,
-          ocr_status || null,
-          expenseId,
-        ]
-      );
+      try {
+        await client.query(
+          `UPDATE public.expenses SET
+             title = $1, amount = $2, currency = $3,
+             category = $4, expense_date = $5,
+             receipt_url = $6, notes = $7, split_type = $8,
+             latitude = $9, longitude = $10, location_name = $11,
+             ocr_status = COALESCE($12, ocr_status),
+             updated_at = NOW()
+           WHERE id = $13`,
+          [
+            title,
+            amount,
+            currency,
+            category,
+            expenseDate?.includes('T') ? expenseDate.split('T')[0] : expenseDate,
+            receiptUrl,
+            notes,
+            splitType,
+            latitude,
+            longitude,
+            locationName,
+            ocr_status || null,
+            expenseId,
+          ]
+        );
+      } catch (updateErr: any) {
+        if (updateErr.code === '42703' || String(updateErr.message).includes('ocr_status')) {
+          await client.query(
+            `UPDATE public.expenses SET
+               title = $1, amount = $2, currency = $3,
+               category = $4, expense_date = $5,
+               receipt_url = $6, notes = $7, split_type = $8,
+               latitude = $9, longitude = $10, location_name = $11,
+               updated_at = NOW()
+             WHERE id = $12`,
+            [
+              title,
+              amount,
+              currency,
+              category,
+              expenseDate?.includes('T') ? expenseDate.split('T')[0] : expenseDate,
+              receiptUrl,
+              notes,
+              splitType,
+              latitude,
+              longitude,
+              locationName,
+              expenseId,
+            ]
+          );
+        } else {
+          throw updateErr;
+        }
+      }
 
       // Re-insert Payers
       await client.query('DELETE FROM public.expense_payers WHERE expense_id = $1', [expenseId]);

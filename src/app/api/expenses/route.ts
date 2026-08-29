@@ -48,52 +48,100 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
+    // Auto-heal ocr_status column outside transaction if database permissions allow
+    try {
+      await pool.query("ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'completed'");
+    } catch {
+      // Ignored if permissions are restricted
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Auto-heal ocr_status column if needed
-      await client.query("ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'completed'");
-
       // 1. Insert into public.expenses
-      await client.query(
-        `INSERT INTO public.expenses (
-          id, group_id, created_by, title, amount, currency,
-          category, expense_date, receipt_url, notes,
-          split_type, latitude, longitude, location_name, ocr_status, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
-        ON CONFLICT (id) DO UPDATE SET
-          title = EXCLUDED.title,
-          amount = EXCLUDED.amount,
-          currency = EXCLUDED.currency,
-          category = EXCLUDED.category,
-          expense_date = EXCLUDED.expense_date,
-          receipt_url = EXCLUDED.receipt_url,
-          notes = EXCLUDED.notes,
-          split_type = EXCLUDED.split_type,
-          latitude = EXCLUDED.latitude,
-          longitude = EXCLUDED.longitude,
-          location_name = EXCLUDED.location_name,
-          ocr_status = EXCLUDED.ocr_status,
-          updated_at = NOW()`,
-        [
-          id,
-          groupId,
-          payload.sub,
-          title,
-          amount,
-          currency,
-          category,
-          expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate,
-          receiptUrl,
-          notes,
-          splitType,
-          latitude,
-          longitude,
-          locationName,
-          ocr_status || 'completed',
-        ]
-      );
+      try {
+        await client.query(
+          `INSERT INTO public.expenses (
+            id, group_id, created_by, title, amount, currency,
+            category, expense_date, receipt_url, notes,
+            split_type, latitude, longitude, location_name, ocr_status, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            title = EXCLUDED.title,
+            amount = EXCLUDED.amount,
+            currency = EXCLUDED.currency,
+            category = EXCLUDED.category,
+            expense_date = EXCLUDED.expense_date,
+            receipt_url = EXCLUDED.receipt_url,
+            notes = EXCLUDED.notes,
+            split_type = EXCLUDED.split_type,
+            latitude = EXCLUDED.latitude,
+            longitude = EXCLUDED.longitude,
+            location_name = EXCLUDED.location_name,
+            ocr_status = EXCLUDED.ocr_status,
+            updated_at = NOW()`,
+          [
+            id,
+            groupId,
+            payload.sub,
+            title,
+            amount,
+            currency,
+            category,
+            expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate,
+            receiptUrl,
+            notes,
+            splitType,
+            latitude,
+            longitude,
+            locationName,
+            ocr_status || 'completed',
+          ]
+        );
+      } catch (insertErr: any) {
+        if (insertErr.code === '42703' || String(insertErr.message).includes('ocr_status')) {
+          // Fallback if ocr_status column is not yet present
+          await client.query(
+            `INSERT INTO public.expenses (
+              id, group_id, created_by, title, amount, currency,
+              category, expense_date, receipt_url, notes,
+              split_type, latitude, longitude, location_name, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              amount = EXCLUDED.amount,
+              currency = EXCLUDED.currency,
+              category = EXCLUDED.category,
+              expense_date = EXCLUDED.expense_date,
+              receipt_url = EXCLUDED.receipt_url,
+              notes = EXCLUDED.notes,
+              split_type = EXCLUDED.split_type,
+              latitude = EXCLUDED.latitude,
+              longitude = EXCLUDED.longitude,
+              location_name = EXCLUDED.location_name,
+              updated_at = NOW()`,
+            [
+              id,
+              groupId,
+              payload.sub,
+              title,
+              amount,
+              currency,
+              category,
+              expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate,
+              receiptUrl,
+              notes,
+              splitType,
+              latitude,
+              longitude,
+              locationName,
+            ]
+          );
+        } else {
+          throw insertErr;
+        }
+      }
 
       // 2. Insert Payers
       await client.query('DELETE FROM public.expense_payers WHERE expense_id = $1', [id]);
