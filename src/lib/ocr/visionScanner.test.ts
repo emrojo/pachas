@@ -1,0 +1,44 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { scanReceipt } from './receiptScanner';
+
+describe('Intelligent Receipt Vision Scanner', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('correctly processes response from Gemini 1.5 Flash API endpoint', async () => {
+    const mockVisionResponse = {
+      success: true,
+      data: {
+        title: 'Restaurante El Faro',
+        amount: 48.5,
+        amountFormatted: '48,50',
+        date: '2026-08-30T14:30',
+        category: 'food',
+        currency: 'EUR',
+        confidence: 0.98,
+        source: 'gemini-1.5-flash',
+      },
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockVisionResponse,
+    });
+
+    const result = await scanReceipt('data:image/jpeg;base64,mockBase64ImageData...');
+
+    expect(result.title).toBe('Restaurante El Faro');
+    expect(result.amount).toBe(48.5);
+    expect(result.amountFormatted).toBe('48,50');
+    expect(result.date).toBe('2026-08-30T14:30');
+    expect(result.category).toBe('food');
+    expect(result.source).toBe('gemini-1.5-flash');
+    expect(result.confidence).toBe(0.98);
+  });
+
+  it('handles empty image input gracefully', async () => {
+    const result = await scanReceipt('');
+    expect(result.confidence).toBe(0);
+  });
+});
