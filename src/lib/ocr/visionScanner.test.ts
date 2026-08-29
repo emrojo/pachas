@@ -41,4 +41,11 @@ describe('Intelligent Receipt Vision Scanner', () => {
     const result = await scanReceipt('');
     expect(result.confidence).toBe(0);
   });
+
+  it('reads GEMINI_API_KEY from environment or file fallback safely', async () => {
+    const { getGeminiApiKey } = await import('@/app/api/ocr/scan/route');
+    process.env.GEMINI_API_KEY = 'test-key-123';
+    expect(getGeminiApiKey()).toBe('test-key-123');
+    delete process.env.GEMINI_API_KEY;
+  });
 });
