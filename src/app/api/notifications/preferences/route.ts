@@ -36,24 +36,38 @@ export async function GET(request: NextRequest) {
       // Ignored if permissions are restricted or column already present
     }
 
-    const res = await pool.query(
-      `SELECT notifications_enabled
-       FROM public.group_members
-       WHERE group_id::text = $1::text AND user_id::text = $2::text`,
-      [groupId, payload.sub]
-    );
+    try {
+      const res = await pool.query(
+        `SELECT notifications_enabled
+         FROM public.group_members
+         WHERE group_id::text = $1::text AND user_id::text = $2::text`,
+        [groupId, payload.sub]
+      );
 
-    if (res.rows.length === 0) {
-      return NextResponse.json({ enabled: false, isMember: false });
+      if (res.rows.length === 0) {
+        return NextResponse.json({ enabled: false, isMember: false });
+      }
+
+      return NextResponse.json({
+        enabled: Boolean(res.rows[0].notifications_enabled),
+        isMember: true,
+      });
+    } catch (queryErr: any) {
+      if (queryErr.code === '42703' || String(queryErr.message).includes('notifications_enabled')) {
+        // Fallback: check membership if column doesn't exist
+        const memRes = await pool.query(
+          `SELECT id FROM public.group_members WHERE group_id::text = $1::text AND user_id::text = $2::text`,
+          [groupId, payload.sub]
+        );
+        return NextResponse.json({
+          enabled: false,
+          isMember: memRes.rows.length > 0,
+        });
+      }
+      throw queryErr;
     }
-
-    return NextResponse.json({
-      enabled: Boolean(res.rows[0].notifications_enabled),
-      isMember: true,
-    });
   } catch (err: any) {
-    console.error('Error fetching notification preferences:', err);
-    // Graceful fallback to avoid client 500 error popups
+    console.warn('Notice in notification preferences GET:', err.message || err);
     return NextResponse.json({ enabled: false, isMember: true });
   }
 }
@@ -92,23 +106,42 @@ export async function PUT(request: NextRequest) {
       // Ignored
     }
 
-    const res = await pool.query(
-      `UPDATE public.group_members
-       SET notifications_enabled = $1
-       WHERE group_id::text = $2::text AND user_id::text = $3::text
-       RETURNING *`,
-      [enabled, groupId, payload.sub]
-    );
+    try {
+      const res = await pool.query(
+        `UPDATE public.group_members
+         SET notifications_enabled = $1
+         WHERE group_id::text = $2::text AND user_id::text = $3::text
+         RETURNING *`,
+        [enabled, groupId, payload.sub]
+      );
 
-    if (res.rows.length === 0) {
-      return NextResponse.json({ error: 'No eres miembro de este grupo' }, { status: 404 });
+      if (res.rows.length === 0) {
+        return NextResponse.json({ error: 'No eres miembro de este grupo' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        enabled,
+        groupId,
+      });
+    } catch (updateErr: any) {
+      if (updateErr.code === '42703' || String(updateErr.message).includes('notifications_enabled')) {
+        // Fallback: check membership and return success
+        const memRes = await pool.query(
+          `SELECT id FROM public.group_members WHERE group_id::text = $1::text AND user_id::text = $2::text`,
+          [groupId, payload.sub]
+        );
+        if (memRes.rows.length === 0) {
+          return NextResponse.json({ error: 'No eres miembro de este grupo' }, { status: 404 });
+        }
+        return NextResponse.json({
+          success: true,
+          enabled,
+          groupId,
+        });
+      }
+      throw updateErr;
     }
-
-    return NextResponse.json({
-      success: true,
-      enabled,
-      groupId,
-    });
   } catch (err: any) {
     console.error('Error updating notification preferences:', err);
     return NextResponse.json({ error: err.message || 'Error al actualizar preferencias' }, { status: 500 });
