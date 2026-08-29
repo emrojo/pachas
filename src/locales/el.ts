@@ -148,6 +148,11 @@ export const el: TranslationDictionary = {
     lowestAmount: 'Χαμηλότερο ποσό',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'Έξοδα',
     balancesTab: 'Υπόλοιπα',
     chartsTab: 'Στατιστικά',

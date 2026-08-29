@@ -20,6 +20,7 @@ import { ExpenseChartsModal } from '@/components/expenses/ExpenseChartsModal';
 import { ExpenseChartsView } from '@/components/expenses/ExpenseChartsView';
 import { InviteModal } from '@/components/groups/InviteModal';
 import { EditGroupModal } from '@/components/groups/EditGroupModal';
+import { GroupActionMenu } from '@/components/groups/GroupActionMenu';
 import { MemberList } from '@/components/groups/MemberList';
 import { BalanceSummary } from '@/components/balances/BalanceSummary';
 import { DebtList } from '@/components/balances/DebtList';
@@ -343,94 +344,17 @@ export default function GroupDetailPage() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsEditGroupOpen(true)}
-                    title={t('groups.settings')}
-                    className="gap-1.5"
-                  >
-                    <Settings className="w-4 h-4 text-slate-500" />
-                    <span className="hidden sm:inline">{t('groups.settings')}</span>
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsInviteOpen(true)}
-                    className="gap-1.5"
-                  >
-                    <QrCode className="w-4 h-4 text-emerald-600" />
-                    {t('groups.inviteFriends')}
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsRouteMapOpen(true)}
-                    title={t('tripMap.title')}
-                    className="gap-1.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
-                  >
-                    <Compass className="w-4 h-4 text-emerald-600" />
-                    <span className="hidden sm:inline font-bold">{t('tripMap.tabTitle')}</span>
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setActiveTab('charts')}
-                    title={t('charts.title')}
-                    className="gap-1.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
-                  >
-                    <BarChart3 className="w-4 h-4 text-emerald-600" />
-                    <span className="hidden sm:inline font-bold">{t('groups.chartsTab')}</span>
-                  </Button>
-
-                  {/* Export Dropdown / Buttons */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => exportGroupToPDF(group, expenses, balances, debts)}
-                    title={t('groups.exportPDF')}
-                    className="gap-1.5"
-                  >
-                    <FileDown className="w-4 h-4 text-rose-500" />
-                    PDF
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => exportGroupToCSV(group, expenses, balances)}
-                    title={t('groups.exportCSV')}
-                    className="gap-1.5"
-                  >
-                    CSV
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsImportModalOpen(true)}
-                    title={t('groups.importExpenses')}
-                    className="gap-1.5"
-                  >
-                    <UploadCloud className="w-4 h-4 text-emerald-600" />
-                    {t('common.import')}
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="brand"
-                    onClick={handleOpenNewExpense}
-                    className="gap-1.5 shadow-xs"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {t('expenses.addExpense')}
-                  </Button>
-                </div>
+                {/* Action Buttons: Primary Add Expense, Secondary Invite, and Submenu */}
+                <GroupActionMenu
+                  onOpenNewExpense={handleOpenNewExpense}
+                  onOpenInvite={() => setIsInviteOpen(true)}
+                  onOpenSettings={() => setIsEditGroupOpen(true)}
+                  onOpenRouteMap={() => setIsRouteMapOpen(true)}
+                  onOpenCharts={() => setActiveTab('charts')}
+                  onOpenImport={() => setIsImportModalOpen(true)}
+                  onExportPDF={() => exportGroupToPDF(group, expenses, balances, debts)}
+                  onExportCSV={() => exportGroupToCSV(group, expenses, balances)}
+                />
               </div>
             </div>
           </div>

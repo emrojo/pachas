@@ -148,6 +148,11 @@ export const af: TranslationDictionary = {
     lowestAmount: 'Laagste bedrag',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'Uitgawes',
     balancesTab: 'Balans',
     chartsTab: 'Statistiek',

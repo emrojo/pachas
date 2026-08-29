@@ -39,6 +39,10 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-04.5**: **Multi-Currency Behavior**:
   - In the **expense list**: Foreign currency entries display the **original currency value** directly (e.g., `$150.00` or `¥22,000`) with a currency badge, without converting on the primary card.
   - In the **detail / edit view**: Displays a breakdown panel with the **original currency amount**, the **applied exchange rate** (editable), and the **equivalent converted amount in the trip's base currency** (e.g., `138.89 €`).
+- **FR-04.6**: **Visual Action Hierarchy & Tools Submenu (`GroupActionMenu`)**:
+  - **Primary Hero Action**: **Add Expense** button with maximum visual prominence (brand gradient, prominent icon, glowing shadow, larger typography).
+  - **Secondary Action**: **Invite Friends** directly accessible next to the primary action.
+  - **Categorized Submenu**: All remaining tools (Trip Route Map, Charts & Analytics, Import CSV/Excel, Export PDF, Export CSV, and Trip Settings) grouped into an organized dropdown menu categorized into *Routes & Analytics*, *Import & Export*, and *Trip Settings*.
 
 ### 🍕 FR-05: Flexible Expense Splitting
 - **FR-05.1**: **Equal shares**: Divided evenly among all friends or selected participants with exact residual penny distribution without loss.
@@ -295,3 +299,4 @@ This document serves as the official and permanent registry for all **user requi
 | **28/08/2026** | ☕ Added | **FR-24** | Configurable voluntary donations system (Buy Me a Coffee) with API integration and profile cards. |
 | **28/08/2026** | 🔐 Fixed & Added | **FR-25** | Robust authentication, dynamic HTTP/HTTPS session cookie resolution (`secure: isHttps`), case-insensitive email queries, session sync (`/api/auth/session`), and password recovery mailer with SMTP/Resend/SendGrid support. |
 | **29/08/2026** | ⚖️ Added | **FR-26** | Complete legal framework and GDPR compliance: Terms of Service, Privacy Policy, Cookie Policy, Legal Notice, mandatory registration consent, receipt safety warnings, content reporting (`/api/reports`), personal data portability (`/api/user/export-data`), right to erasure (`/api/user/delete-account`), cookie consent banner, and global footer. |
+| **29/08/2026** | 🌟 Changed | **FR-04.6** | Group page action hierarchy redesign: Prominent primary **Add Expense** button, secondary **Invite Friends** button, and organized dropdown **Submenu** for remaining tools (Routes, Charts, Import, PDF, CSV, Settings). |

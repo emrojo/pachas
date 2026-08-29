@@ -148,6 +148,11 @@ export const it: TranslationDictionary = {
     lowestAmount: 'Importo minore',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'Spese',
     balancesTab: 'Saldi',
     chartsTab: 'Statistiche',

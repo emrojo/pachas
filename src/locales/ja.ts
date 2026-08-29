@@ -148,6 +148,11 @@ export const ja: TranslationDictionary = {
     lowestAmount: '金額が低い順',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: '支出',
     balancesTab: '清算',
     chartsTab: '統計',

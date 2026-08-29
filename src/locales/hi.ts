@@ -148,6 +148,11 @@ export const hi: TranslationDictionary = {
     lowestAmount: 'न्यूनतम राशि',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'खर्चे',
     balancesTab: 'हिसाब-किताब',
     chartsTab: 'सांख्यिकी',

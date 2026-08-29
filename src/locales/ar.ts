@@ -148,6 +148,11 @@ export const ar: TranslationDictionary = {
     lowestAmount: 'الأقل قيمة',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'المصاريف',
     balancesTab: 'الأرصدة',
     chartsTab: 'الإحصائيات',
