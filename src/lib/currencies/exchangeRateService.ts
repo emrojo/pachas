@@ -98,10 +98,19 @@ export async function getHistoricalExchangeRate(
         ? `https://api.frankfurter.app/latest?from=${from}&to=${to}`
         : `https://api.frankfurter.app/${queryDate}?from=${from}&to=${to}`;
 
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     });
+
+    // If date returned 404 (e.g. recent weekend or unreleased fix), fallback to latest
+    if (!res.ok && queryDate !== 'latest') {
+      const fallbackUrl = `https://api.frankfurter.app/latest?from=${from}&to=${to}`;
+      res = await fetch(fallbackUrl, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+    }
     clearTimeout(timeoutId);
 
     if (res.ok) {
@@ -159,7 +168,9 @@ export async function getHistoricalExchangeRate(
   const fromObj = getCurrencyByCode(from);
   const toObj = getCurrencyByCode(to);
   const fallbackRate =
-    toObj.rateToEur > 0 ? fromObj.rateToEur / toObj.rateToEur : 1.0;
+    fromObj.rateToEur > 0 && toObj.rateToEur > 0
+      ? toObj.rateToEur / fromObj.rateToEur
+      : 1.0;
   const roundedFallback = Math.round(fallbackRate * 10000) / 10000;
 
   const fallbackResult: ExchangeRateResult = {
@@ -192,11 +203,17 @@ function saveToCache(key: string, result: ExchangeRateResult) {
  */
 export async function recalculateExpenseForNewBaseCurrency(
   expense: Expense,
-  newBaseCurrency: string
+  newBaseCurrency: string,
+  oldBaseCurrency?: string
 ): Promise<Expense> {
-  const expenseCurrency = (expense.currency || newBaseCurrency).toUpperCase();
-  const newBase = newBaseCurrency.toUpperCase();
+  const expenseCurrency = (
+    expense.currency ||
+    oldBaseCurrency ||
+    'EUR'
+  ).toUpperCase().trim();
+  const newBase = newBaseCurrency.toUpperCase().trim();
   const rawOriginalAmount = Number(expense.amount) || 0;
+  const paymentDate = getCleanDate(expense.expense_date || expense.created_at);
 
   let newExchangeRate = 1.0;
   let newConvertedAmount = rawOriginalAmount;
@@ -208,7 +225,7 @@ export async function recalculateExpenseForNewBaseCurrency(
     const rateInfo = await getHistoricalExchangeRate(
       expenseCurrency,
       newBase,
-      expense.expense_date || expense.created_at
+      paymentDate
     );
     newExchangeRate = rateInfo.rate;
     newConvertedAmount = Math.round(rawOriginalAmount * newExchangeRate * 100) / 100;
@@ -311,6 +328,7 @@ export async function recalculateExpenseForNewBaseCurrency(
 export async function recalculateAllExpensesForNewBaseCurrency(
   expenses: Expense[],
   newBaseCurrency: string,
+  oldBaseCurrency?: string,
   onProgress?: (completed: number, total: number) => void
 ): Promise<Expense[]> {
   const total = expenses.length;
@@ -319,7 +337,8 @@ export async function recalculateAllExpensesForNewBaseCurrency(
   for (let i = 0; i < total; i++) {
     const updated = await recalculateExpenseForNewBaseCurrency(
       expenses[i],
-      newBaseCurrency
+      newBaseCurrency,
+      oldBaseCurrency
     );
     results.push(updated);
     if (onProgress) {
