@@ -287,6 +287,7 @@ export const nl: TranslationDictionary = {
     changeReceipt: 'Bon wijzigen',
     removeReceipt: 'Verwijderen',
     viewReceipt: 'Bijgevoegde Bon Bekijken ↗',
+    downloadReceipt: 'Downloaden',
     noReceipt: 'Geen bon bijgevoegd',
     noExpensesTitle: 'Nog geen uitgaven geregistreerd',
     noExpensesSubtitle: 'Voeg de eerste uitgave van de reis toe met de knop hieronder!',

@@ -287,6 +287,7 @@ export const tr: TranslationDictionary = {
     changeReceipt: 'Fişi Değiştir',
     removeReceipt: 'Kaldır',
     viewReceipt: 'Ekli Fişi Gör ↗',
+    downloadReceipt: 'İndir',
     noReceipt: 'Ekli fiş yok',
     noExpensesTitle: 'Henüz harcama kaydedilmedi',
     noExpensesSubtitle: 'Aşağıdaki butona tıklayarak seyahatin ilk harcamasını ekleyin!',

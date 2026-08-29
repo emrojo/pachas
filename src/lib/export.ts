@@ -6,6 +6,18 @@ import { getCategoryInfo } from '@/lib/categories';
 import { formatDate } from '@/lib/utils';
 
 /**
+ * Strips emojis and non-standard characters that corrupt standard jsPDF WinAnsi / Latin-1 fonts
+ */
+export function cleanPdfText(str: string | undefined | null): string {
+  if (!str) return '';
+  return str
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '') // Emojis and surrogate pairs
+    .replace(/[\u2600-\u27BF\uE000-\uF8FF\uFE00-\uFE0F\u200D]/g, '') // Symbols, variation selectors, ZWJ
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Helper to safely compute converted amount in group base currency
  */
 function getConvertedAmount(exp: Expense, baseCurrency: string): number {
@@ -110,7 +122,7 @@ export function exportGroupToPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Pachas: ${group.name}`, 14, 18);
+  doc.text(`Pachas: ${cleanPdfText(group.name)}`, 14, 18);
 
   doc.setFontSize(9.5);
   doc.setFont('helvetica', 'normal');
@@ -368,7 +380,7 @@ export function exportGroupToPDF(
 
   balances.slice(0, 6).forEach((b, idx) => {
     const ry = memBoxY + 11 + idx * memRowH;
-    const name = b.profile.full_name || 'Amigo';
+    const name = cleanPdfText(b.profile.full_name || 'Amigo');
 
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
@@ -404,7 +416,7 @@ export function exportGroupToPDF(
   doc.text(`4. Tabla de Saldos y Balances (en ${baseCurrency})`, 14, currentY);
 
   const balancesData = balances.map((b) => [
-    b.profile.full_name,
+    cleanPdfText(b.profile.full_name || 'Amigo'),
     formatMoney(b.total_paid, baseCurrency),
     formatMoney(b.total_owed, baseCurrency),
     (b.net_balance >= 0 ? '+' : '') + formatMoney(b.net_balance, baseCurrency),
@@ -434,9 +446,9 @@ export function exportGroupToPDF(
   const debtsData =
     debts.length > 0
       ? debts.map((d) => [
-          d.from_profile.full_name,
+          cleanPdfText(d.from_profile.full_name || 'Amigo'),
           'Paga a',
-          d.to_profile.full_name,
+          cleanPdfText(d.to_profile.full_name || 'Amigo'),
           formatMoney(d.amount, baseCurrency),
           d.to_profile.bizum_phone ? `Bizum: ${d.to_profile.bizum_phone}` : 'Efectivo / Transferencia',
         ])
@@ -464,7 +476,7 @@ export function exportGroupToPDF(
 
   const allExpensesData = expenses.map((e) => {
     const cat = getCategoryInfo(e.category);
-    const payerStr = e.payers?.map((p) => p.profile?.full_name).join(', ') || 'N/A';
+    const payerStr = e.payers?.map((p) => cleanPdfText(p.profile?.full_name)).join(', ') || 'N/A';
     const converted = getConvertedAmount(e, baseCurrency);
     const isForeign = e.currency !== baseCurrency;
 
@@ -473,8 +485,8 @@ export function exportGroupToPDF(
 
     return [
       formatDate(e.expense_date, 'dd/MM/yyyy'),
-      e.title,
-      cat.label,
+      cleanPdfText(e.title),
+      cleanPdfText(cat.label),
       payerStr,
       isForeign ? originalAmountStr : '-',
       convertedAmountStr,
@@ -506,13 +518,14 @@ export function exportGroupToPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Pachas: ${group.name} — Desglose Individual por Amigo`, 14, 13);
+  doc.text(`Pachas: ${cleanPdfText(group.name)} — Desglose Individual por Amigo`, 14, 13);
 
   let memberCurrentY = 28;
 
   balances.forEach((balance, memberIdx) => {
     const memberId = balance.user_id;
-    const memberName = balance.profile.full_name || 'Amigo';
+    const rawMemberName = balance.profile.full_name || 'Amigo';
+    const memberName = cleanPdfText(rawMemberName);
 
     // Find all expenses this member either paid for or participated in
     const memberExpenses = sortedExpenses.filter((exp) => {
@@ -539,10 +552,14 @@ export function exportGroupToPDF(
     doc.setLineWidth(0.3);
     doc.roundedRect(14, memberCurrentY, 182, 14, 2, 2, 'FD');
 
+    // Vector bullet
+    doc.setFillColor(16, 185, 129);
+    doc.circle(18, memberCurrentY + 5.5, 1.5, 'F');
+
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42); // Slate 900
-    doc.text(`👤 ${memberName}`, 18, memberCurrentY + 6);
+    doc.text(memberName, 22, memberCurrentY + 6.8);
 
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'normal');
@@ -580,8 +597,8 @@ export function exportGroupToPDF(
 
       return [
         formatDate(exp.expense_date, 'dd/MM/yyyy'),
-        exp.title,
-        cat.label,
+        cleanPdfText(exp.title),
+        cleanPdfText(cat.label),
         formatMoney(convertedTotal, baseCurrency),
         paidByMember > 0 ? formatMoney(paidByMember, baseCurrency) : '-',
         owedByMember > 0 ? formatMoney(owedByMember, baseCurrency) : '-',

@@ -286,6 +286,7 @@ export const es = {
     changeReceipt: 'Cambiar ticket',
     removeReceipt: 'Quitar',
     viewReceipt: 'Ver Ticket Adjunto ↗',
+    downloadReceipt: 'Descargar',
     noReceipt: 'Sin ticket adjunto',
     noExpensesTitle: 'Aún no hay gastos registrados',
     noExpensesSubtitle: '¡Añade el primer gasto del viaje haciendo clic en el botón de abajo!',

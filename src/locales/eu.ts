@@ -287,6 +287,7 @@ export const eu: TranslationDictionary = {
     changeReceipt: 'Aldatu tiketa',
     removeReceipt: 'Kendu',
     viewReceipt: 'Ikusi Erantsitako Tiketa ↗',
+    downloadReceipt: 'Deskargatu',
     noReceipt: 'Ez dago tiket erantsirik',
     noExpensesTitle: 'Oraindik ez dago gasturik erregistratuta',
     noExpensesSubtitle: 'Gehitu bidaiaren lehen gastua beheko botoian klik eginez!',

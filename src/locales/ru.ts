@@ -287,6 +287,7 @@ export const ru: TranslationDictionary = {
     changeReceipt: 'Заменить чек',
     removeReceipt: 'Удалить',
     viewReceipt: 'Посмотреть чек ↗',
+    downloadReceipt: 'Скачать',
     noReceipt: 'Чек не прикреплен',
     noExpensesTitle: 'Расходов пока нет',
     noExpensesSubtitle: 'Добавьте первый расход поездки, нажав кнопку ниже!',

@@ -31,12 +31,11 @@ export function formatEuropeanDateTime(dateString: string): string {
 }
 
 /**
- * Formats a date string or Date object using the active language/locale's date convention.
- * (e.g. '28/08/2026' for Spanish/French, '08/28/2026' for English, '28.08.2026' for German)
+ * Formats a date string or Date object strictly following the standard European day/month/year (dd/MM/yyyy) convention.
  */
 export function formatLocaleDate(
   dateStrOrObj?: string | Date | null,
-  language: string = 'es'
+  _language: string = 'es'
 ): string {
   if (!dateStrOrObj) return '';
   try {
@@ -64,11 +63,8 @@ export function formatLocaleDate(
       return String(dateStrOrObj);
     }
 
-    return new Intl.DateTimeFormat(language || 'es', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(date);
+    const pad = (n: number) => (n < 10 ? '0' : '') + n;
+    return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
   } catch {
     return String(dateStrOrObj);
   }

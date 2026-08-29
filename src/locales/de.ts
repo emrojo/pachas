@@ -287,6 +287,7 @@ export const de: TranslationDictionary = {
     changeReceipt: 'Beleg ändern',
     removeReceipt: 'Entfernen',
     viewReceipt: 'Angehängten Beleg ansehen ↗',
+    downloadReceipt: 'Herunterladen',
     noReceipt: 'Kein Beleg angehängt',
     noExpensesTitle: 'Noch keine Ausgaben erfasst',
     noExpensesSubtitle: 'Füge die erste Ausgabe der Reise über die Schaltfläche unten hinzu!',

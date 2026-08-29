@@ -287,6 +287,7 @@ export const hi: TranslationDictionary = {
     changeReceipt: 'रसीद बदलें',
     removeReceipt: 'हटाएं',
     viewReceipt: 'संलग्न रसीद देखें ↗',
+    downloadReceipt: 'डाउनलोड करें',
     noReceipt: 'कोई रसीद संलग्न नहीं है',
     noExpensesTitle: 'अभी तक कोई खर्चा दर्ज नहीं हुआ है',
     noExpensesSubtitle: 'नीचे दिए गए बटन पर क्लिक करके यात्रा का पहला खर्चा जोड़ें!',

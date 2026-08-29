@@ -287,6 +287,7 @@ export const gl: TranslationDictionary = {
     changeReceipt: 'Cambiar ticket',
     removeReceipt: 'Quitar',
     viewReceipt: 'Ver Ticket Adxunto ↗',
+    downloadReceipt: 'Descargar',
     noReceipt: 'Sen ticket adxunto',
     noExpensesTitle: 'Aínda non hai gastos rexistrados',
     noExpensesSubtitle: 'Engade o primeiro gasto da viaxe premendo no botón de abaixo!',

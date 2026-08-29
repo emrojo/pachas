@@ -287,6 +287,7 @@ export const zh: TranslationDictionary = {
     changeReceipt: '更换小票',
     removeReceipt: '删除',
     viewReceipt: '查看附件发票 ↗',
+    downloadReceipt: '下载',
     noReceipt: '无附件小票',
     noExpensesTitle: '暂无任何记账记录',
     noExpensesSubtitle: '点击下方按钮，记录本次旅行的第一笔账！',

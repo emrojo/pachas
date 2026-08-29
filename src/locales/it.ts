@@ -287,6 +287,7 @@ export const it: TranslationDictionary = {
     changeReceipt: 'Cambia scontrino',
     removeReceipt: 'Rimuovi',
     viewReceipt: 'Visualizza Scontrino Allegato ↗',
+    downloadReceipt: 'Scarica',
     noReceipt: 'Nessuno scontrino allegato',
     noExpensesTitle: 'Non ci sono ancora spese registrate',
     noExpensesSubtitle: 'Aggiungi la prima spesa del viaggio cliccando sul pulsante in basso!',
