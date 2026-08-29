@@ -125,3 +125,14 @@ export interface SimplifiedDebt {
   amount: number;
   currency: string;
 }
+
+export interface DailyExchangeRate {
+  id: string;
+  from_currency: string;
+  to_currency: string;
+  rate_date: string;
+  rate: number;
+  provider: string;
+  is_estimated?: boolean;
+  created_at: string;
+}

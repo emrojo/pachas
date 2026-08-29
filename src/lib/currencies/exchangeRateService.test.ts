@@ -223,4 +223,60 @@ describe('Exchange Rate Service', () => {
     expect(results[0].converted_amount).toBe(60);
     expect(progressCount).toBe(1);
   });
+
+  it('preloads and reuses daily rates without duplicate downloads', async () => {
+    vi.stubGlobal('window', {});
+    let callCount = 0;
+    global.fetch = vi.fn().mockImplementation(async () => {
+      callCount++;
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: [
+            { fromCurrency: 'USD', toCurrency: 'EUR', date: '2026-08-28', rate: 0.92, provider: 'ECB (Frankfurter)' },
+          ],
+        }),
+      } as Response;
+    });
+
+    const expenses: Expense[] = [
+      {
+        id: 'e-1',
+        group_id: 'g-1',
+        created_by: 'u-1',
+        title: 'Gasto 1',
+        amount: 100,
+        currency: 'USD',
+        exchange_rate: 1,
+        converted_amount: 100,
+        category: 'food',
+        split_type: 'EQUAL',
+        expense_date: '2026-08-28',
+        created_at: '2026-08-28T20:00:00Z',
+        updated_at: '2026-08-28T20:00:00Z',
+      },
+      {
+        id: 'e-2',
+        group_id: 'g-1',
+        created_by: 'u-1',
+        title: 'Gasto 2',
+        amount: 50,
+        currency: 'USD',
+        exchange_rate: 1,
+        converted_amount: 50,
+        category: 'food',
+        split_type: 'EQUAL',
+        expense_date: '2026-08-28',
+        created_at: '2026-08-28T21:00:00Z',
+        updated_at: '2026-08-28T21:00:00Z',
+      },
+    ];
+
+    const results = await recalculateAllExpensesForNewBaseCurrency(expenses, 'EUR', 'USD');
+    expect(results).toHaveLength(2);
+    expect(results[0].converted_amount).toBe(92);
+    expect(results[1].converted_amount).toBe(46);
+    vi.unstubAllGlobals();
+  });
 });

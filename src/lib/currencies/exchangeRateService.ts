@@ -128,12 +128,39 @@ export async function getHistoricalExchangeRate(
     }
   }
 
+  // 3. Central DB Table API check (in browser, downloads once per date and stores in PostgreSQL exchange_rates table)
+  if (typeof window !== 'undefined') {
+    try {
+      const apiRes = await fetch(
+        `/api/exchange-rates?from=${from}&to=${to}&date=${dateStr}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      if (apiRes.ok) {
+        const json = await apiRes.json();
+        if (json.success && json.data && typeof json.data.rate === 'number' && json.data.rate > 0) {
+          const result: ExchangeRateResult = {
+            fromCurrency: from,
+            toCurrency: to,
+            rate: json.data.rate,
+            date: json.data.date || dateStr,
+            provider: json.data.provider || 'ECB (Frankfurter)',
+            isEstimated: json.data.isEstimated,
+          };
+          saveToCache(cacheKey, result);
+          return result;
+        }
+      }
+    } catch {
+      // Continue to direct provider fallback
+    }
+  }
+
   // Ensure date is not in the future (use latest if future)
   const todayStr = new Date().toISOString().split('T')[0];
   const isFuture = dateStr > todayStr;
   const queryDate = isFuture ? 'latest' : dateStr;
 
-  // 3. Provider 1: Frankfurter API (European Central Bank - ECB Official Rates)
+  // 4. Provider 1: Frankfurter API (European Central Bank - ECB Official Rates)
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -178,7 +205,7 @@ export async function getHistoricalExchangeRate(
     // Continue to next provider
   }
 
-  // 4. Provider 2: Open Exchange Rates Fallback
+  // 5. Provider 2: Open Exchange Rates Fallback
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -209,7 +236,7 @@ export async function getHistoricalExchangeRate(
     // Continue to fallback
   }
 
-  // 5. Provider 3: Static Local Fallback Matrix
+  // 6. Provider 3: Static Local Fallback Matrix
   const fromObj = getCurrencyByCode(from);
   const toObj = getCurrencyByCode(to);
   const fallbackRate =
@@ -238,6 +265,50 @@ function saveToCache(key: string, result: ExchangeRateResult) {
       localStorage.setItem(key, JSON.stringify(result));
     } catch {
       // ignore quota errors
+    }
+  }
+}
+
+/**
+ * Preloads exchange rates for a list of expenses in batch from the central table
+ */
+export async function preloadExchangeRatesForGroup(
+  expenses: Expense[],
+  newBaseCurrency: string,
+  oldBaseCurrency?: string
+): Promise<void> {
+  const newBase = newBaseCurrency.toUpperCase().trim();
+  const itemsToFetch: Array<{ from: string; to: string; date: string }> = [];
+
+  for (const exp of expenses) {
+    const from = (exp.currency || oldBaseCurrency || 'EUR').toUpperCase().trim();
+    const dateStr = getCleanDate(exp.expense_date || exp.created_at);
+    if (from !== newBase) {
+      const cacheKey = `pachas_rate_${from}_${newBase}_${dateStr}`;
+      if (!memoryRateCache[cacheKey]) {
+        itemsToFetch.push({ from, to: newBase, date: dateStr });
+      }
+    }
+  }
+
+  if (itemsToFetch.length > 0 && typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/exchange-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: itemsToFetch }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          json.data.forEach((r: ExchangeRateResult) => {
+            const cacheKey = `pachas_rate_${r.fromCurrency}_${r.toCurrency}_${r.date}`;
+            saveToCache(cacheKey, r);
+          });
+        }
+      }
+    } catch {
+      // fallback to individual resolution
     }
   }
 }
@@ -376,6 +447,9 @@ export async function recalculateAllExpensesForNewBaseCurrency(
   oldBaseCurrency?: string,
   onProgress?: (completed: number, total: number) => void
 ): Promise<Expense[]> {
+  // Preload all needed rates in batch
+  await preloadExchangeRatesForGroup(expenses, newBaseCurrency, oldBaseCurrency);
+
   const total = expenses.length;
   const results: Expense[] = [];
 
