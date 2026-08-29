@@ -19,6 +19,7 @@ import {
 import { SplitType, ExpenseCategory, Expense } from '@/types/database';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
+import { getHistoricalExchangeRate, ExchangeRateResult } from '@/lib/currencies/exchangeRateService';
 
 import {
   toDateTimeLocalValue,
@@ -43,6 +44,9 @@ import {
   Clock,
   Trash2,
   ShieldAlert,
+  Loader2,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
 
@@ -97,6 +101,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [notes, setNotes] = useState('');
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isFetchingRate, setIsFetchingRate] = useState(false);
+  const [rateSourceInfo, setRateSourceInfo] = useState<{
+    source: string;
+    date: string;
+    rate: number;
+  } | null>(null);
 
   // Geolocation state
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -239,11 +249,51 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
 
 
+  // Fetch official rate from European Central Bank (Frankfurter) or fallback
+  const fetchOfficialRate = async (currCode: string, dateVal: string) => {
+    if (currCode.toUpperCase() === baseCurrency.toUpperCase()) {
+      setExchangeRateStr('1,0000');
+      setRateSourceInfo(null);
+      return;
+    }
+
+    try {
+      setIsFetchingRate(true);
+      const res = await getHistoricalExchangeRate(baseCurrency, currCode, dateVal);
+      setExchangeRateStr(res.rate.toFixed(4).replace('.', ','));
+      setRateSourceInfo({
+        source: res.provider,
+        date: res.date,
+        rate: res.rate,
+      });
+    } catch {
+      const fallback = getDefaultExchangeRate(currCode);
+      setExchangeRateStr(fallback.toFixed(4).replace('.', ','));
+    } finally {
+      setIsFetchingRate(false);
+    }
+  };
+
   const handleCurrencyChange = (newCurrency: string) => {
     setCurrency(newCurrency);
-    const rate = getDefaultExchangeRate(newCurrency);
-    setExchangeRateStr(rate.toFixed(4).replace('.', ','));
+    if (!isReadOnly) {
+      fetchOfficialRate(newCurrency, expenseDateTime);
+    }
   };
+
+  const handleDateTimeChange = (newDateTime: string) => {
+    setExpenseDateTime(newDateTime);
+    if (!isReadOnly && currency !== baseCurrency) {
+      fetchOfficialRate(currency, newDateTime);
+    }
+  };
+
+  // Auto fetch rate on initial open if foreign currency and not editing with custom rate
+  useEffect(() => {
+    if (isOpen && currency !== baseCurrency && !rateSourceInfo && !isReadOnly) {
+      fetchOfficialRate(currency, expenseDateTime);
+    }
+  }, [isOpen, currency, baseCurrency]);
 
   const totalAmount = parseEuropeanAmount(amountStr);
   const isForeign = currency !== baseCurrency;
@@ -525,6 +575,41 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Official Rate Badge or Loading state */}
+            {isFetchingRate ? (
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-900/20 px-3 py-2 rounded-xl">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0" />
+                <span>{t('expenses.fetchingExchangeRate')}</span>
+              </div>
+            ) : rateSourceInfo ? (
+              <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-100/60 dark:bg-amber-900/30 px-3 py-1.5 rounded-xl border border-amber-200/80 dark:border-amber-800/40 flex-wrap">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span className="truncate">
+                    {t('expenses.officialRateApplied', {
+                      source: rateSourceInfo.source,
+                      date: rateSourceInfo.date,
+                      from: baseCurrency,
+                      to: currency,
+                      rate: rateSourceInfo.rate.toFixed(4),
+                    })}
+                  </span>
+                </div>
+
+                {parseEuropeanAmount(exchangeRateStr) !== rateSourceInfo.rate && !isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setExchangeRateStr(rateSourceInfo.rate.toFixed(4).replace('.', ','))}
+                    className="text-[10px] font-bold text-amber-900 dark:text-amber-200 hover:underline flex items-center gap-1 cursor-pointer shrink-0"
+                    title={t('expenses.resetOfficialRate')}
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>{t('expenses.resetOfficialRate')}</span>
+                  </button>
+                )}
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -995,7 +1080,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <input
                 type="datetime-local"
                 value={expenseDateTime}
-                onChange={(e) => !isReadOnly && setExpenseDateTime(e.target.value)}
+                onChange={(e) => !isReadOnly && handleDateTimeChange(e.target.value)}
                 disabled={isReadOnly}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
               />

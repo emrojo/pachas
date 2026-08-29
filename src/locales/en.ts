@@ -149,6 +149,9 @@ export const en: TranslationDictionary = {
   },
 
   groups: {
+    recalculatingCurrency: 'Recalculating expenses to new base currency ({currency})...',
+    recalculatedCurrencySuccess: '{count} expenses recalculated with official historical exchange rates.',
+    currencyChangeWarning: '⚠️ Changing group base currency will automatically recalculate all existing expenses using the official exchange rate on their date.',
     tripTools: 'Trip Tools',
     moreOptions: 'Options',
     sectionViews: 'Routes & Analytics',
@@ -229,6 +232,9 @@ export const en: TranslationDictionary = {
     importExpensesSubtitle: 'Add multiple expenses at once by uploading a CSV template',
   },
   expenses: {
+    fetchingExchangeRate: 'Fetching official ECB exchange rate...',
+    officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
+    resetOfficialRate: 'Reset official rate',
     receiptSafetyWarning: '🔒 For your security, do not upload receipts showing full credit card numbers (PAN) or CVV codes.',
     locationPrivacyInfo: '📍 Location will only be visible to members of this trip.',
     reportExpense: 'Report expense or image',

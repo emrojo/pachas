@@ -32,6 +32,7 @@ import {
   clearSyncQueue,
   SyncAction,
 } from '@/lib/sync/syncManager';
+import { recalculateAllExpensesForNewBaseCurrency } from '@/lib/currencies/exchangeRateService';
 
 import { generateUUID } from '@/lib/id';
 
@@ -610,7 +611,48 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const updatedGroups = groups.map((g) => (g.id === groupId ? updatedGroup : g));
-    saveState(updatedGroups);
+    const groupExpenses = expenses[groupId] || [];
+    const isBaseCurrencyChanged =
+      Boolean(data.base_currency) &&
+      data.base_currency?.toUpperCase() !== existing.base_currency?.toUpperCase();
+
+    if (isBaseCurrencyChanged && groupExpenses.length > 0) {
+      try {
+        const recalculatedExpenses = await recalculateAllExpensesForNewBaseCurrency(
+          groupExpenses,
+          data.base_currency!
+        );
+        const updatedExpensesMap = {
+          ...expenses,
+          [groupId]: recalculatedExpenses,
+        };
+        saveState(updatedGroups, undefined, updatedExpensesMap);
+
+        // Sync recalculated expenses to backend
+        recalculatedExpenses.forEach(async (exp) => {
+          try {
+            await fetch(`/api/expenses/${encodeURIComponent(exp.id)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...exp,
+                expenseDate: exp.expense_date,
+                exchangeRate: exp.exchange_rate,
+                convertedAmount: exp.converted_amount,
+                participants: exp.participants,
+              }),
+            });
+          } catch {
+            // ignore network error
+          }
+        });
+      } catch (err) {
+        console.error('Error recalculating group expenses on currency change:', err);
+        saveState(updatedGroups);
+      }
+    } else {
+      saveState(updatedGroups);
+    }
 
     try {
       await fetch(`/api/groups/${encodeURIComponent(groupId)}`, {
