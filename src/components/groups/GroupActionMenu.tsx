@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Compass,
   BarChart3,
+  Calculator as CalcIcon,
   UploadCloud,
   FileDown,
   FileSpreadsheet,
@@ -21,6 +22,7 @@ export interface GroupActionMenuProps {
   onOpenSettings: () => void;
   onOpenRouteMap: () => void;
   onOpenCharts: () => void;
+  onOpenAudit?: () => void;
   onOpenImport: () => void;
   onExportPDF: () => void;
   onExportCSV: () => void;
@@ -33,6 +35,7 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
   onOpenSettings,
   onOpenRouteMap,
   onOpenCharts,
+  onOpenAudit,
   onOpenImport,
   onExportPDF,
   onExportCSV,
@@ -85,7 +88,7 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
       </button>
 
       {/* 3. SUBMENU DROPDOWN: Herramientas y Opciones */}
-      <div className="order-3 relative" ref={menuRef}>
+      <div className="order-3 relative z-30" ref={menuRef}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -107,7 +110,7 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
 
         {/* Dropdown Menu Panel */}
         {isOpen && (
-          <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-md">
+          <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-50 p-2 space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-md">
             {/* Section 1: Rutas y Análisis */}
             <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {t('groups.sectionViews')}
@@ -144,6 +147,24 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
                 </span>
               </div>
             </button>
+
+            {onOpenAudit && (
+              <button
+                type="button"
+                onClick={() => handleAction(onOpenAudit)}
+                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300 rounded-xl transition-colors text-left"
+              >
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
+                  <CalcIcon className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="block truncate">{t('audit.title')}</span>
+                  <span className="block text-[10px] font-normal text-slate-400 truncate">
+                    {t('audit.checkAuditSubtitle')}
+                  </span>
+                </div>
+              </button>
+            )}
 
             {/* Section 2: Importar y Exportar */}
             <div className="border-t border-slate-100 dark:border-slate-800/80 my-1" />

@@ -279,10 +279,10 @@ export default function GroupDetailPage() {
             {t('groups.backToTrips')}
           </Link>
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
+          <div className="relative z-20 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl shadow-xs">
             {/* Optional Cover Banner */}
             {group.cover_image_url && (
-              <div className="relative h-36 sm:h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800 group">
+              <div className="relative h-36 sm:h-44 w-full overflow-hidden rounded-t-3xl bg-slate-100 dark:bg-slate-800 group">
                 <img
                   src={group.cover_image_url}
                   alt={group.name}
@@ -351,6 +351,7 @@ export default function GroupDetailPage() {
                   onOpenSettings={() => setIsEditGroupOpen(true)}
                   onOpenRouteMap={() => setIsRouteMapOpen(true)}
                   onOpenCharts={() => setActiveTab('charts')}
+                  onOpenAudit={() => router.push(`/groups/${group.id}/audit`)}
                   onOpenImport={() => setIsImportModalOpen(true)}
                   onExportPDF={() => exportGroupToPDF(group, expenses, balances, debts)}
                   onExportCSV={() => exportGroupToCSV(group, expenses, balances)}
