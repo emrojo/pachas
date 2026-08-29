@@ -25,10 +25,19 @@ const VALID_CATEGORIES: ExpenseCategory[] = [
 ];
 
 export function getGeminiApiKey(): string | undefined {
+  const sanitizeKey = (raw?: string) => {
+    if (!raw) return undefined;
+    let clean = raw.trim().replace(/^["']|["']$/g, '').trim();
+    // Ignore example placeholder
+    if (!clean || clean.startsWith('AIzaSy...') || clean === 'tu_api_key_aqui') {
+      return undefined;
+    }
+    return clean;
+  };
+
   // 1. Direct process.env check
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
-    return process.env.GEMINI_API_KEY.trim();
-  }
+  const envKey = sanitizeKey(process.env.GEMINI_API_KEY);
+  if (envKey) return envKey;
 
   // 2. Direct filesystem read from deploy/.env.production, .env.production, etc.
   const candidatePaths = [
@@ -46,12 +55,14 @@ export function getGeminiApiKey(): string | undefined {
     try {
       if (fs.existsSync(/* turbopackIgnore: true */ p)) {
         const content = fs.readFileSync(/* turbopackIgnore: true */ p, 'utf-8');
-        const match = content.match(/^\s*GEMINI_API_KEY\s*=\s*(["']?)(.*?)\1\s*$/m);
-        if (match && match[2] && match[2].trim()) {
-          const key = match[2].trim();
-          process.env.GEMINI_API_KEY = key;
-          console.log(`[Gemini OCR] 🔑 GEMINI_API_KEY cargada con éxito desde ${p}`);
-          return key;
+        const match = content.match(/^\s*GEMINI_API_KEY\s*=\s*(?:["']?)([^#\r\n"']+)(?:["']?)/m);
+        if (match && match[1]) {
+          const key = sanitizeKey(match[1]);
+          if (key) {
+            process.env.GEMINI_API_KEY = key;
+            console.log(`[Gemini OCR] 🔑 GEMINI_API_KEY cargada con éxito desde ${p}`);
+            return key;
+          }
         }
       }
     } catch {}

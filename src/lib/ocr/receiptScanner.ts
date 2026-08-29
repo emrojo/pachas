@@ -226,6 +226,7 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
 
     if (res.ok) {
       const json = await res.json();
+      console.log('[ReceiptScanner] /api/ocr/scan response:', json);
       if (json.success && json.data) {
         const d = json.data;
         return {
@@ -238,10 +239,14 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
           confidence: d.confidence || 0.98,
           source: 'gemini-1.5-flash',
         };
+      } else if (json.fallback) {
+        console.warn('[ReceiptScanner] Servidor solicitó fallback:', json.message || json.error);
       }
+    } else {
+      console.warn(`[ReceiptScanner] /api/ocr/scan respondió con código HTTP ${res.status}`);
     }
   } catch (visionErr) {
-    console.warn('[ReceiptScanner] Gemini Vision API unavailable, falling back to local OCR:', visionErr);
+    console.warn('[ReceiptScanner] Gemini Vision API no disponible, usando OCR local:', visionErr);
   }
 
   // 2. Fallback to Local Client-Side OCR (tesseract.js)
