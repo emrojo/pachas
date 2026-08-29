@@ -244,6 +244,24 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-26.10**: **Unified Global Footer ([`Footer.tsx`](file:///d:/Projects/pachas/src/components/layout/Footer.tsx))**:
   - Consistent footer with direct links to `/terms`, `/privacy`, `/cookies`, and `/legal` across landing, registration, profile, and legal pages.
 
+### 🧮 FR-27: Step-by-Step Mathematical Balance Audit with Virtual Calculator
+- **FR-27.1**: **Dedicated Audit Page (`/groups/[id]/audit`)**:
+  - Full mathematical transparency walkthrough providing sequential step-by-step verification of how a member's net balance was computed.
+- **FR-27.2**: **Audited Member Switcher**:
+  - Ability to audit the current user or switch to any other group member to verify their personal balance calculation.
+- **FR-27.3**: **Sequential Calculation Phases with Dual Formula Breakdown**:
+  - *Phase 1*: Initial setup and final target balance statement.
+  - *Phase 2*: Individual and shared payments fronted by the user ($\sum \text{Paid}$) with distinct `+ MONEY ADVANCED` badge and payment subtotal summary.
+  - *Phase 3*: Consumption quotas participated in by the user ($\sum \text{Consumed}$) with distinct `- CONSUMPTION SHARE` badge, **dual arithmetic breakdown** (Step A: ticket division $\text{Ticket} \div N$, and Step B: addition to running total consumed $\text{Prev} + \text{Share}$), and consumption subtotal summary.
+  - *Phase 4*: Gross balance calculation ($\text{Total Paid} - \text{Total Consumed} = \text{Gross Balance}$).
+  - *Phase 5*: Direct settlements and Bizum transfers already executed ($\sum \text{Sent} - \sum \text{Received}$).
+  - *Phase 6*: Final verified net balance and debt minimization settlement plan.
+- **FR-27.4**: **Interactive Virtual Calculator ([`VirtualCalculator.tsx`](file:///d:/Projects/pachas/src/components/calculator/VirtualCalculator.tsx))**:
+  - Digital LCD display with formula history, full touch keypad, and physical keyboard numpad support.
+  - Dual 1-click **"Load Division"** and **"Load Addition"** buttons copying exact mathematical expressions directly into the calculator display for instant verification.
+- **FR-27.5**: **Navigation & Access Points**:
+  - Direct option in Group Tools Submenu (`GroupActionMenu.tsx`) and quick-access banner in Balances Summary (`BalanceSummary.tsx`).
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -300,3 +318,4 @@ This document serves as the official and permanent registry for all **user requi
 | **28/08/2026** | 🔐 Fixed & Added | **FR-25** | Robust authentication, dynamic HTTP/HTTPS session cookie resolution (`secure: isHttps`), case-insensitive email queries, session sync (`/api/auth/session`), and password recovery mailer with SMTP/Resend/SendGrid support. |
 | **29/08/2026** | ⚖️ Added | **FR-26** | Complete legal framework and GDPR compliance: Terms of Service, Privacy Policy, Cookie Policy, Legal Notice, mandatory registration consent, receipt safety warnings, content reporting (`/api/reports`), personal data portability (`/api/user/export-data`), right to erasure (`/api/user/delete-account`), cookie consent banner, and global footer. |
 | **29/08/2026** | 🌟 Changed | **FR-04.6** | Group page action hierarchy redesign: Prominent primary **Add Expense** button, secondary **Invite Friends** button, and organized dropdown **Submenu** for remaining tools (Routes, Charts, Import, PDF, CSV, Settings). |
+| **29/08/2026** | 🧮 Added | **FR-27** | Step-by-step mathematical balance audit with interactive virtual calculator (`/groups/[id]/audit`): sequential proof of payments, consumptions, and settlements with 1-tap formula loading into calculator. |

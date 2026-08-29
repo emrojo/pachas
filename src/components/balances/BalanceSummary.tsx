@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Group, MemberBalance } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatMoney } from '@/lib/currencies';
-import { TrendingUp, TrendingDown, CheckCircle2, Users } from 'lucide-react';
+import { TrendingUp, TrendingDown, CheckCircle2, Users, Calculator, ChevronRight } from 'lucide-react';
 
 export const BalanceSummary: React.FC<{
   group: Group;
@@ -88,6 +89,27 @@ export const BalanceSummary: React.FC<{
           </div>
         </div>
       </div>
+
+      {/* Interactive Calculator Audit Banner */}
+      <Link
+        href={`/groups/${group.id}/audit`}
+        className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700/80 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 rounded-2xl flex items-center justify-between gap-3 transition-all group shadow-2xs"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Calculator className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="block text-xs font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              {t('audit.title')}
+            </span>
+            <span className="block text-[11px] font-normal text-slate-400">
+              {t('audit.checkAuditSubtitle')}
+            </span>
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
+      </Link>
 
       {/* Friends Balances Breakdown */}
       <Card className="space-y-3">
