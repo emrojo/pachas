@@ -370,24 +370,22 @@ export default function ProfilePage() {
         </Card>
 
         {/* Language Preference Card */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-                <Globe className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {t('profile.languagePreference')}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {t('profile.languagePreferenceSubtitle')}
-                </p>
-              </div>
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center shrink-0">
+              <Globe className="w-5 h-5" />
             </div>
-
-            <LanguageSelector variant="buttons" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {t('profile.languagePreference')}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('profile.languagePreferenceSubtitle')}
+              </p>
+            </div>
           </div>
+
+          <LanguageSelector variant="grid" />
         </Card>
 
         {/* Privacy & GDPR Data Management */}
