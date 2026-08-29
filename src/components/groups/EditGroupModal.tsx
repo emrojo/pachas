@@ -344,6 +344,13 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
               </option>
             ))}
           </select>
+
+          {currency !== group.base_currency && (
+            <div className="p-3 mt-2 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <span>{t('groups.currencyChangeWarning')}</span>
+            </div>
+          )}
         </div>
 
         {/* Admin Danger / Archive Zone */}
@@ -397,7 +404,9 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
           </Button>
           <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-xs font-bold gap-1.5">
             <Check className="w-4 h-4" />
-            {t('groups.saveChanges')}
+            {isLoading && currency !== group.base_currency
+              ? t('groups.recalculatingCurrency', { currency })
+              : t('groups.saveChanges')}
           </Button>
         </div>
       </form>

@@ -268,6 +268,18 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-27.7**: **Navigation & Access Points**:
   - Direct option in Group Tools Submenu (`GroupActionMenu.tsx`) and quick-access banner in Balances Summary (`BalanceSummary.tsx`).
 
+### 💱 FR-28: Reliable Real-Time & Historical Exchange Rate Engine and Group Base Currency Recalculation
+- **FR-28.1**: **Official Exchange Rate Integration (Frankfurter / European Central Bank & Fallbacks)**:
+  - Connects to the European Central Bank (ECB) daily fixing dataset via Frankfurter API for exact historical rates on the date of each expense, with Open Exchange Rates and local matrix fallbacks.
+- **FR-28.2**: **Automatic Form Rate Fetching ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
+  - When selecting a foreign currency or modifying the expense date, automatically fetches and populates the official exchange rate for that exact day.
+  - Displays official rate badge with provider and date details, and a 1-tap **Reset Official Rate** button if custom values were entered.
+- **FR-28.3**: **Automatic Group Base Currency Recalculation ([`EditGroupModal.tsx`](file:///d:/Projects/pachas/src/components/groups/EditGroupModal.tsx) & [`PachasContext.tsx`](file:///d:/Projects/pachas/src/context/PachasContext.tsx))**:
+  - Changing the base currency of a group triggers an automated batch recalculation of all expenses:
+    - Queries official historical exchange rates for each expense's transaction date.
+    - Updates converted amounts and recalculates participant quota shares (`amount_owed`) across all split types (`EQUAL`, `EXACT`, `PERCENTAGE`, `SHARES`).
+    - Persists changes to the database and synchronizes local state.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -325,3 +337,4 @@ This document serves as the official and permanent registry for all **user requi
 | **29/08/2026** | ⚖️ Added | **FR-26** | Complete legal framework and GDPR compliance: Terms of Service, Privacy Policy, Cookie Policy, Legal Notice, mandatory registration consent, receipt safety warnings, content reporting (`/api/reports`), personal data portability (`/api/user/export-data`), right to erasure (`/api/user/delete-account`), cookie consent banner, and global footer. |
 | **29/08/2026** | 🌟 Changed | **FR-04.6** | Group page action hierarchy redesign: Prominent primary **Add Expense** button, secondary **Invite Friends** button, and organized dropdown **Submenu** for remaining tools (Routes, Charts, Import, PDF, CSV, Settings). |
 | **29/08/2026** | 🧮 Added | **FR-27** | Step-by-step mathematical balance audit with interactive virtual calculator (`/groups/[id]/audit`): sequential proof of payments, consumptions, and settlements with 1-tap formula loading into calculator. |
+| **29/08/2026** | 💱 Added | **FR-28** | Real-time & historical exchange rate engine (European Central Bank / Frankfurter + Open Exchange Rates), auto-fetching by transaction date in expense form, and batch recalculation of group expenses on base currency change. |

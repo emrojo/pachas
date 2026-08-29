@@ -147,6 +147,9 @@ export const es = {
   },
 
   groups: {
+    recalculatingCurrency: 'Recalculando gastos a la nueva divisa base ({currency})...',
+    recalculatedCurrencySuccess: 'Se han recalculado {count} gastos con tipos de cambio históricos oficiales.',
+    currencyChangeWarning: '⚠️ Cambiar la divisa base del grupo recalculará automáticamente todos los gastos existentes según el tipo de cambio oficial en la fecha en que se realizaron.',
     tripTools: 'Herramientas',
     moreOptions: 'Opciones',
     sectionViews: 'Rutas y Estadísticas',
@@ -227,6 +230,9 @@ export const es = {
     importExpensesSubtitle: 'Añade múltiples gastos de golpe subiendo una plantilla o archivo CSV',
   },
   expenses: {
+    fetchingExchangeRate: 'Consultando tipo de cambio oficial del BCE...',
+    officialRateApplied: 'Tipo de cambio oficial ({source}, {date}): 1 {from} = {rate} {to}',
+    resetOfficialRate: 'Restablecer tasa oficial',
     receiptSafetyWarning: '🔒 Por tu seguridad, no subas tickets que muestren números completos de tarjeta de crédito (PAN) o códigos CVV.',
     locationPrivacyInfo: '📍 La ubicación solo será visible para los integrantes de este viaje.',
     reportExpense: 'Reportar gasto o imagen',
