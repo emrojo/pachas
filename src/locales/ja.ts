@@ -554,4 +554,22 @@ export const ja: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "オフラインモード：変更をローカルに保存中"
+  },
+  notifications: {
+  
+    "groupTitle": "グループ通知",
+    "enableOnJoin": "このグループの通知を有効にする",
+    "enableOnJoinHint": "新しい支出や精算が追加されたときに通知を受け取ります。",
+    "enabled": "通知：有効",
+    "disabled": "通知：無効",
+    "receiving": "通知を受信中",
+    "muted": "ミュート中",
+    "newExpenseTitle": "グループに新しい支出",
+    "newExpenseBody": "{name} が {amount} {currency} の支出を追加しました",
+    "newSettlementTitle": "精算完了",
+    "newSettlementBody": "{name} が {amount} {currency} の支払いを記録しました"
+  },
 };

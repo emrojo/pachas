@@ -14,9 +14,16 @@ import {
   FileDown,
   FileSpreadsheet,
   Settings,
+  Bell,
+  BellOff,
 } from 'lucide-react';
+import {
+  getGroupNotificationPreference,
+  setGroupNotificationPreference,
+} from '@/lib/notifications/pushNotificationService';
 
 export interface GroupActionMenuProps {
+  groupId?: string;
   onOpenNewExpense: () => void;
   onOpenInvite: () => void;
   onOpenSettings: () => void;
@@ -30,6 +37,7 @@ export interface GroupActionMenuProps {
 }
 
 export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
+  groupId,
   onOpenNewExpense,
   onOpenInvite,
   onOpenSettings,
@@ -43,7 +51,32 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Fetch notification preference on mount / dropdown open
+  useEffect(() => {
+    if (groupId) {
+      getGroupNotificationPreference(groupId).then((enabled) => {
+        setNotificationsEnabled(enabled);
+      });
+    }
+  }, [groupId, isOpen]);
+
+  const handleToggleNotifications = async () => {
+    if (!groupId || isUpdatingNotifications) return;
+    try {
+      setIsUpdatingNotifications(true);
+      const nextState = !notificationsEnabled;
+      const success = await setGroupNotificationPreference(groupId, nextState);
+      if (success) {
+        setNotificationsEnabled(nextState);
+      }
+    } finally {
+      setIsUpdatingNotifications(false);
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -214,11 +247,54 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
               </div>
             </button>
 
-            {/* Section 3: Gestión del Grupo */}
+            {/* Section 3: Gestión del Grupo & Notificaciones */}
             <div className="border-t border-slate-100 dark:border-slate-800/80 my-1" />
             <div className="px-3 pt-1.5 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {t('groups.sectionManage')}
             </div>
+
+            {groupId && (
+              <button
+                type="button"
+                onClick={handleToggleNotifications}
+                disabled={isUpdatingNotifications}
+                className="w-full flex items-center justify-between gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-left group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                    notificationsEnabled
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                  }`}>
+                    {notificationsEnabled ? (
+                      <Bell className="w-4 h-4" />
+                    ) : (
+                      <BellOff className="w-4 h-4" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block truncate">
+                      {notificationsEnabled
+                        ? (t('notifications.enabled') || 'Notificaciones: Sí')
+                        : (t('notifications.disabled') || 'Notificaciones: No')}
+                    </span>
+                    <span className="block text-[10px] font-normal text-slate-400 truncate">
+                      {notificationsEnabled
+                        ? (t('notifications.receiving') || 'Recibiendo avisos')
+                        : (t('notifications.muted') || 'Silenciadas')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`w-8 h-4 rounded-full p-0.5 transition-colors shrink-0 ${
+                  notificationsEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
+                }`}>
+                  <div className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                    notificationsEnabled ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </div>
+              </button>
+            )}
 
             <button
               type="button"

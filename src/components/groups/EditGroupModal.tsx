@@ -19,8 +19,14 @@ import {
   Archive,
   ArchiveRestore,
   Shield,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import {
+  getGroupNotificationPreference,
+  setGroupNotificationPreference,
+} from '@/lib/notifications/pushNotificationService';
 
 const EMOJI_PRESETS = [
   '🏖️', '🏔️', '🍕', '✈️', '⛵', '🚗', '⛺', '🎉', '🌴', '🍹', '🏰', '⛷️', '🌮', '🍣', '🎸', '🎒', '🎡', '🏄', '🥂', '🏙️'
@@ -66,6 +72,8 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(group.cover_image_url || null);
   const [visualMode, setVisualMode] = useState<'emoji' | 'photo'>(group.cover_image_url ? 'photo' : 'emoji');
   const [currency, setCurrency] = useState(group.base_currency || 'EUR');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [error, setError] = useState('');
@@ -79,8 +87,26 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
       setVisualMode(group.cover_image_url ? 'photo' : 'emoji');
       setCurrency(group.base_currency || 'EUR');
       setError('');
+
+      getGroupNotificationPreference(group.id).then((enabled) => {
+        setNotificationsEnabled(enabled);
+      });
     }
   }, [isOpen, group]);
+
+  const handleToggleNotifications = async () => {
+    if (isUpdatingNotifications) return;
+    try {
+      setIsUpdatingNotifications(true);
+      const nextState = !notificationsEnabled;
+      const ok = await setGroupNotificationPreference(group.id, nextState);
+      if (ok) {
+        setNotificationsEnabled(nextState);
+      }
+    } finally {
+      setIsUpdatingNotifications(false);
+    }
+  };
 
   // Handle local image file upload securely
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -351,6 +377,42 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
               <span>{t('groups.currencyChangeWarning')}</span>
             </div>
           )}
+        </div>
+
+        {/* Group Notification Preferences */}
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+            <Bell className="w-3.5 h-3.5 text-emerald-500" />
+            <span>{t('notifications.groupTitle') || 'Notificaciones del Grupo'}</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                {notificationsEnabled
+                  ? (t('notifications.enabled') || 'Notificaciones: Activadas')
+                  : (t('notifications.disabled') || 'Notificaciones: Desactivadas')}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                {t('notifications.enableOnJoinHint') || 'Recibe avisos cuando se registren nuevos gastos o liquidaciones.'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleToggleNotifications}
+              disabled={isUpdatingNotifications}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                notificationsEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                  notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Admin Danger / Archive Zone */}

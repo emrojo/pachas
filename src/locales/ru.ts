@@ -554,4 +554,22 @@ export const ru: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "Автономный режим: изменения сохраняются локально"
+  },
+  notifications: {
+  
+    "groupTitle": "Уведомления группы",
+    "enableOnJoin": "Включить уведомления для этой группы",
+    "enableOnJoinHint": "Получайте уведомления при добавлении новых расходов или расчетов.",
+    "enabled": "Уведомления: Включены",
+    "disabled": "Уведомления: Выключены",
+    "receiving": "Оповещения активны",
+    "muted": "Без звука",
+    "newExpenseTitle": "Новый расход в группе",
+    "newExpenseBody": "{name} добавил расход на сумму {amount} {currency}",
+    "newSettlementTitle": "Долг погашен",
+    "newSettlementBody": "{name} записал платеж на сумму {amount} {currency}"
+  },
 };

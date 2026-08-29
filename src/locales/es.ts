@@ -553,6 +553,24 @@ export const es = {
     checkAuditSubtitle: 'Comprueba paso a paso cómo se calcula tu saldo',
     noExpensesYet: 'Aún no hay gastos registrados para auditar en este grupo.',
   },
+  offline: {
+  
+    "banner": "Modo sin conexión: guardando cambios localmente"
+  },
+  notifications: {
+  
+    "groupTitle": "Notificaciones del Grupo",
+    "enableOnJoin": "Activar notificaciones para este grupo",
+    "enableOnJoinHint": "Recibe avisos cuando se registren nuevos gastos o liquidaciones.",
+    "enabled": "Notificaciones: Activadas",
+    "disabled": "Notificaciones: Desactivadas",
+    "receiving": "Recibiendo avisos",
+    "muted": "Silenciadas",
+    "newExpenseTitle": "Nuevo gasto en tu grupo",
+    "newExpenseBody": "{name} ha añadido un gasto de {amount} {currency}",
+    "newSettlementTitle": "Deuda liquidada",
+    "newSettlementBody": "{name} ha registrado un pago de {amount} {currency}"
+  },
 } as const;
 
 type DeepStringRecord<T> = {

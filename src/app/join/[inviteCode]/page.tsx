@@ -9,8 +9,9 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Bell } from 'lucide-react';
 import { GroupMember } from '@/types/database';
+import { subscribeDeviceToPush } from '@/lib/notifications/pushNotificationService';
 
 export default function JoinGroupPage() {
   const params = useParams();
@@ -25,6 +26,7 @@ export default function JoinGroupPage() {
   const [isFetchingGroup, setIsFetchingGroup] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [enableNotifications, setEnableNotifications] = useState(false);
   const [error, setError] = useState('');
 
   // 1. Check local groups first
@@ -75,7 +77,12 @@ export default function JoinGroupPage() {
     try {
       setIsLoading(true);
       setError('');
-      const group = await joinGroup(inviteCode);
+
+      if (enableNotifications) {
+        await subscribeDeviceToPush();
+      }
+
+      const group = await joinGroup(inviteCode, enableNotifications);
       if (group) {
         setIsSuccess(true);
         setTimeout(() => {
@@ -149,10 +156,30 @@ export default function JoinGroupPage() {
                 </div>
               </div>
 
-              {/* Current user confirmation */}
+              {/* Current user confirmation & notifications opt-in */}
               {currentUser && (
-                <div className="text-xs text-slate-500">
-                  {t('join.joinWithAccount', { name: currentUser.full_name, email: currentUser.email })}
+                <div className="space-y-3">
+                  <div className="text-xs text-slate-500">
+                    {t('join.joinWithAccount', { name: currentUser.full_name, email: currentUser.email })}
+                  </div>
+
+                  <label className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 cursor-pointer text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={enableNotifications}
+                      onChange={(e) => setEnableNotifications(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <Bell className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>{t('notifications.enableOnJoin') || 'Activar notificaciones para este grupo'}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                        {t('notifications.enableOnJoinHint') || 'Recibe avisos cuando se registren nuevos gastos o liquidaciones.'}
+                      </p>
+                    </div>
+                  </label>
                 </div>
               )}
 

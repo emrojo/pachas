@@ -554,4 +554,22 @@ export const ar: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "وضع عدم الاتصال: حفظ التغييرات محليًا"
+  },
+  notifications: {
+  
+    "groupTitle": "إشعارات المجموعة",
+    "enableOnJoin": "تفعيل الإشعارات لهذه المجموعة",
+    "enableOnJoinHint": "تلقي تنبيهات عند إضافة نفقات أو تسويات جديدة.",
+    "enabled": "الإشعارات: مفعلة",
+    "disabled": "الإشعارات: معطلة",
+    "receiving": "استقبال التنبيهات",
+    "muted": "مكتومة",
+    "newExpenseTitle": "مصروف جديد في مجموعتك",
+    "newExpenseBody": "أضاف {name} مصروفاً بقيمة {amount} {currency}",
+    "newSettlementTitle": "تمت تسوية الدين",
+    "newSettlementBody": "سجل {name} دفعة بقيمة {amount} {currency}"
+  },
 };

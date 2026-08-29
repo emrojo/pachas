@@ -554,4 +554,22 @@ export const fr: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "Mode hors ligne : enregistrement local des modifications"
+  },
+  notifications: {
+  
+    "groupTitle": "Notifications du groupe",
+    "enableOnJoin": "Activer les notifications pour ce groupe",
+    "enableOnJoinHint": "Recevez des alertes lorsque de nouvelles dépenses ou règlements sont ajoutés.",
+    "enabled": "Notifications : Activées",
+    "disabled": "Notifications : Désactivées",
+    "receiving": "Alertes actives",
+    "muted": "En sourdine",
+    "newExpenseTitle": "Nouvelle dépense dans votre groupe",
+    "newExpenseBody": "{name} a ajouté une dépense de {amount} {currency}",
+    "newSettlementTitle": "Dette réglée",
+    "newSettlementBody": "{name} a enregistré un paiement de {amount} {currency}"
+  },
 };

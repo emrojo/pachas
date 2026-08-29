@@ -554,4 +554,22 @@ export const tr: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "Çevrimdışı mod: değişiklikler yerel olarak kaydediliyor"
+  },
+  notifications: {
+  
+    "groupTitle": "Grup Bildirimleri",
+    "enableOnJoin": "Bu grup için bildirimleri etkinleştir",
+    "enableOnJoinHint": "Yeni harcamalar veya ödemeler eklendiğinde bildirim alın.",
+    "enabled": "Bildirimler: Etkin",
+    "disabled": "Bildirimler: Devre Dışı",
+    "receiving": "Bildirimler alınıyor",
+    "muted": "Sessize alındı",
+    "newExpenseTitle": "Grubunuzda yeni harcama",
+    "newExpenseBody": "{name} {amount} {currency} tutarında bir harcama ekledi",
+    "newSettlementTitle": "Borç ödendi",
+    "newSettlementBody": "{name} {amount} {currency} tutarında bir ödeme kaydetti"
+  },
 };

@@ -87,7 +87,7 @@ interface PachasContextType {
   ) => Promise<Settlement>;
   archiveGroup: (groupId: string) => Promise<Group>;
   restoreGroup: (groupId: string) => Promise<Group>;
-  joinGroup: (inviteCode: string) => Promise<Group | null>;
+  joinGroup: (inviteCode: string, enableNotifications?: boolean) => Promise<Group | null>;
   addMemberByEmail: (groupId: string, email: string) => Promise<boolean>;
   addMemberToGroup: (groupId: string, userId: string) => Promise<boolean>;
   removeMemberFromGroup: (groupId: string, userId: string) => Promise<boolean>;
@@ -691,7 +691,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const joinGroup = async (inviteCode: string): Promise<Group | null> => {
+  const joinGroup = async (inviteCode: string, enableNotifications: boolean = false): Promise<Group | null> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para unirte a un grupo.');
     }
@@ -701,7 +701,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const res = await fetch('/api/groups/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteCode: inviteCode.trim() }),
+        body: JSON.stringify({ inviteCode: inviteCode.trim(), enableNotifications }),
       });
 
       const data = await res.json();
@@ -1479,6 +1479,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...data,
     };
     setCurrentUser(updated);
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updated));
 
     // Update in availableUsers list too
     const updatedUsers = availableUsers.map((u) => (u.id === currentUser.id ? updated : u));
@@ -1495,6 +1496,29 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setMembers(updatedMembers);
     localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(updatedMembers));
 
+    // 1. Sync to PostgreSQL backend
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: updated.full_name,
+          bizum_phone: updated.bizum_phone,
+          avatar_url: updated.avatar_url,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.user) {
+          _setCurrentUser(json.user);
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(json.user));
+        }
+      }
+    } catch (err) {
+      console.warn('Error saving profile to PostgreSQL backend:', err);
+    }
+
+    // 2. Also try Supabase if configured as fallback
     try {
       const supabase = createClient();
       await supabase.from('profiles').update({

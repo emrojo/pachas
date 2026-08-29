@@ -346,6 +346,7 @@ export default function GroupDetailPage() {
 
                 {/* Action Buttons: Primary Add Expense, Secondary Invite, and Submenu */}
                 <GroupActionMenu
+                  groupId={group.id}
                   onOpenNewExpense={handleOpenNewExpense}
                   onOpenInvite={() => setIsInviteOpen(true)}
                   onOpenSettings={() => setIsEditGroupOpen(true)}

@@ -36,3 +36,82 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ user: null, error: err.message }, { status: 500 });
   }
 }
+
+export async function PUT(request: NextRequest) {
+  const token = request.cookies.get('sb-access-token')?.value;
+
+  if (!token) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
+  const payload = await verifyJwt(token);
+  if (!payload?.sub) {
+    return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { full_name, bizum_phone, avatar_url } = body;
+
+    const pool = getDbPool();
+    if (!pool) {
+      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
+    }
+
+    // 1. Update public.profiles
+    const res = await pool.query(
+      `UPDATE public.profiles
+       SET full_name = COALESCE($1, full_name),
+           bizum_phone = $2,
+           avatar_url = $3,
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [
+        full_name !== undefined && full_name !== null ? full_name : null,
+        bizum_phone !== undefined ? bizum_phone : null,
+        avatar_url !== undefined ? avatar_url : null,
+        payload.sub,
+      ]
+    );
+
+    // 2. Also update auth.users raw_user_meta_data for consistency
+    try {
+      await pool.query(
+        `UPDATE auth.users
+         SET raw_user_meta_data = jsonb_set(
+           jsonb_set(
+             COALESCE(raw_user_meta_data, '{}'::jsonb),
+             '{avatar_url}',
+             to_jsonb($1::text)
+           ),
+           '{full_name}',
+           to_jsonb($2::text)
+         )
+         WHERE id = $3`,
+        [
+          avatar_url || '',
+          full_name || payload.full_name || '',
+          payload.sub,
+        ]
+      );
+    } catch {}
+
+    const updatedProfile = res.rows[0] || {
+      id: payload.sub,
+      email: payload.email,
+      full_name,
+      bizum_phone,
+      avatar_url,
+      role: payload.role || 'member',
+    };
+
+    return NextResponse.json({
+      success: true,
+      user: updatedProfile,
+    });
+  } catch (err: any) {
+    console.error('Error updating profile in /api/auth/me:', err);
+    return NextResponse.json({ error: err.message || 'Error al actualizar perfil' }, { status: 500 });
+  }
+}
