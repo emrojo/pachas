@@ -39,8 +39,11 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
     }
   }, [expenseId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendComment = async (e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!commentText.trim() || isSubmitting || !currentUser) return;
 
     try {
@@ -149,17 +152,25 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
 
       {/* Add Comment Input */}
       {currentUser ? (
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 pt-1">
+        <div className="flex items-center gap-2 pt-1">
           <input
             type="text"
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSendComment();
+              }
+            }}
             placeholder={t('comments.placeholder')}
             maxLength={500}
             className="flex-1 px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
           />
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSendComment}
             size="sm"
             variant="brand"
             isLoading={isSubmitting}
@@ -169,7 +180,7 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
             <Send className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t('comments.send')}</span>
           </Button>
-        </form>
+        </div>
       ) : (
         <p className="text-[11px] text-slate-400 text-center italic">
           {t('comments.loginRequired')}
