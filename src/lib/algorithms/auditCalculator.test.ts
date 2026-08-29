@@ -107,10 +107,15 @@ describe('Audit Calculator Algorithm', () => {
     expect(grossStep).toBeDefined();
     expect(grossStep?.runningNet).toBe(40);
 
-    // Final step
+    // Final step with FinalSettlementProof
     const finalStep = steps.find((s) => s.type === 'final_net');
     expect(finalStep).toBeDefined();
     expect(finalStep?.runningNet).toBe(40);
+    expect(finalStep?.finalSettlementProof).toBeDefined();
+    expect(finalStep?.finalSettlementProof?.isCreditor).toBe(true);
+    expect(finalStep?.finalSettlementProof?.totalSettlementAmount).toBe(40);
+    expect(finalStep?.finalSettlementProof?.zeroingCalcExpr).toBe('40 - 40');
+    expect(finalStep?.explanation).toContain('0,00');
   });
 
   it('tracks direct settlements accurately in Bob audit trail', () => {

@@ -503,6 +503,10 @@ export const es = {
     errorJoining: 'No se pudo unir al grupo. El enlace puede haber caducado.',
   },
   audit: {
+    settlementSumOperation: 'Paso A: Suma de transferencias pendientes',
+    zeroingProofOperation: 'Paso B: Demostración de saldo a 0,00 € (Cuentas Saldadas)',
+    loadSettlementSum: 'Cargar Suma de Pagos',
+    loadZeroingProof: 'Cargar Cuadre a Cero',
     currencyConversion: 'Conversión de Moneda y Tipo de Cambio',
     loadConversionInCalc: 'Cargar Conversión',
     exchangeRateApplied: 'Tipo de cambio aplicado',

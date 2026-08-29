@@ -255,13 +255,17 @@ This document serves as the official and permanent registry for all **user requi
   - *Phase 3*: Consumption quotas participated in by the user ($\sum \text{Consumed}$) with distinct `- CONSUMPTION SHARE` badge, original ticket value in natural language, **arithmetic breakdown** (Step A: ticket division $\text{Ticket} \div N$, and Step B: addition to running total consumed $\text{Prev} + \text{Share}$), and consumption subtotal summary.
   - *Phase 4*: Gross balance calculation ($\text{Total Paid} - \text{Total Consumed} = \text{Gross Balance}$).
   - *Phase 5*: Direct settlements and Bizum transfers already executed ($\sum \text{Sent} - \sum \text{Received}$).
-  - *Phase 6*: Final verified net balance and debt minimization settlement plan.
-- **FR-27.4**: **Currency Conversion & Exchange Rate Verification**:
+  - *Phase 6*: Final verified net balance and debt minimization settlement plan with mathematical zeroing proof.
+- **FR-27.4**: **Final Settlement Sum & Balance Zeroing Proof ($0{,}00\text{ €}$)**:
+  - Phase 6 incorporates a dual mathematical proof:
+    - *Step A (Sum of Pending Transfers)*: Sum of all transfers to receive (for creditors) or pay (for debtors) with 1-click **"Load Transfers Sum"** button.
+    - *Step B (Proof of Zero Balance)*: Arithmetic balance zeroing equation ($\text{Net Balance} \pm \text{Total Transfers} = 0{,}00\text{ €}$) with 1-click **"Load Zero Proof"** button proving that all accounts are 100% squared.
+- **FR-27.5**: **Currency Conversion & Exchange Rate Verification**:
   - For expenses in foreign currencies (USD, JPY, GBP, etc.): Dedicated currency conversion arithmetic step ($\text{Original Amount} \times \text{Exchange Rate} = \text{Base Amount}$) with applied rate badge and 1-tap **"Load Conversion"** button into the virtual calculator.
-- **FR-27.5**: **Interactive Virtual Calculator ([`VirtualCalculator.tsx`](file:///d:/Projects/pachas/src/components/calculator/VirtualCalculator.tsx))**:
+- **FR-27.6**: **Interactive Virtual Calculator ([`VirtualCalculator.tsx`](file:///d:/Projects/pachas/src/components/calculator/VirtualCalculator.tsx))**:
   - Digital LCD display with formula history, full touch keypad, and physical keyboard numpad support.
-  - 1-click buttons (**"Load Conversion"**, **"Load Division"**, **"Load Addition"**) copying exact mathematical expressions directly into the calculator display for instant verification.
-- **FR-27.6**: **Navigation & Access Points**:
+  - 1-click buttons (**"Load Conversion"**, **"Load Division"**, **"Load Addition"**, **"Load Transfers Sum"**, **"Load Zero Proof"**) copying exact mathematical expressions directly into the calculator display for instant verification.
+- **FR-27.7**: **Navigation & Access Points**:
   - Direct option in Group Tools Submenu (`GroupActionMenu.tsx`) and quick-access banner in Balances Summary (`BalanceSummary.tsx`).
 
 ---
