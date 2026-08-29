@@ -503,6 +503,10 @@ export const es = {
     errorJoining: 'No se pudo unir al grupo. El enlace puede haber caducado.',
   },
   audit: {
+    currencyConversion: 'Conversión de Moneda y Tipo de Cambio',
+    loadConversionInCalc: 'Cargar Conversión',
+    exchangeRateApplied: 'Tipo de cambio aplicado',
+    originalTicketValue: 'Valor original del ticket',
     calcSplitOperation: 'Paso A: Cálculo de tu cuota en el ticket',
     calcSumOperation: 'Paso B: Suma al Total Consumido acumulado',
     loadSplitInCalc: 'Cargar División',

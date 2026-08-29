@@ -503,6 +503,10 @@ export const fr: TranslationDictionary = {
     errorJoining: 'Impossible de rejoindre le groupe. Le lien a peut-être expiré.',
   },
   audit: {
+    currencyConversion: 'Currency Conversion & Exchange Rate',
+    loadConversionInCalc: 'Load Conversion',
+    exchangeRateApplied: 'Applied exchange rate',
+    originalTicketValue: 'Original ticket value',
     calcSplitOperation: 'Step A: Calculate your share of the ticket',
     calcSumOperation: 'Step B: Add to Running Total Consumed',
     loadSplitInCalc: 'Load Division',

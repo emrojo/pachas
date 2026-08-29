@@ -135,4 +135,46 @@ describe('Audit Calculator Algorithm', () => {
     expect(settlementSteps).toHaveLength(1);
     expect(settlementSteps[0].stepAmount).toBe(10);
   });
+
+  it('handles foreign currency conversions and generates conversionInfo and rich descriptions', () => {
+    const foreignExpenses: Expense[] = [
+      {
+        id: 'e-foreign-1',
+        group_id: 'g-1',
+        created_by: 'u-1',
+        title: 'Hotel Tokyo',
+        amount: 15000,
+        currency: 'JPY',
+        exchange_rate: 0.0062,
+        converted_amount: 93,
+        category: 'accommodation',
+        split_type: 'EQUAL',
+        expense_date: '2026-08-15',
+        created_at: '2026-08-15T10:00:00Z',
+        updated_at: '2026-08-15T10:00:00Z',
+        payers: [{ id: 'p-f-1', expense_id: 'e-foreign-1', user_id: 'u-1', amount_paid: 15000 }],
+        participants: [
+          { id: 'pt-f-1', expense_id: 'e-foreign-1', user_id: 'u-1', amount_owed: 31 },
+          { id: 'pt-f-2', expense_id: 'e-foreign-1', user_id: 'u-2', amount_owed: 31 },
+          { id: 'pt-f-3', expense_id: 'e-foreign-1', user_id: 'u-3', amount_owed: 31 },
+        ],
+      },
+    ];
+
+    const steps = generateUserAuditTrail('u-1', 'EUR', members, foreignExpenses, []);
+    const paymentStep = steps.find((s) => s.type === 'payment');
+    expect(paymentStep).toBeDefined();
+    expect(paymentStep?.conversionInfo).toBeDefined();
+    expect(paymentStep?.conversionInfo?.isForeignCurrency).toBe(true);
+    expect(paymentStep?.conversionInfo?.originalCurrency).toBe('JPY');
+    expect(paymentStep?.conversionInfo?.originalAmount).toBe(15000);
+    expect(paymentStep?.conversionInfo?.conversionCalcExpr).toBe('15000 * 0.0062');
+    expect(paymentStep?.explanation).toContain('15.000');
+
+    const consumptionStep = steps.find((s) => s.type === 'consumption');
+    expect(consumptionStep).toBeDefined();
+    expect(consumptionStep?.conversionInfo).toBeDefined();
+    expect(consumptionStep?.explanation).toContain('15.000');
+    expect(consumptionStep?.explanation).toContain('31');
+  });
 });
