@@ -148,6 +148,11 @@ export const eu: TranslationDictionary = {
     lowestAmount: 'Zenbateko txikiena',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'Gastuak',
     balancesTab: 'Saldoak',
     chartsTab: 'Estatistikak',

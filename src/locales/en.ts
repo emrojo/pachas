@@ -149,6 +149,11 @@ export const en: TranslationDictionary = {
   },
 
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'Expenses',
     balancesTab: 'Balances',
     chartsTab: 'Charts',

@@ -148,6 +148,11 @@ export const ru: TranslationDictionary = {
     lowestAmount: 'Сначала мелкие',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'Расходы',
     balancesTab: 'Баланс',
     chartsTab: 'Статистика',

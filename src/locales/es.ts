@@ -147,6 +147,11 @@ export const es = {
   },
 
   groups: {
+    tripTools: 'Herramientas',
+    moreOptions: 'Opciones',
+    sectionViews: 'Rutas y Estadísticas',
+    sectionExport: 'Importar y Exportar',
+    sectionManage: 'Ajustes del Viaje',
     expensesTab: 'Gastos',
     balancesTab: 'Balances',
     chartsTab: 'Estadísticas',

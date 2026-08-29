@@ -148,6 +148,11 @@ export const fr: TranslationDictionary = {
     lowestAmount: 'Montant le plus bas',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'Dépenses',
     balancesTab: 'Soldes',
     chartsTab: 'Statistiques',

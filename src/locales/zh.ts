@@ -148,6 +148,11 @@ export const zh: TranslationDictionary = {
     lowestAmount: '金额最低',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: '账目',
     balancesTab: '结算',
     chartsTab: '统计',

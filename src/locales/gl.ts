@@ -148,6 +148,11 @@ export const gl: TranslationDictionary = {
     lowestAmount: 'Menor importe',
   },
   groups: {
+    tripTools: 'Trip Tools',
+    moreOptions: 'Options',
+    sectionViews: 'Routes & Analytics',
+    sectionExport: 'Import & Export',
+    sectionManage: 'Trip Settings',
     expensesTab: 'Gastos',
     balancesTab: 'Balances',
     chartsTab: 'Estatísticas',
