@@ -23,7 +23,7 @@ import {
 } from '@/lib/demoData';
 import { calculateBalances, simplifyDebts } from '@/lib/algorithms/simplifyDebts';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { isUserAdmin, isDemoModeAllowed } from '@/lib/authConfig';
 import {
   getSyncQueue,
@@ -123,15 +123,7 @@ const STORAGE_KEYS = {
 };
 
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, _setCurrentUser] = useState<Profile | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEYS.USER);
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return null;
-  });
+  const [currentUser, _setCurrentUser] = useState<Profile | null>(null);
   const [availableUsers, setAvailableUsers] = useState<Profile[]>(DEMO_USERS);
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Record<string, GroupMember[]>>({});
@@ -244,26 +236,28 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // 1. Try checking auth with timeout protection (max 2500ms)
         const authPromise = async () => {
-          try {
-            const { data: authData } = await supabase.auth.getUser();
-            if (authData?.user) {
-              const { data: dbProfile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', authData.user.id)
-                .maybeSingle();
+          if (isSupabaseConfigured()) {
+            try {
+              const { data: authData } = await supabase.auth.getUser();
+              if (authData?.user) {
+                const { data: dbProfile } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', authData.user.id)
+                  .maybeSingle();
 
-              return {
-                id: authData.user.id,
-                email: authData.user.email || '',
-                full_name: dbProfile?.full_name || authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'Usuario',
-                avatar_url: dbProfile?.avatar_url || authData.user.user_metadata?.avatar_url || null,
-                bizum_phone: dbProfile?.bizum_phone || authData.user.user_metadata?.bizum_phone || null,
-                role: dbProfile?.role || authData.user.user_metadata?.role || 'member',
-                created_at: authData.user.created_at,
-              };
-            }
-          } catch {}
+                return {
+                  id: authData.user.id,
+                  email: authData.user.email || '',
+                  full_name: dbProfile?.full_name || authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'Usuario',
+                  avatar_url: dbProfile?.avatar_url || authData.user.user_metadata?.avatar_url || null,
+                  bizum_phone: dbProfile?.bizum_phone || authData.user.user_metadata?.bizum_phone || null,
+                  role: dbProfile?.role || authData.user.user_metadata?.role || 'member',
+                  created_at: authData.user.created_at,
+                };
+              }
+            } catch {}
+          }
 
           try {
             const meRes = await fetch('/api/auth/me');
@@ -412,6 +406,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const syncPendingQueue = async () => {
     if (typeof window === 'undefined' || !navigator.onLine) return;
+    if (!isSupabaseConfigured()) return;
     try {
       const supabase = createClient();
       await processSyncQueue(supabase, (syncedItem: SyncAction) => {
@@ -738,7 +733,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (g) => g.invite_code.toLowerCase() === inviteCode.trim().toLowerCase()
     );
 
-    if (!targetGroup) {
+    if (!targetGroup && isSupabaseConfigured()) {
       try {
         const supabase = createClient();
         const { data } = await supabase
@@ -779,16 +774,18 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       saveState(updatedGroups, updatedMembers);
 
-      try {
-        const supabase = createClient();
-        await supabase.from('group_members').upsert({
-          id: newMember.id,
-          group_id: targetGroup.id,
-          user_id: currentUser.id,
-          role: 'member',
-        });
-      } catch (e) {
-        console.warn('Supabase joinGroup sync warning:', e);
+      if (isSupabaseConfigured()) {
+        try {
+          const supabase = createClient();
+          await supabase.from('group_members').upsert({
+            id: newMember.id,
+            group_id: targetGroup.id,
+            user_id: currentUser.id,
+            role: 'member',
+          });
+        } catch (e) {
+          console.warn('Supabase joinGroup sync warning:', e);
+        }
       }
     }
 
@@ -1498,15 +1495,19 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // 1. Sync to PostgreSQL backend
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       const res = await fetch('/api/auth/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           full_name: updated.full_name,
           bizum_phone: updated.bizum_phone,
           avatar_url: updated.avatar_url,
         }),
       });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const json = await res.json();
         if (json.user) {
@@ -1518,15 +1519,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('Error saving profile to PostgreSQL backend:', err);
     }
 
-    // 2. Also try Supabase if configured as fallback
-    try {
-      const supabase = createClient();
-      await supabase.from('profiles').update({
-        full_name: updated.full_name,
-        bizum_phone: updated.bizum_phone,
-        avatar_url: updated.avatar_url,
-      }).eq('id', updated.id);
-    } catch (e) {}
+    // 2. Also try Supabase only if actually configured
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = createClient();
+        await supabase.from('profiles').update({
+          full_name: updated.full_name,
+          bizum_phone: updated.bizum_phone,
+          avatar_url: updated.avatar_url,
+        }).eq('id', updated.id);
+      } catch (e) {}
+    }
   };
 
   const logout = async () => {
@@ -1534,19 +1537,21 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {}
 
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error('Error signing out from Supabase:', e);
-    } finally {
+    if (isSupabaseConfigured()) {
       try {
-        localStorage.removeItem(STORAGE_KEYS.USER);
-        document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      } catch (e) {}
-      _setCurrentUser(null);
+        const supabase = createClient();
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.error('Error signing out from Supabase:', e);
+      }
     }
+
+    try {
+      localStorage.removeItem(STORAGE_KEYS.USER);
+      document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    } catch (e) {}
+    _setCurrentUser(null);
   };
 
 
