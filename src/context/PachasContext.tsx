@@ -620,7 +620,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const recalculatedExpenses = await recalculateAllExpensesForNewBaseCurrency(
           groupExpenses,
-          data.base_currency!
+          data.base_currency!,
+          existing.base_currency
         );
         const updatedExpensesMap = {
           ...expenses,
@@ -890,7 +891,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const memberProfiles = new Map(grpMembers.map((m) => [m.user_id, m.profile]));
 
     const exchangeRate = input.exchangeRate || 1.0;
-    const convertedAmount = Math.round((input.amount / exchangeRate) * 100) / 100;
+    const convertedAmount = Math.round(input.amount * exchangeRate * 100) / 100;
 
     // Calculate splits on the original expense currency
     const { results } = calculateSplits(
@@ -1153,7 +1154,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const memberProfiles = new Map(grpMembers.map((m) => [m.user_id, m.profile]));
 
     const exchangeRate = input.exchangeRate || 1.0;
-    const convertedAmount = Math.round((input.amount / exchangeRate) * 100) / 100;
+    const convertedAmount = Math.round(input.amount * exchangeRate * 100) / 100;
 
     // Calculate splits on the original expense currency
     const { results } = calculateSplits(

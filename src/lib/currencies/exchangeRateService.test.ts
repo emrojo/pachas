@@ -84,6 +84,69 @@ describe('Exchange Rate Service', () => {
     expect(recalculatedUSD.participants?.[1].amount_owed).toBe(50);
   });
 
+  it('applies different historical exchange rates depending on the exact payment date', async () => {
+    const expenseDate1: Expense = {
+      id: 'e-date-1',
+      group_id: 'g-1',
+      created_by: 'u-1',
+      title: 'Comida Mayo 2024',
+      amount: 100,
+      currency: 'EUR',
+      exchange_rate: 1,
+      converted_amount: 100,
+      category: 'food',
+      split_type: 'EQUAL',
+      expense_date: '2024-05-15',
+      created_at: '2024-05-15T12:00:00Z',
+      updated_at: '2024-05-15T12:00:00Z',
+      payers: [{ id: 'p-1', expense_id: 'e-date-1', user_id: 'u-1', amount_paid: 100 }],
+      participants: [{ id: 'pt-1', expense_id: 'e-date-1', user_id: 'u-1', amount_owed: 100 }],
+    };
+
+    const expenseDate2: Expense = {
+      id: 'e-date-2',
+      group_id: 'g-1',
+      created_by: 'u-1',
+      title: 'Comida Agosto 2026',
+      amount: 100,
+      currency: 'EUR',
+      exchange_rate: 1,
+      converted_amount: 100,
+      category: 'food',
+      split_type: 'EQUAL',
+      expense_date: '2026-08-10',
+      created_at: '2026-08-10T12:00:00Z',
+      updated_at: '2026-08-10T12:00:00Z',
+      payers: [{ id: 'p-2', expense_id: 'e-date-2', user_id: 'u-1', amount_paid: 100 }],
+      participants: [{ id: 'pt-2', expense_id: 'e-date-2', user_id: 'u-1', amount_owed: 100 }],
+    };
+
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('2024-05-15')) {
+        return {
+          ok: true,
+          json: async () => ({ amount: 1, base: 'EUR', date: '2024-05-15', rates: { USD: 1.0832 } }),
+        } as Response;
+      }
+      if (url.includes('2026-08-10')) {
+        return {
+          ok: true,
+          json: async () => ({ amount: 1, base: 'EUR', date: '2026-08-10', rates: { USD: 1.1555 } }),
+        } as Response;
+      }
+      return { ok: false } as Response;
+    });
+
+    const res1 = await recalculateExpenseForNewBaseCurrency(expenseDate1, 'USD', 'EUR');
+    const res2 = await recalculateExpenseForNewBaseCurrency(expenseDate2, 'USD', 'EUR');
+
+    expect(res1.exchange_rate).toBe(1.0832);
+    expect(res1.converted_amount).toBe(108.32);
+
+    expect(res2.exchange_rate).toBe(1.1555);
+    expect(res2.converted_amount).toBe(115.55);
+  });
+
   it('recalculates multiple expenses in batch', async () => {
     const expenses: Expense[] = [
       {
@@ -109,7 +172,7 @@ describe('Exchange Rate Service', () => {
     ];
 
     let progressCount = 0;
-    const results = await recalculateAllExpensesForNewBaseCurrency(expenses, 'EUR', (c) => {
+    const results = await recalculateAllExpensesForNewBaseCurrency(expenses, 'EUR', 'EUR', (c) => {
       progressCount = c;
     });
 

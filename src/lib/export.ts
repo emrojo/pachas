@@ -16,7 +16,7 @@ function getConvertedAmount(exp: Expense, baseCurrency: string): number {
     return exp.converted_amount;
   }
   if (exp.exchange_rate && exp.exchange_rate > 0) {
-    return Math.round((exp.amount / exp.exchange_rate) * 100) / 100;
+    return Math.round(exp.amount * exp.exchange_rate * 100) / 100;
   }
   return exp.amount;
 }

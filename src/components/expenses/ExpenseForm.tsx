@@ -151,11 +151,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     }
   };
 
-  // Default exchange rate calculator
+  // Default exchange rate calculator (value of 1 unit of foreign currency in baseCurrency)
   const getDefaultExchangeRate = (currCode: string): number => {
-    const currObj = getCurrencyByCode(currCode);
-    const baseObj = getCurrencyByCode(baseCurrency);
-    return currObj.rateToEur / baseObj.rateToEur;
+    const fromObj = getCurrencyByCode(currCode);
+    const toObj = getCurrencyByCode(baseCurrency);
+    return fromObj.rateToEur > 0 && toObj.rateToEur > 0
+      ? toObj.rateToEur / fromObj.rateToEur
+      : 1.0;
   };
 
 
@@ -169,7 +171,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setAmountStr(numAmount.toFixed(2).replace('.', ','));
       setCurrency(expenseToEdit.currency || baseCurrency);
       const rawRate = Number(expenseToEdit.exchange_rate);
-      const rate = rawRate && !isNaN(rawRate) ? rawRate : getDefaultExchangeRate(expenseToEdit.currency || baseCurrency);
+      const rate =
+        rawRate && !isNaN(rawRate) && rawRate > 0
+          ? rawRate
+          : getDefaultExchangeRate(expenseToEdit.currency || baseCurrency);
       setExchangeRateStr(rate.toFixed(4).replace('.', ','));
       setCategory(expenseToEdit.category || 'food');
       setExpenseDateTime(toDateTimeLocalValue(expenseToEdit.expense_date || getCurrentDateTimeISOWithTimezone()));
@@ -259,7 +264,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
     try {
       setIsFetchingRate(true);
-      const res = await getHistoricalExchangeRate(baseCurrency, currCode, dateVal);
+      const res = await getHistoricalExchangeRate(currCode, baseCurrency, dateVal);
       setExchangeRateStr(res.rate.toFixed(4).replace('.', ','));
       setRateSourceInfo({
         source: res.provider,
@@ -299,10 +304,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const isForeign = currency !== baseCurrency;
   const currencyObj = getCurrencyByCode(currency);
 
-  // Exchange rate applied
+  // Exchange rate applied (1 Foreign = X Base)
   const exchangeRate = parseEuropeanAmount(exchangeRateStr) || getDefaultExchangeRate(currency) || 1.0;
   const convertedTotal = isForeign
-    ? Math.round((totalAmount / exchangeRate) * 100) / 100
+    ? Math.round((totalAmount * exchangeRate) * 100) / 100
     : totalAmount;
 
   // Selected single payer object
@@ -553,7 +558,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   {t('expenses.exchangeRate')}
                 </span>
                 <div className="flex items-center gap-1 mt-0.5">
-                  <span className="text-xs text-slate-500 font-semibold">1 {baseCurrency} =</span>
+                  <span className="text-xs text-slate-500 font-semibold">1 {currency} =</span>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -562,7 +567,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     readOnly={isReadOnly}
                     className="w-20 text-xs font-bold px-2 py-0.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 text-right"
                   />
-                  <span className="text-xs text-slate-500 font-semibold">{currency}</span>
+                  <span className="text-xs text-slate-500 font-semibold">{baseCurrency}</span>
                 </div>
               </div>
 
@@ -590,8 +595,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     {t('expenses.officialRateApplied', {
                       source: rateSourceInfo.source,
                       date: rateSourceInfo.date,
-                      from: baseCurrency,
-                      to: currency,
+                      from: currency,
+                      to: baseCurrency,
                       rate: rateSourceInfo.rate.toFixed(4),
                     })}
                   </span>
