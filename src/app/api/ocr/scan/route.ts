@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || !apiKey.trim()) {
+      console.log('[Gemini OCR] ⚠️ GEMINI_API_KEY no configurada. Activando fallback a OCR local.');
       return NextResponse.json(
         {
           fallback: true,
@@ -93,7 +94,7 @@ Reglas críticas de extracción:
     const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
+    console.log(`[Gemini 1.5 Flash] 📸 Procesando ticket con IA de Visión (tamaño base64: ${base64Data.length} chars)...`);
     const geminiResponse = await fetch(geminiUrl, {
       method: 'POST',
       headers: {
@@ -173,6 +174,8 @@ Reglas críticas de extracción:
       confidence: 0.98,
       source: 'gemini-1.5-flash',
     };
+
+    console.log(`[Gemini 1.5 Flash] ✨ Resultado extraído con éxito: Comercio="${result.title}", Total=${result.amount}€, Fecha=${result.date}, Categoría=${result.category}`);
 
     return NextResponse.json({
       success: true,
