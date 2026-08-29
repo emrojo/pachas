@@ -31,10 +31,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure notifications_enabled column exists
-    await pool.query(`
-      alter table public.group_members
-      add column if not exists notifications_enabled boolean default false not null;
-    `);
+    try {
+      await pool.query(`
+        alter table public.group_members
+        add column if not exists notifications_enabled boolean default false not null;
+      `);
+    } catch {
+      // Ignored if permissions are restricted
+    }
 
     // 1. Find group
     const groupRes = await pool.query(
@@ -57,12 +61,25 @@ export async function POST(request: NextRequest) {
 
     // 2. Insert member into group_members if not already joined
     const memberId = randomUUID();
-    await pool.query(
-      `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
-       VALUES ($1, $2, $3, 'member', $4, NOW())
-       ON CONFLICT (group_id, user_id) DO UPDATE SET notifications_enabled = EXCLUDED.notifications_enabled`,
-      [memberId, group.id, payload.sub, Boolean(enableNotifications)]
-    );
+    try {
+      await pool.query(
+        `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
+         VALUES ($1, $2, $3, 'member', $4, NOW())
+         ON CONFLICT (group_id, user_id) DO UPDATE SET notifications_enabled = EXCLUDED.notifications_enabled`,
+        [memberId, group.id, payload.sub, Boolean(enableNotifications)]
+      );
+    } catch (insertErr: any) {
+      if (insertErr.code === '42703' || String(insertErr.message).includes('notifications_enabled')) {
+        await pool.query(
+          `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
+           VALUES ($1, $2, $3, 'member', NOW())
+           ON CONFLICT (group_id, user_id) DO NOTHING`,
+          [memberId, group.id, payload.sub]
+        );
+      } else {
+        throw insertErr;
+      }
+    }
 
     // 3. Fetch all members with their profile
     const membersRes = await pool.query(

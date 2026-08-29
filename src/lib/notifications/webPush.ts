@@ -121,7 +121,20 @@ export async function notifyGroupMembers(
     if (targetUserIds.length > 0) {
       await sendPushToUsers(targetUserIds, payload);
     }
-  } catch (err) {
-    console.warn('Error notifying group members via push:', err);
+  } catch (err: any) {
+    if (err.code === '42703' || String(err.message).includes('notifications_enabled')) {
+      try {
+        const res = await pool.query(
+          `SELECT user_id FROM public.group_members WHERE group_id = $1 AND user_id != $2`,
+          [groupId, excludeUserId]
+        );
+        const targetUserIds = res.rows.map((r: { user_id: string }) => r.user_id);
+        if (targetUserIds.length > 0) {
+          await sendPushToUsers(targetUserIds, payload);
+        }
+      } catch {}
+    } else {
+      console.warn('Error notifying group members via push:', err);
+    }
   }
 }
