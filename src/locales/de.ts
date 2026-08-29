@@ -573,4 +573,20 @@ export const de: TranslationDictionary = {
     "newSettlementTitle": "Schulden beglichen",
     "newSettlementBody": "{name} hat eine Zahlung von {amount} {currency} erfasst"
   },
+  ocr: {
+    scanningReceipt: 'Beleg wird mit KI gescannt...',
+    scanningReceiptSubtitle: 'Betrag, Datum und Händler werden automatisch extrahiert',
+    detectedTitle: 'Auf dem Beleg erkannte Daten',
+    applyData: 'Automatisch ausfüllen',
+    scanReceipt: 'Beleg scannen',
+  },
+  comments: {
+    title: 'Kommentare',
+    subtitle: 'Klarstellungen oder Gruppennotizen',
+    noComments: 'Noch keine Kommentare zu dieser Ausgabe. Sei der Erste!',
+    placeholder: 'Kommentar oder Notiz schreiben...',
+    send: 'Senden',
+    loginRequired: 'Melde dich an, um einen Kommentar zu hinterlassen.',
+    confirmDelete: 'Diesen Kommentar löschen?',
+  },
 };

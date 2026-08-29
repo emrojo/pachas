@@ -573,4 +573,20 @@ export const ru: TranslationDictionary = {
     "newSettlementTitle": "Долг погашен",
     "newSettlementBody": "{name} записал платеж на сумму {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Сканирование чека с ИИ...',
+    scanningReceiptSubtitle: 'Автоматическое извлечение суммы, даты и названия заведения',
+    detectedTitle: 'Данные, распознанные на чеке',
+    applyData: 'Автозаполнить расход',
+    scanReceipt: 'Сканировать чек',
+  },
+  comments: {
+    title: 'Комментарии',
+    subtitle: 'Уточнения и заметки участников',
+    noComments: 'К этому расходу пока нет комментариев. Будьте первым!',
+    placeholder: 'Напишите комментарий или уточнение...',
+    send: 'Отправить',
+    loginRequired: 'Войдите, чтобы оставить комментарий.',
+    confirmDelete: 'Удалить этот комментарий?',
+  },
 };

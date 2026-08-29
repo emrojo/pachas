@@ -157,3 +157,12 @@ export interface PushNotificationPayload {
   data?: Record<string, any>;
 }
 
+export interface ExpenseComment {
+  id: string;
+  expense_id: string;
+  user_id: string;
+  comment: string;
+  created_at: string;
+  profile?: Profile;
+}
+

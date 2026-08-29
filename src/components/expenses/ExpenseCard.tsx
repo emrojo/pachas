@@ -10,7 +10,7 @@ import { formatDate } from '@/lib/utils';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { LocationModal } from '@/components/expenses/LocationModal';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
-import { Receipt, Pencil, Users, Globe, MapPin, CloudOff, Eye, ShieldAlert } from 'lucide-react';
+import { Receipt, Pencil, Users, Globe, MapPin, CloudOff, Eye, ShieldAlert, MessageSquare } from 'lucide-react';
 
 export interface ExpenseCardProps {
   expense: Expense;
@@ -23,7 +23,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   baseCurrency = 'EUR',
   onEdit,
 }) => {
-  const { currentUser } = usePachas();
+  const { currentUser, getExpenseComments } = usePachas();
   const { t } = useTranslation();
   const [showReceipt, setShowReceipt] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
@@ -33,6 +33,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const isForeign = expense.currency !== baseCurrency;
   const hasLocation = !!(expense.latitude && expense.longitude);
   const category = getCategoryInfo(expense.category);
+  const commentCount = getExpenseComments ? (getExpenseComments(expense.id)?.length || 0) : 0;
 
   // Payers info
   const payerProfiles = expense.payers?.map((p) => p.profile).filter(Boolean) || [expense.creator];
@@ -129,6 +130,17 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 <div className="flex items-center gap-0.5 text-[11px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded text-slate-600 dark:text-slate-300">
                   <Users className="w-2.5 h-2.5" />
                   <span>{expense.participants.length}</span>
+                </div>
+              )}
+
+              {/* Comments count indicator */}
+              {commentCount > 0 && (
+                <div
+                  className="flex items-center gap-1 text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 rounded"
+                  title={`${commentCount} ${t('comments.title')}`}
+                >
+                  <MessageSquare className="w-2.5 h-2.5" />
+                  <span>{commentCount}</span>
                 </div>
               )}
 

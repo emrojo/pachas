@@ -1,0 +1,229 @@
+import { ExpenseCategory } from '@/types/database';
+
+export interface ScannedReceiptData {
+  amount?: number;
+  amountFormatted?: string;
+  date?: string; // YYYY-MM-DDTHH:mm
+  title?: string;
+  category?: ExpenseCategory;
+  rawText: string;
+  confidence: number;
+}
+
+/**
+ * Category keyword patterns for auto-categorization
+ */
+const CATEGORY_KEYWORDS: Record<ExpenseCategory, string[]> = {
+  food: [
+    'restaurante', 'restaurant', 'cafe', 'cafeteria', 'bar', 'tapas', 'pizza', 'pizzeria',
+    'burger', 'hamburgues', 'taberna', 'cerveceria', 'bistro', 'comida', 'cena', 'almuerzo',
+    'desayuno', 'menu', 'sushi', 'chiringuito', 'brunch', 'vinos', 'coctel'
+  ],
+  shopping: [
+    'supermercado', 'supermarket', 'mercadona', 'carrefour', 'lidl', 'dia', 'eroski',
+    'aldi', 'alcampo', 'hipercor', 'fruteria', 'panaderia', 'carniceria', 'compra',
+    'alimentacion', 'market', 'groceries', 'bazar', 'tienda', 'zara', 'shopping'
+  ],
+  transport: [
+    'taxi', 'uber', 'cabify', 'bolt', 'renfe', 'ave', 'metro', 'bus', 'autobus',
+    'gasolina', 'combustible', 'gasolinera', 'repsol', 'cepsa', 'bp', 'shell', 'galp',
+    'peaje', 'autopista', 'aparcamiento', 'parking', 'vuelo', 'ryanair', 'vueling', 'iberia'
+  ],
+  accommodation: [
+    'hotel', 'hostal', 'pension', 'airbnb', 'booking', 'resort', 'apartamento',
+    'habitacion', 'alojamiento', 'stay', 'motel', 'camping', 'suite'
+  ],
+  activities: [
+    'entrada', 'ticket', 'museo', 'museum', 'cine', 'teatro', 'concierto', 'festival',
+    'tour', 'excursion', 'barco', 'crucero', 'parque', 'atracciones', 'show', 'bolos',
+    'escape', 'karting', 'aventura', 'alquiler'
+  ],
+  other: [],
+};
+
+/**
+ * Parses raw text extracted from a receipt to find:
+ * 1. Total amount (€, $, etc.)
+ * 2. Date
+ * 3. Title / Merchant name
+ * 4. Suggested category
+ */
+export function parseReceiptText(rawText: string): ScannedReceiptData {
+  if (!rawText || !rawText.trim()) {
+    return { rawText: '', confidence: 0 };
+  }
+
+  const lines = rawText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  let detectedAmount: number | undefined;
+  let detectedAmountStr: string | undefined;
+  let detectedDate: string | undefined;
+  let detectedTitle: string | undefined;
+  let detectedCategory: ExpenseCategory | undefined;
+
+  // 1. EXTRACT TOTAL AMOUNT
+  // Patterns like: "TOTAL: 45,80", "TOTAL EUR 45.80", "IMPORTE: 120,00 €", "SUMA 15,50"
+  const totalKeywords = ['total', 'importe', 'suma', 'subtotal', 'pagar', 'cobrado', 'amount', 'tarjeta', 'visa', 'mastercard'];
+  const monetaryRegex = /(?:total|importe|suma|pagar|cobrado|amount|eur|€)?\s*[:=\s]?\s*(\d{1,5}[,\.]\d{2})\s*(?:€|eur|usd|\$)?/i;
+
+  // Check lines containing total keywords first
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    const lower = line.toLowerCase();
+    const hasTotalKeyword = totalKeywords.some((kw) => lower.includes(kw));
+
+    if (hasTotalKeyword) {
+      const match = line.match(/(\d{1,5}[,\.]\d{2})/);
+      if (match) {
+        const num = parseFloat(match[1].replace(',', '.'));
+        if (!isNaN(num) && num > 0) {
+          detectedAmount = num;
+          detectedAmountStr = match[1].replace('.', ',');
+          break;
+        }
+      }
+    }
+  }
+
+  // Fallback: If no explicit total line matched, find all monetary numbers and pick the maximum
+  if (!detectedAmount) {
+    const allNumbers: number[] = [];
+    for (const line of lines) {
+      const matches = line.matchAll(/(\d{1,5}[,\.]\d{2})/g);
+      for (const m of matches) {
+        const val = parseFloat(m[1].replace(',', '.'));
+        if (!isNaN(val) && val > 0 && val < 50000) {
+          allNumbers.push(val);
+        }
+      }
+    }
+    if (allNumbers.length > 0) {
+      detectedAmount = Math.max(...allNumbers);
+      detectedAmountStr = detectedAmount.toFixed(2).replace('.', ',');
+    }
+  }
+
+  // 2. EXTRACT DATE
+  // Patterns: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY-MM-DD
+  const datePatterns = [
+    /\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})\b/, // 29/08/2026 or 29-08-2026
+    /\b(\d{4})[\/\.-](\d{1,2})[\/\.-](\d{1,2})\b/, // 2026-08-29
+    /\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2})\b/,   // 29/08/26
+  ];
+
+  // Optional time pattern: HH:MM
+  let detectedTime = '12:00';
+  for (const line of lines) {
+    const timeMatch = line.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?\b/);
+    if (timeMatch) {
+      detectedTime = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
+      break;
+    }
+  }
+
+  for (const line of lines) {
+    for (const pattern of datePatterns) {
+      const match = line.match(pattern);
+      if (match) {
+        let day: number, month: number, year: number;
+        if (match[3].length === 4) {
+          day = parseInt(match[1], 10);
+          month = parseInt(match[2], 10);
+          year = parseInt(match[3], 10);
+        } else if (match[1].length === 4) {
+          year = parseInt(match[1], 10);
+          month = parseInt(match[2], 10);
+          day = parseInt(match[3], 10);
+        } else {
+          day = parseInt(match[1], 10);
+          month = parseInt(match[2], 10);
+          year = 2000 + parseInt(match[3], 10);
+        }
+
+        if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2000 && year <= 2050) {
+          const pad = (n: number) => (n < 10 ? '0' : '') + n;
+          detectedDate = `${year}-${pad(month)}-${pad(day)}T${detectedTime}`;
+          break;
+        }
+      }
+    }
+    if (detectedDate) break;
+  }
+
+  // 3. EXTRACT TITLE / MERCHANT NAME
+  // Skip tax IDs (CIF, NIF, B12345678), "FACTURA SIMPLIFICADA", purely numeric lines
+  const ignorePatterns = [
+    /cif/i, /nif/i, /iva/i, /factura/i, /simplificada/i, /ticket/i, /recibo/i,
+    /telefono/i, /tel/i, /fecha/i, /hora/i, /terminal/i, /tpv/i, /operacion/i,
+    /^\d+$/, /^[0-9\s\.\,\:\-\/\\]+$/
+  ];
+
+  for (let i = 0; i < Math.min(lines.length, 6); i++) {
+    const line = lines[i];
+    const shouldIgnore = ignorePatterns.some((p) => p.test(line));
+    if (!shouldIgnore && line.length >= 3 && line.length <= 50) {
+      // Capitalize cleanly
+      detectedTitle = line
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+      break;
+    }
+  }
+
+  // 4. DETECT CATEGORY
+  const fullTextLower = rawText.toLowerCase();
+  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (cat === 'other') continue;
+    if (keywords.some((kw) => fullTextLower.includes(kw))) {
+      detectedCategory = cat as ExpenseCategory;
+      break;
+    }
+  }
+
+  // Calculate confidence score (0 to 1)
+  let score = 0;
+  if (detectedAmount) score += 0.45;
+  if (detectedDate) score += 0.25;
+  if (detectedTitle) score += 0.20;
+  if (detectedCategory) score += 0.10;
+
+  return {
+    amount: detectedAmount,
+    amountFormatted: detectedAmountStr,
+    date: detectedDate,
+    title: detectedTitle,
+    category: detectedCategory,
+    rawText,
+    confidence: Math.round(score * 100) / 100,
+  };
+}
+
+/**
+ * Client-Side OCR Scanner
+ * Accepts an image data URL, processes it and extracts structured expense fields.
+ */
+export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptData> {
+  if (!imageDataUrl || typeof window === 'undefined') {
+    return { rawText: '', confidence: 0 };
+  }
+
+  try {
+    // Dynamic import to prevent server-side bundling issues
+    const { createWorker } = await import('tesseract.js');
+    const worker = await createWorker('spa+eng');
+
+    const ret = await worker.recognize(imageDataUrl);
+    await worker.terminate();
+
+    const text = ret.data.text || '';
+    return parseReceiptText(text);
+  } catch (err) {
+    console.warn('OCR processing fallback:', err);
+    // Graceful fallback for environments where tesseract worker might fail
+    return parseReceiptText('');
+  }
+}

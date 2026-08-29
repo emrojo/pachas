@@ -573,4 +573,20 @@ export const gl: TranslationDictionary = {
     "newSettlementTitle": "Débeda liquidada",
     "newSettlementBody": "{name} rexistrou un pago de {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Escaneando ticket con IA...',
+    scanningReceiptSubtitle: 'Extraendo importe, data e comercio automaticamente',
+    detectedTitle: 'Datos detectados no ticket',
+    applyData: 'Autocompletar gasto',
+    scanReceipt: 'Escanear ticket',
+  },
+  comments: {
+    title: 'Comentarios',
+    subtitle: 'Aclaracións ou notas do grupo',
+    noComments: 'Non hai comentarios neste gasto. Sé o primeiro en comentar!',
+    placeholder: 'Escribe un comentario ou aclaración...',
+    send: 'Enviar',
+    loginRequired: 'Inicia sesión para deixar un comentario.',
+    confirmDelete: 'Eliminar este comentario?',
+  },
 };

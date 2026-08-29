@@ -573,4 +573,20 @@ export const ja: TranslationDictionary = {
     "newSettlementTitle": "精算完了",
     "newSettlementBody": "{name} が {amount} {currency} の支払いを記録しました"
   },
+  ocr: {
+    scanningReceipt: 'AIでレシートをスキャン中...',
+    scanningReceiptSubtitle: '金額、日付、店舗名を自動抽出中',
+    detectedTitle: 'レシートから検出されたデータ',
+    applyData: '自動入力する',
+    scanReceipt: 'レシートをスキャン',
+  },
+  comments: {
+    title: 'コメント',
+    subtitle: 'グループ内の確認・補足メモ',
+    noComments: 'この支出にはまだコメントがありません。最初のコメントを投稿しましょう！',
+    placeholder: 'コメントや補足を記入...',
+    send: '送信',
+    loginRequired: 'コメントを投稿するにはログインしてください。',
+    confirmDelete: 'このコメントを削除しますか？',
+  },
 };

@@ -573,4 +573,20 @@ export const zh: TranslationDictionary = {
     "newSettlementTitle": "债务已结清",
     "newSettlementBody": "{name} 记录了一笔 {amount} {currency} 的付款"
   },
+  ocr: {
+    scanningReceipt: '正在使用 AI 扫描小票...',
+    scanningReceiptSubtitle: '自动提取金额、日期和商家名称',
+    detectedTitle: '小票中检测到的数据',
+    applyData: '自动填充支出',
+    scanReceipt: '扫描小票',
+  },
+  comments: {
+    title: '评论',
+    subtitle: '群组成员说明与备注',
+    noComments: '该支出暂无评论。抢先发表第一条评论吧！',
+    placeholder: '写下评论或说明...',
+    send: '发送',
+    loginRequired: '登录后即可发表评论。',
+    confirmDelete: '删除此评论？',
+  },
 };

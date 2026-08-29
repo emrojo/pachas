@@ -573,4 +573,20 @@ export const it: TranslationDictionary = {
     "newSettlementTitle": "Debito saldato",
     "newSettlementBody": "{name} ha registrato un pagamento di {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Scansione scontrino con IA...',
+    scanningReceiptSubtitle: 'Estrazione automatica di importo, data ed esercente',
+    detectedTitle: 'Dati rilevati nello scontrino',
+    applyData: 'Compila automaticamente',
+    scanReceipt: 'Scansiona scontrino',
+  },
+  comments: {
+    title: 'Commenti',
+    subtitle: 'Chiarimenti o note del gruppo',
+    noComments: 'Nessun commento su questa spesa. Sii il primo a commentare!',
+    placeholder: 'Scrivi un commento o un chiarimento...',
+    send: 'Invia',
+    loginRequired: 'Accedi per lasciare un commento.',
+    confirmDelete: 'Eliminare questo commento?',
+  },
 };

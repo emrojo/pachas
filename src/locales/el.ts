@@ -573,4 +573,20 @@ export const el: TranslationDictionary = {
     "newSettlementTitle": "Το χρέος εξοφλήθηκε",
     "newSettlementBody": "Ο/Η {name} κατέγραψε πληρωμή {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Σάρωση απόδειξης με AI...',
+    scanningReceiptSubtitle: 'Αυτόματη εξαγωγή ποσού, ημερομηνίας και καταστήματος',
+    detectedTitle: 'Δεδομένα που εντοπίστηκαν στην απόδειξη',
+    applyData: 'Αυτόματη συμπλήρωση',
+    scanReceipt: 'Σάρωση απόδειξης',
+  },
+  comments: {
+    title: 'Σχόλια',
+    subtitle: 'Διευκρινίσεις ή σημειώσεις της ομάδας',
+    noComments: 'Δεν υπάρχουν σχόλια για αυτό το έξοδο. Γράψτε το πρώτο!',
+    placeholder: 'Γράψτε ένα σχόλιο ή διευκρίνιση...',
+    send: 'Αποστολή',
+    loginRequired: 'Συνδεθείτε για να αφήσετε σχόλιο.',
+    confirmDelete: 'Διαγραφή αυτού του σχολίου;',
+  },
 };

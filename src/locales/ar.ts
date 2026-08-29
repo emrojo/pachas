@@ -573,4 +573,20 @@ export const ar: TranslationDictionary = {
     "newSettlementTitle": "تمت تسوية الدين",
     "newSettlementBody": "سجل {name} دفعة بقيمة {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'جارٍ فحص الإيصال بالذكاء الاصطناعي...',
+    scanningReceiptSubtitle: 'استخراج المبلغ والتاريخ والمتجر تلقائياً',
+    detectedTitle: 'البيانات المكتشفة في الإيصال',
+    applyData: 'تعبئة تلقائية للبيانات',
+    scanReceipt: 'مسح الإيصال',
+  },
+  comments: {
+    title: 'التعليقات',
+    subtitle: 'توضيحات وملاحظات المجموعة',
+    noComments: 'لا توجد تعليقات على هذا المصروف بعد. كن أول من يعلّق!',
+    placeholder: 'اكتب تعليقاً أو توضيحاً...',
+    send: 'إرسال',
+    loginRequired: 'سجل الدخول لإضافة تعليق.',
+    confirmDelete: 'حذف هذا التعليق؟',
+  },
 };

@@ -573,4 +573,20 @@ export const fr: TranslationDictionary = {
     "newSettlementTitle": "Dette réglée",
     "newSettlementBody": "{name} a enregistré un paiement de {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Numérisation du reçu avec IA...',
+    scanningReceiptSubtitle: 'Extraction automatique du montant, de la date et du commerçant',
+    detectedTitle: 'Données détectées sur le reçu',
+    applyData: 'Remplir automatiquement',
+    scanReceipt: 'Numériser le reçu',
+  },
+  comments: {
+    title: 'Commentaires',
+    subtitle: 'Précisions ou notes du groupe',
+    noComments: 'Aucun commentaire sur cette dépense. Soyez le premier à commenter !',
+    placeholder: 'Écrire un commentaire ou une précision...',
+    send: 'Envoyer',
+    loginRequired: 'Connectez-vous pour laisser un commentaire.',
+    confirmDelete: 'Supprimer ce commentaire ?',
+  },
 };

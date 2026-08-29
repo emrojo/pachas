@@ -50,9 +50,12 @@ import {
   RefreshCw,
   Sparkles,
   Eye,
+  ScanLine,
 } from 'lucide-react';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
+import { ExpenseCommentsSection } from '@/components/expenses/ExpenseCommentsSection';
+import { scanReceipt, ScannedReceiptData } from '@/lib/ocr/receiptScanner';
 
 export interface ExpenseFormProps {
   groupId: string;
@@ -105,6 +108,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [notes, setNotes] = useState('');
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [isScanningReceipt, setIsScanningReceipt] = useState(false);
+  const [scannedData, setScannedData] = useState<ScannedReceiptData | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isFetchingRate, setIsFetchingRate] = useState(false);
   const [rateSourceInfo, setRateSourceInfo] = useState<{
@@ -337,17 +342,47 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setSelectedParticipants(members.map((m) => m.user_id));
   };
 
-  // Handle Photo Receipt upload securely
+  // Handle Photo Receipt upload securely and trigger smart OCR scan
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       try {
         const compressed = await validateAndCompressImage(file, 800, 0.8);
         setReceiptUrl(compressed);
+
+        // Run OCR scan in background
+        setIsScanningReceipt(true);
+        try {
+          const data = await scanReceipt(compressed);
+          if (data && (data.amount || data.title || data.date)) {
+            setScannedData(data);
+          }
+        } catch (ocrErr) {
+          console.warn('OCR scanning failed:', ocrErr);
+        } finally {
+          setIsScanningReceipt(false);
+        }
       } catch (err: any) {
         alert(err.message || 'Error al procesar el ticket');
       }
     }
+  };
+
+  const handleApplyScannedData = () => {
+    if (!scannedData) return;
+    if (scannedData.title && (!title.trim() || title === t('expenses.expenseTitle'))) {
+      setTitle(scannedData.title);
+    }
+    if (scannedData.amountFormatted) {
+      setAmountStr(scannedData.amountFormatted);
+    }
+    if (scannedData.category) {
+      setCategory(scannedData.category);
+    }
+    if (scannedData.date) {
+      setExpenseDateTime(toDateTimeLocalValue(scannedData.date));
+    }
+    setScannedData(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -480,6 +515,75 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   {t('expenses.readOnlyBanner', { name: creatorProfile?.full_name || t('common.someone') })}
                 </span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Banner de Escaneo OCR en progreso */}
+        {isScanningReceipt && (
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-xs animate-pulse">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+              <ScanLine className="w-4 h-4 animate-spin text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-bold text-emerald-900 dark:text-emerald-200">
+                {t('ocr.scanningReceipt')}
+              </p>
+              <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
+                {t('ocr.scanningReceiptSubtitle')}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Banner de Datos detectados por OCR */}
+        {scannedData && !isReadOnly && (scannedData.amount || scannedData.title || scannedData.date) && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 shadow-xs text-xs">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-emerald-950 dark:text-emerald-100">
+                    {t('ocr.detectedTitle')}
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200">
+                    IA OCR
+                  </span>
+                </div>
+                <div className="text-emerald-800 dark:text-emerald-300 text-[11px] mt-0.5 flex flex-wrap gap-x-2">
+                  {scannedData.amountFormatted && (
+                    <span className="font-bold">💰 {scannedData.amountFormatted} {currency}</span>
+                  )}
+                  {scannedData.date && (
+                    <span>🗓️ {formatDate(scannedData.date, 'dd/MM/yyyy')}</span>
+                  )}
+                  {scannedData.title && (
+                    <span className="truncate max-w-[200px]">📍 "{scannedData.title}"</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <Button
+                type="button"
+                size="sm"
+                variant="brand"
+                onClick={handleApplyScannedData}
+                className="text-xs font-bold px-3 py-1.5 shadow-xs shrink-0 w-full sm:w-auto"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1" />
+                {t('ocr.applyData')}
+              </Button>
+              <button
+                type="button"
+                onClick={() => setScannedData(null)}
+                className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-2 py-1"
+              >
+                ✕
+              </button>
             </div>
           </div>
         )}
@@ -1178,6 +1282,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             )}
           </div>
         </div>
+
+        {/* Comentarios y aclaraciones del gasto */}
+        {expenseToEdit?.id && (
+          <ExpenseCommentsSection
+            expenseId={expenseToEdit.id}
+            expenseTitle={expenseToEdit.title}
+          />
+        )}
 
         {/* Error message */}
         {errorMessage && (
