@@ -117,8 +117,6 @@ create table if not exists public.expenses (
     title text not null,
     amount decimal(12, 2) not null check (amount > 0),
     currency text default 'EUR' not null,
-    exchange_rate decimal(12, 6) default 1.0 not null,
-    converted_amount decimal(12, 2) not null check (converted_amount > 0),
     category text default 'other' check (category in ('accommodation', 'food', 'transport', 'activities', 'shopping', 'other')) not null,
     expense_date date default current_date not null,
     receipt_url text,

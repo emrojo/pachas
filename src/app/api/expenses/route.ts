@@ -52,16 +52,14 @@ export async function POST(request: NextRequest) {
       // 1. Insert into public.expenses
       await client.query(
         `INSERT INTO public.expenses (
-          id, group_id, created_by, title, amount, currency, exchange_rate,
-          converted_amount, category, expense_date, receipt_url, notes,
+          id, group_id, created_by, title, amount, currency,
+          category, expense_date, receipt_url, notes,
           split_type, latitude, longitude, location_name, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
         ON CONFLICT (id) DO UPDATE SET
           title = EXCLUDED.title,
           amount = EXCLUDED.amount,
           currency = EXCLUDED.currency,
-          exchange_rate = EXCLUDED.exchange_rate,
-          converted_amount = EXCLUDED.converted_amount,
           category = EXCLUDED.category,
           expense_date = EXCLUDED.expense_date,
           receipt_url = EXCLUDED.receipt_url,
@@ -78,8 +76,6 @@ export async function POST(request: NextRequest) {
           title,
           amount,
           currency,
-          exchangeRate,
-          convertedAmount,
           category,
           expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate,
           receiptUrl,
@@ -123,6 +119,41 @@ export async function POST(request: NextRequest) {
             pt.shares || null,
           ]
         );
+      }
+
+      // 4. Save exchange rate into public.exchange_rates if foreign currency
+      try {
+        const groupRes = await client.query('SELECT base_currency FROM public.groups WHERE id = $1', [groupId]);
+        const baseCurrency = (groupRes.rows[0]?.base_currency || 'EUR').toUpperCase().trim();
+        const expCurrency = (currency || baseCurrency).toUpperCase().trim();
+        const cleanDate = expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate;
+
+        if (expCurrency !== baseCurrency && exchangeRate && Number(exchangeRate) > 0 && cleanDate) {
+          await client.query(`
+            create table if not exists public.exchange_rates (
+              id uuid primary key default uuid_generate_v4(),
+              from_currency text not null,
+              to_currency text not null,
+              rate_date date not null,
+              rate decimal(16, 6) not null check (rate > 0),
+              provider text not null,
+              is_estimated boolean default false not null,
+              created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+              unique(from_currency, to_currency, rate_date)
+            );
+          `);
+
+          await client.query(
+            `INSERT INTO public.exchange_rates (
+               from_currency, to_currency, rate_date, rate, provider, is_estimated
+             ) VALUES ($1, $2, $3, $4, $5, false)
+             ON CONFLICT (from_currency, to_currency, rate_date)
+             DO UPDATE SET rate = EXCLUDED.rate, provider = EXCLUDED.provider`,
+            [expCurrency, baseCurrency, cleanDate, exchangeRate, 'ECB / Expense Recorded']
+          );
+        }
+      } catch (rateErr) {
+        console.warn('Failed to upsert exchange rate in POST /api/expenses:', rateErr);
       }
 
       await client.query('COMMIT');
@@ -226,8 +257,8 @@ export async function GET(request: NextRequest) {
     const expenses = res.rows.map((row: any) => ({
       ...row,
       amount: parseFloat(row.amount) || 0,
-      exchange_rate: parseFloat(row.exchange_rate) || 1.0,
-      converted_amount: parseFloat(row.converted_amount) || parseFloat(row.amount) || 0,
+      exchange_rate: row.exchange_rate ? parseFloat(row.exchange_rate) : 1.0,
+      converted_amount: row.converted_amount ? parseFloat(row.converted_amount) : (parseFloat(row.amount) || 0),
       latitude: row.latitude !== null && row.latitude !== undefined ? parseFloat(row.latitude) : null,
       longitude: row.longitude !== null && row.longitude !== undefined ? parseFloat(row.longitude) : null,
       creator: row.creator && row.creator.id ? row.creator : undefined,

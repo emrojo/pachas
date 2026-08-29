@@ -50,18 +50,16 @@ export async function PUT(
 
       await client.query(
         `UPDATE public.expenses SET
-           title = $1, amount = $2, currency = $3, exchange_rate = $4,
-           converted_amount = $5, category = $6, expense_date = $7,
-           receipt_url = $8, notes = $9, split_type = $10,
-           latitude = $11, longitude = $12, location_name = $13,
+           title = $1, amount = $2, currency = $3,
+           category = $4, expense_date = $5,
+           receipt_url = $6, notes = $7, split_type = $8,
+           latitude = $9, longitude = $10, location_name = $11,
            updated_at = NOW()
-         WHERE id = $14`,
+         WHERE id = $12`,
         [
           title,
           amount,
           currency,
-          exchangeRate,
-          convertedAmount,
           category,
           expenseDate?.includes('T') ? expenseDate.split('T')[0] : expenseDate,
           receiptUrl,
@@ -101,6 +99,45 @@ export async function PUT(
             pt.shares || null,
           ]
         );
+      }
+
+      // Save exchange rate into public.exchange_rates if foreign currency
+      try {
+        const expGroupRes = await client.query('SELECT group_id FROM public.expenses WHERE id = $1', [expenseId]);
+        const gId = expGroupRes.rows[0]?.group_id;
+        if (gId) {
+          const groupRes = await client.query('SELECT base_currency FROM public.groups WHERE id = $1', [gId]);
+          const baseCurrency = (groupRes.rows[0]?.base_currency || 'EUR').toUpperCase().trim();
+          const expCurrency = (currency || baseCurrency).toUpperCase().trim();
+          const cleanDate = expenseDate?.includes('T') ? expenseDate.split('T')[0] : expenseDate;
+
+          if (expCurrency !== baseCurrency && exchangeRate && Number(exchangeRate) > 0 && cleanDate) {
+            await client.query(`
+              create table if not exists public.exchange_rates (
+                id uuid primary key default uuid_generate_v4(),
+                from_currency text not null,
+                to_currency text not null,
+                rate_date date not null,
+                rate decimal(16, 6) not null check (rate > 0),
+                provider text not null,
+                is_estimated boolean default false not null,
+                created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+                unique(from_currency, to_currency, rate_date)
+              );
+            `);
+
+            await client.query(
+              `INSERT INTO public.exchange_rates (
+                 from_currency, to_currency, rate_date, rate, provider, is_estimated
+               ) VALUES ($1, $2, $3, $4, $5, false)
+               ON CONFLICT (from_currency, to_currency, rate_date)
+               DO UPDATE SET rate = EXCLUDED.rate, provider = EXCLUDED.provider`,
+              [expCurrency, baseCurrency, cleanDate, exchangeRate, 'ECB / Expense Recorded']
+            );
+          }
+        }
+      } catch (rateErr) {
+        console.warn('Failed to upsert exchange rate in PUT /api/expenses/[id]:', rateErr);
       }
 
       await client.query('COMMIT');
