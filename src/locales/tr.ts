@@ -284,6 +284,8 @@ export const tr: TranslationDictionary = {
     splitSummary: 'Kişi başı katkı',
     receiptPhoto: 'Fiş / Fatura Fotoğrafı',
     uploadReceipt: 'Fotoğraf veya fatura yükle',
+    takePhoto: 'Fotoğraf çek',
+    uploadFromGallery: 'Dosya yükle',
     changeReceipt: 'Fişi Değiştir',
     removeReceipt: 'Kaldır',
     viewReceipt: 'Ekli Fişi Gör ↗',

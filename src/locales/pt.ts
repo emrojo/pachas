@@ -284,6 +284,8 @@ export const pt: TranslationDictionary = {
     splitSummary: 'Contribuição por amigo',
     receiptPhoto: 'Foto do Recibo / Fatura',
     uploadReceipt: 'Carregar foto ou fatura',
+    takePhoto: 'Tirar foto',
+    uploadFromGallery: 'Carregar ficheiro',
     changeReceipt: 'Alterar recibo',
     removeReceipt: 'Remover',
     viewReceipt: 'Ver Recibo Anexo ↗',

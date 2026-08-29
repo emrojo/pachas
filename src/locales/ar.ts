@@ -284,6 +284,8 @@ export const ar: TranslationDictionary = {
     splitSummary: 'مساهمة كل صديق',
     receiptPhoto: 'صورة الإيصال / الفاتورة',
     uploadReceipt: 'رفع الفاتورة أو الإيصال',
+    takePhoto: 'التقاط صورة',
+    uploadFromGallery: 'رفع ملف',
     changeReceipt: 'تغيير الإيصال',
     removeReceipt: 'إزالة',
     viewReceipt: 'عرض الإيصال المرفق ↗',

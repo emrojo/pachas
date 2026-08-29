@@ -284,6 +284,8 @@ export const hi: TranslationDictionary = {
     splitSummary: 'प्रति व्यक्ति हिस्सा',
     receiptPhoto: 'रसीद / बिल की फ़ोटो',
     uploadReceipt: 'फ़ोटो अपलोड करें',
+    takePhoto: 'फोटो लें',
+    uploadFromGallery: 'फ़ाइल अपलोड करें',
     changeReceipt: 'रसीद बदलें',
     removeReceipt: 'हटाएं',
     viewReceipt: 'संलग्न रसीद देखें ↗',

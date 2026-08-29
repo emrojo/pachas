@@ -284,6 +284,8 @@ export const de: TranslationDictionary = {
     splitSummary: 'Beitrag pro Person',
     receiptPhoto: 'Foto des Belegs / Rechnung',
     uploadReceipt: 'Beleg oder Rechnung hochladen',
+    takePhoto: 'Foto aufnehmen',
+    uploadFromGallery: 'Datei hochladen',
     changeReceipt: 'Beleg ändern',
     removeReceipt: 'Entfernen',
     viewReceipt: 'Angehängten Beleg ansehen ↗',

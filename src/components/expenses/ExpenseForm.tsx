@@ -51,6 +51,7 @@ import {
   Sparkles,
   Eye,
   ScanLine,
+  Camera,
 } from 'lucide-react';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
@@ -1221,6 +1222,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           </div>
 
           {/* Receipt Photo Upload / View */}
+          {/* Receipt Photo Upload / Camera / View */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
               {t('expenses.receiptPhoto')}
@@ -1228,9 +1230,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             <div className="flex items-center gap-2">
               {!isReadOnly ? (
                 <>
-                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-xs">
-                    <ImageIcon className="w-4 h-4 text-emerald-600" />
-                    <span>{receiptUrl ? t('expenses.changeReceipt') : t('expenses.uploadReceipt')}</span>
+                  {/* Botón 1: Hacer foto directamente con la cámara */}
+                  <label className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/50 dark:bg-emerald-950/30 text-xs font-bold text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/60 cursor-pointer transition-colors shadow-xs">
+                    <Camera className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>{t('expenses.takePhoto')}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Botón 2: Subir archivo o galería */}
+                  <label className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-xs">
+                    <ImageIcon className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>{receiptUrl ? t('expenses.changeReceipt') : t('expenses.uploadFromGallery')}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -1238,20 +1254,24 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       className="hidden"
                     />
                   </label>
+
                   {receiptUrl && (
                     <>
                       <button
                         type="button"
                         onClick={() => setShowReceiptModal(true)}
-                        className="p-2.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-xl text-xs font-semibold transition-colors shadow-xs"
+                        className="p-2.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-xl text-xs font-semibold transition-colors shadow-xs shrink-0"
                         title={t('expenses.viewReceipt')}
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         type="button"
-                        onClick={() => setReceiptUrl(null)}
-                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-semibold transition-colors"
+                        onClick={() => {
+                          setReceiptUrl(null);
+                          setScannedData(null);
+                        }}
+                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-semibold transition-colors shrink-0"
                         title={t('expenses.removeReceipt')}
                       >
                         <Trash2 className="w-4 h-4" />

@@ -284,6 +284,8 @@ export const gl: TranslationDictionary = {
     splitSummary: 'Aportación por amigo',
     receiptPhoto: 'Foto do Ticket / Factura',
     uploadReceipt: 'Subir foto ou factura',
+    takePhoto: 'Facer foto',
+    uploadFromGallery: 'Subir arquivo',
     changeReceipt: 'Cambiar ticket',
     removeReceipt: 'Quitar',
     viewReceipt: 'Ver Ticket Adxunto ↗',

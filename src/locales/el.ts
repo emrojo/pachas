@@ -284,6 +284,8 @@ export const el: TranslationDictionary = {
     splitSummary: 'Συνεισφορά ανά φίλο',
     receiptPhoto: 'Φωτογραφία Απόδειξης / Τιμολογίου',
     uploadReceipt: 'Μεταφόρτωση απόδειξης',
+    takePhoto: 'Λήψη φωτογραφίας',
+    uploadFromGallery: 'Μεταφόρτωση αρχείου',
     changeReceipt: 'Αλλαγή απόδειξης',
     removeReceipt: 'Αφαίρεση',
     viewReceipt: 'Προβολή Απόδειξης ↗',

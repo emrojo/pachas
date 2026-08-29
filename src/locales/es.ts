@@ -283,6 +283,8 @@ export const es = {
     splitSummary: 'Aportación por amigo',
     receiptPhoto: 'Foto del Ticket / Factura',
     uploadReceipt: 'Subir foto o factura',
+    takePhoto: 'Hacer foto',
+    uploadFromGallery: 'Subir archivo',
     changeReceipt: 'Cambiar ticket',
     removeReceipt: 'Quitar',
     viewReceipt: 'Ver Ticket Adjunto ↗',
