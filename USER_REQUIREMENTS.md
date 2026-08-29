@@ -37,7 +37,11 @@ This document serves as the official and permanent registry for all **user requi
   - *Who paid for the expense?*: Collapsed by default showing the active payer (you by default); expandable to change payer or split across multiple payers.
   - *With whom is it shared?*: Collapsed by default indicating it is shared equally among everyone; expandable to customize participants or split modes.
 - **FR-04.3**: Category classification with emojis (Food 🍽️, Accommodation 🏨, Transport 🚗, Leisure 🎟️, Groceries 🛒, Other 💡).
-- **FR-04.4**: Attach receipt/ticket photo as proof with full-screen viewer modal.
+- **FR-04.4**: **Receipt & Ticket Photo Attachment & Capture**:
+  - *Direct Mobile Camera Capture*: 📸 Dedicated **"Hacer foto"** button utilizing `capture="environment"` to trigger smartphone camera directly on iOS/Android/PWA, with `Permissions-Policy: camera=(self)`.
+  - *File / Gallery Picker*: 🖼️ **"Subir archivo"** button to attach receipts from local device storage, camera roll, or Google Drive.
+  - *In-App Lightbox Viewer & Safe External Opener*: Integrated [`ReceiptModal`](file:///d:/Projects/pachas/src/components/expenses/ReceiptModal.tsx) for instant high-resolution ticket preview, popup document stream viewer for new browser tabs, and direct image download option.
+  - *Security Warning Alert*: Preventative safety notice warning users against uploading payment receipts displaying full card numbers (PAN) or security codes (CVV).
 - **FR-04.5**: **Multi-Currency Behavior**:
   - In the **expense list**: Foreign currency entries display the **original currency value** directly (e.g., `$150.00` or `¥22,000`) with a currency badge, without converting on the primary card.
   - In the **detail / edit view**: Displays a breakdown panel with the **original currency amount**, the **applied exchange rate** (editable), and the **equivalent converted amount in the trip's base currency** (e.g., `138.89 €`).
@@ -405,4 +409,5 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 🛡️ Fixed | **FR-31** | **CSP Web Worker & Blob Authorization for OCR**: Updated `next.config.mjs` Content-Security-Policy headers adding `worker-src 'self' blob:;`, `child-src 'self' blob:;`, and CDN connections, allowing `tesseract.js` OCR background workers to execute without browser security violations. |
 | **30/08/2026** | 🛡️ Fixed | **FR-31** | **CSP `script-src` / `script-src-elem` CDN Authorization**: Added `https://cdn.jsdelivr.net` and `https://tessdata.projectnaptha.com` to `script-src` and `script-src-elem` in `next.config.mjs`, permitting `tesseract.js` workers to dynamically load `worker.min.js` and language dictionary models without `importScripts` NetworkErrors. |
 | **30/08/2026** | 📸 Added | **FR-04.4 & FR-31** | **Direct Mobile Camera Receipt Capture**: Added dedicated **"Hacer foto"** (`capture="environment"`) camera button alongside **"Subir archivo"** in `ExpenseForm`, and enabled `camera=(self)` in `Permissions-Policy` HTTP security headers, allowing instant mobile camera capture and subsequent AI OCR autofill. |
+| **30/08/2026** | 🌟 Changed | **FR-04.4 & FR-31** | **Top Hero Quick-Scan Card in Add Expense**: Positioned the **"Hacer foto al ticket"** camera action and AI OCR scanning card at the very top of `ExpenseForm`, allowing users to photograph physical receipts immediately upon opening the modal and auto-populate title, amount, date, and category in 1 tap before typing. |
 
