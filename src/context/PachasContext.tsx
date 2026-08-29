@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   Group,
   GroupMember,
@@ -147,6 +147,16 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
+
+  const groupsRef = useRef<Group[]>(groups);
+  const membersRef = useRef<Record<string, GroupMember[]>>(members);
+  const expensesRef = useRef<Record<string, Expense[]>>(expenses);
+  const settlementsRef = useRef<Record<string, Settlement[]>>(settlements);
+
+  groupsRef.current = groups;
+  membersRef.current = members;
+  expensesRef.current = expenses;
+  settlementsRef.current = settlements;
 
   // Helper to change current user and persist immediately to localStorage and session cookie
   const setCurrentUser = (user: Profile | null) => {
@@ -511,18 +521,22 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     newSettlements?: Record<string, Settlement[]>
   ) => {
     if (newGroups) {
+      groupsRef.current = newGroups;
       setGroups(newGroups);
       localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(newGroups));
     }
     if (newMembers) {
+      membersRef.current = newMembers;
       setMembers(newMembers);
       localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(newMembers));
     }
     if (newExpenses) {
+      expensesRef.current = newExpenses;
       setExpenses(newExpenses);
       localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(newExpenses));
     }
     if (newSettlements) {
+      settlementsRef.current = newSettlements;
       setSettlements(newSettlements);
       localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(newSettlements));
     }
@@ -1025,10 +1039,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setPendingSyncCount(getSyncQueue().length);
     }
 
-    const currentExpenses = expenses[input.groupId] || [];
+    const currentExpenses = expensesRef.current[input.groupId] || expenses[input.groupId] || [];
     const updatedExpenses = {
-      ...expenses,
-      [input.groupId]: [newExpense, ...currentExpenses],
+      ...expensesRef.current,
+      [input.groupId]: [newExpense, ...currentExpenses.filter((e) => e.id !== newExpense.id)],
     };
 
     saveState(undefined, undefined, updatedExpenses);
@@ -1063,9 +1077,18 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 2. Launch background asynchronous OCR analysis (non-blocking)
     (async () => {
       try {
+        console.log('[AsyncOCR] 🚀 Starting vision receipt scan for expense:', initialExpense.id);
         const scannedData = await scanReceipt(receiptDataUrl);
-        if (scannedData && (scannedData.amount || scannedData.title)) {
-          const finalAmount = typeof scannedData.amount === 'number' && !isNaN(scannedData.amount) ? scannedData.amount : 0;
+        console.log('[AsyncOCR] 📥 Vision receipt result:', scannedData);
+
+        const hasValidData =
+          scannedData &&
+          (scannedData.amount !== undefined ||
+            (scannedData.title && scannedData.title.trim().length > 0 && scannedData.title !== 'Ticket'));
+
+        if (hasValidData) {
+          const finalAmount =
+            typeof scannedData.amount === 'number' && !isNaN(scannedData.amount) ? scannedData.amount : 0;
           const finalTitle = scannedData.title || 'Ticket escaneado';
           const finalCategory = scannedData.category || 'food';
           const finalDate = scannedData.date || initialExpense.expense_date;
@@ -1086,8 +1109,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
             ocr_status: 'completed',
           });
+          console.log('[AsyncOCR] ✅ Expense auto-completed successfully:', initialExpense.id);
         } else {
-          // Scan could not extract data - mark as failed for manual user review
+          console.warn('[AsyncOCR] ⚠️ Scan produced no definitive data, marking as failed for review:', initialExpense.id);
           await updateExpense(groupId, initialExpense.id, {
             groupId,
             title: 'Ticket pendiente de revisión',
@@ -1102,7 +1126,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             ocr_status: 'failed',
           });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn('[PachasContext] Async OCR background error:', err);
         try {
           await updateExpense(groupId, initialExpense.id, {
@@ -1247,10 +1271,23 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw new Error('Debes iniciar sesión para editar un gasto.');
     }
 
-    const currentExpenses = expenses[groupId] || [];
-    const existing = currentExpenses.find((e) => e.id === expenseId);
+    const currentExpenses = expensesRef.current[groupId] || expenses[groupId] || [];
+    let existing = currentExpenses.find((e) => e.id === expenseId);
     if (!existing) {
-      throw new Error('Gasto no encontrado');
+      existing = {
+        id: expenseId,
+        group_id: groupId,
+        created_by: currentUser.id,
+        title: input.title,
+        amount: input.amount,
+        currency: input.currency,
+        category: input.category,
+        expense_date: input.expenseDate,
+        split_type: input.splitType,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        creator: currentUser,
+      };
     }
 
     const grpMembers = getGroupMembers(groupId);
@@ -1368,9 +1405,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setPendingSyncCount(getSyncQueue().length);
     }
 
-    const updatedList = currentExpenses.map((e) => (e.id === expenseId ? updatedExpense : e));
+    let updatedList = currentExpenses.map((e) => (e.id === expenseId ? updatedExpense : e));
+    if (!currentExpenses.some((e) => e.id === expenseId)) {
+      updatedList = [updatedExpense, ...currentExpenses];
+    }
+
     const updatedExpenses = {
-      ...expenses,
+      ...expensesRef.current,
       [groupId]: updatedList,
     };
     saveState(undefined, undefined, updatedExpenses);

@@ -238,6 +238,7 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ image: imageDataUrl }),
+      signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(12000) : undefined,
     });
 
     if (res.ok) {
@@ -269,15 +270,21 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
     console.warn('[ReceiptScanner] Gemini Vision API no disponible, usando OCR local:', visionErr);
   }
 
-  // 2. Fallback to Local Client-Side OCR (tesseract.js)
+  // 2. Fallback to Local Client-Side OCR (tesseract.js with 10s timeout)
   try {
-    const { createWorker } = await import('tesseract.js');
-    const worker = await createWorker('spa+eng');
+    const tesseractPromise = (async () => {
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('spa+eng');
+      const ret = await worker.recognize(imageDataUrl);
+      await worker.terminate();
+      return ret.data.text || '';
+    })();
 
-    const ret = await worker.recognize(imageDataUrl);
-    await worker.terminate();
+    const timeoutPromise = new Promise<string>((_, reject) =>
+      setTimeout(() => reject(new Error('Tesseract local OCR timeout')), 10000)
+    );
 
-    const text = ret.data.text || '';
+    const text = await Promise.race([tesseractPromise, timeoutPromise]);
     const parsed = parseReceiptText(text);
     return {
       ...parsed,
