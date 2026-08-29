@@ -286,6 +286,15 @@ export default function GroupAuditPage() {
                       </div>
                     ) : null}
 
+                    {currentStep.conversionInfo && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 text-[10px] font-black tracking-wider border border-indigo-300/60 dark:border-indigo-800">
+                        <Sparkles className="w-3 h-3" />
+                        <span>
+                          {formatMoney(currentStep.conversionInfo.originalAmount, currentStep.conversionInfo.originalCurrency)} → {formatMoney(currentStep.conversionInfo.convertedAmount, currentStep.conversionInfo.baseCurrency)}
+                        </span>
+                      </div>
+                    )}
+
                     {currentStep.stepAmount !== 0 && (
                       <Badge
                         variant={
@@ -358,82 +367,111 @@ export default function GroupAuditPage() {
                   {currentStep.explanation}
                 </div>
 
-                {/* Math Formulas Area: Dual formulas for consumptions, single formula for other steps */}
-                {currentStep.type === 'consumption' && currentStep.secondaryFormulaDisplay ? (
-                  <div className="space-y-3">
-                    {/* Operation A: Split / Division */}
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-md space-y-2">
+                {/* Math Formulas Area: Currency conversion + Dual formulas for consumptions / Single for others */}
+                <div className="space-y-3">
+                  {/* Currency Conversion Box (if foreign currency was used) */}
+                  {currentStep.conversionInfo && (
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white border border-indigo-800/60 shadow-md space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-rose-300 flex items-center gap-1.5">
-                          <Zap className="w-3.5 h-3.5 text-rose-400" />
-                          {t('audit.calcSplitOperation')}
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                          {t('audit.currencyConversion')}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => handleLoadInCalculator(currentStep.conversionInfo!.conversionCalcExpr)}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                          title={t('audit.loadConversionInCalc')}
+                        >
+                          <CalcIcon className="w-3.5 h-3.5" />
+                          <span>{t('audit.loadConversionInCalc')}</span>
+                        </button>
+                      </div>
+
+                      <div className="font-mono text-sm sm:text-base font-black text-indigo-300 tracking-wide bg-black/40 p-3 rounded-xl border border-indigo-900/60 break-words">
+                        {currentStep.conversionInfo.conversionFormulaDisplay}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Consumptions: Dual formulas (Step A: Split, Step B: Running Sum) */}
+                  {currentStep.type === 'consumption' && currentStep.secondaryFormulaDisplay ? (
+                    <>
+                      {/* Operation A: Split / Division */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-md space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-rose-300 flex items-center gap-1.5">
+                            <Zap className="w-3.5 h-3.5 text-rose-400" />
+                            {t('audit.calcSplitOperation')}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleLoadInCalculator(currentStep.calculatorExpression)}
+                            className="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                            title={t('audit.loadSplitInCalc')}
+                          >
+                            <CalcIcon className="w-3.5 h-3.5" />
+                            <span>{t('audit.loadSplitInCalc')}</span>
+                          </button>
+                        </div>
+
+                        <div className="font-mono text-sm sm:text-base font-black text-rose-400 tracking-wide bg-black/40 p-3 rounded-xl border border-slate-800 break-words">
+                          {currentStep.formulaDisplay}
+                        </div>
+                      </div>
+
+                      {/* Operation B: Running Addition to Total Consumed */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-md space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                            <Plus className="w-3.5 h-3.5 text-amber-400" />
+                            {t('audit.calcSumOperation')}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleLoadInCalculator(currentStep.secondaryCalculatorExpression!)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                            title={t('audit.loadSumInCalc')}
+                          >
+                            <CalcIcon className="w-3.5 h-3.5" />
+                            <span>{t('audit.loadSumInCalc')}</span>
+                          </button>
+                        </div>
+
+                        <div className="font-mono text-sm sm:text-base font-black text-amber-400 tracking-wide bg-black/40 p-3 rounded-xl border border-slate-800 break-words">
+                          {currentStep.secondaryFormulaDisplay}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    /* Single Formula Box (Payments, Summaries, Gross Balance, Settlements) */
+                    <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-md space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                          {t('audit.mathOperation')}
                         </span>
 
                         <button
                           type="button"
                           onClick={() => handleLoadInCalculator(currentStep.calculatorExpression)}
-                          className="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
-                          title={t('audit.loadSplitInCalc')}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                          title={t('audit.loadInCalculator')}
                         >
                           <CalcIcon className="w-3.5 h-3.5" />
-                          <span>{t('audit.loadSplitInCalc')}</span>
+                          <span>{t('audit.loadInCalculator')}</span>
                         </button>
                       </div>
 
-                      <div className="font-mono text-sm sm:text-base font-black text-rose-400 tracking-wide bg-black/40 p-3 rounded-xl border border-slate-800 break-words">
+                      <div className="font-mono text-base sm:text-lg font-black text-emerald-400 tracking-wide bg-black/40 p-3.5 rounded-xl border border-slate-800 break-words">
                         {currentStep.formulaDisplay}
                       </div>
                     </div>
-
-                    {/* Operation B: Running Addition to Total Consumed */}
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-md space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                          <Plus className="w-3.5 h-3.5 text-amber-400" />
-                          {t('audit.calcSumOperation')}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => handleLoadInCalculator(currentStep.secondaryCalculatorExpression!)}
-                          className="px-2.5 py-1 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
-                          title={t('audit.loadSumInCalc')}
-                        >
-                          <CalcIcon className="w-3.5 h-3.5" />
-                          <span>{t('audit.loadSumInCalc')}</span>
-                        </button>
-                      </div>
-
-                      <div className="font-mono text-sm sm:text-base font-black text-amber-400 tracking-wide bg-black/40 p-3 rounded-xl border border-slate-800 break-words">
-                        {currentStep.secondaryFormulaDisplay}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Single Formula Box (Payments, Summaries, Gross Balance, Settlements) */
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-md space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                        {t('audit.mathOperation')}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => handleLoadInCalculator(currentStep.calculatorExpression)}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
-                        title={t('audit.loadInCalculator')}
-                      >
-                        <CalcIcon className="w-3.5 h-3.5" />
-                        <span>{t('audit.loadInCalculator')}</span>
-                      </button>
-                    </div>
-
-                    <div className="font-mono text-base sm:text-lg font-black text-emerald-400 tracking-wide bg-black/40 p-3.5 rounded-xl border border-slate-800 break-words">
-                      {currentStep.formulaDisplay}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* Running Tally / Subtotal tracker */}
                 <div className="grid grid-cols-3 gap-2 pt-2 text-center">

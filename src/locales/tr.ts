@@ -503,6 +503,10 @@ export const tr: TranslationDictionary = {
     errorJoining: 'Gruba katılınamadı. Bağlantının süresi dolmuş olabilir.',
   },
   audit: {
+    currencyConversion: 'Currency Conversion & Exchange Rate',
+    loadConversionInCalc: 'Load Conversion',
+    exchangeRateApplied: 'Applied exchange rate',
+    originalTicketValue: 'Original ticket value',
     calcSplitOperation: 'Step A: Calculate your share of the ticket',
     calcSumOperation: 'Step B: Add to Running Total Consumed',
     loadSplitInCalc: 'Load Division',

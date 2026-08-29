@@ -503,6 +503,10 @@ export const gl: TranslationDictionary = {
     errorJoining: 'Non foi posible unirse ao grupo. A ligazón pode ter caducado.',
   },
   audit: {
+    currencyConversion: 'Currency Conversion & Exchange Rate',
+    loadConversionInCalc: 'Load Conversion',
+    exchangeRateApplied: 'Applied exchange rate',
+    originalTicketValue: 'Original ticket value',
     calcSplitOperation: 'Step A: Calculate your share of the ticket',
     calcSumOperation: 'Step B: Add to Running Total Consumed',
     loadSplitInCalc: 'Load Division',

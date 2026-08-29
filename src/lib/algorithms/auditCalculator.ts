@@ -13,6 +13,17 @@ export type AuditStepType =
   | 'settlement'
   | 'final_net';
 
+export interface CurrencyConversionInfo {
+  isForeignCurrency: boolean;
+  originalAmount: number;
+  originalCurrency: string;
+  baseCurrency: string;
+  exchangeRate: number;
+  convertedAmount: number;
+  conversionFormulaDisplay: string;
+  conversionCalcExpr: string;
+}
+
 export interface AuditStep {
   id: string;
   stepIndex: number;
@@ -25,6 +36,7 @@ export interface AuditStep {
   categoryEmoji?: string;
   relatedExpense?: Expense;
   relatedSettlement?: Settlement;
+  conversionInfo?: CurrencyConversionInfo;
   formulaDisplay: string;
   calculatorExpression: string;
   secondaryFormulaDisplay?: string;
@@ -40,9 +52,46 @@ export interface AuditStep {
     splitMode: string;
     totalParticipants: number;
     totalAmount: number;
+    originalTotalAmount?: number;
+    originalCurrency?: string;
     userPortion: number;
   };
   debtPlan?: SimplifiedDebt[];
+}
+
+function getConversionInfo(
+  exp: Expense,
+  baseCurrency: string
+): CurrencyConversionInfo | undefined {
+  const isForeign =
+    Boolean(exp.currency) &&
+    exp.currency.toUpperCase() !== baseCurrency.toUpperCase();
+
+  if (!isForeign) return undefined;
+
+  const originalAmount = Number(exp.amount) || 0;
+  const convertedAmount = Number(exp.converted_amount) || originalAmount;
+  const rate =
+    Number(exp.exchange_rate) ||
+    (originalAmount > 0 ? convertedAmount / originalAmount : 1);
+  const roundedRate = Math.round(rate * 10000) / 10000;
+
+  const conversionFormulaDisplay = `${formatMoney(
+    originalAmount,
+    exp.currency
+  )} × ${roundedRate} = ${formatMoney(convertedAmount, baseCurrency)}`;
+  const conversionCalcExpr = `${originalAmount} * ${roundedRate}`;
+
+  return {
+    isForeignCurrency: true,
+    originalAmount,
+    originalCurrency: exp.currency,
+    baseCurrency,
+    exchangeRate: roundedRate,
+    convertedAmount,
+    conversionFormulaDisplay,
+    conversionCalcExpr,
+  };
 }
 
 export function generateUserAuditTrail(
@@ -112,6 +161,7 @@ export function generateUserAuditTrail(
   for (const exp of userPayments) {
     const expenseBaseAmount = Number(exp.converted_amount) || Number(exp.amount) || 0;
     const expenseOrigAmount = Number(exp.amount) > 0 ? Number(exp.amount) : expenseBaseAmount;
+    const conversion = getConversionInfo(exp, baseCurrency);
 
     let userPaidInThisExpense = 0;
     let isMultiPayer = false;
@@ -136,6 +186,70 @@ export function generateUserAuditTrail(
     const formattedDate = formatDate(exp.expense_date || exp.created_at, 'dd/MM/yyyy');
     const calcExpr = `${prevPaid} + ${userPaidInThisExpense}`;
 
+    // Detailed Natural Language explanation with original ticket value
+    let explanation = '';
+    if (conversion) {
+      if (isMultiPayer) {
+        explanation = `Este gasto (${exp.title}) se pagó originalmente en divisa extranjera con un ticket total de ${formatMoney(
+          conversion.originalAmount,
+          conversion.originalCurrency
+        )}. Aplicando el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
+          conversion.originalAmount,
+          conversion.originalCurrency
+        )} × ${conversion.exchangeRate} = ${formatMoney(
+          conversion.convertedAmount,
+          baseCurrency
+        )}), tu aportación compartida equivale a ${formatMoney(
+          userPaidInThisExpense,
+          baseCurrency
+        )}. Al sumarse a tus pagos anteriores (${formatMoney(
+          prevPaid,
+          baseCurrency
+        )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`;
+      } else {
+        explanation = `Pagaste la totalidad de este gasto (${exp.title}) en divisa extranjera por un ticket original de ${formatMoney(
+          conversion.originalAmount,
+          conversion.originalCurrency
+        )}. Con el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
+          conversion.originalAmount,
+          conversion.originalCurrency
+        )} × ${conversion.exchangeRate} = ${formatMoney(
+          conversion.convertedAmount,
+          baseCurrency
+        )}), tu aportación convertida es de ${formatMoney(
+          userPaidInThisExpense,
+          baseCurrency
+        )}. Al sumarse a tus pagos anteriores (${formatMoney(
+          prevPaid,
+          baseCurrency
+        )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`;
+      }
+    } else {
+      if (isMultiPayer) {
+        explanation = `En este gasto (${exp.title}) el ticket original pagado fue de ${formatMoney(
+          expenseBaseAmount,
+          baseCurrency
+        )}. Adelantaste ${formatMoney(
+          userPaidInThisExpense,
+          baseCurrency
+        )} en pago compartido. Al sumarse a tus pagos previos (${formatMoney(
+          prevPaid,
+          baseCurrency
+        )}), tu total adelantado para el grupo asciende a ${formatMoney(
+          runningPaid,
+          baseCurrency
+        )}.`;
+      } else {
+        explanation = `En este gasto (${exp.title}) el ticket original pagado fue de ${formatMoney(
+          expenseBaseAmount,
+          baseCurrency
+        )}. Pagaste la totalidad del importe. Al sumarse a tus pagos anteriores (${formatMoney(
+          prevPaid,
+          baseCurrency
+        )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`;
+      }
+    }
+
     steps.push({
       id: `payment-${exp.id}`,
       stepIndex: stepCounter++,
@@ -149,6 +263,7 @@ export function generateUserAuditTrail(
       date: formattedDate,
       categoryEmoji: exp.category,
       relatedExpense: exp,
+      conversionInfo: conversion,
       formulaDisplay: `${formatMoney(prevPaid, baseCurrency)} + ${formatMoney(
         userPaidInThisExpense,
         baseCurrency
@@ -158,18 +273,15 @@ export function generateUserAuditTrail(
       runningPaid,
       runningConsumed,
       runningNet: Math.round((runningPaid - runningConsumed) * 100) / 100,
-      explanation: isMultiPayer
-        ? `Adelantaste ${formatMoney(userPaidInThisExpense, baseCurrency)} de un ticket total de ${formatMoney(
-            expenseBaseAmount,
-            baseCurrency
-          )}.`
-        : `Pagaste la totalidad del gasto (${formatMoney(expenseBaseAmount, baseCurrency)}).`,
+      explanation,
     });
   }
 
   // Summary step for payments if multiple
   if (paidAmountsList.length > 1) {
-    const sumChainDisplay = paidAmountsList.map((a) => formatMoney(a, baseCurrency)).join(' + ') + ` = ${formatMoney(runningPaid, baseCurrency)}`;
+    const sumChainDisplay =
+      paidAmountsList.map((a) => formatMoney(a, baseCurrency)).join(' + ') +
+      ` = ${formatMoney(runningPaid, baseCurrency)}`;
     const sumChainExpr = paidAmountsList.join(' + ');
 
     steps.push({
@@ -177,7 +289,10 @@ export function generateUserAuditTrail(
       stepIndex: stepCounter++,
       type: 'payments_summary',
       title: 'Suma Total de Pagos Realizados',
-      subtitle: `Total acumulado que adelantaste para el grupo: ${formatMoney(runningPaid, baseCurrency)}`,
+      subtitle: `Total acumulado que adelantaste para el grupo: ${formatMoney(
+        runningPaid,
+        baseCurrency
+      )}`,
       phase: 2,
       phaseTitleKey: 'audit.phasePayments',
       formulaDisplay: sumChainDisplay,
@@ -186,14 +301,19 @@ export function generateUserAuditTrail(
       runningPaid,
       runningConsumed,
       runningNet: Math.round((runningPaid - runningConsumed) * 100) / 100,
-      explanation: `Has completado el registro de todos tus pagos adelantados (${paidAmountsList.length} asientos). La suma total que has puesto para el grupo asciende a ${formatMoney(runningPaid, baseCurrency)}.`,
+      explanation: `Has completado el registro de todos tus pagos adelantados (${paidAmountsList.length} asientos). La suma total que has puesto para el grupo asciende a ${formatMoney(
+        runningPaid,
+        baseCurrency
+      )}.`,
     });
   }
 
   // 3. PHASE: CONSUMPTIONS / SHARES PARTICIPATED BY USER
   const userConsumptions = sortedExpenses.filter((e) => {
     if (e.participants && e.participants.length > 0) {
-      return e.participants.some((p) => p.user_id === userId && Number(p.amount_owed) > 0);
+      return e.participants.some(
+        (p) => p.user_id === userId && Number(p.amount_owed) > 0
+      );
     }
     return false;
   });
@@ -202,39 +322,97 @@ export function generateUserAuditTrail(
 
   for (const exp of userConsumptions) {
     const partEntry = exp.participants?.find((p) => p.user_id === userId);
-    const userPortion = Math.round((Number(partEntry?.amount_owed) || 0) * 100) / 100;
+    const userPortion =
+      Math.round((Number(partEntry?.amount_owed) || 0) * 100) / 100;
     consumedAmountsList.push(userPortion);
 
     const prevConsumed = runningConsumed;
     runningConsumed = Math.round((runningConsumed + userPortion) * 100) / 100;
 
     const totalParticipants = exp.participants?.length || 1;
-    const expenseBaseAmount = Number(exp.converted_amount) || Number(exp.amount) || 0;
+    const expenseBaseAmount =
+      Number(exp.converted_amount) || Number(exp.amount) || 0;
     const splitType = exp.split_type || 'EQUAL';
+    const conversion = getConversionInfo(exp, baseCurrency);
 
     // Step A: Division / Portion Calculation
     let splitFormula = '';
     let splitCalcExpr = '';
 
     if (splitType === 'EQUAL' || (splitType as string).toLowerCase() === 'equal') {
-      splitFormula = `${formatMoney(expenseBaseAmount, baseCurrency)} ÷ ${totalParticipants} = ${formatMoney(
+      splitFormula = `${formatMoney(
+        expenseBaseAmount,
+        baseCurrency
+      )} ÷ ${totalParticipants} = ${formatMoney(userPortion, baseCurrency)}`;
+      splitCalcExpr = `${expenseBaseAmount} / ${totalParticipants}`;
+    } else {
+      splitFormula = `Cuota según reparto (${splitType}): ${formatMoney(
         userPortion,
         baseCurrency
       )}`;
-      splitCalcExpr = `${expenseBaseAmount} / ${totalParticipants}`;
-    } else {
-      splitFormula = `Cuota según reparto (${splitType}): ${formatMoney(userPortion, baseCurrency)}`;
       splitCalcExpr = `${userPortion}`;
     }
 
     // Step B: Addition to running total consumed
-    const sumFormula = `${formatMoney(prevConsumed, baseCurrency)} + ${formatMoney(
-      userPortion,
+    const sumFormula = `${formatMoney(
+      prevConsumed,
       baseCurrency
-    )} = ${formatMoney(runningConsumed, baseCurrency)}`;
+    )} + ${formatMoney(userPortion, baseCurrency)} = ${formatMoney(
+      runningConsumed,
+      baseCurrency
+    )}`;
     const sumCalcExpr = `${prevConsumed} + ${userPortion}`;
 
-    const formattedDate = formatDate(exp.expense_date || exp.created_at, 'dd/MM/yyyy');
+    const formattedDate = formatDate(
+      exp.expense_date || exp.created_at,
+      'dd/MM/yyyy'
+    );
+
+    const splitLabel =
+      splitType === 'EQUAL' || (splitType as string).toLowerCase() === 'equal'
+        ? `a partes iguales entre ${totalParticipants} amigos`
+        : `según reparto ${splitType}`;
+
+    // Natural Language explanation with original ticket value and conversion
+    let explanation = '';
+    if (conversion) {
+      explanation = `En este gasto (${exp.title}) el valor original del ticket pagado fue de ${formatMoney(
+        conversion.originalAmount,
+        conversion.originalCurrency
+      )}. Con el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
+        conversion.originalAmount,
+        conversion.originalCurrency
+      )} × ${conversion.exchangeRate} = ${formatMoney(
+        conversion.convertedAmount,
+        baseCurrency
+      )}), el importe en la moneda del viaje es ${formatMoney(
+        conversion.convertedAmount,
+        baseCurrency
+      )}. Al repartirse ${splitLabel}, te corresponde una cuota de consumo de ${formatMoney(
+        userPortion,
+        baseCurrency
+      )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
+        prevConsumed,
+        baseCurrency
+      )}), tu consumo total acumulado asciende a ${formatMoney(
+        runningConsumed,
+        baseCurrency
+      )}.`;
+    } else {
+      explanation = `En este gasto (${exp.title}) el valor original total pagado fue de ${formatMoney(
+        expenseBaseAmount,
+        baseCurrency
+      )}, repartido ${splitLabel}. Te corresponde una cuota de consumo de ${formatMoney(
+        userPortion,
+        baseCurrency
+      )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
+        prevConsumed,
+        baseCurrency
+      )}), tu consumo total acumulado asciende a ${formatMoney(
+        runningConsumed,
+        baseCurrency
+      )}.`;
+    }
 
     steps.push({
       id: `consumption-${exp.id}`,
@@ -247,6 +425,7 @@ export function generateUserAuditTrail(
       date: formattedDate,
       categoryEmoji: exp.category,
       relatedExpense: exp,
+      conversionInfo: conversion,
       formulaDisplay: splitFormula,
       calculatorExpression: splitCalcExpr,
       secondaryFormulaDisplay: sumFormula,
@@ -255,14 +434,13 @@ export function generateUserAuditTrail(
       runningPaid,
       runningConsumed,
       runningNet: Math.round((runningPaid - runningConsumed) * 100) / 100,
-      explanation: `Tu cuota en este gasto es de ${formatMoney(
-        userPortion,
-        baseCurrency
-      )}, que se añade a tu consumo previo (${formatMoney(prevConsumed, baseCurrency)}), alcanzando un consumo total acumulado de ${formatMoney(runningConsumed, baseCurrency)}.`,
+      explanation,
       splitDetails: {
         splitMode: splitType,
         totalParticipants,
         totalAmount: expenseBaseAmount,
+        originalTotalAmount: conversion ? conversion.originalAmount : expenseBaseAmount,
+        originalCurrency: conversion ? conversion.originalCurrency : baseCurrency,
         userPortion,
       },
     });
@@ -270,7 +448,9 @@ export function generateUserAuditTrail(
 
   // Summary step for consumptions if multiple
   if (consumedAmountsList.length > 1) {
-    const sumChainDisplay = consumedAmountsList.map((a) => formatMoney(a, baseCurrency)).join(' + ') + ` = ${formatMoney(runningConsumed, baseCurrency)}`;
+    const sumChainDisplay =
+      consumedAmountsList.map((a) => formatMoney(a, baseCurrency)).join(' + ') +
+      ` = ${formatMoney(runningConsumed, baseCurrency)}`;
     const sumChainExpr = consumedAmountsList.join(' + ');
 
     steps.push({
@@ -278,7 +458,10 @@ export function generateUserAuditTrail(
       stepIndex: stepCounter++,
       type: 'consumptions_summary',
       title: 'Suma Total de Consumos Acumulados',
-      subtitle: `Total acumulado que te corresponde asumir: ${formatMoney(runningConsumed, baseCurrency)}`,
+      subtitle: `Total acumulado que te corresponde asumir: ${formatMoney(
+        runningConsumed,
+        baseCurrency
+      )}`,
       phase: 3,
       phaseTitleKey: 'audit.phaseConsumptions',
       formulaDisplay: sumChainDisplay,
@@ -287,7 +470,10 @@ export function generateUserAuditTrail(
       runningPaid,
       runningConsumed,
       runningNet: Math.round((runningPaid - runningConsumed) * 100) / 100,
-      explanation: `Has completado el desglose de todas tus cuotas de participación (${consumedAmountsList.length} gastos). La suma total de tu consumo individual asciende a ${formatMoney(runningConsumed, baseCurrency)}.`,
+      explanation: `Has completado el desglose de todas tus cuotas de participación (${consumedAmountsList.length} gastos). La suma total de tu consumo individual asciende a ${formatMoney(
+        runningConsumed,
+        baseCurrency
+      )}.`,
     });
   }
 

@@ -503,6 +503,10 @@ export const zh: TranslationDictionary = {
     errorJoining: '加入群组失败，链接可能已失效。',
   },
   audit: {
+    currencyConversion: 'Currency Conversion & Exchange Rate',
+    loadConversionInCalc: 'Load Conversion',
+    exchangeRateApplied: 'Applied exchange rate',
+    originalTicketValue: 'Original ticket value',
     calcSplitOperation: 'Step A: Calculate your share of the ticket',
     calcSumOperation: 'Step B: Add to Running Total Consumed',
     loadSplitInCalc: 'Load Division',

@@ -503,6 +503,10 @@ export const nl: TranslationDictionary = {
     errorJoining: 'Kan niet deelnemen aan groep. De link is mogelijk verlopen.',
   },
   audit: {
+    currencyConversion: 'Currency Conversion & Exchange Rate',
+    loadConversionInCalc: 'Load Conversion',
+    exchangeRateApplied: 'Applied exchange rate',
+    originalTicketValue: 'Original ticket value',
     calcSplitOperation: 'Step A: Calculate your share of the ticket',
     calcSumOperation: 'Step B: Add to Running Total Consumed',
     loadSplitInCalc: 'Load Division',
