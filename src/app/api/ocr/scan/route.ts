@@ -138,60 +138,84 @@ Reglas críticas de extracción:
    - "other": cualquier otro concepto.
 5. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").`;
 
-    // 4. Call Google Gemini 1.5 Flash API with 12s timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    // 4. Call Google Gemini Vision API with multi-model cascade and 15s timeout
+    const candidateModels = [
+      { name: 'gemini-1.5-flash', version: 'v1beta' },
+      { name: 'gemini-1.5-flash-latest', version: 'v1beta' },
+      { name: 'gemini-2.0-flash', version: 'v1beta' },
+      { name: 'gemini-2.0-flash-exp', version: 'v1beta' },
+      { name: 'gemini-1.5-flash', version: 'v1' },
+      { name: 'gemini-1.5-pro', version: 'v1beta' },
+    ];
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    console.log(`[Gemini 1.5 Flash] 📸 Procesando ticket con IA de Visión (tamaño base64: ${base64Data.length} chars)...`);
-    const geminiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
+    let lastError = '';
+    let rawContent = '';
+    let successfulModel = 'gemini-1.5-flash';
+
+    for (const { name: modelName, version: apiVer } of candidateModels) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const geminiUrl = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelName}:generateContent?key=${apiKey}`;
+
+        console.log(`[Gemini OCR] 📸 Intentando escaneo con modelo ${modelName} (${apiVer})...`);
+
+        const geminiResponse = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [
               {
-                text: prompt,
-              },
-              {
-                inlineData: {
-                  mimeType: mimeType || 'image/jpeg',
-                  data: base64Data,
-                },
+                parts: [
+                  {
+                    text: prompt,
+                  },
+                  {
+                    inlineData: {
+                      mimeType: mimeType || 'image/jpeg',
+                      data: base64Data,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.1,
-        },
-      }),
-    });
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1,
+            },
+          }),
+        });
 
-    clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
 
-    if (!geminiResponse.ok) {
-      const errText = await geminiResponse.text().catch(() => '');
-      console.warn(`[Gemini OCR] Error ${geminiResponse.status} from Gemini API:`, errText);
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json();
+          rawContent = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (rawContent) {
+            successfulModel = modelName;
+            break;
+          }
+        } else {
+          const errText = await geminiResponse.text().catch(() => '');
+          lastError = `HTTP ${geminiResponse.status} (${modelName}): ${errText}`;
+          console.warn(`[Gemini OCR] Error con modelo ${modelName}:`, lastError);
+        }
+      } catch (err: any) {
+        lastError = err.message || 'Error de conexión';
+      }
+    }
+
+    if (!rawContent) {
       return NextResponse.json(
         {
           fallback: true,
-          error: `Gemini API error: ${geminiResponse.status}`,
+          error: `No se pudo procesar con Gemini: ${lastError}`,
         },
         { status: 200 }
       );
-    }
-
-    const geminiData = await geminiResponse.json();
-    const rawContent = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!rawContent) {
-      return NextResponse.json({ fallback: true, error: 'Respuesta vacía de Gemini' }, { status: 200 });
     }
 
     // 5. Parse and validate JSON output
