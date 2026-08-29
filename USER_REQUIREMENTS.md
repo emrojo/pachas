@@ -26,6 +26,8 @@ This document serves as the official and permanent registry for all **user requi
   - Curated preset avatar gallery ready to select with 1 tap.
   - Option to remove the avatar photo at any time and revert to default initials badge.
   - Real-time synchronization of the new avatar in Navbar, member lists, and expense cards.
+- **FR-03.5**: **PostgreSQL Profile Persistence ([`PUT /api/auth/me`](file:///d:/Projects/pachas/src/app/api/auth/me/route.ts))**:
+  - Direct persistence of profile edits (`avatar_url`, `full_name`, `bizum_phone`) into `public.profiles` in the PostgreSQL database, preserving user settings across device sessions and restarts.
 
 ### 🧾 FR-04: Expense Submission & Form
 - **FR-04.1**: Desktop and mobile-optimized form with a **2-line primary hierarchy**:
@@ -279,6 +281,31 @@ This document serves as the official and permanent registry for all **user requi
     - Queries official historical exchange rates for each expense's transaction date.
     - Updates converted amounts and recalculates participant quota shares (`amount_owed`) across all split types (`EQUAL`, `EXACT`, `PERCENTAGE`, `SHARES`).
     - Persists changes to the database and synchronizes local state.
+- **FR-28.4**: **Centralized Daily Exchange Rates Cache (`public.exchange_rates`)**:
+  - Global PostgreSQL table (`public.exchange_rates`) storing conversion rates indexed by `(base_currency, target_currency, rate_date)`.
+  - Ensures each daily exchange rate is downloaded from external services only once and reused across all trips, groups, and expenses.
+  - Automatic upsert on expense creation/editing for newly introduced dates and currencies.
+- **FR-28.5**: **Database Schema Normalization & Migrations**:
+  - Removal of redundant `exchange_rate` and `converted_amount` columns from `public.expenses` to maintain a single source of truth.
+  - Provided migration scripts: `01-schema.sql` (canonical schema), `02-migration-exchange-rates.sql` (rate cache table), `03-cleanup-redundant-columns.sql` (schema normalization), and `04-push-notifications.sql` (push subscriptions).
+
+### 📶 FR-29: Enhanced Offline PWA Mode (Service Worker Cache-First)
+- **FR-29.1**: **Full Cache-First Strategy**:
+  - Service Worker (`public/sw.js`) precaches core assets and applies stale-while-revalidate / cache-first strategies for scripts, CSS, fonts, and images.
+- **FR-29.2**: **Offline HTML Navigation**:
+  - Visited pages serve immediately from cache with graceful offline fallbacks.
+- **FR-29.3**: **Automatic Offline Status Indicator**:
+  - Client component (`ServiceWorkerRegister.tsx`) detecting offline transitions and rendering a non-intrusive status banner.
+
+### 🔔 FR-30: Granular WebPush & Mobile Push Notifications (Opt-in by Default)
+- **FR-30.1**: **Default Disabled (Opt-In Policy)**:
+  - All existing and new group memberships start with `notifications_enabled = false` to respect user privacy and avoid unsolicited alerts.
+- **FR-30.2**: **Opt-in on Group Join (`/join/[inviteCode]`)**:
+  - Interactive toggle allowing users to enable push notifications for the group before joining.
+- **FR-30.3**: **Granular In-Group Toggling**:
+  - 1-click toggle directly in the Group Tools Submenu (`GroupActionMenu.tsx`) and in Group Settings (`EditGroupModal.tsx`).
+- **FR-30.4**: **Automated Activity Dispatching**:
+  - Triggers push notifications on new expenses and settlements exclusively to subscribed group members with `notifications_enabled = true`.
 
 ---
 
@@ -337,4 +364,9 @@ This document serves as the official and permanent registry for all **user requi
 | **29/08/2026** | ⚖️ Added | **FR-26** | Complete legal framework and GDPR compliance: Terms of Service, Privacy Policy, Cookie Policy, Legal Notice, mandatory registration consent, receipt safety warnings, content reporting (`/api/reports`), personal data portability (`/api/user/export-data`), right to erasure (`/api/user/delete-account`), cookie consent banner, and global footer. |
 | **29/08/2026** | 🌟 Changed | **FR-04.6** | Group page action hierarchy redesign: Prominent primary **Add Expense** button, secondary **Invite Friends** button, and organized dropdown **Submenu** for remaining tools (Routes, Charts, Import, PDF, CSV, Settings). |
 | **29/08/2026** | 🧮 Added | **FR-27** | Step-by-step mathematical balance audit with interactive virtual calculator (`/groups/[id]/audit`): sequential proof of payments, consumptions, and settlements with 1-tap formula loading into calculator. |
+| **29/08/2026** | 🖼️ Fixed | **FR-03.5** | Fixed profile photo, name, and Bizum phone persistence in PostgreSQL database (`PUT /api/auth/me` updating `public.profiles`). |
 | **29/08/2026** | 💱 Added | **FR-28** | Real-time & historical exchange rate engine (European Central Bank / Frankfurter + Open Exchange Rates), auto-fetching by transaction date in expense form, and batch recalculation of group expenses on base currency change. |
+| **29/08/2026** | 🗄️ Added | **FR-28.4 & FR-28.5** | Centralized `public.exchange_rates` daily cache table (download rate once by date and reuse globally across all trips), database schema cleanup of redundant columns in `public.expenses`, and migrations catalog. |
+| **29/08/2026** | 📶 Added | **FR-29** | Full offline PWA mode with Cache-First Service Worker (`public/sw.js`), asset precaching, offline navigation, and connection status indicator. |
+| **29/08/2026** | 🔔 Added | **FR-30** | Granular WebPush & mobile push notification system with opt-in defaults (`notifications_enabled = false`), joining checkbox, in-group toggling in submenu & settings, and auto-dispatch on new expenses/settlements. |
+

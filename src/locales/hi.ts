@@ -554,4 +554,22 @@ export const hi: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "ऑफ़लाइन मोड: परिवर्तनों को स्थानीय रूप से सहेजा जा रहा है"
+  },
+  notifications: {
+  
+    "groupTitle": "समूह सूचनाएं",
+    "enableOnJoin": "इस समूह के लिए सूचनाएं चालू करें",
+    "enableOnJoinHint": "नए खर्च या निपटान जोड़े जाने पर अलर्ट प्राप्त करें।",
+    "enabled": "सूचनाएं: सक्षम",
+    "disabled": "सूचनाएं: अक्षम",
+    "receiving": "अलर्ट प्राप्त हो रहे हैं",
+    "muted": "म्यूट किया गया",
+    "newExpenseTitle": "आपके समूह में नया खर्च",
+    "newExpenseBody": "{name} ने {amount} {currency} का खर्च जोड़ा",
+    "newSettlementTitle": "ऋण चुकाया गया",
+    "newSettlementBody": "{name} ने {amount} {currency} का भुगतान दर्ज किया"
+  },
 };

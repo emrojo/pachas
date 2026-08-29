@@ -554,4 +554,22 @@ export const eu: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "Lineaz kanpoko modua: aldaketak lokalean gordetzen"
+  },
+  notifications: {
+  
+    "groupTitle": "Taldearen jakinarazpenak",
+    "enableOnJoin": "Gaitu jakinarazpenak talde honentzat",
+    "enableOnJoinHint": "Jaso alertak gastu edo kitatze berriak gehitzen direnean.",
+    "enabled": "Jakinarazpenak: Gaituta",
+    "disabled": "Jakinarazpenak: Desgaituta",
+    "receiving": "Alertak jasotzen",
+    "muted": "Isilarazita",
+    "newExpenseTitle": "Gastu berria zure taldean",
+    "newExpenseBody": "{name}-(e)k {amount} {currency}-ko gastua gehitu du",
+    "newSettlementTitle": "Zorra kitatuta",
+    "newSettlementBody": "{name}-(e)k {amount} {currency}-ko ordainketa erregistratu du"
+  },
 };

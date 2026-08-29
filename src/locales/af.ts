@@ -554,4 +554,22 @@ export const af: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "Vanlyn modus: stoor veranderinge plaaslik"
+  },
+  notifications: {
+  
+    "groupTitle": "Groepkennisgewings",
+    "enableOnJoin": "Aktiveer kennisgewings vir hierdie groep",
+    "enableOnJoinHint": "Kry kennisgewings wanneer nuwe uitgawes of vereffenings bygevoeg word.",
+    "enabled": "Kennisgewings: Geaktiveer",
+    "disabled": "Kennisgewings: Gedeaktiveer",
+    "receiving": "Kennisgewings aktief",
+    "muted": "Gedemp",
+    "newExpenseTitle": "Nuwe uitgawe in jou groep",
+    "newExpenseBody": "{name} het 'n uitgawe van {amount} {currency} bygevoeg",
+    "newSettlementTitle": "Skuld vereffen",
+    "newSettlementBody": "{name} het 'n betaling van {amount} {currency} aangeteken"
+  },
 };

@@ -105,6 +105,7 @@ create table if not exists public.group_members (
     group_id uuid references public.groups(id) on delete cascade not null,
     user_id uuid references public.profiles(id) on delete cascade not null,
     role text default 'member' check (role in ('admin', 'member')) not null,
+    notifications_enabled boolean default false not null,
     joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
     unique(group_id, user_id)
 );
@@ -178,6 +179,18 @@ create table if not exists public.exchange_rates (
 );
 
 create index if not exists idx_exchange_rates_lookup on public.exchange_rates(from_currency, to_currency, rate_date);
+
+-- 9. PUSH SUBSCRIPTIONS (WebPush & FCM browser/mobile subscriptions)
+create table if not exists public.push_subscriptions (
+    id uuid primary key default uuid_generate_v4(),
+    user_id uuid references public.profiles(id) on delete cascade not null,
+    endpoint text not null unique,
+    p256dh text not null,
+    auth text not null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_push_subscriptions_user on public.push_subscriptions(user_id);
 
 -- ==============================================================================
 -- GRANT PERMISSIONS TO ROLES & SCHEMAS

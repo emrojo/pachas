@@ -554,4 +554,22 @@ export const el: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "Λειτουργία εκτός σύνδεσης: τοπική αποθήκευση αλλαγών"
+  },
+  notifications: {
+  
+    "groupTitle": "Ειδοποιήσεις ομάδας",
+    "enableOnJoin": "Ενεργοποίηση ειδοποιήσεων για αυτήν την ομάδα",
+    "enableOnJoinHint": "Λάβετε ειδοποιήσεις όταν προστίθενται νέα έξοδα ή διακανονισμοί.",
+    "enabled": "Ειδοποιήσεις: Ενεργές",
+    "disabled": "Ειδοποιήσεις: Ανενεργές",
+    "receiving": "Λήψη ειδοποιήσεων",
+    "muted": "Σε σίγαση",
+    "newExpenseTitle": "Νέο έξοδο στην ομάδα σας",
+    "newExpenseBody": "Ο/Η {name} πρόσθεσε ένα έξοδο {amount} {currency}",
+    "newSettlementTitle": "Το χρέος εξοφλήθηκε",
+    "newSettlementBody": "Ο/Η {name} κατέγραψε πληρωμή {amount} {currency}"
+  },
 };

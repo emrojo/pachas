@@ -45,6 +45,7 @@ export interface GroupMember {
   group_id: string;
   user_id: string;
   role: 'admin' | 'member';
+  notifications_enabled?: boolean;
   joined_at: string;
   profile?: Profile;
 }
@@ -136,3 +137,23 @@ export interface DailyExchangeRate {
   is_estimated?: boolean;
   created_at: string;
 }
+
+export interface PushSubscriptionRecord {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: string;
+}
+
+export interface PushNotificationPayload {
+  title: string;
+  body: string;
+  icon?: string;
+  badge?: string;
+  url?: string;
+  tag?: string;
+  data?: Record<string, any>;
+}
+

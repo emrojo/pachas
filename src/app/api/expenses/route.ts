@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { verifyJwt } from '@/lib/auth/jwt';
+import { notifyGroupMembers } from '@/lib/notifications/webPush';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -157,6 +158,15 @@ export async function POST(request: NextRequest) {
       }
 
       await client.query('COMMIT');
+
+      // 5. Trigger WebPush notification to subscribed group members in background
+      notifyGroupMembers(groupId, payload.sub, {
+        title: `Nuevo gasto: ${title}`,
+        body: `${payload.full_name || 'Un amigo'} ha añadido un gasto de ${amount} ${currency}.`,
+        url: `/groups/${groupId}`,
+        tag: `expense-${id}`,
+        data: { groupId, expenseId: id },
+      }).catch(() => {});
 
       return NextResponse.json({
         success: true,

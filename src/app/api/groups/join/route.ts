@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { inviteCode } = body;
+    const { inviteCode, enableNotifications = false } = body;
 
     if (!inviteCode) {
       return NextResponse.json({ error: 'Código de invitación requerido.' }, { status: 400 });
@@ -29,6 +29,12 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Ensure notifications_enabled column exists
+    await pool.query(`
+      alter table public.group_members
+      add column if not exists notifications_enabled boolean default false not null;
+    `);
 
     // 1. Find group
     const groupRes = await pool.query(
@@ -52,10 +58,10 @@ export async function POST(request: NextRequest) {
     // 2. Insert member into group_members if not already joined
     const memberId = randomUUID();
     await pool.query(
-      `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
-       VALUES ($1, $2, $3, 'member', NOW())
-       ON CONFLICT (group_id, user_id) DO NOTHING`,
-      [memberId, group.id, payload.sub]
+      `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
+       VALUES ($1, $2, $3, 'member', $4, NOW())
+       ON CONFLICT (group_id, user_id) DO UPDATE SET notifications_enabled = EXCLUDED.notifications_enabled`,
+      [memberId, group.id, payload.sub, Boolean(enableNotifications)]
     );
 
     // 3. Fetch all members with their profile

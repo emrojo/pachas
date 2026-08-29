@@ -554,4 +554,22 @@ export const zh: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "离线模式：正在本地保存更改"
+  },
+  notifications: {
+  
+    "groupTitle": "群组通知",
+    "enableOnJoin": "为此群组开启通知",
+    "enableOnJoinHint": "添加新支出或结算时接收通知。",
+    "enabled": "通知：已开启",
+    "disabled": "通知：已关闭",
+    "receiving": "正在接收通知",
+    "muted": "已静音",
+    "newExpenseTitle": "群组新增支出",
+    "newExpenseBody": "{name} 添加了 {amount} {currency} 的支出",
+    "newSettlementTitle": "债务已结清",
+    "newSettlementBody": "{name} 记录了一笔 {amount} {currency} 的付款"
+  },
 };

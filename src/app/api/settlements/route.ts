@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { verifyJwt } from '@/lib/auth/jwt';
+import { notifyGroupMembers } from '@/lib/notifications/webPush';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -55,6 +56,15 @@ export async function POST(request: NextRequest) {
         settledAt,
       ]
     );
+
+    // Notify subscribed group members in background
+    notifyGroupMembers(groupId, payload.sub, {
+      title: `Deuda liquidada`,
+      body: `${payload.full_name || 'Un amigo'} ha registrado un pago de ${amount} ${currency}.`,
+      url: `/groups/${groupId}`,
+      tag: `settlement-${id}`,
+      data: { groupId, settlementId: id },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

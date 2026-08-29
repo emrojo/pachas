@@ -554,4 +554,22 @@ export const nl: TranslationDictionary = {
     noExpensesYet: 'No expenses registered yet to audit in this group.',
   },
 
+  offline: {
+  
+    "banner": "Offlinemodus: wijzigingen lokaal opslaan"
+  },
+  notifications: {
+  
+    "groupTitle": "Groepsmeldingen",
+    "enableOnJoin": "Meldingen inschakelen voor deze groep",
+    "enableOnJoinHint": "Ontvang meldingen wanneer nieuwe uitgaven of afrekeningen worden toegevoegd.",
+    "enabled": "Meldingen: Ingeschakeld",
+    "disabled": "Meldingen: Uitgeschakeld",
+    "receiving": "Meldingen actief",
+    "muted": "Gedempt",
+    "newExpenseTitle": "Nieuwe uitgave in je groep",
+    "newExpenseBody": "{name} heeft een uitgave van {amount} {currency} toegevoegd",
+    "newSettlementTitle": "Schuld voldaan",
+    "newSettlementBody": "{name} heeft een betaling van {amount} {currency} geregistreerd"
+  },
 };
