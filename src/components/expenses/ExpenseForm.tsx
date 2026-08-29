@@ -22,6 +22,7 @@ import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize'
 import { getHistoricalExchangeRate, ExchangeRateResult } from '@/lib/currencies/exchangeRateService';
 
 import {
+  formatDate,
   toDateTimeLocalValue,
   fromDateTimeLocalToISOWithTimezone,
   getCurrentDateTimeISOWithTimezone,
@@ -48,8 +49,10 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
+  Eye,
 } from 'lucide-react';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
+import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 
 export interface ExpenseFormProps {
   groupId: string;
@@ -101,6 +104,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   );
   const [notes, setNotes] = useState('');
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isFetchingRate, setIsFetchingRate] = useState(false);
   const [rateSourceInfo, setRateSourceInfo] = useState<{
@@ -1086,15 +1090,30 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 {getUserTimezoneLabel()}
               </span>
             </div>
-            <div className="relative">
-              <input
-                type="datetime-local"
-                value={expenseDateTime}
-                onChange={(e) => !isReadOnly && handleDateTimeChange(e.target.value)}
-                disabled={isReadOnly}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
-              />
-            </div>
+            {isReadOnly ? (
+              <div className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>
+                  {expenseDateTime
+                    ? formatDate(fromDateTimeLocalToISOWithTimezone(expenseDateTime), 'dd/MM/yyyy HH:mm')
+                    : '-'}
+                </span>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="datetime-local"
+                  value={expenseDateTime}
+                  onChange={(e) => handleDateTimeChange(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                />
+                {expenseDateTime && (
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 pl-1 font-medium">
+                    🗓️ {formatDate(fromDateTimeLocalToISOWithTimezone(expenseDateTime), 'dd/MM/yyyy HH:mm')}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Receipt Photo Upload / View */}
@@ -1116,25 +1135,35 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     />
                   </label>
                   {receiptUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setReceiptUrl(null)}
-                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg text-xs font-semibold"
-                    >
-                      {t('expenses.removeReceipt')}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowReceiptModal(true)}
+                        className="p-2.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-xl text-xs font-semibold transition-colors shadow-xs"
+                        title={t('expenses.viewReceipt')}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReceiptUrl(null)}
+                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-semibold transition-colors"
+                        title={t('expenses.removeReceipt')}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                 </>
               ) : receiptUrl ? (
-                <a
-                  href={receiptUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setShowReceiptModal(true)}
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/60 transition-colors shadow-xs"
                 >
                   <Receipt className="w-4 h-4" />
                   <span>{t('expenses.viewReceipt')}</span>
-                </a>
+                </button>
               ) : (
                 <div className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-xs text-slate-400 text-center">
                   {t('expenses.noReceipt')}
@@ -1235,6 +1264,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         targetType="expense"
         targetId={expenseToEdit?.id || ''}
         targetTitle={expenseToEdit?.title}
+      />
+
+      <ReceiptModal
+        isOpen={showReceiptModal}
+        onClose={() => setShowReceiptModal(false)}
+        receiptUrl={receiptUrl}
+        title={title || expenseToEdit?.title || t('expenses.receiptPhoto')}
       />
     </Modal>
   );

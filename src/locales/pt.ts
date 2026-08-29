@@ -287,6 +287,7 @@ export const pt: TranslationDictionary = {
     changeReceipt: 'Alterar recibo',
     removeReceipt: 'Remover',
     viewReceipt: 'Ver Recibo Anexo ↗',
+    downloadReceipt: 'Descarregar',
     noReceipt: 'Sem recibo anexo',
     noExpensesTitle: 'Ainda não há despesas registadas',
     noExpensesSubtitle: 'Adiciona a primeira despesa da viagem clicando no botão abaixo!',

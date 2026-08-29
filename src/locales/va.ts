@@ -287,6 +287,7 @@ export const va: TranslationDictionary = {
     changeReceipt: 'Canviar tíquet',
     removeReceipt: 'Llevar',
     viewReceipt: 'Vore Tíquet Adjunt ↗',
+    downloadReceipt: 'Descarregar',
     noReceipt: 'Sense tíquet adjunt',
     noExpensesTitle: 'Encara no hi ha despeses registrades',
     noExpensesSubtitle: 'Afig la primera despesa del viage punxant en el botó de baix!',

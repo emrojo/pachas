@@ -287,6 +287,7 @@ export const ar: TranslationDictionary = {
     changeReceipt: 'تغيير الإيصال',
     removeReceipt: 'إزالة',
     viewReceipt: 'عرض الإيصال المرفق ↗',
+    downloadReceipt: 'تحميل',
     noReceipt: 'لا يوجد إيصال مرفق',
     noExpensesTitle: 'لا توجد مصاريف مسجلة بعد',
     noExpensesSubtitle: 'أضف أول مصروف في الرحلة بالضغط على الزر أدناه!',

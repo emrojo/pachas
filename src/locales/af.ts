@@ -287,6 +287,7 @@ export const af: TranslationDictionary = {
     changeReceipt: 'Verander strokie',
     removeReceipt: 'Verwyder',
     viewReceipt: 'Sien Aangehegte Strokie ↗',
+    downloadReceipt: 'Aflaai',
     noReceipt: 'Geen strokie aangeheg nie',
     noExpensesTitle: 'Nog geen uitgawes aangeteken nie',
     noExpensesSubtitle: 'Voeg die reis se eerste uitgawe by met die knoppie hieronder!',

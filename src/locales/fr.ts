@@ -287,6 +287,7 @@ export const fr: TranslationDictionary = {
     changeReceipt: 'Changer de reçu',
     removeReceipt: 'Supprimer',
     viewReceipt: 'Voir le reçu joint ↗',
+    downloadReceipt: 'Télécharger',
     noReceipt: 'Aucun reçu joint',
     noExpensesTitle: 'Aucune dépense enregistrée pour l’instant',
     noExpensesSubtitle: 'Ajoutez la première dépense du voyage en cliquant sur le bouton ci-dessous !',

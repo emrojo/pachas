@@ -287,6 +287,7 @@ export const ja: TranslationDictionary = {
     changeReceipt: 'レシートを変更',
     removeReceipt: '削除',
     viewReceipt: '添付レシートを表示 ↗',
+    downloadReceipt: 'ダウンロード',
     noReceipt: '添付レシートなし',
     noExpensesTitle: '支出はまだ登録されていません',
     noExpensesSubtitle: '下のボタンを押して、旅行最初の支出を追加しましょう！',

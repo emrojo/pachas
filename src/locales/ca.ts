@@ -287,6 +287,7 @@ export const ca: TranslationDictionary = {
     changeReceipt: 'Canviar tiquet',
     removeReceipt: 'Treure',
     viewReceipt: 'Veure Tiquet Adjunt ↗',
+    downloadReceipt: 'Descarregar',
     noReceipt: 'Sense tiquet adjunt',
     noExpensesTitle: 'Encara no hi ha despeses registrades',
     noExpensesSubtitle: 'Afegeix la primera despesa del viatge clicant al botó de sota!',

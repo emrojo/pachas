@@ -287,6 +287,7 @@ export const el: TranslationDictionary = {
     changeReceipt: 'Αλλαγή απόδειξης',
     removeReceipt: 'Αφαίρεση',
     viewReceipt: 'Προβολή Απόδειξης ↗',
+    downloadReceipt: 'Λήψη',
     noReceipt: 'Δεν έχει επισυναφθεί απόδειξη',
     noExpensesTitle: 'Δεν έχουν καταχωρηθεί έξοδα ακόμα',
     noExpensesSubtitle: 'Προσθέστε το πρώτο έξοδο πατώντας το κουμπί παρακάτω!',

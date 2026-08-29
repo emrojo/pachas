@@ -288,6 +288,7 @@ export const en: TranslationDictionary = {
     changeReceipt: 'Change receipt',
     removeReceipt: 'Remove',
     viewReceipt: 'View Attached Receipt ↗',
+    downloadReceipt: 'Download',
     noReceipt: 'No receipt attached',
     noExpensesTitle: 'No expenses recorded yet',
     noExpensesSubtitle: 'Add the first trip expense by clicking the button below!',
