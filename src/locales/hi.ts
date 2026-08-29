@@ -573,4 +573,20 @@ export const hi: TranslationDictionary = {
     "newSettlementTitle": "ऋण चुकाया गया",
     "newSettlementBody": "{name} ने {amount} {currency} का भुगतान दर्ज किया"
   },
+  ocr: {
+    scanningReceipt: 'AI से रसीद स्कैन की जा रही है...',
+    scanningReceiptSubtitle: 'राशि, दिनांक और विक्रेता की जानकारी निकाली जा रही है',
+    detectedTitle: 'रसीद से मिले विवरण',
+    applyData: 'स्वतः भरें',
+    scanReceipt: 'रसीद स्कैन करें',
+  },
+  comments: {
+    title: 'टिप्पणियाँ',
+    subtitle: 'समूह की स्पष्टीकरण या नोट्स',
+    noComments: 'इस खर्च पर कोई टिप्पणी नहीं है। पहली टिप्पणी करें!',
+    placeholder: 'कोई टिप्पणी या स्पष्टीकरण लिखें...',
+    send: 'भेजें',
+    loginRequired: 'टिप्पणी करने के लिए लॉग इन करें।',
+    confirmDelete: 'क्या यह टिप्पणी हटाएँ?',
+  },
 };

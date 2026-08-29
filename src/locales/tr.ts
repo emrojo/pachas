@@ -573,4 +573,20 @@ export const tr: TranslationDictionary = {
     "newSettlementTitle": "Borç ödendi",
     "newSettlementBody": "{name} {amount} {currency} tutarında bir ödeme kaydetti"
   },
+  ocr: {
+    scanningReceipt: 'Fiş yapay zeka ile taranıyor...',
+    scanningReceiptSubtitle: 'Tutar, tarih ve işletme adı otomatik olarak çıkarılıyor',
+    detectedTitle: 'Fişte tespit edilen bilgiler',
+    applyData: 'Harcamayı otomatik doldur',
+    scanReceipt: 'Fişi tara',
+  },
+  comments: {
+    title: 'Yorumlar',
+    subtitle: 'Grup açıklamaları veya notları',
+    noComments: 'Bu harcama için henüz yorum yok. İlk yorumu sen yap!',
+    placeholder: 'Bir yorum veya açıklama yazın...',
+    send: 'Gönder',
+    loginRequired: 'Yorum yapmak için giriş yapın.',
+    confirmDelete: 'Bu yorum silinsin mi?',
+  },
 };

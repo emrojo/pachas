@@ -573,4 +573,20 @@ export const pt: TranslationDictionary = {
     "newSettlementTitle": "Dívida liquidada",
     "newSettlementBody": "{name} registou um pagamento de {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Digitalizando recibo com IA...',
+    scanningReceiptSubtitle: 'Extraindo valor, data e estabelecimento automaticamente',
+    detectedTitle: 'Dados detetados no recibo',
+    applyData: 'Preencher automaticamente',
+    scanReceipt: 'Digitalizar recibo',
+  },
+  comments: {
+    title: 'Comentários',
+    subtitle: 'Esclarecimentos ou notas do grupo',
+    noComments: 'Sem comentários nesta despesa. Seja o primeiro a comentar!',
+    placeholder: 'Escreva um comentário ou esclarecimento...',
+    send: 'Enviar',
+    loginRequired: 'Inicie sessão para deixar um comentário.',
+    confirmDelete: 'Eliminar este comentário?',
+  },
 };

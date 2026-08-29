@@ -12,6 +12,7 @@ import {
   SplitType,
   ExpenseCategory,
   PaymentMethod,
+  ExpenseComment,
 } from '@/types/database';
 import {
   DEMO_CURRENT_USER,
@@ -108,6 +109,11 @@ interface PachasContextType {
   pendingSyncCount: number;
   syncPendingQueue: () => Promise<void>;
   clearPendingSyncQueue: () => void;
+  comments: Record<string, ExpenseComment[]>;
+  getExpenseComments: (expenseId: string) => ExpenseComment[];
+  addExpenseComment: (expenseId: string, comment: string) => Promise<ExpenseComment>;
+  deleteExpenseComment: (commentId: string, expenseId: string) => Promise<void>;
+  fetchExpenseComments: (expenseId: string) => Promise<ExpenseComment[]>;
 }
 
 
@@ -120,6 +126,7 @@ const STORAGE_KEYS = {
   MEMBERS: 'pachas_members_v2',
   EXPENSES: 'pachas_expenses_v2',
   SETTLEMENTS: 'pachas_settlements_v2',
+  COMMENTS: 'pachas_expense_comments_v2',
 };
 
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -129,6 +136,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [members, setMembers] = useState<Record<string, GroupMember[]>>({});
   const [expenses, setExpenses] = useState<Record<string, Expense[]>>({});
   const [settlements, setSettlements] = useState<Record<string, Settlement[]>>({});
+  const [comments, setComments] = useState<Record<string, ExpenseComment[]>>({});
   const [lastImportBatch, setLastImportBatch] = useState<{
     groupId: string;
     expenseIds: string[];
@@ -227,6 +235,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           } catch {}
         } else if (demoAllowed && isMounted) {
           setSettlements(DEMO_SETTLEMENTS);
+        }
+
+        const savedComments = localStorage.getItem(STORAGE_KEYS.COMMENTS);
+        if (savedComments && isMounted) {
+          try {
+            setComments(JSON.parse(savedComments));
+          } catch {}
         }
       } catch {}
 
@@ -1569,8 +1584,104 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setMembers({});
     setExpenses({});
     setSettlements({});
+    setComments({});
     setAvailableUsers(DEMO_USERS);
     _setCurrentUser(null);
+  };
+
+  const getExpenseComments = (expenseId: string) => comments[expenseId] || [];
+
+  const fetchExpenseComments = async (expenseId: string): Promise<ExpenseComment[]> => {
+    try {
+      const res = await fetch(`/api/expenses/${expenseId}/comments`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.comments) {
+          setComments((prev) => {
+            const updated = { ...prev, [expenseId]: data.comments };
+            try {
+              localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
+          return data.comments;
+        }
+      }
+    } catch (err) {
+      console.warn('Error fetching comments:', err);
+    }
+    return comments[expenseId] || [];
+  };
+
+  const addExpenseComment = async (expenseId: string, text: string): Promise<ExpenseComment> => {
+    if (!currentUser) throw new Error('Debes iniciar sesión para comentar.');
+
+    const newComment: ExpenseComment = {
+      id: `cmt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      expense_id: expenseId,
+      user_id: currentUser.id,
+      comment: text,
+      created_at: new Date().toISOString(),
+      profile: currentUser,
+    };
+
+    // Optimistic local update
+    setComments((prev) => {
+      const currentList = prev[expenseId] || [];
+      const updated = { ...prev, [expenseId]: [...currentList, newComment] };
+      try {
+        localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // Sync to backend
+    try {
+      const res = await fetch(`/api/expenses/${expenseId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: newComment.id, comment: text }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.comment) {
+          setComments((prev) => {
+            const currentList = prev[expenseId] || [];
+            const replaced = currentList.map((c) => (c.id === newComment.id ? data.comment : c));
+            const updated = { ...prev, [expenseId]: replaced };
+            try {
+              localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
+          return data.comment;
+        }
+      }
+    } catch (err) {
+      console.warn('Error syncing comment to backend:', err);
+    }
+
+    return newComment;
+  };
+
+  const deleteExpenseComment = async (commentId: string, expenseId: string): Promise<void> => {
+    setComments((prev) => {
+      const currentList = prev[expenseId] || [];
+      const filtered = currentList.filter((c) => c.id !== commentId);
+      const updated = { ...prev, [expenseId]: filtered };
+      try {
+        localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    try {
+      await fetch(`/api/expenses/${expenseId}/comments?commentId=${commentId}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.warn('Error deleting comment from backend:', err);
+    }
   };
 
   return (
@@ -1613,6 +1724,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         pendingSyncCount,
         syncPendingQueue,
         clearPendingSyncQueue,
+        comments,
+        getExpenseComments,
+        addExpenseComment,
+        deleteExpenseComment,
+        fetchExpenseComments,
       }}
     >
 

@@ -573,4 +573,20 @@ export const af: TranslationDictionary = {
     "newSettlementTitle": "Skuld vereffen",
     "newSettlementBody": "{name} het 'n betaling van {amount} {currency} aangeteken"
   },
+  ocr: {
+    scanningReceipt: 'Skandeer kwitansie met KI...',
+    scanningReceiptSubtitle: 'Onttrek outomaties bedrag, datum en handelaar',
+    detectedTitle: 'Data opgespoor op kwitansie',
+    applyData: 'Vul uitgawe outomaties in',
+    scanReceipt: 'Skandeer kwitansie',
+  },
+  comments: {
+    title: 'Kommentaar',
+    subtitle: 'Groepstoeligting of notas',
+    noComments: 'Geen kommentaar op hierdie uitgawe nie. Wees die eerste!',
+    placeholder: 'Skryf \'n opmerking of toeligting...',
+    send: 'Stuur',
+    loginRequired: 'Teken in om \'n opmerking te los.',
+    confirmDelete: 'Verwyder hierdie opmerking?',
+  },
 };

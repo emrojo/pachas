@@ -572,6 +572,22 @@ export const es = {
     "newSettlementTitle": "Deuda liquidada",
     "newSettlementBody": "{name} ha registrado un pago de {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Escaneando ticket con IA...',
+    scanningReceiptSubtitle: 'Extrayendo importe, fecha y comercio automáticamente',
+    detectedTitle: 'Datos detectados en el ticket',
+    applyData: 'Autocompletar gasto',
+    scanReceipt: 'Escanear ticket',
+  },
+  comments: {
+    title: 'Comentarios',
+    subtitle: 'Aclaraciones o notas del grupo',
+    noComments: 'No hay comentarios en este gasto. ¡Sé el primero en comentar!',
+    placeholder: 'Escribe un comentario o aclaración...',
+    send: 'Enviar',
+    loginRequired: 'Inicia sesión para dejar un comentario.',
+    confirmDelete: '¿Eliminar este comentario?',
+  },
 } as const;
 
 type DeepStringRecord<T> = {

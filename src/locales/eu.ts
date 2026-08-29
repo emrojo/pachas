@@ -573,4 +573,20 @@ export const eu: TranslationDictionary = {
     "newSettlementTitle": "Zorra kitatuta",
     "newSettlementBody": "{name}-(e)k {amount} {currency}-ko ordainketa erregistratu du"
   },
+  ocr: {
+    scanningReceipt: 'Tiketa eskaneatzen AI-arekin...',
+    scanningReceiptSubtitle: 'Zenbatekoa, data eta denda automatikoki ateratzen',
+    detectedTitle: 'Tiketean hautemandako datuak',
+    applyData: 'Gastuak automatikoki bete',
+    scanReceipt: 'Tiketa eskaneatu',
+  },
+  comments: {
+    title: 'Iruzkinak',
+    subtitle: 'Taldearen argibideak edo oharrak',
+    noComments: 'Gastu honetan ez dago iruzkinik. Izan lehena iruzkintzen!',
+    placeholder: 'Idatzi iruzkin edo argibide bat...',
+    send: 'Bidali',
+    loginRequired: 'Hasi saioa iruzkin bat uzteko.',
+    confirmDelete: 'Iruzkin hau ezabatu?',
+  },
 };

@@ -575,6 +575,22 @@ export const en: TranslationDictionary = {
     "newSettlementTitle": "Debt settled",
     "newSettlementBody": "{name} recorded a payment of {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Scanning receipt with AI...',
+    scanningReceiptSubtitle: 'Automatically extracting amount, date and merchant',
+    detectedTitle: 'Data detected in receipt',
+    applyData: 'Autofill expense',
+    scanReceipt: 'Scan receipt',
+  },
+  comments: {
+    title: 'Comments',
+    subtitle: 'Group clarifications or notes',
+    noComments: 'No comments on this expense yet. Be the first to comment!',
+    placeholder: 'Write a comment or clarification...',
+    send: 'Send',
+    loginRequired: 'Log in to leave a comment.',
+    confirmDelete: 'Delete this comment?',
+  },
 };
 
 

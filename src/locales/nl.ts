@@ -573,4 +573,20 @@ export const nl: TranslationDictionary = {
     "newSettlementTitle": "Schuld voldaan",
     "newSettlementBody": "{name} heeft een betaling van {amount} {currency} geregistreerd"
   },
+  ocr: {
+    scanningReceipt: 'Bon scannen met AI...',
+    scanningReceiptSubtitle: 'Bedrag, datum en winkelier automatisch extraheren',
+    detectedTitle: 'Gegevens gedetecteerd op bon',
+    applyData: 'Uitgave automatisch invullen',
+    scanReceipt: 'Bon scannen',
+  },
+  comments: {
+    title: 'Reacties',
+    subtitle: 'Toelichting of groepsnotities',
+    noComments: 'Nog geen reacties op deze uitgave. Wees de eerste!',
+    placeholder: 'Schrijf een reactie of toelichting...',
+    send: 'Verzenden',
+    loginRequired: 'Log in om een reactie te plaatsen.',
+    confirmDelete: 'Deze reactie verwijderen?',
+  },
 };

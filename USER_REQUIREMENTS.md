@@ -307,6 +307,27 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-30.4**: **Automated Activity Dispatching**:
   - Triggers push notifications on new expenses and settlements exclusively to subscribed group members with `notifications_enabled = true`.
 
+### 📷 FR-31: Intelligent Receipt OCR Scanning with AI (Client-Side Vision)
+- **FR-31.1**: **Client-Side Text Recognition (`tesseract.js`)**:
+  - Direct optical character recognition executed locally in the user's browser, eliminating third-party API costs, data privacy risks, and network latency.
+- **FR-31.2**: **Heuristic Entity Extraction Engine ([`receiptScanner.ts`](file:///d:/Projects/pachas/src/lib/ocr/receiptScanner.ts))**:
+  - *Total Monetary Amount*: Recognizes keywords (`TOTAL`, `IMPORTE`, `SUMA`, `SUBTOTAL`, `EUR`, `€`) and extracts maximum invoice total with European comma decimal support (`45,80 €`).
+  - *Expense Date*: Recognizes date formats (`DD/MM/YYYY`, `DD-MM-YYYY`, `YYYY-MM-DD`) and timestamp info.
+  - *Establishment Name*: Cleans header lines filtering out CIF/NIF and legal headers to detect merchant name (e.g. `"Restaurante El Faro"`).
+  - *Automatic Category Classification*: Matches keywords to map expenses into `food`, `shopping`, `transport`, `accommodation`, or `activities`.
+- **FR-31.3**: **Interactive Autofill Banner ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
+  - Real-time scanning progress indicator upon ticket photo upload.
+  - Non-intrusive detected data card with 1-click **"Autofill Expense"** button.
+
+### 💬 FR-32: In-Expense Discussion Threads & Comments
+- **FR-32.1**: **Discussion Thread Section ([`ExpenseCommentsSection.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseCommentsSection.tsx))**:
+  - Interactive comment feed in expense details allowing trip members to leave notes, clarifications, or itemize specific consumptions.
+- **FR-32.2**: **PostgreSQL Persistence & Offline Cache**:
+  - Relational table `public.expense_comments` (`05-expense-comments.sql`) with foreign keys and cascade deletion.
+  - Offline sync with `localStorage` (`pachas_expense_comments_v2`) and optimistic local updates.
+- **FR-32.3**: **Comments Counter Badge ([`ExpenseCard.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseCard.tsx))**:
+  - Visual badge with comment count (`💬 N`) on each expense card in the trip list.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -377,4 +398,6 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 📄 Fixed | **PDF Export Emoji Encoding Artifacts** | Resolved `Ø=Üd` corruption in PDF friend breakdown caused by Unicode emoji (`👤`) decomposition in standard jsPDF WinAnsi fonts: replaced with vector bullet rendering, added `cleanPdfText` sanitization for all participant names and titles, and added automated test suite. |
 | **30/08/2026** | 🧾 Fixed | **Receipt Viewer Blank Tab & Modal Integration** | Fixed empty browser tab issue when viewing compressed Base64 tickets (`data:` URLs blocked by browser top-level navigation): integrated in-app `ReceiptModal` lightbox directly in `ExpenseForm`, added safe HTML document stream opener for new tabs, and added ticket image download option. |
 | **30/08/2026** | 📅 Fixed | **Standard European Date Format (`dd/MM/yyyy`)** | Enforced strict `dd/MM/yyyy HH:mm` standard date format across all views: replaced browser-native `<input type="datetime-local">` in read-only expense details with clean European formatted text badge (`dd/MM/yyyy HH:mm`), updated `formatLocaleDate` to eliminate `MM/DD/YYYY` output, and added automated test suite. |
+| **30/08/2026** | 📷 Added | **FR-31** | **Intelligent Receipt OCR Scanning with AI**: Client-side optical character recognition (`tesseract.js`), automatic extraction of monetary total, transaction date, merchant title and category heuristics, with interactive 1-click autofill banner in `ExpenseForm`. |
+| **30/08/2026** | 💬 Added | **FR-32** | **In-Expense Discussion Threads & Comments**: Comment feed on expenses (`ExpenseCommentsSection`), counter badge on expense cards (`💬 N`), database migration `05-expense-comments.sql`, REST API `/api/expenses/[id]/comments`, and 19-language translations. |
 

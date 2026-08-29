@@ -573,4 +573,20 @@ export const ca: TranslationDictionary = {
     "newSettlementTitle": "Deute liquidat",
     "newSettlementBody": "{name} ha registrat un pagament de {amount} {currency}"
   },
+  ocr: {
+    scanningReceipt: 'Escanejant tiquet amb IA...',
+    scanningReceiptSubtitle: 'Extraient import, data i comerç automàticament',
+    detectedTitle: 'Dades detectades al tiquet',
+    applyData: 'Autocompletar despesa',
+    scanReceipt: 'Escanejar tiquet',
+  },
+  comments: {
+    title: 'Comentaris',
+    subtitle: 'Aclariments o notes del grup',
+    noComments: 'No hi ha comentaris en aquesta despesa. Sigues el primer a comentar!',
+    placeholder: 'Escriu un comentari o aclariment...',
+    send: 'Enviar',
+    loginRequired: 'Inicia sessió per deixar un comentari.',
+    confirmDelete: 'Eliminar aquest comentari?',
+  },
 };
