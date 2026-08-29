@@ -285,6 +285,8 @@ export const en: TranslationDictionary = {
     splitSummary: 'Contribution per friend',
     receiptPhoto: 'Receipt / Invoice Photo',
     uploadReceipt: 'Upload photo or invoice',
+    takePhoto: 'Take photo',
+    uploadFromGallery: 'Upload file',
     changeReceipt: 'Change receipt',
     removeReceipt: 'Remove',
     viewReceipt: 'View Attached Receipt ↗',

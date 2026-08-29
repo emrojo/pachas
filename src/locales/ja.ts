@@ -284,6 +284,8 @@ export const ja: TranslationDictionary = {
     splitSummary: '各メンバーの負担額',
     receiptPhoto: 'レシート / 領収書写真',
     uploadReceipt: '写真をアップロード',
+    takePhoto: '写真を撮る',
+    uploadFromGallery: 'ファイルをアップロード',
     changeReceipt: 'レシートを変更',
     removeReceipt: '削除',
     viewReceipt: '添付レシートを表示 ↗',

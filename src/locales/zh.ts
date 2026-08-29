@@ -284,6 +284,8 @@ export const zh: TranslationDictionary = {
     splitSummary: '成员分摊明细',
     receiptPhoto: '小票 / 发票照片',
     uploadReceipt: '上传小票或发票',
+    takePhoto: '拍照',
+    uploadFromGallery: '上传文件',
     changeReceipt: '更换小票',
     removeReceipt: '删除',
     viewReceipt: '查看附件发票 ↗',

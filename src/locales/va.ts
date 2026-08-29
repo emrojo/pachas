@@ -284,6 +284,8 @@ export const va: TranslationDictionary = {
     splitSummary: 'Aportació per amic',
     receiptPhoto: 'Foto del Tíquet / Factura',
     uploadReceipt: 'Pujar foto o factura',
+    takePhoto: 'Fer foto',
+    uploadFromGallery: 'Pujar arxiu',
     changeReceipt: 'Canviar tíquet',
     removeReceipt: 'Llevar',
     viewReceipt: 'Vore Tíquet Adjunt ↗',

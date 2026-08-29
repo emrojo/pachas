@@ -284,6 +284,8 @@ export const eu: TranslationDictionary = {
     splitSummary: 'Lagun bakoitzaren ekarpena',
     receiptPhoto: 'Tiketaren / Fakturaren argazkia',
     uploadReceipt: 'Igo argazkia edo faktura',
+    takePhoto: 'Argazkia atera',
+    uploadFromGallery: 'Fitxategia kargatu',
     changeReceipt: 'Aldatu tiketa',
     removeReceipt: 'Kendu',
     viewReceipt: 'Ikusi Erantsitako Tiketa ↗',

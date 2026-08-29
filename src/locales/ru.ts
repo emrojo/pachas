@@ -284,6 +284,8 @@ export const ru: TranslationDictionary = {
     splitSummary: 'Взнос каждого участника',
     receiptPhoto: 'Фото чека / квитанции',
     uploadReceipt: 'Загрузить фото чека',
+    takePhoto: 'Сделать фото',
+    uploadFromGallery: 'Загрузить файл',
     changeReceipt: 'Заменить чек',
     removeReceipt: 'Удалить',
     viewReceipt: 'Посмотреть чек ↗',

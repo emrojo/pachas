@@ -284,6 +284,8 @@ export const nl: TranslationDictionary = {
     splitSummary: 'Bijdrage per vriend',
     receiptPhoto: 'Foto van Bon / Factuur',
     uploadReceipt: 'Bon of factuur uploaden',
+    takePhoto: 'Foto maken',
+    uploadFromGallery: 'Bestand uploaden',
     changeReceipt: 'Bon wijzigen',
     removeReceipt: 'Verwijderen',
     viewReceipt: 'Bijgevoegde Bon Bekijken ↗',

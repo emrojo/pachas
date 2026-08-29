@@ -284,6 +284,8 @@ export const af: TranslationDictionary = {
     splitSummary: 'Bydrae per vriend',
     receiptPhoto: 'Foto van Strokie / Faktuur',
     uploadReceipt: 'Laai foto of faktuur op',
+    takePhoto: 'Neem foto',
+    uploadFromGallery: 'Laai lêer op',
     changeReceipt: 'Verander strokie',
     removeReceipt: 'Verwyder',
     viewReceipt: 'Sien Aangehegte Strokie ↗',

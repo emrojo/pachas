@@ -284,6 +284,8 @@ export const ca: TranslationDictionary = {
     splitSummary: 'Aportació per amic',
     receiptPhoto: 'Foto del Tiquet / Factura',
     uploadReceipt: 'Pujar foto o factura',
+    takePhoto: 'Fer foto',
+    uploadFromGallery: 'Pujar arxiu',
     changeReceipt: 'Canviar tiquet',
     removeReceipt: 'Treure',
     viewReceipt: 'Veure Tiquet Adjunt ↗',
