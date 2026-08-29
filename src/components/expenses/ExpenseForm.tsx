@@ -26,6 +26,7 @@ import {
   fromDateTimeLocalToISOWithTimezone,
   getCurrentDateTimeISOWithTimezone,
   getUserTimezoneLabel,
+  formatLocaleDate,
 } from '@/lib/utils';
 import {
   Receipt,
@@ -68,7 +69,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   isReadOnly: explicitReadOnly,
 }) => {
   const { getGroup, getGroupMembers, currentUser, addExpense, updateExpense, deleteExpense } = usePachas();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
 
   const group = getGroup(groupId);
@@ -161,26 +162,61 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   };
 
 
+  // Fetch official rate from European Central Bank (Frankfurter) or fallback
+  const fetchOfficialRate = async (currCode: string, dateVal: string) => {
+    if (currCode.toUpperCase() === baseCurrency.toUpperCase()) {
+      setExchangeRateStr('1,0000');
+      setRateSourceInfo(null);
+      return;
+    }
+
+    try {
+      setIsFetchingRate(true);
+      const res = await getHistoricalExchangeRate(currCode, baseCurrency, dateVal);
+      setExchangeRateStr(res.rate.toFixed(4).replace('.', ','));
+      setRateSourceInfo({
+        source: res.provider,
+        date: res.date,
+        rate: res.rate,
+      });
+    } catch {
+      const fallback = getDefaultExchangeRate(currCode);
+      setExchangeRateStr(fallback.toFixed(4).replace('.', ','));
+    } finally {
+      setIsFetchingRate(false);
+    }
+  };
+
   // Initialize or populate form when opening or changing expenseToEdit
   useEffect(() => {
     if (!isOpen) return;
 
     if (expenseToEdit) {
       const numAmount = Number(expenseToEdit.amount) || 0;
+      const expCurrency = expenseToEdit.currency || baseCurrency;
+      const targetDateIso = expenseToEdit.expense_date || getCurrentDateTimeISOWithTimezone();
+
       setTitle(expenseToEdit.title || '');
       setAmountStr(numAmount.toFixed(2).replace('.', ','));
-      setCurrency(expenseToEdit.currency || baseCurrency);
+      setCurrency(expCurrency);
       const rawRate = Number(expenseToEdit.exchange_rate);
       const rate =
         rawRate && !isNaN(rawRate) && rawRate > 0
           ? rawRate
-          : getDefaultExchangeRate(expenseToEdit.currency || baseCurrency);
+          : getDefaultExchangeRate(expCurrency);
       setExchangeRateStr(rate.toFixed(4).replace('.', ','));
       setCategory(expenseToEdit.category || 'food');
-      setExpenseDateTime(toDateTimeLocalValue(expenseToEdit.expense_date || getCurrentDateTimeISOWithTimezone()));
+      setExpenseDateTime(toDateTimeLocalValue(targetDateIso));
       setNotes(expenseToEdit.notes || '');
       setReceiptUrl(expenseToEdit.receipt_url || null);
       setSplitType(expenseToEdit.split_type || 'EQUAL');
+
+      // Fetch official rate directly using expense's user-specified date
+      if (expCurrency !== baseCurrency && !isReadOnly) {
+        fetchOfficialRate(expCurrency, targetDateIso);
+      } else {
+        setRateSourceInfo(null);
+      }
 
       // Auto expand accordions in read-only mode to see all details immediately
       if (isReadOnly) {
@@ -230,12 +266,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
       // New expense defaults
       const defaultUserId = currentUser?.id || members[0]?.user_id || '';
+      const nowIso = getCurrentDateTimeISOWithTimezone();
       setTitle('');
       setAmountStr('');
       setCurrency(baseCurrency);
       setExchangeRateStr('1,0000');
       setCategory('food');
-      setExpenseDateTime(toDateTimeLocalValue(getCurrentDateTimeISOWithTimezone()));
+      setExpenseDateTime(toDateTimeLocalValue(nowIso));
       setNotes('');
       setReceiptUrl(null);
       setLatitude(null);
@@ -249,35 +286,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setCustomSplits({});
       setIsWhoPaidOpen(false);
       setIsSplitOpen(false);
+      setRateSourceInfo(null);
     }
   }, [isOpen, expenseToEdit, members, currentUser?.id, baseCurrency, isReadOnly]);
 
-
-
-  // Fetch official rate from European Central Bank (Frankfurter) or fallback
-  const fetchOfficialRate = async (currCode: string, dateVal: string) => {
-    if (currCode.toUpperCase() === baseCurrency.toUpperCase()) {
-      setExchangeRateStr('1,0000');
-      setRateSourceInfo(null);
-      return;
-    }
-
-    try {
-      setIsFetchingRate(true);
-      const res = await getHistoricalExchangeRate(currCode, baseCurrency, dateVal);
-      setExchangeRateStr(res.rate.toFixed(4).replace('.', ','));
-      setRateSourceInfo({
-        source: res.provider,
-        date: res.date,
-        rate: res.rate,
-      });
-    } catch {
-      const fallback = getDefaultExchangeRate(currCode);
-      setExchangeRateStr(fallback.toFixed(4).replace('.', ','));
-    } finally {
-      setIsFetchingRate(false);
-    }
-  };
 
   const handleCurrencyChange = (newCurrency: string) => {
     setCurrency(newCurrency);
@@ -292,13 +304,6 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       fetchOfficialRate(currency, newDateTime);
     }
   };
-
-  // Auto fetch rate on initial open if foreign currency and not editing with custom rate
-  useEffect(() => {
-    if (isOpen && currency !== baseCurrency && !rateSourceInfo && !isReadOnly) {
-      fetchOfficialRate(currency, expenseDateTime);
-    }
-  }, [isOpen, currency, baseCurrency]);
 
   const totalAmount = parseEuropeanAmount(amountStr);
   const isForeign = currency !== baseCurrency;
@@ -594,7 +599,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   <span className="truncate">
                     {t('expenses.officialRateApplied', {
                       source: rateSourceInfo.source,
-                      date: rateSourceInfo.date,
+                      date: formatLocaleDate(rateSourceInfo.date, language),
                       from: currency,
                       to: baseCurrency,
                       rate: rateSourceInfo.rate.toFixed(4),

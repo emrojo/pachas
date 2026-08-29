@@ -31,6 +31,50 @@ export function formatEuropeanDateTime(dateString: string): string {
 }
 
 /**
+ * Formats a date string or Date object using the active language/locale's date convention.
+ * (e.g. '28/08/2026' for Spanish/French, '08/28/2026' for English, '28.08.2026' for German)
+ */
+export function formatLocaleDate(
+  dateStrOrObj?: string | Date | null,
+  language: string = 'es'
+): string {
+  if (!dateStrOrObj) return '';
+  try {
+    const rawStr = typeof dateStrOrObj === 'string' ? dateStrOrObj.trim() : '';
+    let date: Date;
+
+    if (dateStrOrObj instanceof Date) {
+      date = dateStrOrObj;
+    } else if (rawStr.includes('T') || rawStr.includes(' ')) {
+      const cleanDatePart = rawStr.split('T')[0].split(' ')[0];
+      const parts = cleanDatePart.split('-');
+      if (parts.length === 3) {
+        date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      } else {
+        date = new Date(rawStr);
+      }
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawStr)) {
+      const [y, m, d] = rawStr.split('-').map(Number);
+      date = new Date(y, m - 1, d);
+    } else {
+      date = new Date(rawStr);
+    }
+
+    if (isNaN(date.getTime())) {
+      return String(dateStrOrObj);
+    }
+
+    return new Intl.DateTimeFormat(language || 'es', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  } catch {
+    return String(dateStrOrObj);
+  }
+}
+
+/**
  * Returns current local date-time string in ISO format preserving timezone offset (e.g. 2026-08-20T20:44:00+02:00)
  */
 export function getCurrentDateTimeISOWithTimezone(date: Date = new Date()): string {
