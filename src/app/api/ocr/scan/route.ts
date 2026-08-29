@@ -138,27 +138,33 @@ Reglas críticas de extracción:
    - "other": cualquier otro concepto.
 5. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").`;
 
-    // 4. Call Google Gemini Vision API with multi-model cascade and 15s timeout
+    // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
     const candidateModels = [
-      { name: 'gemini-1.5-flash', version: 'v1beta' },
-      { name: 'gemini-1.5-flash-latest', version: 'v1beta' },
-      { name: 'gemini-2.0-flash', version: 'v1beta' },
-      { name: 'gemini-2.0-flash-exp', version: 'v1beta' },
-      { name: 'gemini-1.5-flash', version: 'v1' },
-      { name: 'gemini-1.5-pro', version: 'v1beta' },
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-002',
+      'gemini-1.5-flash-001',
+      'gemini-1.5-flash-8b',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-001',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-pro',
+      'gemini-1.5-pro-002',
+      'gemini-pro',
     ];
 
     let lastError = '';
     let rawContent = '';
     let successfulModel = 'gemini-1.5-flash';
 
-    for (const { name: modelName, version: apiVer } of candidateModels) {
+    // Helper to send generateContent request to a specific model name
+    const tryGenerateWithModel = async (modelName: string): Promise<string | null> => {
       try {
+        const cleanName = modelName.replace(/^models\//, '');
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
-        const geminiUrl = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelName}:generateContent?key=${apiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanName}:generateContent?key=${apiKey}`;
 
-        console.log(`[Gemini OCR] 📸 Intentando escaneo con modelo ${modelName} (${apiVer})...`);
+        console.log(`[Gemini OCR] 📸 Probando modelo: ${cleanName}...`);
 
         const geminiResponse = await fetch(geminiUrl, {
           method: 'POST',
@@ -193,18 +199,59 @@ Reglas críticas de extracción:
 
         if (geminiResponse.ok) {
           const geminiData = await geminiResponse.json();
-          rawContent = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          if (rawContent) {
-            successfulModel = modelName;
-            break;
+          const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (text) {
+            successfulModel = cleanName;
+            return text;
           }
         } else {
           const errText = await geminiResponse.text().catch(() => '');
-          lastError = `HTTP ${geminiResponse.status} (${modelName}): ${errText}`;
-          console.warn(`[Gemini OCR] Error con modelo ${modelName}:`, lastError);
+          lastError = `HTTP ${geminiResponse.status} (${cleanName}): ${errText}`;
+          console.warn(`[Gemini OCR] ${cleanName} no disponible:`, lastError);
         }
       } catch (err: any) {
         lastError = err.message || 'Error de conexión';
+      }
+      return null;
+    };
+
+    // First attempt: try direct candidate models
+    for (const m of candidateModels) {
+      const resText = await tryGenerateWithModel(m);
+      if (resText) {
+        rawContent = resText;
+        break;
+      }
+    }
+
+    // Second attempt: if direct candidates fail, query Google ListModels API to discover available models for this key
+    if (!rawContent) {
+      try {
+        console.log('[Gemini OCR] 🔍 Consultando ModelService.ListModels para descubrir modelos disponibles...');
+        const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+        const listRes = await fetch(listUrl);
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          const available = (listData.models || [])
+            .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+            .map((m: any) => m.name);
+
+          console.log('[Gemini OCR] 📋 Modelos disponibles para esta API key:', available);
+
+          for (const discoveredModel of available) {
+            const resText = await tryGenerateWithModel(discoveredModel);
+            if (resText) {
+              rawContent = resText;
+              break;
+            }
+          }
+        } else {
+          const listErr = await listRes.text().catch(() => '');
+          lastError = `ListModels HTTP ${listRes.status}: ${listErr}`;
+          console.warn('[Gemini OCR] Error en ListModels:', lastError);
+        }
+      } catch (listExc: any) {
+        lastError = `ListModels Exception: ${listExc.message}`;
       }
     }
 
