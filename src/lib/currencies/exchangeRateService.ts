@@ -12,30 +12,75 @@ export interface ExchangeRateResult {
 }
 
 // Memory cache to prevent duplicate HTTP requests in the same session
-const memoryRateCache: Record<string, ExchangeRateResult> = {};
+let memoryRateCache: Record<string, ExchangeRateResult> = {};
+
+export function clearExchangeRateCache() {
+  memoryRateCache = {};
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.clear();
+    } catch {
+      // ignore
+    }
+  }
+}
 
 /**
  * Extracts a clean YYYY-MM-DD string from a date object, ISO string, or dateTime string.
+ * Supports ISO (YYYY-MM-DD), European (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY), and local timezones.
  */
 export function getCleanDate(dateOrISO?: string | Date | null): string {
   if (!dateOrISO) {
     return new Date().toISOString().split('T')[0];
   }
+
+  if (dateOrISO instanceof Date) {
+    if (!isNaN(dateOrISO.getTime())) {
+      const year = dateOrISO.getFullYear();
+      const month = String(dateOrISO.getMonth() + 1).padStart(2, '0');
+      const day = String(dateOrISO.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  }
+
   if (typeof dateOrISO === 'string') {
-    // If it contains a 'T' or space, take the first portion
-    const datePart = dateOrISO.split('T')[0].split(' ')[0];
-    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-      return datePart;
+    const trimmed = dateOrISO.trim();
+    if (!trimmed) {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD (with optional time / timezone)
+    const isoMatch = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+    if (isoMatch) {
+      const year = isoMatch[1];
+      const month = isoMatch[2].padStart(2, '0');
+      const day = isoMatch[3].padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // 2. European format: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY (with optional time)
+    const euroMatch = trimmed.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/);
+    if (euroMatch) {
+      const day = euroMatch[1].padStart(2, '0');
+      const month = euroMatch[2].padStart(2, '0');
+      const year = euroMatch[3];
+      return `${year}-${month}-${day}`;
+    }
+
+    // 3. Fallback to standard Date parsing
+    try {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    } catch {
+      // fallback
     }
   }
-  try {
-    const d = new Date(dateOrISO);
-    if (!isNaN(d.getTime())) {
-      return d.toISOString().split('T')[0];
-    }
-  } catch {
-    // fallback
-  }
+
   return new Date().toISOString().split('T')[0];
 }
 

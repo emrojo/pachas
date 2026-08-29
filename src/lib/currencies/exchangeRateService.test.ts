@@ -4,12 +4,14 @@ import {
   recalculateExpenseForNewBaseCurrency,
   recalculateAllExpensesForNewBaseCurrency,
   getCleanDate,
+  clearExchangeRateCache,
 } from './exchangeRateService';
 import { Expense } from '@/types/database';
 
 describe('Exchange Rate Service', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    clearExchangeRateCache();
   });
 
   it('returns 1.0 for identity currency pairs without calling external network', async () => {
@@ -20,10 +22,14 @@ describe('Exchange Rate Service', () => {
     expect(result.toCurrency).toBe('EUR');
   });
 
-  it('cleans date strings properly', () => {
+  it('cleans date strings properly across ISO, European, and timezone formats', () => {
     expect(getCleanDate('2026-08-10T14:30:00Z')).toBe('2026-08-10');
     expect(getCleanDate('2024-05-15 10:00:00')).toBe('2024-05-15');
     expect(getCleanDate('2025-01-01')).toBe('2025-01-01');
+    expect(getCleanDate('15/05/2024')).toBe('2024-05-15');
+    expect(getCleanDate('15-05-2024')).toBe('2024-05-15');
+    expect(getCleanDate('15.05.2024')).toBe('2024-05-15');
+    expect(getCleanDate('2024-05-15T00:30:00+02:00')).toBe('2024-05-15');
   });
 
   it('fetches rate from mocked Frankfurter API successfully', async () => {
@@ -145,6 +151,43 @@ describe('Exchange Rate Service', () => {
 
     expect(res2.exchange_rate).toBe(1.1555);
     expect(res2.converted_amount).toBe(115.55);
+  });
+
+  it('uses user-specified expense_date strictly and ignores system creation timestamp (created_at)', async () => {
+    // Expense occurred on 15/05/2024 but was entered into system on 29/08/2026
+    const userExpense: Expense = {
+      id: 'e-date-user',
+      group_id: 'g-1',
+      created_by: 'u-1',
+      title: 'Restaurante pasado',
+      amount: 100,
+      currency: 'EUR',
+      exchange_rate: 1,
+      converted_amount: 100,
+      category: 'food',
+      split_type: 'EQUAL',
+      expense_date: '15/05/2024', // User-specified date (European format)
+      created_at: '2026-08-29T13:00:00Z', // Today's creation timestamp
+      updated_at: '2026-08-29T13:00:00Z',
+      payers: [{ id: 'p-1', expense_id: 'e-date-user', user_id: 'u-1', amount_paid: 100 }],
+      participants: [{ id: 'pt-1', expense_id: 'e-date-user', user_id: 'u-1', amount_owed: 100 }],
+    };
+
+    let requestedUrl = '';
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      requestedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ amount: 1, base: 'EUR', date: '2024-05-15', rates: { USD: 1.0832 } }),
+      } as Response;
+    });
+
+    const res = await recalculateExpenseForNewBaseCurrency(userExpense, 'USD', 'EUR');
+
+    expect(requestedUrl).toContain('2024-05-15');
+    expect(requestedUrl).not.toContain('2026-08-29');
+    expect(res.exchange_rate).toBe(1.0832);
+    expect(res.converted_amount).toBe(108.32);
   });
 
   it('recalculates multiple expenses in batch', async () => {
