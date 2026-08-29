@@ -15,6 +15,7 @@ describe('Intelligent Receipt Vision Scanner', () => {
         amountFormatted: '48,50',
         date: '2026-08-30T14:30',
         category: 'food',
+        locationName: 'Paseo Marítimo 12, Valencia',
         currency: 'EUR',
         confidence: 0.98,
         source: 'gemini-1.5-flash',
@@ -33,6 +34,7 @@ describe('Intelligent Receipt Vision Scanner', () => {
     expect(result.amountFormatted).toBe('48,50');
     expect(result.date).toBe('2026-08-30T14:30');
     expect(result.category).toBe('food');
+    expect(result.locationName).toBe('Paseo Marítimo 12, Valencia');
     expect(result.source).toBe('gemini-1.5-flash');
     expect(result.confidence).toBe(0.98);
   });
