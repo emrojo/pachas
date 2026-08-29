@@ -232,6 +232,13 @@ export const en: TranslationDictionary = {
     importExpensesSubtitle: 'Add multiple expenses at once by uploading a CSV template',
   },
   expenses: {
+    scanReceiptQuick: 'Scan receipt',
+    analyzingReceipt: 'Analyzing receipt with AI...',
+    processingOcr: 'Processing with AI...',
+    scanFailedReview: 'Receipt not recognized (Requires review)',
+    reviewRequired: 'Requires review',
+    saveAndProcessAsync: 'Save & process with AI',
+    saveAndProcessAsyncHint: 'In a hurry? Save now and AI will fill in the details in the background.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

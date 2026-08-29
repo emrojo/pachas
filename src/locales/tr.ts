@@ -231,6 +231,13 @@ export const tr: TranslationDictionary = {
     importExpensesSubtitle: 'CSV şablonu yükleyerek birden çok harcamayı tek seferde ekleyin',
   },
   expenses: {
+    scanReceiptQuick: 'Fiş tara',
+    analyzingReceipt: 'Fiş yapay zeka ile analiz ediliyor...',
+    processingOcr: 'Yapay zeka ile işleniyor...',
+    scanFailedReview: 'Fiş tanınamadı (İnceleme gerekli)',
+    reviewRequired: 'İnceleme gerekli',
+    saveAndProcessAsync: 'Kaydet ve yapay zeka ile işle',
+    saveAndProcessAsyncHint: 'Aceleniz mi var? Şimdi kaydedin, yapay zeka arka planda tamamlasın.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

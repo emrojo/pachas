@@ -10,7 +10,7 @@ import { formatDate } from '@/lib/utils';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { LocationModal } from '@/components/expenses/LocationModal';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
-import { Receipt, Pencil, Users, Globe, MapPin, CloudOff, Eye, ShieldAlert, MessageSquare } from 'lucide-react';
+import { Receipt, Pencil, Users, Globe, MapPin, CloudOff, Eye, ShieldAlert, MessageSquare, Sparkles, AlertTriangle, Loader2 } from 'lucide-react';
 
 export interface ExpenseCardProps {
   expense: Expense;
@@ -29,6 +29,8 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const [showLocation, setShowLocation] = useState(false);
   const [showReport, setShowReport] = useState(false);
 
+  const isProcessing = expense.ocr_status === 'processing';
+  const isFailed = expense.ocr_status === 'failed';
   const isCreator = currentUser ? expense.created_by === currentUser.id : false;
   const isForeign = expense.currency !== baseCurrency;
   const hasLocation = !!(expense.latitude && expense.longitude);
@@ -57,7 +59,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const userOwedConverted = userParticipant ? Number(userParticipant.amount_owed) || 0 : 0;
   // Convert user owed portion back to the expense's original currency for display on this specific card
   const userOwedOriginal = (userOwedConverted / expenseBaseAmount) * (Number(expense.amount) || 0);
-  const userInvolved = userPaidOriginal > 0 || !!userParticipant;
+  const userInvolved = userPaidOriginal > 0 || !userParticipant;
   const netDiff = Math.round((userPaidOriginal - userOwedOriginal) * 100) / 100;
 
   const handleCardClick = () => {
@@ -77,16 +79,26 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
     <>
       <div
         onClick={handleCardClick}
-        className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-2xl p-4 shadow-xs hover:border-emerald-300 dark:hover:border-emerald-700/60 hover:shadow-md transition-all flex items-center justify-between gap-3 group cursor-pointer"
+        className={`bg-white dark:bg-slate-900 border ${
+          isProcessing
+            ? 'border-emerald-400/80 dark:border-emerald-600/80 ring-2 ring-emerald-400/20 bg-gradient-to-r from-emerald-50/50 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-slate-900 dark:to-emerald-950/10'
+            : isFailed
+            ? 'border-amber-400/80 dark:border-amber-600/80 bg-amber-50/30 dark:bg-amber-950/10'
+            : 'border-slate-200/70 dark:border-slate-800/80 hover:border-emerald-300 dark:hover:border-emerald-700/60'
+        } rounded-2xl p-4 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-3 group cursor-pointer`}
         role="button"
         tabIndex={0}
       >
         {/* Left: Category Icon + Title + Meta */}
         <div className="flex items-center gap-3.5 min-w-0">
           <div
-            className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 ${category.bgColor} border ${category.borderColor}`}
+            className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 ${
+              isProcessing
+                ? 'bg-emerald-500 text-white animate-pulse shadow-md shadow-emerald-500/20'
+                : `${category.bgColor} border ${category.borderColor}`
+            }`}
           >
-            {category.emoji}
+            {isProcessing ? <Sparkles className="w-6 h-6 animate-spin text-white" /> : category.emoji}
           </div>
 
           <div className="min-w-0">
@@ -94,6 +106,18 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
               <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 {expense.title}
               </h4>
+              {isProcessing && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 flex items-center gap-1 shrink-0 animate-pulse border border-emerald-300/60 dark:border-emerald-700/60">
+                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                  {t('expenses.analyzingReceipt')}
+                </span>
+              )}
+              {isFailed && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 flex items-center gap-1 shrink-0 border border-amber-300/60 dark:border-amber-700/60">
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  {t('expenses.scanFailedReview')}
+                </span>
+              )}
               {expense.is_pending_sync && (
                 <span
                   className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center gap-1 shrink-0 animate-pulse border border-amber-300/50 dark:border-amber-700/50"
@@ -103,7 +127,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                   {t('expenses.unsynced')}
                 </span>
               )}
-              {isForeign && (
+              {isForeign && !isProcessing && (
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center gap-0.5 shrink-0">
                   <Globe className="w-2.5 h-2.5" />
                   {expense.currency}
@@ -126,7 +150,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
               </div>
 
               {/* Number of participants badge */}
-              {expense.participants && expense.participants.length > 0 && (
+              {expense.participants && expense.participants.length > 0 && !isProcessing && (
                 <div className="flex items-center gap-0.5 text-[11px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded text-slate-600 dark:text-slate-300">
                   <Users className="w-2.5 h-2.5" />
                   <span>{expense.participants.length}</span>
@@ -166,11 +190,23 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
         {/* Right: Amount in ORIGINAL currency + User share + Actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <div className="text-right">
-            <span className="text-base font-black text-slate-900 dark:text-white block">
-              {formatMoney(expense.amount, expense.currency)}
-            </span>
+            {isProcessing ? (
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 animate-pulse">
+                <Sparkles className="w-3.5 h-3.5" />
+                {t('expenses.processingOcr')}
+              </span>
+            ) : isFailed ? (
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {t('expenses.reviewRequired')}
+              </span>
+            ) : (
+              <span className="text-base font-black text-slate-900 dark:text-white block">
+                {formatMoney(expense.amount, expense.currency)}
+              </span>
+            )}
 
-            {userInvolved && (
+            {!isProcessing && !isFailed && userInvolved && (
               <span
                 className={`text-[11px] font-semibold ${
                   netDiff > 0.01

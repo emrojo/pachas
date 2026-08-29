@@ -85,6 +85,7 @@ export interface Expense {
   latitude?: number | null;
   longitude?: number | null;
   location_name?: string | null;
+  ocr_status?: 'processing' | 'completed' | 'failed' | null;
   created_at: string;
   updated_at: string;
   creator?: Profile;

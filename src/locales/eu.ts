@@ -231,6 +231,13 @@ export const eu: TranslationDictionary = {
     importExpensesSubtitle: 'Gehitu hainbat gastu batera CSV txantiloi bat igoz',
   },
   expenses: {
+    scanReceiptQuick: 'Faktura eskaneatu',
+    analyzingReceipt: 'Txartela AA-rekin aztertzen...',
+    processingOcr: 'AA-rekin prozesatzen...',
+    scanFailedReview: 'Txartela ez da ezagutu (Berrikuspena behar da)',
+    reviewRequired: 'Berrikuspena behar da',
+    saveAndProcessAsync: 'Gorde eta prozesatu AA-rekin',
+    saveAndProcessAsyncHint: 'Presa daukazu? Gorde orain eta AA-k atzeko planoan osatuko du.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

@@ -231,6 +231,13 @@ export const el: TranslationDictionary = {
     importExpensesSubtitle: 'Προσθέστε μαζικά έξοδα ανεβάζοντας αρχείο CSV',
   },
   expenses: {
+    scanReceiptQuick: 'Σάρωση απόδειξης',
+    analyzingReceipt: 'Ανάλυση απόδειξης με AI...',
+    processingOcr: 'Επεξεργασία με AI...',
+    scanFailedReview: 'Η απόδειξη δεν αναγνωρίστηκε (Απαιτείται έλεγχος)',
+    reviewRequired: 'Απαιτείται έλεγχος',
+    saveAndProcessAsync: 'Αποθήκευση και επεξεργασία με AI',
+    saveAndProcessAsyncHint: 'Βιάζεστε; Αποθηκεύστε τώρα και το AI θα συμπληρώσει τα στοιχεία στο παρασκήνιο.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

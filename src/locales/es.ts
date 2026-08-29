@@ -230,6 +230,13 @@ export const es = {
     importExpensesSubtitle: 'Añade múltiples gastos de golpe subiendo una plantilla o archivo CSV',
   },
   expenses: {
+    scanReceiptQuick: 'Escanear factura',
+    analyzingReceipt: 'Analizando ticket con IA...',
+    processingOcr: 'Procesando con IA...',
+    scanFailedReview: 'Ticket no reconocido (Requiere revisión)',
+    reviewRequired: 'Requiere revisión',
+    saveAndProcessAsync: 'Guardar y procesar con IA',
+    saveAndProcessAsyncHint: '¿Tienes prisa? Guarda ahora y la IA completará los datos en segundo plano.',
     fetchingExchangeRate: 'Consultando tipo de cambio oficial del BCE...',
     officialRateApplied: 'Tipo de cambio oficial ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Restablecer tasa oficial',

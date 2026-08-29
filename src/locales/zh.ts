@@ -231,6 +231,13 @@ export const zh: TranslationDictionary = {
     importExpensesSubtitle: '通过上传 CSV 模板一次性导入多条支出记录',
   },
   expenses: {
+    scanReceiptQuick: '扫描小票',
+    analyzingReceipt: 'AI正在分析小票...',
+    processingOcr: 'AI处理中...',
+    scanFailedReview: '小票未识别（需人工核对）',
+    reviewRequired: '需核对',
+    saveAndProcessAsync: '保存并在后台AI处理',
+    saveAndProcessAsyncHint: '时间紧急？先保存，AI将在后台自动补全数据。',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

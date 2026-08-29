@@ -28,6 +28,7 @@ import { CATEGORIES } from '@/lib/categories';
 import { formatMoney } from '@/lib/currencies';
 import { formatDate } from '@/lib/utils';
 import { exportGroupToPDF, exportGroupToCSV } from '@/lib/export';
+import { validateAndCompressImage } from '@/lib/security/sanitize';
 import { ExpenseCategory, Expense } from '@/types/database';
 import {
   ArrowLeft,
@@ -72,6 +73,7 @@ export default function GroupDetailPage() {
     getGroupDebts,
     currentUser,
     isLoading,
+    scanAndCreateExpenseAsync,
     lastImportBatch,
     undoLastImport,
     restoreGroup,
@@ -228,6 +230,16 @@ export default function GroupDetailPage() {
     setIsExpenseFormOpen(true);
   };
 
+  const handleFastScanReceipt = async (file: File) => {
+    try {
+      const compressedDataUrl = await validateAndCompressImage(file, 1200, 0.85);
+      await scanAndCreateExpenseAsync(group.id, compressedDataUrl);
+      setActiveTab('expenses');
+    } catch (err: any) {
+      console.warn('Error during fast receipt scan:', err);
+    }
+  };
+
   const handleEditExpense = (expense: Expense) => {
     setEditingExpense(expense);
     setIsExpenseFormOpen(true);
@@ -348,6 +360,7 @@ export default function GroupDetailPage() {
                 <GroupActionMenu
                   groupId={group.id}
                   onOpenNewExpense={handleOpenNewExpense}
+                  onFastScanReceipt={handleFastScanReceipt}
                   onOpenInvite={() => setIsInviteOpen(true)}
                   onOpenSettings={() => setIsEditGroupOpen(true)}
                   onOpenRouteMap={() => setIsRouteMapOpen(true)}

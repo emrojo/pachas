@@ -231,6 +231,13 @@ export const nl: TranslationDictionary = {
     importExpensesSubtitle: 'Voeg meerdere uitgaven tegelijk toe via een CSV-sjabloon',
   },
   expenses: {
+    scanReceiptQuick: 'Bon scannen',
+    analyzingReceipt: 'Bon analyseren met AI...',
+    processingOcr: 'Verwerken met AI...',
+    scanFailedReview: 'Bon niet herkend (Controle vereist)',
+    reviewRequired: 'Controle vereist',
+    saveAndProcessAsync: 'Opslaan & verwerken met AI',
+    saveAndProcessAsyncHint: 'Haast? Sla nu op en AI vult de gegevens op de achtergrond aan.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

@@ -7,6 +7,9 @@ export interface ScannedReceiptData {
   title?: string;
   category?: ExpenseCategory;
   locationName?: string;
+  latitude?: number;
+  longitude?: number;
+  mapsUrl?: string;
   currency?: string;
   rawText?: string;
   confidence: number;
@@ -249,6 +252,9 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
           title: d.title,
           category: d.category,
           locationName: d.locationName,
+          latitude: d.latitude,
+          longitude: d.longitude,
+          mapsUrl: d.mapsUrl,
           currency: d.currency,
           confidence: d.confidence || 0.98,
           source: d.source || 'gemini-1.5-flash',

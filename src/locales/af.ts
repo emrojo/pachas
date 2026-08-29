@@ -231,6 +231,13 @@ export const af: TranslationDictionary = {
     importExpensesSubtitle: 'Voeg veelvuldige uitgawes gelyktydig by met ’n CSV-sjabloon',
   },
   expenses: {
+    scanReceiptQuick: 'Skandeer kwitansie',
+    analyzingReceipt: 'Ontleed kwitansie met AI...',
+    processingOcr: 'Verwerk met AI...',
+    scanFailedReview: 'Kwitansie nie herken nie (Vereis hersiening)',
+    reviewRequired: 'Vereis hersiening',
+    saveAndProcessAsync: 'Stoor en verwerk met AI',
+    saveAndProcessAsyncHint: 'Haastig? Stoor nou en AI sal die besonderhede in die agtergrond invul.',
     fetchingExchangeRate: 'Fetching official ECB exchange rate...',
     officialRateApplied: 'Official exchange rate ({source}, {date}): 1 {from} = {rate} {to}',
     resetOfficialRate: 'Reset official rate',

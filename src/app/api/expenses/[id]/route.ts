@@ -35,6 +35,8 @@ export async function PUT(
       latitude,
       longitude,
       locationName,
+      ocrStatus,
+      ocr_status = ocrStatus,
       payers = [],
       participants = [],
     } = body;
@@ -48,14 +50,18 @@ export async function PUT(
     try {
       await client.query('BEGIN');
 
+      // Auto-heal column if needed
+      await client.query("ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'completed'");
+
       await client.query(
         `UPDATE public.expenses SET
            title = $1, amount = $2, currency = $3,
            category = $4, expense_date = $5,
            receipt_url = $6, notes = $7, split_type = $8,
            latitude = $9, longitude = $10, location_name = $11,
+           ocr_status = COALESCE($12, ocr_status),
            updated_at = NOW()
-         WHERE id = $12`,
+         WHERE id = $13`,
         [
           title,
           amount,
@@ -68,6 +74,7 @@ export async function PUT(
           latitude,
           longitude,
           locationName,
+          ocr_status || null,
           expenseId,
         ]
       );

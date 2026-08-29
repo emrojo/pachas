@@ -75,7 +75,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   expenseToEdit,
   isReadOnly: explicitReadOnly,
 }) => {
-  const { getGroup, getGroupMembers, currentUser, addExpense, updateExpense, deleteExpense } = usePachas();
+  const { getGroup, getGroupMembers, currentUser, addExpense, scanAndCreateExpenseAsync, updateExpense, deleteExpense } = usePachas();
   const { t, language } = useTranslation();
 
 
@@ -386,13 +386,40 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     if (scannedData.locationName) {
       setLocationName(scannedData.locationName);
     }
+    if (
+      scannedData.latitude !== undefined &&
+      scannedData.latitude !== null &&
+      scannedData.longitude !== undefined &&
+      scannedData.longitude !== null
+    ) {
+      setLatitude(scannedData.latitude);
+      setLongitude(scannedData.longitude);
+    }
     setScannedData(null);
+  };
+
+  const handleSaveAsyncWithReceipt = async () => {
+    if (!receiptUrl) return;
+    try {
+      setIsLoading(true);
+      await scanAndCreateExpenseAsync(groupId, receiptUrl);
+      onClose();
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al procesar el ticket en segundo plano');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isReadOnly) {
       onClose();
+      return;
+    }
+    if ((!title.trim() || totalAmount <= 0) && receiptUrl && !expenseToEdit) {
+      await handleSaveAsyncWithReceipt();
       return;
     }
     if (!title.trim()) {
@@ -567,7 +594,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     <span className="truncate max-w-[180px]">📍 "{scannedData.title}"</span>
                   )}
                   {scannedData.locationName && (
-                    <span className="truncate max-w-[180px]">🗺️ {scannedData.locationName}</span>
+                    <span className="truncate max-w-[200px]" title={scannedData.locationName}>
+                      🗺️ {scannedData.locationName} {scannedData.latitude !== undefined && '📍 (Google Maps)'}
+                    </span>
                   )}
                 </div>
               </div>
@@ -649,43 +678,65 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
         {/* Banner de Ticket Adjunto en la parte superior (si ya se ha subido/capturado) */}
         {!isReadOnly && receiptUrl && (
-          <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-xs shadow-xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <Receipt className="w-4 h-4" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-xs shadow-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="font-bold text-slate-900 dark:text-slate-100 block truncate">
+                    {t('expenses.receiptAttached')}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">
+                    {t('expenses.receiptAttachedDesc')}
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0">
-                <span className="font-bold text-slate-900 dark:text-slate-100 block truncate">
-                  {t('expenses.receiptAttached')}
-                </span>
-                <span className="text-[10px] text-slate-500 block">
-                  {t('expenses.receiptAttachedDesc')}
-                </span>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowReceiptModal(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950/60 transition-colors shadow-2xs"
+                  title={t('expenses.viewReceipt')}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{t('expenses.viewReceipt')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReceiptUrl(null);
+                    setScannedData(null);
+                  }}
+                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  title={t('expenses.removeReceipt')}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowReceiptModal(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950/60 transition-colors shadow-2xs"
-                title={t('expenses.viewReceipt')}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>{t('expenses.viewReceipt')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setReceiptUrl(null);
-                  setScannedData(null);
-                }}
-                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                title={t('expenses.removeReceipt')}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            {!expenseToEdit && (
+              <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/40 dark:to-emerald-950/40 border border-teal-200 dark:border-teal-800/60 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                  <span className="text-teal-900 dark:text-teal-200 font-medium truncate">
+                    {t('expenses.saveAndProcessAsyncHint')}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSaveAsyncWithReceipt}
+                  className="shrink-0 text-xs font-bold border-teal-400 dark:border-teal-700 text-teal-800 dark:text-teal-200 hover:bg-teal-100 dark:hover:bg-teal-900/50"
+                >
+                  {t('expenses.saveAndProcessAsync')}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

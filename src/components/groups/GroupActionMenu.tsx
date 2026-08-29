@@ -16,6 +16,7 @@ import {
   Settings,
   Bell,
   BellOff,
+  Camera,
 } from 'lucide-react';
 import {
   getGroupNotificationPreference,
@@ -25,6 +26,7 @@ import {
 export interface GroupActionMenuProps {
   groupId?: string;
   onOpenNewExpense: () => void;
+  onFastScanReceipt?: (file: File) => void;
   onOpenInvite: () => void;
   onOpenSettings: () => void;
   onOpenRouteMap: () => void;
@@ -39,6 +41,7 @@ export interface GroupActionMenuProps {
 export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
   groupId,
   onOpenNewExpense,
+  onFastScanReceipt,
   onOpenInvite,
   onOpenSettings,
   onOpenRouteMap,
@@ -89,9 +92,19 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const fastCameraInputRef = useRef<HTMLInputElement>(null);
+
   const handleAction = (action: () => void) => {
     setIsOpen(false);
     action();
+  };
+
+  const handleFastFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onFastScanReceipt) {
+      onFastScanReceipt(file);
+    }
+    e.target.value = '';
   };
 
   return (
@@ -108,11 +121,34 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
         <span>{t('expenses.addExpense')}</span>
       </button>
 
+      {/* 1.5 FAST RECEIPT SCAN CAMERA ACTION */}
+      {onFastScanReceipt && (
+        <>
+          <input
+            ref={fastCameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFastFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => fastCameraInputRef.current?.click()}
+            className="order-2 inline-flex items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700/80 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-bold px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl shadow-2xs active:scale-95 transition-all cursor-pointer group"
+            title={t('expenses.scanReceiptQuick')}
+          >
+            <Camera className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+            <span className="hidden sm:inline">{t('expenses.scanReceiptQuick')}</span>
+          </button>
+        </>
+      )}
+
       {/* 2. SECONDARY ACTION: Invitar Amigos */}
       <button
         type="button"
         onClick={onOpenInvite}
-        className="order-2 inline-flex items-center justify-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700/80 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl shadow-2xs active:scale-95 transition-all cursor-pointer"
+        className="order-3 inline-flex items-center justify-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700/80 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl shadow-2xs active:scale-95 transition-all cursor-pointer"
         title={t('groups.inviteFriends')}
       >
         <QrCode className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
