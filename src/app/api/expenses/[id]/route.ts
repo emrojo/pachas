@@ -55,9 +55,9 @@ export async function PUT(
 
     const safeExchangeRate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1.0;
     const rawAmount = Number(amount);
-    const dbAmount = !isNaN(rawAmount) ? rawAmount : 0;
+    const dbAmount = !isNaN(rawAmount) && rawAmount > 0 ? rawAmount : 0.01;
     const safeConvertedAmount =
-      convertedAmount !== undefined && !isNaN(Number(convertedAmount))
+      convertedAmount !== undefined && !isNaN(Number(convertedAmount)) && Number(convertedAmount) > 0
         ? Number(convertedAmount)
         : Math.round(dbAmount * safeExchangeRate * 100) / 100;
     const cleanDate = expenseDate?.includes('T') ? expenseDate.split('T')[0] : expenseDate;
@@ -162,10 +162,12 @@ export async function PUT(
       await client.query('DELETE FROM public.expense_payers WHERE expense_id = $1', [expenseId]);
       for (const p of payers) {
         const payerId = p.id && !p.id.startsWith('p-') ? p.id : randomUUID();
+        const pAmt = Number(p.amountPaid !== undefined ? p.amountPaid : p.amount_paid);
+        const dbPAmt = !isNaN(pAmt) && pAmt > 0 ? pAmt : 0.01;
         await client.query(
           `INSERT INTO public.expense_payers (id, expense_id, user_id, amount_paid)
            VALUES ($1, $2, $3, $4)`,
-          [payerId, expenseId, p.userId || p.user_id, p.amountPaid || p.amount_paid]
+          [payerId, expenseId, p.userId || p.user_id, dbPAmt]
         );
       }
 
@@ -173,6 +175,8 @@ export async function PUT(
       await client.query('DELETE FROM public.expense_participants WHERE expense_id = $1', [expenseId]);
       for (const pt of participants) {
         const partId = pt.id && !pt.id.startsWith('part-') ? pt.id : randomUUID();
+        const ptAmt = Number(pt.amountOwed !== undefined ? pt.amountOwed : pt.amount_owed);
+        const dbPtAmt = !isNaN(ptAmt) && ptAmt > 0 ? ptAmt : 0.01;
         await client.query(
           `INSERT INTO public.expense_participants (id, expense_id, user_id, amount_owed, percentage, shares)
            VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -180,7 +184,7 @@ export async function PUT(
             partId,
             expenseId,
             pt.userId || pt.user_id,
-            pt.amountOwed !== undefined ? pt.amountOwed : pt.amount_owed,
+            dbPtAmt,
             pt.percentage || null,
             pt.shares || null,
           ]

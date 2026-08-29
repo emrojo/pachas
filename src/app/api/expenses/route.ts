@@ -58,9 +58,10 @@ export async function POST(request: NextRequest) {
     const cleanDate = expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate;
     const safeExchangeRate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1.0;
     const rawAmount = Number(amount);
-    const dbAmount = !isNaN(rawAmount) ? rawAmount : 0;
+    // If amount is 0 (OCR processing placeholder), use 0.01 for PostgreSQL check (amount > 0) constraint
+    const dbAmount = !isNaN(rawAmount) && rawAmount > 0 ? rawAmount : 0.01;
     const safeConvertedAmount =
-      convertedAmount !== undefined && !isNaN(Number(convertedAmount))
+      convertedAmount !== undefined && !isNaN(Number(convertedAmount)) && Number(convertedAmount) > 0
         ? Number(convertedAmount)
         : Math.round(dbAmount * safeExchangeRate * 100) / 100;
 
@@ -210,11 +211,13 @@ export async function POST(request: NextRequest) {
       await client.query('DELETE FROM public.expense_payers WHERE expense_id = $1', [id]);
       for (const p of payers) {
         const payerId = p.id && !p.id.startsWith('p-') ? p.id : randomUUID();
+        const pAmt = Number(p.amountPaid !== undefined ? p.amountPaid : p.amount_paid);
+        const dbPAmt = !isNaN(pAmt) && pAmt > 0 ? pAmt : 0.01;
         await client.query(
           `INSERT INTO public.expense_payers (id, expense_id, user_id, amount_paid)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (expense_id, user_id) DO UPDATE SET amount_paid = EXCLUDED.amount_paid`,
-          [payerId, id, p.userId || p.user_id, p.amountPaid || p.amount_paid]
+          [payerId, id, p.userId || p.user_id, dbPAmt]
         );
       }
 
@@ -222,6 +225,8 @@ export async function POST(request: NextRequest) {
       await client.query('DELETE FROM public.expense_participants WHERE expense_id = $1', [id]);
       for (const pt of participants) {
         const partId = pt.id && !pt.id.startsWith('part-') ? pt.id : randomUUID();
+        const ptAmt = Number(pt.amountOwed !== undefined ? pt.amountOwed : pt.amount_owed);
+        const dbPtAmt = !isNaN(ptAmt) && ptAmt > 0 ? ptAmt : 0.01;
         await client.query(
           `INSERT INTO public.expense_participants (id, expense_id, user_id, amount_owed, percentage, shares)
            VALUES ($1, $2, $3, $4, $5, $6)
@@ -233,7 +238,7 @@ export async function POST(request: NextRequest) {
             partId,
             id,
             pt.userId || pt.user_id,
-            pt.amountOwed !== undefined ? pt.amountOwed : pt.amount_owed,
+            dbPtAmt,
             pt.percentage || null,
             pt.shares || null,
           ]
