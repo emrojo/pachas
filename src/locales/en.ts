@@ -505,6 +505,10 @@ export const en: TranslationDictionary = {
     errorJoining: 'Could not join group. The link may have expired.',
   },
   audit: {
+    settlementSumOperation: 'Step A: Sum of pending transfers',
+    zeroingProofOperation: 'Step B: Proof of zero balance 0.00 (Accounts Settled)',
+    loadSettlementSum: 'Load Transfers Sum',
+    loadZeroingProof: 'Load Zero Proof',
     currencyConversion: 'Currency Conversion & Exchange Rate',
     loadConversionInCalc: 'Load Conversion',
     exchangeRateApplied: 'Applied exchange rate',

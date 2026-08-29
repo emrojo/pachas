@@ -24,6 +24,22 @@ export interface CurrencyConversionInfo {
   conversionCalcExpr: string;
 }
 
+export interface FinalSettlementProof {
+  isCreditor: boolean;
+  isDebtor: boolean;
+  isSettled: boolean;
+  totalSettlementAmount: number;
+  sumFormulaDisplay: string;
+  sumCalcExpr: string;
+  zeroingFormulaDisplay: string;
+  zeroingCalcExpr: string;
+  items: Array<{
+    otherName: string;
+    amount: number;
+    isIncoming: boolean;
+  }>;
+}
+
 export interface AuditStep {
   id: string;
   stepIndex: number;
@@ -37,6 +53,7 @@ export interface AuditStep {
   relatedExpense?: Expense;
   relatedSettlement?: Settlement;
   conversionInfo?: CurrencyConversionInfo;
+  finalSettlementProof?: FinalSettlementProof;
   formulaDisplay: string;
   calculatorExpression: string;
   secondaryFormulaDisplay?: string;
@@ -559,6 +576,129 @@ export function generateUserAuditTrail(
   }
 
   // 6. PHASE: FINAL NET BALANCE & SIMPLIFIED DEBT SETTLEMENT PLAN
+  let finalProof: FinalSettlementProof | undefined = undefined;
+
+  if (Math.abs(runningNet) > 0.009 && userDebts.length > 0) {
+    const isCreditor = runningNet > 0.009;
+    const isDebtor = runningNet < -0.009;
+    const absNet = Math.abs(runningNet);
+
+    const items = userDebts.map((d) => {
+      const isIncoming = d.to_user_id === userId;
+      const otherProfile = isIncoming ? d.from_profile : d.to_profile;
+      const otherName = otherProfile?.full_name || 'Compañero';
+      return {
+        otherName,
+        amount: d.amount,
+        isIncoming,
+      };
+    });
+
+    const sumAmounts = items.map((i) => i.amount);
+    const sumTotal =
+      Math.round(sumAmounts.reduce((acc, curr) => acc + curr, 0) * 100) / 100;
+    const sumFormulaDisplay =
+      items
+        .map((i) => `${i.otherName} (${formatMoney(i.amount, baseCurrency)})`)
+        .join(' + ') + ` = ${formatMoney(sumTotal, baseCurrency)}`;
+    const sumCalcExpr = sumAmounts.join(' + ');
+
+    let zeroingFormulaDisplay = '';
+    let zeroingCalcExpr = '';
+
+    if (isCreditor) {
+      zeroingFormulaDisplay = `${formatMoney(
+        runningNet,
+        baseCurrency
+      )} - ${formatMoney(sumTotal, baseCurrency)} = ${formatMoney(
+        0,
+        baseCurrency
+      )} (Cuentas 100% Cuadradas)`;
+      zeroingCalcExpr = `${runningNet} - ${sumTotal}`;
+    } else {
+      zeroingFormulaDisplay = `-${formatMoney(
+        absNet,
+        baseCurrency
+      )} + ${formatMoney(sumTotal, baseCurrency)} = ${formatMoney(
+        0,
+        baseCurrency
+      )} (Cuentas 100% Cuadradas)`;
+      zeroingCalcExpr = `-${absNet} + ${sumTotal}`;
+    }
+
+    finalProof = {
+      isCreditor,
+      isDebtor,
+      isSettled: false,
+      totalSettlementAmount: sumTotal,
+      sumFormulaDisplay,
+      sumCalcExpr,
+      zeroingFormulaDisplay,
+      zeroingCalcExpr,
+      items,
+    };
+  } else {
+    finalProof = {
+      isCreditor: false,
+      isDebtor: false,
+      isSettled: true,
+      totalSettlementAmount: 0,
+      sumFormulaDisplay: `${formatMoney(0, baseCurrency)} = ${formatMoney(
+        0,
+        baseCurrency
+      )}`,
+      sumCalcExpr: '0',
+      zeroingFormulaDisplay: `${formatMoney(
+        0,
+        baseCurrency
+      )} = ${formatMoney(0, baseCurrency)} (Cuentas 100% Cuadradas)`,
+      zeroingCalcExpr: '0',
+      items: [],
+    };
+  }
+
+  // Explanation for final step
+  let finalExplanation = '';
+  if (runningNet < -0.009) {
+    const listStr =
+      finalProof?.items
+        .map((i) => `pagar ${formatMoney(i.amount, baseCurrency)} a ${i.otherName}`)
+        .join(', ') || '';
+    finalExplanation = `Tu saldo neto deudor es de ${formatMoney(
+      Math.abs(runningNet),
+      baseCurrency
+    )}. Para saldar tus cuentas debes ${listStr} (suma total de pagos: ${formatMoney(
+      finalProof.totalSettlementAmount,
+      baseCurrency
+    )}). Al realizar estos pagos (-${formatMoney(
+      Math.abs(runningNet),
+      baseCurrency
+    )} + ${formatMoney(
+      finalProof.totalSettlementAmount,
+      baseCurrency
+    )}), tu saldo resultante pasa a ser exactamente de 0,00 ${baseCurrency}.`;
+  } else if (runningNet > 0.009) {
+    const listStr =
+      finalProof?.items
+        .map((i) => `recibir ${formatMoney(i.amount, baseCurrency)} de ${i.otherName}`)
+        .join(', ') || '';
+    finalExplanation = `Tu saldo neto a favor es de +${formatMoney(
+      runningNet,
+      baseCurrency
+    )}. Para saldar tus cuentas te corresponde ${listStr} (suma total de cobros: ${formatMoney(
+      finalProof.totalSettlementAmount,
+      baseCurrency
+    )}). Al recibir estos cobros (+${formatMoney(
+      runningNet,
+      baseCurrency
+    )} - ${formatMoney(
+      finalProof.totalSettlementAmount,
+      baseCurrency
+    )}), tus cuentas quedan exactamente a 0,00 ${baseCurrency}.`;
+  } else {
+    finalExplanation = `Tus cuentas en el grupo están 100% saldadas (saldo de 0,00 ${baseCurrency}) sin transferencias pendientes.`;
+  }
+
   steps.push({
     id: 'final_net',
     stepIndex: stepCounter++,
@@ -567,18 +707,16 @@ export function generateUserAuditTrail(
     subtitle: `Saldo Neto Definitivo: ${formatMoney(runningNet, baseCurrency)}`,
     phase: 6,
     phaseTitleKey: 'audit.phaseFinalDebts',
-    formulaDisplay: `Saldo comprobado = ${formatMoney(runningNet, baseCurrency)}`,
-    calculatorExpression: `${runningNet}`,
+    finalSettlementProof: finalProof,
+    formulaDisplay: finalProof.sumFormulaDisplay,
+    calculatorExpression: finalProof.sumCalcExpr,
+    secondaryFormulaDisplay: finalProof.zeroingFormulaDisplay,
+    secondaryCalculatorExpression: finalProof.zeroingCalcExpr,
     stepAmount: runningNet,
     runningPaid,
     runningConsumed,
     runningNet,
-    explanation:
-      runningNet < -0.009
-        ? `Debes pagar un total de ${formatMoney(Math.abs(runningNet), baseCurrency)} para saldar tus cuentas.`
-        : runningNet > 0.009
-        ? `Te corresponde recibir un total de ${formatMoney(runningNet, baseCurrency)}.`
-        : `Tus cuentas en el grupo están 100% saldadas.`,
+    explanation: finalExplanation,
     debtPlan: userDebts,
   });
 

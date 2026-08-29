@@ -446,8 +446,59 @@ export default function GroupAuditPage() {
                         </div>
                       </div>
                     </>
+                  ) : currentStep.type === 'final_net' && currentStep.finalSettlementProof && !currentStep.finalSettlementProof.isSettled ? (
+                    /* Final Net Balance: Dual formulas (Step A: Sum of pending transfers, Step B: Zeroing proof) */
+                    <>
+                      {/* Operation A: Sum of Pending Transfers */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-md space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-teal-300 flex items-center gap-1.5">
+                            <Plus className="w-3.5 h-3.5 text-teal-400" />
+                            {t('audit.settlementSumOperation')}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleLoadInCalculator(currentStep.calculatorExpression)}
+                            className="px-2.5 py-1 rounded-lg bg-teal-600/80 hover:bg-teal-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                            title={t('audit.loadSettlementSum')}
+                          >
+                            <CalcIcon className="w-3.5 h-3.5" />
+                            <span>{t('audit.loadSettlementSum')}</span>
+                          </button>
+                        </div>
+
+                        <div className="font-mono text-sm sm:text-base font-black text-teal-300 tracking-wide bg-black/40 p-3 rounded-xl border border-slate-800 break-words">
+                          {currentStep.formulaDisplay}
+                        </div>
+                      </div>
+
+                      {/* Operation B: Proof of Zero Balance */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white border border-emerald-800/60 shadow-md space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            {t('audit.zeroingProofOperation')}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleLoadInCalculator(currentStep.secondaryCalculatorExpression!)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                            title={t('audit.loadZeroingProof')}
+                          >
+                            <CalcIcon className="w-3.5 h-3.5" />
+                            <span>{t('audit.loadZeroingProof')}</span>
+                          </button>
+                        </div>
+
+                        <div className="font-mono text-sm sm:text-base font-black text-emerald-400 tracking-wide bg-black/40 p-3 rounded-xl border border-emerald-900/60 break-words">
+                          {currentStep.secondaryFormulaDisplay}
+                        </div>
+                      </div>
+                    </>
                   ) : (
-                    /* Single Formula Box (Payments, Summaries, Gross Balance, Settlements) */
+                    /* Single Formula Box (Payments, Summaries, Gross Balance, Settlements, Settled Net) */
                     <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-md space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
