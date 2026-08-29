@@ -55,22 +55,34 @@ export async function POST(request: NextRequest) {
       // Ignored if permissions are restricted
     }
 
+    const cleanDate = expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate;
+    const safeExchangeRate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1.0;
+    const rawAmount = Number(amount);
+    const dbAmount = !isNaN(rawAmount) ? rawAmount : 0;
+    const safeConvertedAmount =
+      convertedAmount !== undefined && !isNaN(Number(convertedAmount))
+        ? Number(convertedAmount)
+        : Math.round(dbAmount * safeExchangeRate * 100) / 100;
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // 1. Insert into public.expenses
+      // 1. Insert into public.expenses (supports converted_amount, exchange_rate, ocr_status)
       try {
         await client.query(
           `INSERT INTO public.expenses (
             id, group_id, created_by, title, amount, currency,
+            exchange_rate, converted_amount,
             category, expense_date, receipt_url, notes,
             split_type, latitude, longitude, location_name, ocr_status, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW())
           ON CONFLICT (id) DO UPDATE SET
             title = EXCLUDED.title,
             amount = EXCLUDED.amount,
             currency = EXCLUDED.currency,
+            exchange_rate = EXCLUDED.exchange_rate,
+            converted_amount = EXCLUDED.converted_amount,
             category = EXCLUDED.category,
             expense_date = EXCLUDED.expense_date,
             receipt_url = EXCLUDED.receipt_url,
@@ -86,10 +98,12 @@ export async function POST(request: NextRequest) {
             groupId,
             payload.sub,
             title,
-            amount,
+            dbAmount,
             currency,
+            safeExchangeRate,
+            safeConvertedAmount,
             category,
-            expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate,
+            cleanDate,
             receiptUrl,
             notes,
             splitType,
@@ -101,43 +115,92 @@ export async function POST(request: NextRequest) {
         );
       } catch (insertErr: any) {
         if (insertErr.code === '42703' || String(insertErr.message).includes('ocr_status')) {
-          // Fallback if ocr_status column is not yet present
-          await client.query(
-            `INSERT INTO public.expenses (
-              id, group_id, created_by, title, amount, currency,
-              category, expense_date, receipt_url, notes,
-              split_type, latitude, longitude, location_name, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE SET
-              title = EXCLUDED.title,
-              amount = EXCLUDED.amount,
-              currency = EXCLUDED.currency,
-              category = EXCLUDED.category,
-              expense_date = EXCLUDED.expense_date,
-              receipt_url = EXCLUDED.receipt_url,
-              notes = EXCLUDED.notes,
-              split_type = EXCLUDED.split_type,
-              latitude = EXCLUDED.latitude,
-              longitude = EXCLUDED.longitude,
-              location_name = EXCLUDED.location_name,
-              updated_at = NOW()`,
-            [
-              id,
-              groupId,
-              payload.sub,
-              title,
-              amount,
-              currency,
-              category,
-              expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate,
-              receiptUrl,
-              notes,
-              splitType,
-              latitude,
-              longitude,
-              locationName,
-            ]
-          );
+          try {
+            // Fallback without ocr_status but preserving converted_amount & exchange_rate
+            await client.query(
+              `INSERT INTO public.expenses (
+                id, group_id, created_by, title, amount, currency,
+                exchange_rate, converted_amount,
+                category, expense_date, receipt_url, notes,
+                split_type, latitude, longitude, location_name, created_at, updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+              ON CONFLICT (id) DO UPDATE SET
+                title = EXCLUDED.title,
+                amount = EXCLUDED.amount,
+                currency = EXCLUDED.currency,
+                exchange_rate = EXCLUDED.exchange_rate,
+                converted_amount = EXCLUDED.converted_amount,
+                category = EXCLUDED.category,
+                expense_date = EXCLUDED.expense_date,
+                receipt_url = EXCLUDED.receipt_url,
+                notes = EXCLUDED.notes,
+                split_type = EXCLUDED.split_type,
+                latitude = EXCLUDED.latitude,
+                longitude = EXCLUDED.longitude,
+                location_name = EXCLUDED.location_name,
+                updated_at = NOW()`,
+              [
+                id,
+                groupId,
+                payload.sub,
+                title,
+                dbAmount,
+                currency,
+                safeExchangeRate,
+                safeConvertedAmount,
+                category,
+                cleanDate,
+                receiptUrl,
+                notes,
+                splitType,
+                latitude,
+                longitude,
+                locationName,
+              ]
+            );
+          } catch (secondErr: any) {
+            if (secondErr.code === '42703') {
+              // Minimal fallback without exchange_rate or converted_amount
+              await client.query(
+                `INSERT INTO public.expenses (
+                  id, group_id, created_by, title, amount, currency,
+                  category, expense_date, receipt_url, notes,
+                  split_type, latitude, longitude, location_name, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+                ON CONFLICT (id) DO UPDATE SET
+                  title = EXCLUDED.title,
+                  amount = EXCLUDED.amount,
+                  currency = EXCLUDED.currency,
+                  category = EXCLUDED.category,
+                  expense_date = EXCLUDED.expense_date,
+                  receipt_url = EXCLUDED.receipt_url,
+                  notes = EXCLUDED.notes,
+                  split_type = EXCLUDED.split_type,
+                  latitude = EXCLUDED.latitude,
+                  longitude = EXCLUDED.longitude,
+                  location_name = EXCLUDED.location_name,
+                  updated_at = NOW()`,
+                [
+                  id,
+                  groupId,
+                  payload.sub,
+                  title,
+                  dbAmount,
+                  currency,
+                  category,
+                  cleanDate,
+                  receiptUrl,
+                  notes,
+                  splitType,
+                  latitude,
+                  longitude,
+                  locationName,
+                ]
+              );
+            } else {
+              throw secondErr;
+            }
+          }
         } else {
           throw insertErr;
         }
