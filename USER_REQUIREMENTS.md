@@ -184,6 +184,62 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-22.3**: **Mobile Deployment & Store Submission Guide**:
   - Comprehensive documentation in [`deploy/MOBILE.md`](file:///d:/Projects/pachas/deploy/MOBILE.md) for Google Play Store (`.aab` / `.apk`) and Apple App Store (`.ipa`) builds and signing.
 
+### 🌐 FR-23: Internationalization (i18n) & Multi-Language Support
+- **FR-23.1**: **19 Supported Languages with Country Flags**:
+  - Full translations for: Spanish (es 🇪🇸), English (en 🇬🇧), Galician (gl 🏴󠁥󠁳󠁧󠁡󠁿), Catalan (ca 🏴󠁥󠁳󠁣󠁴󠁿), Basque (eu 🏴󠁥󠁳󠁰󠁶󠁿), Valencian (va 🏴󠁥󠁳󠁶󠁣󠁿), French (fr 🇫🇷), Portuguese (pt 🇵🇹), Italian (it 🇮🇹), German (de 🇩🇪), Chinese (zh 🇨🇳), Japanese (ja 🇯🇵), Hindi (hi 🇮🇳), Russian (ru 🇷🇺), Arabic (ar 🇸🇦 with RTL direction support), Greek (el 🇬🇷), Turkish (tr 🇹🇷), Dutch (nl 🇳🇱), and Afrikaans (af 🇿🇦).
+- **FR-23.2**: **Contextual `LanguageProvider` & Hook**:
+  - React context (`LanguageProvider`) and `useTranslation()` hook providing typed dictionary access `t('category.key')` and dynamic variable interpolation (e.g., `{name}`, `{amount}`, `{count}`).
+- **FR-23.3**: **Interactive Language Selector**:
+  - Multi-language switcher available as a dropdown, button row, and full modal displaying country flags, English names, and native endonyms.
+- **FR-23.4**: **Zero Hardcoded Strings**:
+  - 100% coverage across all navigation menus, modals, forms, buttons, tooltips, analytics charts, and legal notices.
+- **FR-23.5**: **Automated Dictionary Verification**:
+  - Automated test suite ([`src/locales/locales.test.ts`](file:///d:/Projects/pachas/src/locales/locales.test.ts)) guaranteeing key parity across all 19 language dictionaries and detecting untranslated UI tokens.
+
+### ☕ FR-24: Voluntary Support & Donations System (Buy Me a Coffee)
+- **FR-24.1**: **Configurable Support Button & Cards**:
+  - Reusable component ([`BuyMeACoffeeButton.tsx`](file:///d:/Projects/pachas/src/components/donations/BuyMeACoffeeButton.tsx)) with animated heart icon and custom text support.
+  - Dedicated support card ([`DonationCard.tsx`](file:///d:/Projects/pachas/src/components/donations/DonationCard.tsx)) integrated in User Profile and Landing Page.
+- **FR-24.2**: **Dynamic URL Resolution & Admin Configuration**:
+  - Server API endpoint ([`/api/config/donations`](file:///d:/Projects/pachas/src/app/api/config/donations/route.ts)) and environment variable support (`BMC_URL` / `NEXT_PUBLIC_BUYMEACOFFEE_URL`) for real-time link updates without code recompilation.
+
+### 🔑 FR-25: Robust Authentication, Session Sync & Password Recovery
+- **FR-25.1**: **Cryptographic Passwords & Signed JWT Tokens**:
+  - Server-side password hashing with PBKDF2/HMAC-SHA512 and Web Crypto HMAC-SHA256 tokens (`sb-access-token`).
+- **FR-25.2**: **Dynamic HTTPS/HTTP Cookie Resolution**:
+  - Automatic `secure: isHttps` cookie resolution adapting seamlessly across local HTTP Docker containers and SSL-secured production deployments.
+- **FR-25.3**: **Case-Insensitive Email Queries**:
+  - Database queries comparing emails with `LOWER(u.email) = LOWER($1)`.
+- **FR-25.4**: **Unified Session Synchronization Endpoint**:
+  - Server endpoint ([`/api/auth/session`](file:///d:/Projects/pachas/src/app/api/auth/session/route.ts)) keeping client `localStorage`, cookies, and server state strictly aligned.
+- **FR-25.5**: **Password Recovery Mailer Service**:
+  - Email dispatcher ([`src/lib/email/mailer.ts`](file:///d:/Projects/pachas/src/lib/email/mailer.ts)) supporting standard SMTP (`nodemailer`), Resend API (`RESEND_API_KEY`), and SendGrid API.
+  - Fallback on-screen reset link with terminal logging for local development or standalone deployments without mail servers.
+
+### ⚖️ FR-26: Legal Framework, GDPR/LOPDGDD Compliance & User Safety
+- **FR-26.1**: **Terms and Conditions of Use ([`/terms`](file:///d:/Projects/pachas/src/app/(legal)/terms/page.tsx))**:
+  - Clear financial disclaimer stating Pachas is an informational calculation tool and not a banking entity (no fund custody or payment processing).
+  - User-generated content (UGC) regulations, liability exemptions, and moderation rights.
+- **FR-26.2**: **Privacy Policy & GDPR Compliance ([`/privacy`](file:///d:/Projects/pachas/src/app/(legal)/privacy/page.tsx))**:
+  - Data controller identification, explicit legal bases, closed-group data visibility model, data retention terms, and exercise of ARCO rights.
+- **FR-26.3**: **Cookie & Storage Policy ([`/cookies`](file:///d:/Projects/pachas/src/app/(legal)/cookies/page.tsx))**:
+  - Complete inventory of essential technical cookies (`sb-access-token`) and `localStorage`; zero third-party advertising tracking.
+- **FR-26.4**: **Legal Notice & LSSI-CE ([`/legal`](file:///d:/Projects/pachas/src/app/(legal)/legal/page.tsx))**:
+  - Service provider details, intellectual property rights, and jurisdiction.
+- **FR-26.5**: **Mandatory Consent on Registration**:
+  - Required unchecked checkbox on registration ([`register/page.tsx`](file:///d:/Projects/pachas/src/app/(auth)/register/page.tsx)) accepting Terms and Privacy Policy.
+- **FR-26.6**: **Receipt & Geolocation Safety Warnings**:
+  - Preventative alert in receipt uploads ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx)) warning users not to upload cards showing full PAN or CVV codes.
+- **FR-26.7**: **Content Reporting & Moderation**:
+  - Modal ([`ReportContentModal.tsx`](file:///d:/Projects/pachas/src/components/safety/ReportContentModal.tsx)) and API ([`/api/reports`](file:///d:/Projects/pachas/src/app/api/reports/route.ts)) allowing group members to flag offensive photos, fake receipts, or privacy violations.
+- **FR-26.8**: **GDPR Rights Tools in Profile ([`profile/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/profile/page.tsx))**:
+  - *Data Portability*: 1-click download of personal data in structured JSON format ([`/api/user/export-data`](file:///d:/Projects/pachas/src/app/api/user/export-data/route.ts)).
+  - *Right to Erasure / Right to be Forgotten*: Modal ([`DeleteAccountModal.tsx`](file:///d:/Projects/pachas/src/components/profile/DeleteAccountModal.tsx)) with double verification to permanently delete accounts and purge personal data ([`/api/user/delete-account`](file:///d:/Projects/pachas/src/app/api/user/delete-account/route.ts)).
+- **FR-26.9**: **Cookie Consent Banner ([`CookieConsentBanner.tsx`](file:///d:/Projects/pachas/src/components/legal/CookieConsentBanner.tsx))**:
+  - Informative banner on first visit explaining technical storage and linking to cookie policies.
+- **FR-26.10**: **Unified Global Footer ([`Footer.tsx`](file:///d:/Projects/pachas/src/components/layout/Footer.tsx))**:
+  - Consistent footer with direct links to `/terms`, `/privacy`, `/cookies`, and `/legal` across landing, registration, profile, and legal pages.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -192,6 +248,8 @@ This document serves as the official and permanent registry for all **user requi
 - **NFR-02**: **PWA (Progressive Web App)**: Web App Manifest configured for installation on mobile home screens.
 - **NFR-03**: **Security & RLS**: Row Level Security policies in PostgreSQL ensuring that no non-member can read or modify group data.
 - **NFR-04**: **Persistence & Offline Mode**: Interactive `localStorage` state acting as an immediate resilient layer with backend synchronization.
+- **NFR-05**: **Internationalization (i18n)**: Full multi-language dictionary architecture supporting 19 languages with RTL support for Arabic.
+- **NFR-06**: **Regulatory & GDPR Compliance**: Full alignment with European General Data Protection Regulation (GDPR / LOPDGDD) and LSSI-CE.
 
 ---
 
@@ -233,3 +291,7 @@ This document serves as the official and permanent registry for all **user requi
 | **24/08/2026** | 📍 Added | **FR-11.11 & FR-09.2** | CSV export/import of establishment locations, GPS coordinates (or European comma syntax), and Google Maps URLs, with preview pin indicators and updated sample templates. |
 | **24/08/2026** | 🗺️ Added | **FR-13.3** | Dedicated interactive map (`TripInteractiveMap`) rendering exclusively trip establishments (no third-party places), interactive popups (fichas), route line toggle, KML export for Google My Maps / Earth, and individual venue Google Maps links. |
 | **24/08/2026** | 📱 Added | **FR-22** | Mobile readiness: Complete Progressive Web App (PWA) configuration with manifest and icons, plus native store packaging setup with Capacitor.js and guide (`deploy/MOBILE.md`). |
+| **28/08/2026** | 🌐 Added | **FR-23** | Complete internationalization (i18n) framework supporting 19 languages with country flag badges, RTL support, and automated dictionary verification test suite. |
+| **28/08/2026** | ☕ Added | **FR-24** | Configurable voluntary donations system (Buy Me a Coffee) with API integration and profile cards. |
+| **28/08/2026** | 🔐 Fixed & Added | **FR-25** | Robust authentication, dynamic HTTP/HTTPS session cookie resolution (`secure: isHttps`), case-insensitive email queries, session sync (`/api/auth/session`), and password recovery mailer with SMTP/Resend/SendGrid support. |
+| **29/08/2026** | ⚖️ Added | **FR-26** | Complete legal framework and GDPR compliance: Terms of Service, Privacy Policy, Cookie Policy, Legal Notice, mandatory registration consent, receipt safety warnings, content reporting (`/api/reports`), personal data portability (`/api/user/export-data`), right to erasure (`/api/user/delete-account`), cookie consent banner, and global footer. |
