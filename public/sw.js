@@ -1,6 +1,7 @@
 const CACHE_NAME = 'pachas-offline-v2';
 const STATIC_ASSETS = [
   '/',
+  '/favicon.ico',
   '/manifest.json',
   '/icon.svg',
   '/dashboard',
