@@ -141,15 +141,21 @@ export default function ProfilePage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
-    setIsLoading(true);
-    await updateProfile({
-      full_name: sanitizeText(fullName, 100),
-      bizum_phone: sanitizeText(bizumPhone, 25) || null,
-      avatar_url: avatarUrl || null,
-    });
-    setIsLoading(false);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
+    try {
+      setIsLoading(true);
+      await updateProfile({
+        full_name: sanitizeText(fullName, 100),
+        bizum_phone: sanitizeText(bizumPhone, 25) || null,
+        avatar_url: avatarUrl || null,
+      });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
+    } catch (err: any) {
+      console.error('Error saving profile:', err);
+      alert(err.message || 'Error al guardar el perfil.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSwitchUser = (user: Profile) => {

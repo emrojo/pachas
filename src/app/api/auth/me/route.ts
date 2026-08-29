@@ -58,44 +58,44 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
-    // 1. Update public.profiles
+    // 1. Upsert public.profiles
     const res = await pool.query(
-      `UPDATE public.profiles
-       SET full_name = COALESCE($1, full_name),
-           bizum_phone = $2,
-           avatar_url = $3,
-           updated_at = NOW()
-       WHERE id = $4
+      `INSERT INTO public.profiles (id, email, full_name, bizum_phone, avatar_url, updated_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE SET
+         full_name = COALESCE(EXCLUDED.full_name, public.profiles.full_name),
+         bizum_phone = EXCLUDED.bizum_phone,
+         avatar_url = EXCLUDED.avatar_url,
+         updated_at = NOW()
        RETURNING *`,
       [
+        payload.sub,
+        payload.email || '',
         full_name !== undefined && full_name !== null ? full_name : null,
         bizum_phone !== undefined ? bizum_phone : null,
         avatar_url !== undefined ? avatar_url : null,
-        payload.sub,
       ]
     );
 
-    // 2. Also update auth.users raw_user_meta_data for consistency
-    try {
-      await pool.query(
-        `UPDATE auth.users
-         SET raw_user_meta_data = jsonb_set(
-           jsonb_set(
-             COALESCE(raw_user_meta_data, '{}'::jsonb),
-             '{avatar_url}',
-             to_jsonb($1::text)
-           ),
-           '{full_name}',
-           to_jsonb($2::text)
-         )
-         WHERE id = $3`,
-        [
-          avatar_url || '',
-          full_name || payload.full_name || '',
-          payload.sub,
-        ]
-      );
-    } catch {}
+    // 2. Also update auth.users raw_user_meta_data for consistency in background
+    pool.query(
+      `UPDATE auth.users
+       SET raw_user_meta_data = jsonb_set(
+         jsonb_set(
+           COALESCE(raw_user_meta_data, '{}'::jsonb),
+           '{avatar_url}',
+           to_jsonb($1::text)
+         ),
+         '{full_name}',
+         to_jsonb($2::text)
+       )
+       WHERE id = $3`,
+      [
+        avatar_url || '',
+        full_name || payload.full_name || '',
+        payload.sub,
+      ]
+    ).catch(() => {});
 
     const updatedProfile = res.rows[0] || {
       id: payload.sub,

@@ -371,4 +371,6 @@ This document serves as the official and permanent registry for all **user requi
 | **29/08/2026** | 🔔 Added | **FR-30** | Granular WebPush & mobile push notification system with opt-in defaults (`notifications_enabled = false`), joining checkbox, in-group toggling in submenu & settings, and auto-dispatch on new expenses/settlements. |
 | **29/08/2026** | ⚡ Changed | **Next.js 16 Proxy Migration** | Migrated deprecated `src/middleware.ts` to `src/proxy.ts` conforming to the Next.js 16 proxy convention. |
 | **30/08/2026** | 🖼️ Fixed | **Favicon 404 Resolution** | Generated multi-resolution `favicon.ico` (16x16, 32x32, 48x48) in `public/` and `src/app/`, updated `metadata.icons`, and added to Service Worker static cache. |
+| **30/08/2026** | ⚡ Fixed | **React Hydration Error #418** | Resolved SSR hydration mismatch: aligned initial `currentUser` state between server and client, and added `suppressHydrationWarning` to `<html>` and `<body>` in root layout. |
+| **30/08/2026** | 🖼️ Fixed | **Profile Save Hanging Fix** | Resolved infinite AJAX hang on saving profile picture: added `isSupabaseConfigured()` guard preventing network requests to placeholder URLs, added 6s AbortController timeout to `/api/auth/me`, implemented `INSERT ON CONFLICT DO UPDATE` upsert on `public.profiles`, and wrapped `handleSave` in `try...finally { setIsLoading(false) }`. |
 
