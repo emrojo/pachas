@@ -4,11 +4,13 @@ const isProd = process.env.NODE_ENV === 'production';
 // Content Security Policy (CSP)
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://maps.googleapis.com;
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://maps.googleapis.com blob:;
+  worker-src 'self' blob:;
+  child-src 'self' blob:;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
   img-src 'self' data: blob: https: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com;
   font-src 'self' https://fonts.gstatic.com data:;
-  connect-src 'self' https: wss: https://nominatim.openstreetmap.org https://maps.googleapis.com http://localhost:* ws://localhost:*;
+  connect-src 'self' https: wss: blob: data: https://nominatim.openstreetmap.org https://maps.googleapis.com https://raw.githubusercontent.com https://cdn.jsdelivr.net https://unpkg.com http://localhost:* ws://localhost:*;
   frame-src 'self' https://maps.google.com https://www.google.com;
   frame-ancestors 'none';
   form-action 'self';
