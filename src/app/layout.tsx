@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import './globals.css';
 import { PachasProvider } from '@/context/PachasContext';
 import { LanguageProvider } from '@/context/LanguageContext';
+import { CookieConsentBanner } from '@/components/legal/CookieConsentBanner';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -46,6 +47,7 @@ export default function RootLayout({
         <LanguageProvider>
           <PachasProvider>
             {children}
+            <CookieConsentBanner />
           </PachasProvider>
         </LanguageProvider>
       </body>

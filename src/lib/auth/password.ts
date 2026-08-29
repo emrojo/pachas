@@ -20,6 +20,9 @@ export function hashPassword(password: string): string {
 export function verifyPassword(password: string, storedHash: string): boolean {
   if (!storedHash) return false;
 
+  // Direct match fallback for initial seed / dev data
+  if (storedHash === password) return true;
+
   // Support pbkdf2 formatted hash
   if (storedHash.startsWith('pbkdf2:')) {
     const parts = storedHash.split(':');
@@ -33,6 +36,5 @@ export function verifyPassword(password: string, storedHash: string): boolean {
     }
   }
 
-  // Fallback for plain bcrypt / simple compare if legacy
   return false;
 }

@@ -1,23 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
+import { isDemoModeAllowed } from '@/lib/authConfig';
 
 export async function updateSession(request: NextRequest) {
-  // 1. Force HTTPS in production when behind a proxy/load balancer
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const host = request.headers.get('host') || request.nextUrl.host;
-  if (
-    process.env.NODE_ENV === 'production' &&
-    forwardedProto &&
-    forwardedProto === 'http' &&
-    !host.includes('localhost') &&
-    !host.includes('127.0.0.1')
-  ) {
-    const secureUrl = new URL(request.url);
-    secureUrl.protocol = 'https:';
-    return NextResponse.redirect(secureUrl, 301);
-  }
-
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -30,7 +16,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/groups') ||
     request.nextUrl.pathname.startsWith('/profile');
 
-  // 2. Check native session token from cookie
+  // 1. Check native session token from cookie
   const accessToken = request.cookies.get('sb-access-token')?.value;
   let activeUser: { id: string; email: string } | null = null;
 
@@ -44,6 +30,18 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // 2. Check demo user cookie if demo mode is permitted
+  if (!activeUser && isDemoModeAllowed()) {
+    const demoCookie = request.cookies.get('pachas_demo_user')?.value;
+    if (demoCookie) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(demoCookie));
+        if (parsed?.id && parsed?.email) {
+          activeUser = { id: parsed.id, email: parsed.email };
+        }
+      } catch {}
+    }
+  }
 
   // 3. Fallback to Supabase SSR client check if native token not verified
   if (!activeUser) {
@@ -51,7 +49,10 @@ export async function updateSession(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('placeholder')) {
-      const isProd = process.env.NODE_ENV === 'production';
+      const isHttps =
+        request.headers.get('x-forwarded-proto') === 'https' ||
+        request.url.startsWith('https://');
+
       const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
         cookies: {
           getAll() {
@@ -66,7 +67,7 @@ export async function updateSession(request: NextRequest) {
               supabaseResponse.cookies.set(name, value, {
                 ...options,
                 sameSite: options?.sameSite || 'lax',
-                secure: isProd ? true : (options?.secure ?? false),
+                secure: isHttps,
                 path: '/',
               })
             );
@@ -101,5 +102,3 @@ export async function updateSession(request: NextRequest) {
 
   return supabaseResponse;
 }
-
-

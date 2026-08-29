@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { useTranslation } from '@/context/LanguageContext';
+import { Footer } from '@/components/layout/Footer';
 
 import {
   Split,
@@ -168,11 +169,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full max-w-5xl mx-auto px-4 py-8 border-t border-slate-200/60 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-        <p>{t('landing.footerText')}</p>
-        <BuyMeACoffeeButton size="sm" showHeart customText={t('donations.buttonText')} />
-      </footer>
+      <Footer />
     </div>
   );
 }

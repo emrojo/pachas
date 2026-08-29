@@ -9,7 +9,8 @@ import { formatMoney } from '@/lib/currencies';
 import { formatDate } from '@/lib/utils';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { LocationModal } from '@/components/expenses/LocationModal';
-import { Receipt, Pencil, Users, Globe, MapPin, CloudOff, Eye } from 'lucide-react';
+import { ReportContentModal } from '@/components/safety/ReportContentModal';
+import { Receipt, Pencil, Users, Globe, MapPin, CloudOff, Eye, ShieldAlert } from 'lucide-react';
 
 export interface ExpenseCardProps {
   expense: Expense;
@@ -26,6 +27,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const { t } = useTranslation();
   const [showReceipt, setShowReceipt] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   const isCreator = currentUser ? expense.created_by === currentUser.id : false;
   const isForeign = expense.currency !== baseCurrency;
@@ -214,13 +216,25 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 <Pencil className="w-4 h-4" />
               </button>
             ) : (
-              <button
-                onClick={handleEditClick}
-                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
-                title={t('expenses.viewExpense')}
-              >
-                <Eye className="w-4 h-4" />
-              </button>
+              <>
+                <button
+                  onClick={handleEditClick}
+                  className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
+                  title={t('expenses.viewExpense')}
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowReport(true);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all"
+                  title={t('expenses.reportExpense')}
+                >
+                  <ShieldAlert className="w-4 h-4" />
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -240,6 +254,14 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
         latitude={expense.latitude || null}
         longitude={expense.longitude || null}
         locationName={expense.location_name}
+      />
+
+      <ReportContentModal
+        isOpen={showReport}
+        onClose={() => setShowReport(false)}
+        targetType="expense"
+        targetId={expense.id}
+        targetTitle={expense.title}
       />
     </>
   );

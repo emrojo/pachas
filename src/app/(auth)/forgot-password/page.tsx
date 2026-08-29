@@ -7,14 +7,18 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
-import { ArrowLeft, KeyRound, CheckCircle2, Mail, ArrowRight } from 'lucide-react';
+import { ArrowLeft, KeyRound, CheckCircle2, Mail, ArrowRight, Info } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [resetInfo, setResetInfo] = useState<{ message: string; resetUrl?: string } | null>(null);
+  const [resetInfo, setResetInfo] = useState<{
+    message: string;
+    resetUrl?: string;
+    emailSent?: boolean;
+  } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +48,7 @@ export default function ForgotPasswordPage() {
       setResetInfo({
         message: data.message,
         resetUrl: data.resetUrl,
+        emailSent: data.emailSent,
       });
     } catch (err: any) {
       setError(err.message || t('auth.invalidCredentials'));
@@ -158,4 +163,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-
