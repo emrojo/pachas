@@ -549,8 +549,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   <span className="font-bold text-emerald-950 dark:text-emerald-100">
                     {t('ocr.detectedTitle')}
                   </span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200">
-                    IA OCR
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200 flex items-center gap-1">
+                    {scannedData.source === 'gemini-1.5-flash' ? '✨ Gemini 1.5 Flash' : 'IA OCR'}
                   </span>
                 </div>
                 <div className="text-emerald-800 dark:text-emerald-300 text-[11px] mt-0.5 flex flex-wrap gap-x-2">
