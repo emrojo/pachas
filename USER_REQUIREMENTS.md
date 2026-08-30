@@ -327,6 +327,11 @@ This document serves as the official and permanent registry for all **user requi
   - Automatically extracts exact timestamps (hours and minutes: `HH:mm`) and updates both date and time pickers.
 - **FR-31.5**: **Automatic Geocoding & Google Maps GPS Pinpoint Save ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
   - Automatically performs forward geocoding on the extracted address to resolve exact GPS coordinates (`latitude`, `longitude`) and generate Google Maps deep links (`https://www.google.com/maps?q=lat,lng`), saving the geographical location directly into the PostgreSQL database.
+- **FR-31.6**: **Strict Multimodal Vision Model Filtering & Fault-Tolerant JSON Parsing**:
+  - Dynamic discovery in `/api/ocr/scan` filters out text-only models (`gemma`, `embedding`, `aqa`), strictly prioritizing multimodal vision models (`gemini-2.0-flash`, `gemini-1.5-flash`, `gemini-1.5-flash-8b`, `gemini-1.5-pro`).
+  - Multi-tier fault-tolerant extraction engine supporting direct parsing, markdown code fences, trailing comma cleanup, single-quote correction, regex key-value extraction, and title sanitization (`cleanTitle`) eliminating prompt leaks (e.g. `6. **Currency**: "EUR"`).
+  - Extended client (45s) and server (35s) timeouts ensuring high-resolution mobile receipt photos process without premature aborts.
+  - Client-side `rawText` fallback extractor ensuring no detected transaction data is lost.
 
 ### 💬 FR-32: In-Expense Discussion Threads & Comments
 - **FR-32.1**: **Discussion Thread Section ([`ExpenseCommentsSection.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseCommentsSection.tsx))**:
@@ -336,6 +341,9 @@ This document serves as the official and permanent registry for all **user requi
   - Offline sync with `localStorage` (`pachas_expense_comments_v2`) and optimistic local updates.
 - **FR-32.3**: **Comments Counter Badge ([`ExpenseCard.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseCard.tsx))**:
   - Visual badge with comment count (`💬 N`) on each expense card in the trip list.
+- **FR-32.4**: **PostgreSQL UUID Compatibility & Silent Missing-Table Fallback**:
+  - Relational table definitions with canonical `UUID` foreign keys referencing `public.expenses(id)`.
+  - Silent fallback in `GET /api/expenses/[id]/comments` handling missing table states (`42P01`) without throwing HTTP 500s or cluttering server logs.
 
 ### ⚡ FR-33: Quick Instant Receipt Scanning & Background Asynchronous AI Processing
 - **FR-33.1**: **1-Tap Direct Camera Action ([`GroupActionMenu.tsx`](file:///d:/Projects/pachas/src/components/groups/GroupActionMenu.tsx) & [`page.tsx`](file:///d:/Projects/pachas/src/app/%28dashboard%29/groups/%5Bid%5D/page.tsx))**:
@@ -344,10 +352,15 @@ This document serves as the official and permanent registry for all **user requi
   - Immediately creates a placeholder expense entry with receipt thumbnail and pulsing badge (`⏳ Analizando ticket con IA...`), allowing the user to continue using the app without waiting for AI processing.
 - **FR-33.3**: **Asynchronous Background Completion ([`PachasContext.tsx`](file:///d:/Projects/pachas/src/context/PachasContext.tsx))**:
   - Calls Gemini 1.5 Flash Vision in the background, resolving merchant title, amount, category, date/time, and geocoded Google Maps GPS coordinates, and automatically updates the expense in the PostgreSQL database and UI feed upon completion.
+  - Utilizes mutable state references (`expensesRef`, `groupsRef`, `membersRef`, `settlementsRef`) eliminating React stale closures during asynchronous completion.
 - **FR-33.4**: **Resilient Error Recovery (`ocr_status: 'failed'`)**:
   - If a receipt is unreadable, sets status to `'failed'` with amber badge (`⚠️ Requiere revisión`), allowing members to tap and edit the expense manually.
 - **FR-33.5**: **Asynchronous Save in Expense Modal ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
   - Allows saving a photographed receipt immediately via **"Guardar y procesar con IA"** to complete the expense in the background.
+- **FR-33.6**: **Database Permission & Constraint Resilience**:
+  - Elimination of `ALTER TABLE` DDL from inside explicit SQL transactions (`BEGIN ... COMMIT`), preventing `must be owner of table expenses` errors under non-superuser application database connections.
+  - Automatic handling of legacy schema `converted_amount` and `exchange_rate` `NOT NULL` constraints via multi-tier fallback inserts and updates.
+  - Enforced minimum storage amount (`0.01`) during initial placeholder expense creation (`ocr_status: 'processing'`) satisfying database `CHECK (amount > 0)` and `CHECK (amount_paid > 0)` constraints.
 
 ---
 
@@ -431,4 +444,7 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 📍 Added | **FR-31.4** | **Location & Precise Datetime Receipt Autocomplete**: Enhanced the AI vision receipt scanner to extract physical establishment addresses (`locationName`) and exact timestamps (`HH:mm`), populating both the location picker and the date/time selectors upon clicking "Autocompletar gasto". |
 | **30/08/2026** | 🗺️ Added | **FR-31.5** | **Automatic Geocoding & Google Maps GPS Pinpoint Save**: Integrated automatic forward geocoding in the receipt vision scanner to resolve exact GPS coordinates (`latitude`, `longitude`) from extracted receipt addresses and generate Google Maps deep links, automatically attaching the geographical pinpoint to the expense. |
 | **30/08/2026** | ⚡ Added | **FR-33** | **Quick Instant Receipt Scanning & Background Asynchronous AI Processing**: Added 1-tap **"Escanear factura"** camera action in trip headers, instant unblocked expense creation with `ocr_status = 'processing'`, non-blocking background Gemini Vision processing updating merchant, amount, category, date/time and Google Maps coordinates in real-time, resilient `'failed'` review status, and asynchronous save option in `ExpenseForm`. |
-
+| **30/08/2026** | 🛡️ Fixed | **FR-33.6** | **PostgreSQL DDL & Permissions Safety**: Removed `ALTER TABLE` DDL queries from inside active transactions (`BEGIN ... COMMIT`) in `/api/expenses` and `/api/expenses/[id]`, preventing `must be owner of table expenses` errors under non-superuser database permissions. |
+| **30/08/2026** | 🗄️ Fixed | **FR-33.6** | **Database NOT NULL and CHECK Constraint Fallbacks**: Added support for legacy schema `converted_amount` / `exchange_rate` NOT NULL columns and enforced minimum `0.01` storage value during placeholder creation (`ocr_status: 'processing'`) satisfying `CHECK (amount > 0)` and `CHECK (amount_paid > 0)`. |
+| **30/08/2026** | 💬 Fixed | **FR-32.4** | **PostgreSQL UUID Compatibility in Comments**: Updated `05-expense-comments.sql` and `/api/expenses/[id]/comments` to use `UUID` types matching `public.expenses(id)` and added silent fallback for missing table states (`42P01`). |
+| **30/08/2026** | 🤖 Changed | **FR-31.6** | **Strict Vision Model Filtering & Fault-Tolerant JSON Parsing**: Filtered out text-only models (`gemma`, `embedding`, `aqa`) from dynamic ListModels discovery, implemented multi-tier fault-tolerant JSON & regex parsing in `/api/ocr/scan`, added `cleanTitle` prompt artifact sanitization, increased timeouts to 45s, and enabled client-side `rawText` fallback extraction. |
