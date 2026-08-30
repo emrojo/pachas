@@ -684,5 +684,9 @@ export const eu: TranslationDictionary = {
     send: 'Bidali',
     loginRequired: 'Hasi saioa iruzkin bat uzteko.',
     confirmDelete: 'Iruzkin hau ezabatu?',
+    gifPickerTitle: 'GIF Animatuak',
+    gifPickerSubtitle: 'Aukeratu GIF animatu bat edo itsatsi zure esteka',
+    searchGifsPlaceholder: 'Bilatu festa, dirua, barreak, bidaia...',
+    addReaction: 'Erreakzioa gehitu',
   },
 };

@@ -684,5 +684,9 @@ export const ja: TranslationDictionary = {
     send: '送信',
     loginRequired: 'コメントを投稿するにはログインしてください。',
     confirmDelete: 'このコメントを削除しますか？',
+    gifPickerTitle: 'アニメーションGIF',
+    gifPickerSubtitle: 'アニメGIFを選択するかリンクを貼り付けてください',
+    searchGifsPlaceholder: 'パーティー、お金、笑い、旅行を検索...',
+    addReaction: 'リアクションを追加',
   },
 };

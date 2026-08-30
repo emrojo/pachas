@@ -684,5 +684,9 @@ export const nl: TranslationDictionary = {
     send: 'Verzenden',
     loginRequired: 'Log in om een reactie te plaatsen.',
     confirmDelete: 'Deze reactie verwijderen?',
+    gifPickerTitle: 'Geanimeerde GIFs',
+    gifPickerSubtitle: 'Kies een geanimeerde GIF of plak je link',
+    searchGifsPlaceholder: 'Zoek feest, geld, lachen, reizen...',
+    addReaction: 'Reactie toevoegen',
   },
 };

@@ -163,6 +163,8 @@ export interface ExpenseComment {
   expense_id: string;
   user_id: string;
   comment: string;
+  gif_url?: string | null;
+  reactions?: Record<string, string[]>; // emoji -> string[] of user_ids
   created_at: string;
   profile?: Profile;
 }

@@ -684,5 +684,9 @@ export const va: TranslationDictionary = {
     send: 'Enviar',
     loginRequired: 'Inicia sessió per a deixar un comentari.',
     confirmDelete: 'Eliminar este comentari?',
+    gifPickerTitle: 'Animated GIFs',
+    gifPickerSubtitle: 'Choose an animated GIF or paste your link',
+    searchGifsPlaceholder: 'Search party, money, laugh, travel...',
+    addReaction: 'Add reaction',
   },
 };

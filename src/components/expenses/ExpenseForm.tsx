@@ -1679,6 +1679,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           <ExpenseCommentsSection
             expenseId={expenseToEdit.id}
             expenseTitle={expenseToEdit.title}
+            groupId={groupId}
           />
         )}
 

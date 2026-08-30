@@ -684,5 +684,9 @@ export const zh: TranslationDictionary = {
     send: '发送',
     loginRequired: '登录后即可发表评论。',
     confirmDelete: '删除此评论？',
+    gifPickerTitle: '动图 GIF',
+    gifPickerSubtitle: '选择动图或粘贴链接',
+    searchGifsPlaceholder: '搜索聚会、金钱、笑声、旅行...',
+    addReaction: '添加反应',
   },
 };
