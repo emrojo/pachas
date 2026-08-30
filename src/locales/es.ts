@@ -683,6 +683,10 @@ export const es = {
     send: 'Enviar',
     loginRequired: 'Inicia sesión para dejar un comentario.',
     confirmDelete: '¿Eliminar este comentario?',
+    gifPickerTitle: 'GIFs Animados',
+    gifPickerSubtitle: 'Elige un GIF animado o pega tu enlace',
+    searchGifsPlaceholder: 'Buscar fiesta, dinero, risa, viaje...',
+    addReaction: 'Añadir reacción',
   },
 } as const;
 

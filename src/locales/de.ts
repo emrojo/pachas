@@ -684,5 +684,9 @@ export const de: TranslationDictionary = {
     send: 'Senden',
     loginRequired: 'Melde dich an, um einen Kommentar zu hinterlassen.',
     confirmDelete: 'Diesen Kommentar löschen?',
+    gifPickerTitle: 'Animierte GIFs',
+    gifPickerSubtitle: 'Wähle ein animiertes GIF oder füge deinen Link ein',
+    searchGifsPlaceholder: 'Suche Party, Geld, Lachen, Reise...',
+    addReaction: 'Reaktion hinzufügen',
   },
 };

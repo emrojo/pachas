@@ -684,5 +684,9 @@ export const hi: TranslationDictionary = {
     send: 'भेजें',
     loginRequired: 'टिप्पणी करने के लिए लॉग इन करें।',
     confirmDelete: 'क्या यह टिप्पणी हटाएँ?',
+    gifPickerTitle: 'एनिमेटेड GIF',
+    gifPickerSubtitle: 'GIF चुनें या लिंक पेस्ट करें',
+    searchGifsPlaceholder: 'पार्टी, पैसा, हंसी, यात्रा खोजें...',
+    addReaction: 'प्रतिक्रिया जोड़ें',
   },
 };

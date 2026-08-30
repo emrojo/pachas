@@ -686,6 +686,10 @@ export const en: TranslationDictionary = {
     send: 'Send',
     loginRequired: 'Log in to leave a comment.',
     confirmDelete: 'Delete this comment?',
+    gifPickerTitle: 'Animated GIFs',
+    gifPickerSubtitle: 'Choose an animated GIF or paste your link',
+    searchGifsPlaceholder: 'Search party, money, laugh, travel...',
+    addReaction: 'Add reaction',
   },
 };
 

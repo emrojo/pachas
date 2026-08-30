@@ -684,5 +684,9 @@ export const af: TranslationDictionary = {
     send: 'Stuur',
     loginRequired: 'Teken in om \'n opmerking te los.',
     confirmDelete: 'Verwyder hierdie opmerking?',
+    gifPickerTitle: 'Animated GIFs',
+    gifPickerSubtitle: 'Choose an animated GIF or paste your link',
+    searchGifsPlaceholder: 'Search party, money, laugh, travel...',
+    addReaction: 'Add reaction',
   },
 };

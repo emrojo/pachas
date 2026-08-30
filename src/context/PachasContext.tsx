@@ -121,9 +121,10 @@ interface PachasContextType {
   clearPendingSyncQueue: () => void;
   comments: Record<string, ExpenseComment[]>;
   getExpenseComments: (expenseId: string) => ExpenseComment[];
-  addExpenseComment: (expenseId: string, comment: string) => Promise<ExpenseComment>;
+  addExpenseComment: (expenseId: string, comment: string, gifUrl?: string | null) => Promise<ExpenseComment>;
   deleteExpenseComment: (commentId: string, expenseId: string) => Promise<void>;
   fetchExpenseComments: (expenseId: string) => Promise<ExpenseComment[]>;
+  toggleCommentReaction: (commentId: string, expenseId: string, emoji: string) => Promise<void>;
 }
 
 
@@ -1951,9 +1952,24 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const res = await fetch(`/api/expenses/${expenseId}/comments`);
       if (res.ok) {
         const data = await res.json();
-        if (data?.comments) {
+        if (data?.comments && Array.isArray(data.comments)) {
           setComments((prev) => {
-            const updated = { ...prev, [expenseId]: data.comments };
+            const localList = prev[expenseId] || [];
+            // If server returned 0 comments but local has comments, preserve local comments
+            if (data.comments.length === 0 && localList.length > 0) {
+              return prev;
+            }
+
+            // Enrich server comments with local profiles if missing
+            const enriched = data.comments.map((sc: ExpenseComment) => {
+              const localAuthor = availableUsers.find((u) => u.id === sc.user_id) || (currentUser?.id === sc.user_id ? currentUser : undefined);
+              return {
+                ...sc,
+                profile: (sc.profile?.full_name && sc.profile.full_name !== 'Amigo') ? sc.profile : (localAuthor || sc.profile),
+              };
+            });
+
+            const updated = { ...prev, [expenseId]: enriched };
             safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
             return updated;
           });
@@ -1966,7 +1982,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return comments[expenseId] || [];
   };
 
-  const addExpenseComment = async (expenseId: string, text: string): Promise<ExpenseComment> => {
+  const addExpenseComment = async (expenseId: string, text: string, gifUrl?: string | null): Promise<ExpenseComment> => {
     if (!currentUser) throw new Error('Debes iniciar sesión para comentar.');
 
     const newComment: ExpenseComment = {
@@ -1974,6 +1990,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       expense_id: expenseId,
       user_id: currentUser.id,
       comment: text,
+      gif_url: gifUrl || null,
+      reactions: {},
       created_at: new Date().toISOString(),
       profile: currentUser,
     };
@@ -1991,14 +2009,14 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const res = await fetch(`/api/expenses/${expenseId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: newComment.id, comment: text }),
+        body: JSON.stringify({ id: newComment.id, comment: text, gif_url: gifUrl }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data?.comment) {
           setComments((prev) => {
             const currentList = prev[expenseId] || [];
-            const replaced = currentList.map((c) => (c.id === newComment.id ? data.comment : c));
+            const replaced = currentList.map((c) => (c.id === newComment.id ? { ...data.comment, profile: currentUser } : c));
             const updated = { ...prev, [expenseId]: replaced };
             safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
             return updated;
@@ -2011,6 +2029,47 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     return newComment;
+  };
+
+  const toggleCommentReaction = async (commentId: string, expenseId: string, emoji: string): Promise<void> => {
+    if (!currentUser) return;
+    const userId = currentUser.id;
+
+    // Optimistic local update
+    setComments((prev) => {
+      const currentList = prev[expenseId] || [];
+      const updatedList = currentList.map((c) => {
+        if (c.id !== commentId) return c;
+        const reactions = { ...(c.reactions || {}) };
+        const users = reactions[emoji] || [];
+        const hasReacted = users.includes(userId);
+        if (hasReacted) {
+          const filtered = users.filter((u) => u !== userId);
+          if (filtered.length === 0) {
+            delete reactions[emoji];
+          } else {
+            reactions[emoji] = filtered;
+          }
+        } else {
+          reactions[emoji] = [...users, userId];
+        }
+        return { ...c, reactions };
+      });
+      const updated = { ...prev, [expenseId]: updatedList };
+      safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+      return updated;
+    });
+
+    // Sync to backend
+    try {
+      await fetch(`/api/expenses/${expenseId}/comments`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commentId, emoji }),
+      });
+    } catch (err) {
+      console.warn('Error toggling comment reaction in backend:', err);
+    }
   };
 
   const deleteExpenseComment = async (commentId: string, expenseId: string): Promise<void> => {
@@ -2084,6 +2143,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addExpenseComment,
         deleteExpenseComment,
         fetchExpenseComments,
+        toggleCommentReaction,
       }}
     >
 

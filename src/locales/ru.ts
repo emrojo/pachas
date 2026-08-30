@@ -684,5 +684,9 @@ export const ru: TranslationDictionary = {
     send: 'Отправить',
     loginRequired: 'Войдите, чтобы оставить комментарий.',
     confirmDelete: 'Удалить этот комментарий?',
+    gifPickerTitle: 'Анимированные GIF',
+    gifPickerSubtitle: 'Выберите GIF или вставьте ссылку',
+    searchGifsPlaceholder: 'Поиск: вечеринка, деньги, смех, путешествие...',
+    addReaction: 'Добавить реакцию',
   },
 };

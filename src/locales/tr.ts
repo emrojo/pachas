@@ -684,5 +684,9 @@ export const tr: TranslationDictionary = {
     send: 'Gönder',
     loginRequired: 'Yorum yapmak için giriş yapın.',
     confirmDelete: 'Bu yorum silinsin mi?',
+    gifPickerTitle: 'Hareketli GIFler',
+    gifPickerSubtitle: 'Bir GIF seçin veya bağlantınızı yapıştırın',
+    searchGifsPlaceholder: 'Parti, para, kahkaha, seyahat ara...',
+    addReaction: 'Tepki ekle',
   },
 };

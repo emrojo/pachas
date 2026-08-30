@@ -684,5 +684,9 @@ export const ar: TranslationDictionary = {
     send: 'إرسال',
     loginRequired: 'سجل الدخول لإضافة تعليق.',
     confirmDelete: 'حذف هذا التعليق؟',
+    gifPickerTitle: 'صور متحركة GIF',
+    gifPickerSubtitle: 'اختر صورة متحركة أو الصق الرابط',
+    searchGifsPlaceholder: 'ابحث عن حفلة، نقود، ضحك، سفر...',
+    addReaction: 'إضافة تفاعل',
   },
 };

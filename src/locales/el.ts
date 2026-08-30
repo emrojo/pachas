@@ -684,5 +684,9 @@ export const el: TranslationDictionary = {
     send: 'Αποστολή',
     loginRequired: 'Συνδεθείτε για να αφήσετε σχόλιο.',
     confirmDelete: 'Διαγραφή αυτού του σχολίου;',
+    gifPickerTitle: 'Κινούμενα GIF',
+    gifPickerSubtitle: 'Επιλέξτε ένα κινούμενο GIF ή επικολλήστε τον σύνδεσμό σας',
+    searchGifsPlaceholder: 'Αναζήτηση πάρτι, χρήματα, γέλιο, ταξίδι...',
+    addReaction: 'Προσθήκη αντίδρασης',
   },
 };

@@ -684,5 +684,9 @@ export const ca: TranslationDictionary = {
     send: 'Enviar',
     loginRequired: 'Inicia sessió per deixar un comentari.',
     confirmDelete: 'Eliminar aquest comentari?',
+    gifPickerTitle: 'GIFs Animats',
+    gifPickerSubtitle: 'Tria un GIF animat o enganxa el teu enllaç',
+    searchGifsPlaceholder: 'Cercar festa, diners, riure, viatge...',
+    addReaction: 'Afegir reacció',
   },
 };
