@@ -147,16 +147,13 @@ Reglas críticas de extracción:
 
     // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
     const candidateModels = [
-      'gemini-1.5-flash',
-      'gemini-1.5-flash-002',
-      'gemini-1.5-flash-001',
-      'gemini-1.5-flash-8b',
       'gemini-2.0-flash',
-      'gemini-2.0-flash-001',
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-flash',
       'gemini-1.5-flash-latest',
+      'gemini-1.5-flash-8b',
       'gemini-1.5-pro',
-      'gemini-1.5-pro-002',
-      'gemini-pro',
+      'gemini-1.5-pro-latest',
     ];
 
     let lastError = '';
@@ -239,11 +236,24 @@ Reglas críticas de extracción:
         const listRes = await fetch(listUrl);
         if (listRes.ok) {
           const listData = await listRes.json();
+          // Filter ONLY multimodal vision Gemini models (exclude text-only gemma, embeddings, aqa)
           const available = (listData.models || [])
-            .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
-            .map((m: any) => m.name);
+            .filter((m: any) =>
+              m.supportedGenerationMethods?.includes('generateContent') &&
+              m.name.toLowerCase().includes('gemini') &&
+              !m.name.toLowerCase().includes('gemma') &&
+              !m.name.toLowerCase().includes('embedding') &&
+              !m.name.toLowerCase().includes('aqa') &&
+              !m.name.toLowerCase().includes('imagen')
+            )
+            .map((m: any) => m.name)
+            .sort((a: string, b: string) => {
+              const aFlash = a.includes('flash') ? 0 : 1;
+              const bFlash = b.includes('flash') ? 0 : 1;
+              return aFlash - bFlash;
+            });
 
-          console.log('[Gemini OCR] 📋 Modelos disponibles para esta API key:', available);
+          console.log('[Gemini OCR] 📋 Modelos Gemini visión disponibles:', available);
 
           for (const discoveredModel of available) {
             const resText = await tryGenerateWithModel(discoveredModel);
@@ -426,8 +436,23 @@ Reglas críticas de extracción:
       }
     }
 
+    const cleanTitle = (raw: string | undefined): string | undefined => {
+      if (!raw || typeof raw !== 'string') return undefined;
+      let t = raw
+        .replace(/^[\d\.\s\*\-]+/, '')
+        .replace(/\*\*/g, '')
+        .replace(/^(?:title|nombre|comercio|establecimiento|merchant)\s*:\s*/i, '')
+        .replace(/^["']|["']$/g, '')
+        .trim();
+
+      if (/^(?:currency|amount|date|category|total|importe|subtotal|fecha|iva|cif|nif)/i.test(t) || t.length < 2) {
+        return undefined;
+      }
+      return t || undefined;
+    };
+
     const result: VisionScanResult = {
-      title: parsed.title ? String(parsed.title).trim() : undefined,
+      title: cleanTitle(parsed.title),
       amount: detectedAmount,
       amountFormatted: detectedAmountFormatted,
       date: parsed.date ? String(parsed.date).trim() : undefined,
@@ -437,7 +462,7 @@ Reglas críticas de extracción:
       longitude: detectedLongitude,
       mapsUrl: detectedMapsUrl,
       currency: parsed.currency || 'EUR',
-      confidence: 0.98,
+      confidence: detectedAmount ? 0.98 : 0.7,
       source: successfulModel || 'gemini-1.5-flash',
     };
 
