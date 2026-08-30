@@ -79,10 +79,14 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
     try {
       setIsUpdatingNotifications(true);
       const nextState = !notificationsEnabled;
-      const success = await setGroupNotificationPreference(groupId, nextState);
-      if (success) {
+      const result = await setGroupNotificationPreference(groupId, nextState);
+      if (result.success) {
         setNotificationsEnabled(nextState);
+      } else if (result.error) {
+        alert(result.error);
       }
+    } catch (err: any) {
+      alert(err.message || 'Error al cambiar preferencia de notificaciones');
     } finally {
       setIsUpdatingNotifications(false);
     }

@@ -34,6 +34,6 @@ describe('pushNotificationService', () => {
     } as Response);
 
     const result = await setGroupNotificationPreference('g-123', false);
-    expect(result).toBe(false);
+    expect(result.success).toBe(false);
   });
 });

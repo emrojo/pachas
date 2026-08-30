@@ -99,10 +99,14 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
     try {
       setIsUpdatingNotifications(true);
       const nextState = !notificationsEnabled;
-      const ok = await setGroupNotificationPreference(group.id, nextState);
-      if (ok) {
+      const result = await setGroupNotificationPreference(group.id, nextState);
+      if (result.success) {
         setNotificationsEnabled(nextState);
+      } else if (result.error) {
+        alert(result.error);
       }
+    } catch (err: any) {
+      alert(err.message || 'Error al cambiar preferencia de notificaciones');
     } finally {
       setIsUpdatingNotifications(false);
     }
