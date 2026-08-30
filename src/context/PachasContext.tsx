@@ -131,6 +131,68 @@ const STORAGE_KEYS = {
   COMMENTS: 'pachas_expense_comments_v2',
 };
 
+// Helper to strip heavy base64 strings from objects before saving to localStorage to prevent QuotaExceededError
+function sanitizeExpensesForLocalStorage(data: Record<string, Expense[]>): Record<string, Expense[]> {
+  const sanitized: Record<string, Expense[]> = {};
+  for (const [groupId, list] of Object.entries(data)) {
+    sanitized[groupId] = list.map((exp) => {
+      // If receipt_url is a massive base64 image (> 2048 chars), omit in localStorage cache
+      if (exp.receipt_url && exp.receipt_url.startsWith('data:') && exp.receipt_url.length > 2048) {
+        return { ...exp, receipt_url: null };
+      }
+      return exp;
+    });
+  }
+  return sanitized;
+}
+
+export function safeSetLocalStorage(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    // If it's expenses, sanitize heavy base64 images before saving to save 90% of storage
+    if (key === STORAGE_KEYS.EXPENSES) {
+      try {
+        const parsed = JSON.parse(value);
+        const sanitized = sanitizeExpensesForLocalStorage(parsed);
+        localStorage.setItem(key, JSON.stringify(sanitized));
+        return;
+      } catch {}
+    }
+    localStorage.setItem(key, value);
+  } catch (err: any) {
+    if (
+      err?.name === 'QuotaExceededError' ||
+      err?.code === 22 ||
+      String(err?.message).includes('quota') ||
+      String(err?.message).includes('Quota')
+    ) {
+      console.warn(`[Pachas] localStorage quota exceeded for key "${key}". Cleaning up heavy caches...`);
+      try {
+        if (key === STORAGE_KEYS.EXPENSES) {
+          try {
+            const parsed = JSON.parse(value);
+            const sanitized = sanitizeExpensesForLocalStorage(parsed);
+            localStorage.setItem(key, JSON.stringify(sanitized));
+            return;
+          } catch {}
+        }
+        // Emergency cleanup of non-essential keys
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && !Object.values(STORAGE_KEYS).includes(k)) {
+            localStorage.removeItem(k);
+          }
+        }
+        localStorage.setItem(key, value);
+      } catch (retryErr) {
+        console.warn(`[Pachas] Could not persist key "${key}" to localStorage:`, retryErr);
+      }
+    } else {
+      console.warn(`[Pachas] localStorage.setItem error for key "${key}":`, err);
+    }
+  }
+}
+
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, _setCurrentUser] = useState<Profile | null>(null);
   const [availableUsers, setAvailableUsers] = useState<Profile[]>(DEMO_USERS);
@@ -163,7 +225,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     _setCurrentUser(user);
     try {
       if (user) {
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        safeSetLocalStorage(STORAGE_KEYS.USER, JSON.stringify(user));
         if (typeof document !== 'undefined') {
           document.cookie = `pachas_demo_user=${encodeURIComponent(
             JSON.stringify({ id: user.id, email: user.email })
@@ -444,7 +506,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const updated = list.map((e) =>
               e.id === exp.id ? { ...e, is_pending_sync: false } : e
             );
-            localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify({ ...prev, [exp.group_id]: updated }));
+            safeSetLocalStorage(STORAGE_KEYS.EXPENSES, JSON.stringify({ ...prev, [exp.group_id]: updated }));
             return {
               ...prev,
               [exp.group_id]: updated,
@@ -455,7 +517,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             setExpenses((prev) => {
               const list = prev[syncedItem.groupId!] || [];
               const updated = list.filter((e) => e.id !== syncedItem.entityId);
-              localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify({ ...prev, [syncedItem.groupId!]: updated }));
+              safeSetLocalStorage(STORAGE_KEYS.EXPENSES, JSON.stringify({ ...prev, [syncedItem.groupId!]: updated }));
               return {
                 ...prev,
                 [syncedItem.groupId!]: updated,
@@ -469,7 +531,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const updated = list.map((s) =>
               s.id === settle.id ? { ...s, is_pending_sync: false } : s
             );
-            localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify({ ...prev, [settle.group_id]: updated }));
+            safeSetLocalStorage(STORAGE_KEYS.SETTLEMENTS, JSON.stringify({ ...prev, [settle.group_id]: updated }));
             return {
               ...prev,
               [settle.group_id]: updated,
@@ -491,9 +553,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       for (const [gid, list] of Object.entries(prev)) {
         updated[gid] = list.map((e) => ({ ...e, is_pending_sync: false }));
       }
-      try {
-        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
-      } catch {}
+      safeSetLocalStorage(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
       return updated;
     });
     setSettlements((prev) => {
@@ -501,17 +561,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       for (const [gid, list] of Object.entries(prev)) {
         updated[gid] = list.map((s) => ({ ...s, is_pending_sync: false }));
       }
-      try {
-        localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(updated));
-      } catch {}
+      safeSetLocalStorage(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(updated));
       return updated;
     });
   };
-
-
-
-
-
 
   // Save changes to localStorage
   const saveState = (
@@ -523,22 +576,22 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (newGroups) {
       groupsRef.current = newGroups;
       setGroups(newGroups);
-      localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(newGroups));
+      safeSetLocalStorage(STORAGE_KEYS.GROUPS, JSON.stringify(newGroups));
     }
     if (newMembers) {
       membersRef.current = newMembers;
       setMembers(newMembers);
-      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(newMembers));
+      safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(newMembers));
     }
     if (newExpenses) {
       expensesRef.current = newExpenses;
       setExpenses(newExpenses);
-      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(newExpenses));
+      safeSetLocalStorage(STORAGE_KEYS.EXPENSES, JSON.stringify(newExpenses));
     }
     if (newSettlements) {
       settlementsRef.current = newSettlements;
       setSettlements(newSettlements);
-      localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(newSettlements));
+      safeSetLocalStorage(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(newSettlements));
     }
   };
 
@@ -1570,7 +1623,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updatedUsers = [...availableUsers, newProfile];
     setAvailableUsers(updatedUsers);
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+    safeSetLocalStorage(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
 
     // If addToGroupIds, register member in those groups
     if (data.addToGroupIds && data.addToGroupIds.length > 0) {
@@ -1590,7 +1643,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
       setMembers(updatedMembers);
-      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(updatedMembers));
+      safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(updatedMembers));
     }
 
     if (data.autoSwitch) {
@@ -1607,7 +1660,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updatedUsers = availableUsers.filter((u) => u.id !== userId);
     setAvailableUsers(updatedUsers);
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+    safeSetLocalStorage(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
 
     if (currentUser?.id === userId) {
       const fallback = updatedUsers[0] || null;
@@ -1625,12 +1678,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...data,
     };
     setCurrentUser(updated);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updated));
+    safeSetLocalStorage(STORAGE_KEYS.USER, JSON.stringify(updated));
 
     // Update in availableUsers list too
     const updatedUsers = availableUsers.map((u) => (u.id === currentUser.id ? updated : u));
     setAvailableUsers(updatedUsers);
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+    safeSetLocalStorage(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
 
     // Update member cache across groups
     const updatedMembers: Record<string, GroupMember[]> = {};
@@ -1640,7 +1693,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
     }
     setMembers(updatedMembers);
-    localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(updatedMembers));
+    safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(updatedMembers));
 
     // 1. Sync to PostgreSQL backend
     try {
@@ -1661,7 +1714,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const json = await res.json();
         if (json.user) {
           _setCurrentUser(json.user);
-          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(json.user));
+          safeSetLocalStorage(STORAGE_KEYS.USER, JSON.stringify(json.user));
         }
       }
     } catch (err) {
@@ -1733,9 +1786,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (data?.comments) {
           setComments((prev) => {
             const updated = { ...prev, [expenseId]: data.comments };
-            try {
-              localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
-            } catch {}
+            safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
             return updated;
           });
           return data.comments;
@@ -1763,9 +1814,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setComments((prev) => {
       const currentList = prev[expenseId] || [];
       const updated = { ...prev, [expenseId]: [...currentList, newComment] };
-      try {
-        localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
-      } catch {}
+      safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
       return updated;
     });
 
@@ -1783,9 +1832,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const currentList = prev[expenseId] || [];
             const replaced = currentList.map((c) => (c.id === newComment.id ? data.comment : c));
             const updated = { ...prev, [expenseId]: replaced };
-            try {
-              localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
-            } catch {}
+            safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
             return updated;
           });
           return data.comment;
@@ -1803,9 +1850,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const currentList = prev[expenseId] || [];
       const filtered = currentList.filter((c) => c.id !== commentId);
       const updated = { ...prev, [expenseId]: filtered };
-      try {
-        localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
-      } catch {}
+      safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
       return updated;
     });
 
