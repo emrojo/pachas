@@ -302,7 +302,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               created_at: scan.created_at || new Date().toISOString(),
               read: false,
               group_id: scan.group_id,
-              action_url: `/groups/${scan.group_id}`,
+              action_url: `/groups/${scan.group_id}?validateScan=${scan.id}`,
               data: { scanId: scan.id },
             };
             return [newNotif, ...prev];
@@ -981,7 +981,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           message: `${currentUser.full_name || 'Un nuevo amigo'} se ha unido al grupo "${group.name || group.invite_code}"`,
           group_id: group.id,
           group_name: group.name,
-          action_url: `/groups/${group.id}`,
+          action_url: `/groups/${group.id}?tab=members`,
         });
 
         return group;
@@ -1074,7 +1074,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       message: `${removedMember?.profile?.full_name || 'Un miembro'} ha salido del grupo "${targetGroup?.name || 'Viaje'}"`,
       group_id: groupId,
       group_name: targetGroup?.name,
-      action_url: `/groups/${groupId}`,
+      action_url: `/groups/${groupId}?tab=members`,
     });
 
     return true;
@@ -1102,7 +1102,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       message: `Ahora ${targetMember.profile?.full_name || 'un miembro'} es ${newRole === 'admin' ? 'Administrador' : 'Miembro'} del grupo "${targetGroup?.name || 'Viaje'}"`,
       group_id: groupId,
       group_name: targetGroup?.name,
-      action_url: `/groups/${groupId}`,
+      action_url: `/groups/${groupId}?tab=members`,
     });
 
     if (isSupabaseConfigured()) {
@@ -1153,7 +1153,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       message: `Se ha añadido a ${targetUser.full_name || targetUser.email} al grupo "${targetGroup?.name || 'Viaje'}"`,
       group_id: groupId,
       group_name: targetGroup?.name,
-      action_url: `/groups/${groupId}`,
+      action_url: `/groups/${groupId}?tab=members`,
     });
 
     return true;
@@ -1353,7 +1353,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       group_id: input.groupId,
       group_name: targetGroup?.name,
       expense_id: newExpense.id,
-      action_url: `/groups/${input.groupId}`,
+      action_url: `/groups/${input.groupId}?tab=expenses&expenseId=${newExpense.id}`,
       data: { amount: newExpense.amount, currency: newExpense.currency, title: newExpense.title },
     });
 
@@ -1825,7 +1825,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       group_id: groupId,
       group_name: targetGroup?.name,
       expense_id: updatedExpense.id,
-      action_url: `/groups/${groupId}`,
+      action_url: `/groups/${groupId}?tab=expenses&expenseId=${updatedExpense.id}`,
       data: { amount: updatedExpense.amount, currency: updatedExpense.currency, title: updatedExpense.title },
     });
 
@@ -1856,7 +1856,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       message: `${currentUser.full_name || 'Alguien'} ha eliminado el gasto "${existing?.title || 'gasto'}"`,
       group_id: groupId,
       group_name: targetGroup?.name,
-      action_url: `/groups/${groupId}`,
+      action_url: `/groups/${groupId}?tab=expenses`,
     });
 
     let isDeleted = false;
@@ -2254,7 +2254,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       group_id: targetExpense?.group_id,
       group_name: targetGroup?.name,
       expense_id: expenseId,
-      action_url: targetExpense ? `/groups/${targetExpense.group_id}` : undefined,
+      action_url: targetExpense ? `/groups/${targetExpense.group_id}?tab=expenses&expenseId=${expenseId}&comments=true` : undefined,
     });
 
     return newComment;
@@ -2299,7 +2299,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         group_id: targetExpense?.group_id,
         group_name: targetGroup?.name,
         expense_id: expenseId,
-        action_url: targetExpense ? `/groups/${targetExpense.group_id}` : undefined,
+        action_url: targetExpense ? `/groups/${targetExpense.group_id}?tab=expenses&expenseId=${expenseId}&comments=true` : undefined,
       });
 
       return updated;
