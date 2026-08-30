@@ -39,7 +39,7 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-04.3**: Category classification with emojis (Food 🍽️, Accommodation 🏨, Transport 🚗, Leisure 🎟️, Groceries 🛒, Other 💡).
 - **FR-04.4**: **Receipt & Ticket Photo Attachment & Capture**:
   - *Direct Mobile Camera Capture*: 📸 Dedicated **"Hacer foto"** button utilizing `capture="environment"` to trigger smartphone camera directly on iOS/Android/PWA, with `Permissions-Policy: camera=(self)`.
-  - *File / Gallery Picker*: 🖼️ **"Subir archivo"** button to attach receipts from local device storage, camera roll, or Google Drive.
+  - *File / Gallery Picker*: 🖼️ **"Upload File"** button to attach receipts from local device storage, camera roll, or Google Drive.
   - *In-App Lightbox Viewer & Safe External Opener*: Integrated [`ReceiptModal`](file:///d:/Projects/pachas/src/components/expenses/ReceiptModal.tsx) for instant high-resolution ticket preview, popup document stream viewer for new browser tabs, and direct image download option.
   - *Security Warning Alert*: Preventative safety notice warning users against uploading payment receipts displaying full card numbers (PAN) or security codes (CVV).
 - **FR-04.5**: **Multi-Currency Behavior**:
@@ -328,9 +328,9 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-31.2**: **Resilient Hybrid Fallback Engine ([`receiptScanner.ts`](file:///d:/Projects/pachas/src/lib/ocr/receiptScanner.ts))**:
   - Automatically queries the Gemini 1.5 Flash Vision endpoint first.
 - **FR-31.3**: **Hero Scan Card & 1-Click Autofill Banner ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
-  - Prominent top action card with 📸 **"Hacer foto al ticket"** (`capture="environment"`) and 🖼️ **"Subir archivo"**.
+  - Prominent top action card with 📸 **"Photograph Receipt"** (`capture="environment"`) and 🖼️ **"Upload File"**.
   - Visual badge indicating model source (`✨ Gemini Flash` vs `IA OCR`).
-  - 1-click **"Autocompletar gasto"** button filling title, amount, date, and category in seconds.
+  - 1-click **"Autofill Expense"** button filling title, amount, date, and category in seconds.
 - **FR-31.4**: **Location & Precise Datetime Auto-Extraction ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
   - Automatically identifies physical store addresses (street, number, postal code, city) printed on receipts and populates the expense `locationName` field.
   - Automatically extracts exact timestamps (hours and minutes: `HH:mm`) and updates both date and time pickers.
@@ -356,7 +356,7 @@ This document serves as the official and permanent registry for all **user requi
 
 ### ⚡ FR-33: Quick Instant Receipt Scanning & Background Asynchronous AI Processing
 - **FR-33.1**: **1-Tap Direct Camera Action ([`GroupActionMenu.tsx`](file:///d:/Projects/pachas/src/components/groups/GroupActionMenu.tsx) & [`page.tsx`](file:///d:/Projects/pachas/src/app/%28dashboard%29/groups/%5Bid%5D/page.tsx))**:
-  - Dedicated **"Escanear factura"** camera button in the trip header allowing instant receipt snapping without opening modal forms.
+  - Dedicated **"Scan Receipt"** camera button in the trip header allowing instant receipt snapping without opening modal forms.
 - **FR-33.2**: **Instant Unblocked Creation (`ocr_status: 'processing'`)**:
   - Immediately creates a placeholder expense entry with receipt thumbnail and pulsing badge (`⏳ Analizando ticket con IA...`), allowing the user to continue using the app without waiting for AI processing.
 - **FR-33.3**: **Asynchronous Background Completion ([`PachasContext.tsx`](file:///d:/Projects/pachas/src/context/PachasContext.tsx))**:
@@ -365,11 +365,82 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-33.4**: **Resilient Error Recovery (`ocr_status: 'failed'`)**:
   - If a receipt is unreadable, sets status to `'failed'` with amber badge (`⚠️ Requiere revisión`), allowing members to tap and edit the expense manually.
 - **FR-33.5**: **Asynchronous Save in Expense Modal ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
-  - Allows saving a photographed receipt immediately via **"Guardar y procesar con IA"** to complete the expense in the background.
+  - Allows saving a photographed receipt immediately via **"Save & Process with AI"** to complete the expense in the background.
 - **FR-33.6**: **Database Permission & Constraint Resilience**:
   - Elimination of `ALTER TABLE` DDL from inside explicit SQL transactions (`BEGIN ... COMMIT`), preventing `must be owner of table expenses` errors under non-superuser application database connections.
   - Automatic handling of legacy schema `converted_amount` and `exchange_rate` `NOT NULL` constraints via multi-tier fallback inserts and updates.
   - Enforced minimum storage amount (`0.01`) during initial placeholder expense creation (`ocr_status: 'processing'`) satisfying database `CHECK (amount > 0)` and `CHECK (amount_paid > 0)` constraints.
+
+---
+
+### 🛡️ FR-34: Dual-Tier Role Architecture (Application Superadmin / Backoffice vs Group Administrator)
+- **FR-34.1**: **Strict Separation of Privilege Levels**:
+  - *Application Superadministrator*: System-wide role assigned via `profiles.role = 'admin'` configured through `ADMIN_EMAIL` and `NEXT_PUBLIC_ADMIN_EMAIL` environment variables. Grants access to the global Backoffice (`/admin`), platform-wide metrics, and the ability to elevate/demote user roles.
+  - *Group Administrator*: Group-scoped role assigned to the group creator (`created_by`) or elevated members (`group_members.role = 'admin'`). Grants exclusive trip-level permissions: editing group name, currency, cover photo, adding/removing members, archiving trips, and delegating group admin roles.
+- **FR-34.2**: **Group Admin Delegation & Multi-Admin Support**:
+  - Any Group Admin can promote any other member of that group to **Group Admin** directly from the *"Friends"* tab, as well as revoke admin status.
+- **FR-34.3**: **Dedicated Backoffice Panel (`/admin`)**:
+  - Global overview with live counters for registered users, active/archived groups, expenses, settlements, and discussion comments.
+  - Interactive user directory with real-time search, role badge, email verification status, and 1-click **Promote to Superadmin / Demote to Member** action (`POST /api/admin/users/[id]/role`).
+  - Database health check and live service latency metrics.
+- **FR-34.4**: **Multi-Email Admin Resolution**:
+  - Support for multiple superadmin email addresses formatted as comma-separated or semicolon-separated lists in `ADMIN_EMAIL` and `NEXT_PUBLIC_ADMIN_EMAIL`.
+
+### 🧾 FR-35: Privacy Pre-Censorship, Post-AI Validation & Color-Coded Redaction Workflow
+- **FR-35.1**: **Pre-Censorship Canvas Modal ([`ReceiptRedactionModal.tsx`])**:
+  - Allows users to manually redact sensitive personal or financial information with a black marker (`#000000`) or rectangular box before the image is transmitted to AI vision APIs.
+- **FR-35.2**: **Precision Eraser Tool (🧼)**:
+  - Eraser mode that dynamically restores original invoice pixels under the cursor without degrading background image quality or introducing artifacts.
+- **FR-35.3**: **Interactive Zoom & Pan Controls in Redaction**:
+  - Zoom range from 100% to 350% (`ZoomIn`, `ZoomOut`, zoom percentage badge, reset button) and Pan / Hand tool (✋) allowing users to zoom into fine print, invoice line items, and account numbers to draw or erase censures with high precision.
+- **FR-35.4**: **Mandatory User Validation Modal ([`ReceiptValidationModal.tsx`])**:
+  - No expense entry is created without explicit user review, adjustment, and confirmation of the AI-extracted fields (title, amount, category, date/time, participants, and redaction boxes).
+  - Background scans appear in a pulsing alert banner and send push notifications when ready for validation.
+- **FR-35.5**: **Color-Coded Censorship Differentiation**:
+  - ⬛ **Black (`#000000`)**: Manual user censorship applied prior to upload or during final validation.
+  - 🩶 **Gray (`#4b5563`)**: AI auto-detected sensitive data boxes (credit card numbers, bank accounts, IBANs, personal tax IDs).
+  - Visual color legend in the validation modal (*"⬛ Black: Your censorship | 🩶 Gray: AI censorship"*).
+- **FR-35.6**: **High-Definition Zoom & Pan Receipt Inspector ([`ReceiptModal.tsx`])**:
+  - Interactive full-screen lightbox supporting 50% to 400% zoom, mouse wheel zoom, mobile pinch-to-zoom, drag-to-pan, 90° clockwise rotation, double-click toggle (100% / 220%), and image download for thorough receipt verification.
+- **FR-35.7**: **Privacy & UGC Responsibility Notice**:
+  - Prominent alert in receipt validation reminding users that uploaded tickets will be visible to all group members and Pachas operates strictly as a financial calculation tool without custody or liability for user-published content.
+
+### 💬 FR-36: Rich Conversational Features in Expense Discussions
+- **FR-36.1**: **Curated Animated GIF Picker ([`GifPickerModal.tsx`])**:
+  - Categorized GIF library with thematic reaction tabs (*Party, Money, Funny, Travel, Food, Surprise, Thanks*) with free Giphy/Tenor CDN streaming and custom GIF URL input.
+- **FR-36.2**: **Emoji Reaction Engine ([`EmojiPickerPopover.tsx`])**:
+  - Interactive reaction pills on individual comments (`👍`, `❤️`, `😂`, `🎉`, `🔥`, `💸`) with dynamic user count aggregation, toggle capability, and optimistic updates.
+- **FR-36.3**: **React Portal Positioning & Anti-Clipping Architecture**:
+  - Floating emoji and GIF selectors mounted in `document.body` via React Portals with dynamic bounding-box auto-positioning, completely preventing modal and scroll container overflow clipping.
+- **FR-36.4**: **Resilient Local Cache & Server Synchronization**:
+  - Offline local caching of discussion threads in `localStorage` (`pachas_expense_comments_v2`) merged seamlessly with PostgreSQL `public.expense_comments`.
+
+### 🔔 FR-37: Unified Notification Center & Floating Navbar Popover
+- **FR-37.1**: **Interactive Navbar Bell Dropdown ([`NotificationBellDropdown.tsx`])**:
+  - Live red unread counter badge, floating quick-access dropdown with filters (*All*, *Unread*), 1-click mark as read, and direct link to the full center.
+- **FR-37.2**: **Dedicated Notification Center View ([`/notifications`])**:
+  - Dedicated page consolidating all pending and past activity.
+  - Category filters: *All*, *Unread*, *💳 Payments & Validations* (tickets awaiting validation, settlements), *💬 Comments* (comments, reactions), *🌴 Groups & Roles* (role promotions, new members).
+  - Real-time search bar filtering notifications by title, message, or group name.
+  - Bulk actions: *Mark all as read*, *Clear read*, *Load demo examples*.
+- **FR-37.3**: **Direct Contextual Action Buttons**:
+  - Instant navigation CTAs on each notification: `🔍 Validate receipt`, `💰 View expense`, `💬 View comment`, `👥 View group`.
+- **FR-37.4**: **Automated Demo Data Seeding & Fallback**:
+  - Automatic initialization with representative sample events across all categories if local storage is uninitialized, with interactive *"Load demo examples"* button.
+- **FR-37.5**: **Comprehensive Event Trigger Automation**:
+  - Automatic real-time notification creation across the application lifecycle:
+    - **💸 Expenses**: When adding a new expense (`expense_created`), modifying it (`expense_updated`), or deleting it (`expense_deleted`).
+    - **👥 Members & Roles**: When inviting a new member (`member_invited`), when a member joins (`member_joined`), when leaving/removed (`member_removed`), or when group admin role is updated (`group_role_updated`).
+    - **📦 Groups**: When archiving (`group_archived`), restoring (`group_restored`), or permanently deleting a group (`group_deleted`).
+    - **💬 Comments & Reactions**: When posting a comment (`comment_created`) or reacting with an emoji (`comment_reaction`).
+    - **🤝 Settlements & Debts**: When recording a debt settlement payment (`settlement_created`).
+
+### ⚖️ FR-38: Judicial & Dispute Compliance Evidence Export Protocol
+- **FR-38.1**: **Comprehensive Audit Evidence Package**:
+  - Standardized export capability for judicial, legal, or dispute inquiries:
+    - Complete Mathematical Audit PDF with vector charts, settlement proofs, and Bizum logs.
+    - Semicolon-delimited European CSV / Excel log with establishment names, GPS coordinates, and Google Maps links.
+    - Raw JSON data export (`/api/user/export-data`) including cryptographic user IDs, timestamps, and relational comment threads.
 
 ---
 
@@ -379,7 +450,7 @@ This document serves as the official and permanent registry for all **user requi
 - **NFR-02**: **PWA (Progressive Web App)**: Web App Manifest configured for installation on mobile home screens.
 - **NFR-03**: **Security & RLS**: Row Level Security policies in PostgreSQL ensuring that no non-member can read or modify group data.
 - **NFR-04**: **Persistence & Offline Mode**: Interactive `localStorage` state acting as an immediate resilient layer with backend synchronization.
-- **NFR-05**: **Internationalization (i18n)**: Full multi-language dictionary architecture supporting 19 languages with RTL support for Arabic.
+- **NFR-05**: **Internationalization (i18n)**: Full multi-language dictionary architecture supporting 20 languages with RTL support for Arabic.
 - **NFR-06**: **Regulatory & GDPR Compliance**: Full alignment with European General Data Protection Regulation (GDPR / LOPDGDD) and LSSI-CE.
 
 ---
@@ -452,7 +523,7 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 🤖 Added | **FR-31** | **Google Gemini 1.5 Flash Vision Multimodal Extraction**: Created `/api/ocr/scan` route integrating Google Gemini 1.5 Flash (~99% precision, free tier 15 RPM) for high-accuracy receipt extraction with structured JSON schemas, visual model badge (`✨ Gemini Flash`), and automatic graceful fallback to local `tesseract.js` when offline or unconfigured. |
 | **30/08/2026** | 📍 Added | **FR-31.4** | **Location & Precise Datetime Receipt Autocomplete**: Enhanced the AI vision receipt scanner to extract physical establishment addresses (`locationName`) and exact timestamps (`HH:mm`), populating both the location picker and the date/time selectors upon clicking "Autocompletar gasto". |
 | **30/08/2026** | 🗺️ Added | **FR-31.5** | **Automatic Geocoding & Google Maps GPS Pinpoint Save**: Integrated automatic forward geocoding in the receipt vision scanner to resolve exact GPS coordinates (`latitude`, `longitude`) from extracted receipt addresses and generate Google Maps deep links, automatically attaching the geographical pinpoint to the expense. |
-| **30/08/2026** | ⚡ Added | **FR-33** | **Quick Instant Receipt Scanning & Background Asynchronous AI Processing**: Added 1-tap **"Escanear factura"** camera action in trip headers, instant unblocked expense creation with `ocr_status = 'processing'`, non-blocking background Gemini Vision processing updating merchant, amount, category, date/time and Google Maps coordinates in real-time, resilient `'failed'` review status, and asynchronous save option in `ExpenseForm`. |
+| **30/08/2026** | ⚡ Added | **FR-33** | **Quick Instant Receipt Scanning & Background Asynchronous AI Processing**: Added 1-tap **"Scan Receipt"** camera action in trip headers, instant unblocked expense creation with `ocr_status = 'processing'`, non-blocking background Gemini Vision processing updating merchant, amount, category, date/time and Google Maps coordinates in real-time, resilient `'failed'` review status, and asynchronous save option in `ExpenseForm`. |
 | **30/08/2026** | 🛡️ Fixed | **FR-33.6** | **PostgreSQL DDL & Permissions Safety**: Removed `ALTER TABLE` DDL queries from inside active transactions (`BEGIN ... COMMIT`) in `/api/expenses` and `/api/expenses/[id]`, preventing `must be owner of table expenses` errors under non-superuser database permissions. |
 | **30/08/2026** | 🗄️ Fixed | **FR-33.6** | **Database NOT NULL and CHECK Constraint Fallbacks**: Added support for legacy schema `converted_amount` / `exchange_rate` NOT NULL columns and enforced minimum `0.01` storage value during placeholder creation (`ocr_status: 'processing'`) satisfying `CHECK (amount > 0)` and `CHECK (amount_paid > 0)`. |
 | **30/08/2026** | 💬 Fixed | **FR-32.4** | **PostgreSQL UUID Compatibility in Comments**: Updated `05-expense-comments.sql` and `/api/expenses/[id]/comments` to use `UUID` types matching `public.expenses(id)` and added silent fallback for missing table states (`42P01`). |
@@ -461,3 +532,10 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | ⏰ Added | **FR-31.4** | **Exact Time & Minute Receipt Extraction**: Enhanced the AI vision engine and fallback parser to extract exact hours and minutes (`HH:mm`), preserving full ISO timestamps across database `INSERT`/`UPDATE` operations without date-only truncation. |
 | **30/08/2026** | 📅 Fixed | **FR-13.1 & FR-13.2** | **Strict European Date Standard & Timezone Skew Immunity**: Prohibited month-first formats (`MM/DD/YYYY`) across the entire project in favor of strict day-first (`DD/MM/YYYY`), configured `node-postgres` raw type parsers (OIDs 1082, 1114, 1184) and PostgreSQL migration `06-expense-datetime.sql` (`TIMESTAMPTZ`), preventing UTC midnight dates from displaying as 02:00 AM on reload and preserving exact OCR timestamps. |
 | **30/08/2026** | 🔔 Added | **FR-30.4** | **Expanded Push Notifications Coverage**: Added automated WebPush & mobile push alerts for **💬 Comments in Expenses** (`/api/expenses/[id]/comments`), **👥 New Members Joined** (`/api/groups/join`), and **✏️/🗑️ Expenses Modified & Deleted** (`/api/expenses/[id]`) respecting group opt-in preferences. |
+| **30/08/2026** | 🛡️ Added | **FR-34** | **Dual-Tier Role Architecture (Superadmin vs Group Admin)**: Separation between Application Superadmin (`profiles.role = 'admin'`, `/admin` backoffice) and Group Admin (trip-level permissions, delegation to other members). Multi-email parsing in `ADMIN_EMAIL`. |
+| **30/08/2026** | 🛡️ Added | **FR-35** | **Privacy Pre-Censorship & Mandatory Post-AI Validation**: Black-marker manual pre-censorship (`ReceiptRedactionModal`), background AI scan, mandatory user validation (`ReceiptValidationModal`), and color-coded distinction (⬛ Black: User | 🩶 Gray: AI). |
+| **30/08/2026** | 🔍 Added | **FR-35.3 & FR-35.6** | **Interactive Zoom, Pan & Eraser in Receipt Inspection**: Integrated 50%-400% zoom, wheel/pinch zoom, pan/hand tool (✋), and precision eraser (🧼) restoring original pixels in `ReceiptRedactionModal`, `ReceiptValidationModal`, and `ReceiptModal`. |
+| **30/08/2026** | 💬 Added | **FR-36** | **Rich Conversational Features in Expense Discussions**: Categorized animated GIF selector (`GifPickerModal`), emoji reaction pills with counter badges on comments, and React Portal rendering preventing container clipping. |
+| **30/08/2026** | 🔔 Added | **FR-37** | **Unified Notification Center & Navbar Bell Dropdown**: Centralized notification hub (`/notifications`) with filters (*Payments/Validations, Comments, Groups/Roles*), direct action CTAs, unread badge, and default demo seeding. |
+| **30/08/2026** | ⚡ Added | **FR-37.5** | **Automatic Real-Time Notification Triggers**: Connected automatic notification dispatching across all application lifecycle events: expense creation/modification/deletion, member invite/join/exit, group admin elevation, group archiving/restoration/deletion, comment creation, emoji reactions, and debt settlements. |
+| **30/08/2026** | ⚖️ Added | **FR-38** | **Judicial & Dispute Evidence Export Protocol**: Documented compliance package for court inquiries with mathematical PDF audit, European CSV, and JSON data exports. |

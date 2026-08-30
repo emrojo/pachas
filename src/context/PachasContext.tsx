@@ -37,6 +37,7 @@ import {
   SyncAction,
 } from '@/lib/sync/syncManager';
 import { recalculateAllExpensesForNewBaseCurrency } from '@/lib/currencies/exchangeRateService';
+import { formatMoney } from '@/lib/currencies';
 import { scanReceipt } from '@/lib/ocr/receiptScanner';
 import { getCurrentDateTimeISOWithTimezone } from '@/lib/utils';
 import { generateUUID } from '@/lib/id';
@@ -97,6 +98,7 @@ interface PachasContextType {
     paymentMethod: PaymentMethod,
     notes?: string
   ) => Promise<Settlement>;
+  deleteGroup: (groupId: string) => Promise<boolean>;
   archiveGroup: (groupId: string) => Promise<Group>;
   restoreGroup: (groupId: string) => Promise<Group>;
   joinGroup: (inviteCode: string, enableNotifications?: boolean) => Promise<Group | null>;
@@ -865,17 +867,74 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 
   const archiveGroup = async (groupId: string): Promise<Group> => {
-    return updateGroup(groupId, {
+    const targetGroup = getGroup(groupId);
+    const updated = await updateGroup(groupId, {
       is_archived: true,
       archived_at: new Date().toISOString(),
     });
+
+    addNotification({
+      user_id: currentUser ? currentUser.id : 'system',
+      type: 'group_archived',
+      title: '📦 Grupo archivado',
+      message: `El grupo "${targetGroup?.name || 'Viaje'}" ha sido archivado por ${currentUser?.full_name || 'el administrador'}`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: '/dashboard',
+    });
+
+    return updated;
   };
 
   const restoreGroup = async (groupId: string): Promise<Group> => {
-    return updateGroup(groupId, {
+    const targetGroup = getGroup(groupId);
+    const updated = await updateGroup(groupId, {
       is_archived: false,
       archived_at: null,
     });
+
+    addNotification({
+      user_id: currentUser ? currentUser.id : 'system',
+      type: 'group_restored',
+      title: '♻️ Grupo reactivado',
+      message: `El grupo "${targetGroup?.name || 'Viaje'}" ha sido reactivado y vuelve a estar disponible`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: `/groups/${groupId}`,
+    });
+
+    return updated;
+  };
+
+  const deleteGroup = async (groupId: string): Promise<boolean> => {
+    const targetGroup = getGroup(groupId);
+    const updatedGroups = groups.filter((g) => g.id !== groupId);
+    const updatedExpenses = { ...expensesRef.current };
+    delete updatedExpenses[groupId];
+    const updatedMembers = { ...members };
+    delete updatedMembers[groupId];
+    const updatedSettlements = { ...settlementsRef.current };
+    delete updatedSettlements[groupId];
+
+    saveState(updatedGroups, updatedMembers, updatedExpenses, updatedSettlements);
+
+    try {
+      await fetch(`/api/groups/${encodeURIComponent(groupId)}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.warn('API deleteGroup fallback:', e);
+    }
+
+    addNotification({
+      user_id: currentUser ? currentUser.id : 'system',
+      type: 'group_deleted',
+      title: '🗑️ Grupo eliminado',
+      message: `El grupo "${targetGroup?.name || 'Viaje'}" ha sido eliminado definitivamente`,
+      action_url: '/dashboard',
+    });
+
+    return true;
   };
 
   const joinGroup = async (inviteCode: string, enableNotifications: boolean = false): Promise<Group | null> => {
@@ -914,6 +973,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setAvailableUsers(Array.from(userMap.values()));
 
         saveState(updatedGroups, updatedMembers);
+
+        addNotification({
+          user_id: currentUser.id,
+          type: 'member_joined',
+          title: '🎉 Nuevo miembro en el grupo',
+          message: `${currentUser.full_name || 'Un nuevo amigo'} se ha unido al grupo "${group.name || group.invite_code}"`,
+          group_id: group.id,
+          group_name: group.name,
+          action_url: `/groups/${group.id}`,
+        });
+
         return group;
       }
     } catch (e) {
@@ -988,12 +1058,25 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const removeMemberFromGroup = async (groupId: string, userId: string): Promise<boolean> => {
     const grpMembers = members[groupId] || [];
+    const removedMember = grpMembers.find((m) => m.user_id === userId);
+    const targetGroup = getGroup(groupId);
     const updated = grpMembers.filter((m) => m.user_id !== userId);
     const updatedMembers = {
       ...members,
       [groupId]: updated,
     };
     saveState(undefined, updatedMembers);
+
+    addNotification({
+      user_id: currentUser ? currentUser.id : userId,
+      type: 'member_removed',
+      title: '👤 Miembro salió del grupo',
+      message: `${removedMember?.profile?.full_name || 'Un miembro'} ha salido del grupo "${targetGroup?.name || 'Viaje'}"`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: `/groups/${groupId}`,
+    });
+
     return true;
   };
 
@@ -1010,6 +1093,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [groupId]: updated,
     };
     saveState(undefined, updatedMembers);
+
+    const targetGroup = getGroup(groupId);
+    addNotification({
+      user_id: currentUser ? currentUser.id : userId,
+      type: 'group_role_updated',
+      title: '🛡️ Rol de grupo actualizado',
+      message: `Ahora ${targetMember.profile?.full_name || 'un miembro'} es ${newRole === 'admin' ? 'Administrador' : 'Miembro'} del grupo "${targetGroup?.name || 'Viaje'}"`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: `/groups/${groupId}`,
+    });
 
     if (isSupabaseConfigured()) {
       try {
@@ -1050,6 +1144,18 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [groupId]: [...grpMembers, newMember],
     };
     saveState(undefined, updatedMembers);
+
+    const targetGroup = getGroup(groupId);
+    addNotification({
+      user_id: currentUser ? currentUser.id : userId,
+      type: 'member_invited',
+      title: '📨 Nuevo miembro invitado',
+      message: `Se ha añadido a ${targetUser.full_name || targetUser.email} al grupo "${targetGroup?.name || 'Viaje'}"`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: `/groups/${groupId}`,
+    });
+
     return true;
   };
 
@@ -1237,6 +1343,20 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     saveState(undefined, undefined, updatedExpenses);
+
+    const targetGroup = getGroup(input.groupId);
+    addNotification({
+      user_id: currentUser.id,
+      type: 'expense_created',
+      title: '💸 Nuevo gasto añadido',
+      message: `${currentUser.full_name || 'Alguien'} ha añadido "${newExpense.title}" por ${formatMoney(newExpense.amount, newExpense.currency)}`,
+      group_id: input.groupId,
+      group_name: targetGroup?.name,
+      expense_id: newExpense.id,
+      action_url: `/groups/${input.groupId}`,
+      data: { amount: newExpense.amount, currency: newExpense.currency, title: newExpense.title },
+    });
+
     return newExpense;
   };
 
@@ -1695,6 +1815,20 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [groupId]: updatedList,
     };
     saveState(undefined, undefined, updatedExpenses);
+
+    const targetGroup = getGroup(groupId);
+    addNotification({
+      user_id: currentUser.id,
+      type: 'expense_updated',
+      title: '✏️ Gasto modificado',
+      message: `${currentUser.full_name || 'Alguien'} ha modificado "${updatedExpense.title}" (${formatMoney(updatedExpense.amount, updatedExpense.currency)})`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      expense_id: updatedExpense.id,
+      action_url: `/groups/${groupId}`,
+      data: { amount: updatedExpense.amount, currency: updatedExpense.currency, title: updatedExpense.title },
+    });
+
     return updatedExpense;
   };
 
@@ -1713,6 +1847,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [groupId]: filtered,
     };
     saveState(undefined, undefined, updatedExpenses);
+
+    const targetGroup = getGroup(groupId);
+    addNotification({
+      user_id: currentUser.id,
+      type: 'expense_deleted',
+      title: '🗑️ Gasto eliminado',
+      message: `${currentUser.full_name || 'Alguien'} ha eliminado el gasto "${existing?.title || 'gasto'}"`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: `/groups/${groupId}`,
+    });
 
     let isDeleted = false;
     if (typeof navigator !== 'undefined' && navigator.onLine !== false) {
@@ -2091,12 +2236,26 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
             return updated;
           });
-          return data.comment;
         }
       }
     } catch (err) {
       console.warn('Error syncing comment to backend:', err);
     }
+
+    const allExpenses = Object.values(expensesRef.current || {}).flat();
+    const targetExpense = allExpenses.find((e) => e.id === expenseId);
+    const targetGroup = targetExpense ? getGroup(targetExpense.group_id) : undefined;
+
+    addNotification({
+      user_id: currentUser.id,
+      type: 'comment_created',
+      title: '💬 Nuevo comentario',
+      message: `${currentUser.full_name || 'Alguien'} ha comentado en "${targetExpense?.title || 'gasto'}": "${text.substring(0, 60)}${text.length > 60 ? '...' : ''}"`,
+      group_id: targetExpense?.group_id,
+      group_name: targetGroup?.name,
+      expense_id: expenseId,
+      action_url: targetExpense ? `/groups/${targetExpense.group_id}` : undefined,
+    });
 
     return newComment;
   };
@@ -2127,6 +2286,22 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       const updated = { ...prev, [expenseId]: updatedList };
       safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+
+      const allExpenses = Object.values(expensesRef.current || {}).flat();
+      const targetExpense = allExpenses.find((e) => e.id === expenseId);
+      const targetGroup = targetExpense ? getGroup(targetExpense.group_id) : undefined;
+
+      addNotification({
+        user_id: currentUser.id,
+        type: 'comment_reaction',
+        title: '✨ Nueva reacción',
+        message: `${currentUser.full_name || 'Alguien'} ha reaccionado con ${emoji} a un comentario en "${targetExpense?.title || 'gasto'}"`,
+        group_id: targetExpense?.group_id,
+        group_name: targetGroup?.name,
+        expense_id: expenseId,
+        action_url: targetExpense ? `/groups/${targetExpense.group_id}` : undefined,
+      });
+
       return updated;
     });
 
@@ -2244,6 +2419,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateExpense,
         deleteExpense,
         recordSettlement,
+        deleteGroup,
         archiveGroup,
         restoreGroup,
         joinGroup,
