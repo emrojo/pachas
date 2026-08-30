@@ -260,6 +260,16 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
           confidence: d.confidence || 0.98,
           source: d.source || 'gemini-1.5-flash',
         };
+      } else if (json.fallback && json.rawText) {
+        console.log('[ReceiptScanner] 📝 Extrayendo datos desde rawText del servidor...');
+        const parsed = parseReceiptText(json.rawText);
+        if (parsed.amount || parsed.title) {
+          return {
+            ...parsed,
+            source: 'gemini-text-extracted',
+            confidence: 0.9,
+          };
+        }
       } else if (json.fallback) {
         console.warn('[ReceiptScanner] Servidor solicitó fallback:', json.message || json.error);
       }
