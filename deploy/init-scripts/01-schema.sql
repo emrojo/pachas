@@ -119,7 +119,7 @@ create table if not exists public.expenses (
     amount decimal(12, 2) not null check (amount > 0),
     currency text default 'EUR' not null,
     category text default 'other' check (category in ('accommodation', 'food', 'transport', 'activities', 'shopping', 'other')) not null,
-    expense_date date default current_date not null,
+    expense_date timestamp with time zone default timezone('utc'::text, now()) not null,
     receipt_url text,
     notes text,
     split_type text default 'EQUAL' check (split_type in ('EQUAL', 'EXACT', 'PERCENTAGE', 'SHARES')) not null,

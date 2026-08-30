@@ -1,4 +1,12 @@
-import { Pool, PoolConfig } from 'pg';
+import pg, { Pool, PoolConfig } from 'pg';
+
+// Configure node-postgres type parsers to prevent timezone skew on dates and timestamps
+// OID 1082 = DATE: return raw string "YYYY-MM-DD"
+pg.types.setTypeParser(1082, (val) => val);
+// OID 1114 = TIMESTAMP: return ISO string "YYYY-MM-DDTHH:mm:ss"
+pg.types.setTypeParser(1114, (val) => (val ? val.replace(' ', 'T') : val));
+// OID 1184 = TIMESTAMPTZ: return ISO string
+pg.types.setTypeParser(1184, (val) => (val ? val.replace(' ', 'T') : val));
 
 let pool: Pool | null = null;
 
