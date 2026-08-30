@@ -24,8 +24,8 @@ export async function GET(
     try {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS public.expense_comments (
-          id text primary key,
-          expense_id text references public.expenses(id) on delete cascade not null,
+          id uuid primary key default uuid_generate_v4(),
+          expense_id uuid references public.expenses(id) on delete cascade not null,
           user_id uuid references public.profiles(id) on delete cascade not null,
           comment text not null,
           created_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -41,7 +41,7 @@ export async function GET(
                 p.full_name as author_name, p.avatar_url as author_avatar, p.email as author_email
          FROM public.expense_comments c
          LEFT JOIN public.profiles p ON p.id = c.user_id
-         WHERE c.expense_id = $1
+         WHERE c.expense_id::text = $1::text
          ORDER BY c.created_at ASC`,
         [expenseId]
       );
@@ -100,7 +100,7 @@ export async function POST(
       return NextResponse.json({ error: 'El comentario no puede estar vacío' }, { status: 400 });
     }
 
-    const commentId = body.id || `cmt-${randomUUID()}`;
+    const commentId = body.id && !body.id.startsWith('cmt-') ? body.id : randomUUID();
     const pool = getDbPool();
 
     if (!pool) {
@@ -125,8 +125,8 @@ export async function POST(
     try {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS public.expense_comments (
-          id text primary key,
-          expense_id text references public.expenses(id) on delete cascade not null,
+          id uuid primary key default uuid_generate_v4(),
+          expense_id uuid references public.expenses(id) on delete cascade not null,
           user_id uuid references public.profiles(id) on delete cascade not null,
           comment text not null,
           created_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -207,10 +207,14 @@ export async function DELETE(
 
     const pool = getDbPool();
     if (pool) {
-      await pool.query(
-        `DELETE FROM public.expense_comments WHERE id = $1 AND (user_id = $2 OR expense_id = $3)`,
-        [commentId, payload.sub, expenseId]
-      );
+      try {
+        await pool.query(
+          `DELETE FROM public.expense_comments WHERE id::text = $1::text AND (user_id::text = $2::text OR expense_id::text = $3::text)`,
+          [commentId, payload.sub, expenseId]
+        );
+      } catch (delErr: any) {
+        if (delErr.code !== '42P01') throw delErr;
+      }
     }
 
     return NextResponse.json({ success: true, commentId });

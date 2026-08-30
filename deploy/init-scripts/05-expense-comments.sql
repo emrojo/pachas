@@ -5,8 +5,8 @@
 -- ==============================================================================
 
 create table if not exists public.expense_comments (
-    id text primary key,
-    expense_id text references public.expenses(id) on delete cascade not null,
+    id uuid primary key default uuid_generate_v4(),
+    expense_id uuid references public.expenses(id) on delete cascade not null,
     user_id uuid references public.profiles(id) on delete cascade not null,
     comment text not null,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
