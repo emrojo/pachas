@@ -672,6 +672,8 @@ export const fr: TranslationDictionary = {
     "groupTitle": "Notifications du groupe",
     "enableOnJoin": "Activer les notifications pour ce groupe",
     "enableOnJoinHint": "Recevez des alertes lorsque de nouvelles dépenses ou règlements sont ajoutés.",
+    "enableOnCreate": "Activer les notifications pour ce groupe",
+    "enableOnCreateHint": "Recevez des alertes instantanées lorsque vos amis ajoutent ou modifient des dépenses, commentent ou règlent des dettes.",
     "enabled": "Notifications : Activées",
     "disabled": "Notifications : Désactivées",
     "receiving": "Alertes actives",
@@ -700,5 +702,15 @@ export const fr: TranslationDictionary = {
     gifPickerSubtitle: 'Choisissez un GIF animé ou collez votre lien',
     searchGifsPlaceholder: 'Rechercher fête, argent, rire, voyage...',
     addReaction: 'Ajouter une réaction',
+  },
+  "chat": {
+    "title": "Chat de Groupe",
+    "subtitle": "Discussion privée pour tous les membres de",
+    "tabMembers": "Amis",
+    "tabChat": "Chat de Groupe",
+    "placeholder": "Écrivez un message au groupe...",
+    "emptyTitle": "Aucun message pour le moment !",
+    "emptySubtitle": "Soyez le premier à saluer vos amis, proposer des sorties ou partager des notes.",
+    "deleteConfirm": "Supprimer ce message du chat ?"
   },
 };

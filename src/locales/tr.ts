@@ -672,6 +672,8 @@ export const tr: TranslationDictionary = {
     "groupTitle": "Grup Bildirimleri",
     "enableOnJoin": "Bu grup için bildirimleri etkinleştir",
     "enableOnJoinHint": "Yeni harcamalar veya ödemeler eklendiğinde bildirim alın.",
+    "enableOnCreate": "Bu grup için bildirimleri etkinleştir",
+    "enableOnCreateHint": "Arkadaşlarınız harcama eklediğinde, düzenlediğinde, yorum yaptığında veya borç ödediğinde bildirim alın.",
     "enabled": "Bildirimler: Etkin",
     "disabled": "Bildirimler: Devre Dışı",
     "receiving": "Bildirimler alınıyor",
@@ -700,5 +702,15 @@ export const tr: TranslationDictionary = {
     gifPickerSubtitle: 'Bir GIF seçin veya bağlantınızı yapıştırın',
     searchGifsPlaceholder: 'Parti, para, kahkaha, seyahat ara...',
     addReaction: 'Tepki ekle',
+  },
+  "chat": {
+    "title": "Grup Sohbeti",
+    "subtitle": "Tüm üyeler için özel sohbet:",
+    "tabMembers": "Arkadaşlar",
+    "tabChat": "Grup Sohbeti",
+    "placeholder": "Gruba bir mesaj yazın...",
+    "emptyTitle": "Henüz mesaj yok!",
+    "emptySubtitle": "Arkadaşlarınıza selam veren, plan öneren veya not paylaşan ilk siz olun.",
+    "deleteConfirm": "Bu mesaj sohbetten silinsin mi?"
   },
 };

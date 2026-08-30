@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { Footer } from '@/components/layout/Footer';
 import { Lock, ArrowRight, ArrowLeft, ShieldCheck } from 'lucide-react';
 
 function ResetPasswordForm() {
@@ -191,6 +192,8 @@ export default function ResetPasswordPage() {
           <ResetPasswordForm />
         </Suspense>
       </div>
+
+      <Footer showDonations={false} className="mt-12" />
     </div>
   );
 }

@@ -672,6 +672,8 @@ export const af: TranslationDictionary = {
     "groupTitle": "Groepkennisgewings",
     "enableOnJoin": "Aktiveer kennisgewings vir hierdie groep",
     "enableOnJoinHint": "Kry kennisgewings wanneer nuwe uitgawes of vereffenings bygevoeg word.",
+    "enableOnCreate": "Aktiveer kennisgewings vir hierdie groep",
+    "enableOnCreateHint": "Kry onmiddellike kennisgewings wanneer vriende uitgawes byvoeg of wysig, kommentaar lewer of skuld vereffen.",
     "enabled": "Kennisgewings: Geaktiveer",
     "disabled": "Kennisgewings: Gedeaktiveer",
     "receiving": "Kennisgewings aktief",
@@ -700,5 +702,15 @@ export const af: TranslationDictionary = {
     gifPickerSubtitle: 'Choose an animated GIF or paste your link',
     searchGifsPlaceholder: 'Search party, money, laugh, travel...',
     addReaction: 'Add reaction',
+  },
+  "chat": {
+    "title": "Groepklets",
+    "subtitle": "Privaatgesprek vir alle lede van",
+    "tabMembers": "Vriende",
+    "tabChat": "Groepklets",
+    "placeholder": "Skryf ’n boodskap aan die groep...",
+    "emptyTitle": "Nog geen boodskappe nie!",
+    "emptySubtitle": "Wees die eerste om vriende te groet, planne voor te stel of notas te deel.",
+    "deleteConfirm": "Verwyder hierdie boodskap uit die klets?"
   },
 };

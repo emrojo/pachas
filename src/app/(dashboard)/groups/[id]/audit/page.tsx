@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Navbar } from '@/components/layout/Navbar';
+import { BottomNav } from '@/components/layout/BottomNav';
+import { Footer } from '@/components/layout/Footer';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -731,6 +733,9 @@ export default function GroupAuditPage() {
           </div>
         </div>
       </main>
+
+      <Footer />
+      <BottomNav groupId={group.id} />
     </div>
   );
 }

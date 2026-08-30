@@ -6,6 +6,7 @@ import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { Footer } from '@/components/layout/Footer';
 import { GroupCard } from '@/components/groups/GroupCard';
 import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
@@ -27,7 +28,9 @@ import {
   Archive,
   ArchiveRestore,
   ArrowUpRight,
+  Bell,
 } from 'lucide-react';
+import { subscribeDeviceToPush } from '@/lib/notifications/pushNotificationService';
 
 export default function DashboardPage() {
   const { groups, currentUser, joinGroup, getGroupBalances, getGroupMembers, restoreGroup } = usePachas();
@@ -36,6 +39,7 @@ export default function DashboardPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [joinNotificationsEnabled, setJoinNotificationsEnabled] = useState(true);
   const [joinError, setJoinError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [validatingScan, setValidatingScan] = useState<PendingReceiptScan | null>(null);
@@ -77,7 +81,16 @@ export default function DashboardPage() {
     try {
       setIsJoining(true);
       setJoinError('');
-      const group = await joinGroup(joinCode.trim());
+
+      if (joinNotificationsEnabled) {
+        try {
+          await subscribeDeviceToPush();
+        } catch (e) {
+          console.warn('Push subscription during join:', e);
+        }
+      }
+
+      const group = await joinGroup(joinCode.trim(), joinNotificationsEnabled);
       if (!group) {
         setJoinError(t('dashboard.joinGroupError'));
       } else {
@@ -148,23 +161,37 @@ export default function DashboardPage() {
             />
           </div>
 
-          <form onSubmit={handleJoin} className="flex gap-2">
-            <Input
-              placeholder={t('dashboard.joinByCodePlaceholder')}
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
-              leftIcon={<KeyRound className="w-4 h-4" />}
-              error={joinError}
-            />
-            <Button
-              type="submit"
-              variant="secondary"
-              size="md"
-              isLoading={isJoining}
-              className="shrink-0 font-bold"
-            >
-              {t('dashboard.joinGroupBtn')}
-            </Button>
+          <form onSubmit={handleJoin} className="space-y-1.5">
+            <div className="flex gap-2">
+              <Input
+                placeholder={t('dashboard.joinByCodePlaceholder')}
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                leftIcon={<KeyRound className="w-4 h-4" />}
+                error={joinError}
+              />
+              <Button
+                type="submit"
+                variant="secondary"
+                size="md"
+                isLoading={isJoining}
+                className="shrink-0 font-bold"
+              >
+                {t('dashboard.joinGroupBtn')}
+              </Button>
+            </div>
+            {joinCode.trim().length > 0 && (
+              <label className="flex items-center gap-1.5 px-1 cursor-pointer select-none text-[11px] text-slate-600 dark:text-slate-400 animate-in fade-in duration-150">
+                <input
+                  type="checkbox"
+                  checked={joinNotificationsEnabled}
+                  onChange={(e) => setJoinNotificationsEnabled(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600"
+                />
+                <Bell className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span>{t('notifications.enableOnJoin') || 'Activar notificaciones al unirme'}</span>
+              </label>
+            )}
           </form>
         </div>
 
@@ -296,16 +323,9 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-
-        {/* Subtle Buy Me a Coffee Project Support Footer */}
-        <div className="pt-8 pb-4 text-center">
-          <div className="inline-flex flex-col sm:flex-row items-center gap-3 px-5 py-3 rounded-2xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 shadow-2xs backdrop-blur-xs text-xs text-slate-500 dark:text-slate-400">
-            <span>{t('donations.usefulPrompt')}</span>
-            <BuyMeACoffeeButton size="sm" customText={t('donations.buttonText')} showHeart />
-          </div>
-        </div>
       </main>
 
+      <Footer />
       <BottomNav onAddClick={() => setIsCreateOpen(true)} />
 
       <CreateGroupModal

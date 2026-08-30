@@ -672,6 +672,8 @@ export const ca: TranslationDictionary = {
     "groupTitle": "Notificacions del grup",
     "enableOnJoin": "Activar notificacions per a aquest grup",
     "enableOnJoinHint": "Rep alertes quan s’afegeixin noves despeses o liquidacions.",
+    "enableOnCreate": "Activar notificacions per a aquest grup",
+    "enableOnCreateHint": "Rep avisos a l’instant quan els teus amics afegeixin o modifiquin despeses, comentin o liquidin deutes.",
     "enabled": "Notificacions: Activades",
     "disabled": "Notificacions: Desactivades",
     "receiving": "Rebent avisos",
@@ -700,5 +702,15 @@ export const ca: TranslationDictionary = {
     gifPickerSubtitle: 'Tria un GIF animat o enganxa el teu enllaç',
     searchGifsPlaceholder: 'Cercar festa, diners, riure, viatge...',
     addReaction: 'Afegir reacció',
+  },
+  "chat": {
+    "title": "Xat del Grup",
+    "subtitle": "Conversa privada per a tots els membres de",
+    "tabMembers": "Amics",
+    "tabChat": "Xat de Grup",
+    "placeholder": "Escriu un missatge al grup...",
+    "emptyTitle": "Encara no hi ha missatges!",
+    "emptySubtitle": "Sigues el primer en saludar els teus amics, proposar plans o compartir notes.",
+    "deleteConfirm": "Vols eliminar aquest missatge del xat?"
   },
 };

@@ -672,6 +672,8 @@ export const ja: TranslationDictionary = {
     "groupTitle": "グループ通知",
     "enableOnJoin": "このグループの通知を有効にする",
     "enableOnJoinHint": "新しい支出や精算が追加されたときに通知を受け取ります。",
+    "enableOnCreate": "このグループの通知を有効にする",
+    "enableOnCreateHint": "メンバーが支出を追加・編集したり、コメントや精算を行ったりした際に通知を受け取ります。",
     "enabled": "通知：有効",
     "disabled": "通知：無効",
     "receiving": "通知を受信中",
@@ -700,5 +702,15 @@ export const ja: TranslationDictionary = {
     gifPickerSubtitle: 'アニメGIFを選択するかリンクを貼り付けてください',
     searchGifsPlaceholder: 'パーティー、お金、笑い、旅行を検索...',
     addReaction: 'リアクションを追加',
+  },
+  "chat": {
+    "title": "グループチャット",
+    "subtitle": "メンバー全員のプライベートな会話：",
+    "tabMembers": "友達",
+    "tabChat": "グループチャット",
+    "placeholder": "グループにメッセージを送信...",
+    "emptyTitle": "メッセージはまだありません！",
+    "emptySubtitle": "最初に挨拶したり、計画を提案したり、メモを共有しましょう。",
+    "deleteConfirm": "このメッセージを削除しますか？"
   },
 };

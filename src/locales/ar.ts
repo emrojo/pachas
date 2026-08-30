@@ -672,6 +672,8 @@ export const ar: TranslationDictionary = {
     "groupTitle": "إشعارات المجموعة",
     "enableOnJoin": "تفعيل الإشعارات لهذه المجموعة",
     "enableOnJoinHint": "تلقي تنبيهات عند إضافة نفقات أو تسويات جديدة.",
+    "enableOnCreate": "تفعيل الإشعارات لهذه المجموعة",
+    "enableOnCreateHint": "تلقي تنبيهات فورية عندما يضيف الأصدقاء نفقات أو يعدلونها أو يعلقون أو يسددون الديون.",
     "enabled": "الإشعارات: مفعلة",
     "disabled": "الإشعارات: معطلة",
     "receiving": "استقبال التنبيهات",
@@ -700,5 +702,15 @@ export const ar: TranslationDictionary = {
     gifPickerSubtitle: 'اختر صورة متحركة أو الصق الرابط',
     searchGifsPlaceholder: 'ابحث عن حفلة، نقود، ضحك، سفر...',
     addReaction: 'إضافة تفاعل',
+  },
+  "chat": {
+    "title": "دردشة المجموعة",
+    "subtitle": "محادثة خاصة لجميع أعضاء",
+    "tabMembers": "الأصدقاء",
+    "tabChat": "دردشة المجموعة",
+    "placeholder": "اكتب رسالة إلى المجموعة...",
+    "emptyTitle": "لا توجد رسائل بعد!",
+    "emptySubtitle": "كن أول من يرحب بالأصدقاء أو يقترح خططًا أو يشارك الملاحظات.",
+    "deleteConfirm": "حذف هذه الرسالة من الدردشة؟"
   },
 };

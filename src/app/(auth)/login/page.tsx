@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { Footer } from '@/components/layout/Footer';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { Profile } from '@/types/database';
 import { Mail, Lock, ArrowRight, UserPlus } from 'lucide-react';
@@ -223,6 +224,8 @@ function LoginFormContent() {
           handleQuickDemoSelect(created);
         }}
       />
+
+      <Footer showDonations={false} className="mt-12" />
     </div>
   );
 }

@@ -169,6 +169,17 @@ export interface ExpenseComment {
   profile?: Profile;
 }
 
+export interface GroupMessage {
+  id: string;
+  group_id: string;
+  user_id: string;
+  message: string;
+  gif_url?: string | null;
+  reactions?: Record<string, string[]>; // emoji -> string[] of user_ids
+  created_at: string;
+  profile?: Profile;
+}
+
 export interface PendingReceiptScan {
   id: string;
   group_id: string;
@@ -187,6 +198,8 @@ export type NotificationType =
   | 'expense_deleted'
   | 'comment_created'
   | 'comment_reaction'
+  | 'group_message_created'
+  | 'group_message_reaction'
   | 'settlement_created'
   | 'group_role_updated'
   | 'member_invited'
@@ -211,5 +224,6 @@ export interface AppNotification {
   action_url?: string;
   data?: Record<string, any>;
 }
+
 
 

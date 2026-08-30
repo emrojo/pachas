@@ -672,6 +672,8 @@ export const hi: TranslationDictionary = {
     "groupTitle": "समूह सूचनाएं",
     "enableOnJoin": "इस समूह के लिए सूचनाएं चालू करें",
     "enableOnJoinHint": "नए खर्च या निपटान जोड़े जाने पर अलर्ट प्राप्त करें।",
+    "enableOnCreate": "इस समूह के लिए सूचनाएं चालू करें",
+    "enableOnCreateHint": "जब दोस्त खर्च जोड़ें, अपडेट करें, टिप्पणी करें या कर्ज चुकाएं तो सूचनाएं प्राप्त करें।",
     "enabled": "सूचनाएं: सक्षम",
     "disabled": "सूचनाएं: अक्षम",
     "receiving": "अलर्ट प्राप्त हो रहे हैं",
@@ -700,5 +702,15 @@ export const hi: TranslationDictionary = {
     gifPickerSubtitle: 'GIF चुनें या लिंक पेस्ट करें',
     searchGifsPlaceholder: 'पार्टी, पैसा, हंसी, यात्रा खोजें...',
     addReaction: 'प्रतिक्रिया जोड़ें',
+  },
+  "chat": {
+    "title": "समूह चैट",
+    "subtitle": "सभी सदस्यों के लिए निजी बातचीत:",
+    "tabMembers": "मित्र",
+    "tabChat": "समूह चैट",
+    "placeholder": "समूह को संदेश लिखें...",
+    "emptyTitle": "अभी तक कोई संदेश नहीं!",
+    "emptySubtitle": "दोस्तों का स्वागत करने, योजनाएं बनाने या नोट्स साझा करने वाले पहले व्यक्ति बनें।",
+    "deleteConfirm": "चैट से यह संदेश हटाएं?"
   },
 };

@@ -7,6 +7,7 @@ import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -25,6 +26,7 @@ import { InviteModal } from '@/components/groups/InviteModal';
 import { EditGroupModal } from '@/components/groups/EditGroupModal';
 import { GroupActionMenu } from '@/components/groups/GroupActionMenu';
 import { MemberList } from '@/components/groups/MemberList';
+import { GroupChatSection } from '@/components/groups/GroupChatSection';
 import { BalanceSummary } from '@/components/balances/BalanceSummary';
 import { DebtList } from '@/components/balances/DebtList';
 import { CATEGORIES } from '@/lib/categories';
@@ -47,6 +49,7 @@ import {
   Undo2,
   Settings,
   Camera,
+  MessageSquare,
   Pencil,
   Compass,
   ArrowUpDown,
@@ -83,6 +86,7 @@ export default function GroupDetailPage() {
     undoLastImport,
     restoreGroup,
     isGroupAdmin,
+    getGroupMessages,
   } = usePachas();
   const { t } = useTranslation();
 
@@ -94,6 +98,7 @@ export default function GroupDetailPage() {
   const debts = getGroupDebts(groupId);
 
   const [activeTab, setActiveTab] = useState<TabType>('expenses');
+  const [friendsSubTab, setFriendsSubTab] = useState<'list' | 'chat'>('list');
   const [isExpenseFormOpen, setIsExpenseFormOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isEditGroupOpen, setIsEditGroupOpen] = useState(false);
@@ -109,7 +114,7 @@ export default function GroupDetailPage() {
   const [redactionImage, setRedactionImage] = useState<string | null>(null);
   const [validatingScan, setValidatingScan] = useState<PendingReceiptScan | null>(null);
 
-  // Deep-link handling: Check URL search params for tab, expenseId, and validateScan
+  // Deep-link handling: Check URL search params for tab, chat, expenseId, and validateScan
   useEffect(() => {
     if (!searchParams) return;
 
@@ -126,6 +131,12 @@ export default function GroupDetailPage() {
       } else if (requestedTab === 'expenses') {
         setActiveTab('expenses');
       }
+    }
+
+    const isChat = searchParams.get('chat') === 'true';
+    if (isChat) {
+      setActiveTab('members');
+      setFriendsSubTab('chat');
     }
 
     const expenseId = searchParams.get('expenseId');
@@ -679,31 +690,69 @@ export default function GroupDetailPage() {
           </div>
         )}
 
-        {/* Tab 4: Amigos / Participantes */}
+        {/* Tab 4: Amigos y Chat */}
         {activeTab === 'members' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  {t('groups.membersInGroup')}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {t('groups.membersSubtitle')}
-                </p>
+            {/* Sub-tab Switcher: Lista de Amigos vs Chat de Grupo */}
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setFriendsSubTab('list')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    friendsSubTab === 'list'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{t('chat.tabMembers') || 'Amigos'} ({members.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFriendsSubTab('chat')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    friendsSubTab === 'chat'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>{t('chat.tabChat') || 'Chat de Grupo'}</span>
+                  {getGroupMessages(group.id).length > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                      {getGroupMessages(group.id).length}
+                    </span>
+                  )}
+                </button>
               </div>
-              <Button
-                size="sm"
-                variant="brand"
-                onClick={() => setIsInviteOpen(true)}
-              >
-                <QrCode className="w-4 h-4 mr-1" />
-                {t('groups.inviteFriends')}
-              </Button>
+
+              {friendsSubTab === 'list' && (
+                <Button
+                  size="sm"
+                  variant="brand"
+                  onClick={() => setIsInviteOpen(true)}
+                  className="shrink-0 text-xs font-bold"
+                >
+                  <QrCode className="w-3.5 h-3.5 mr-1" />
+                  <span>{t('groups.inviteFriends')}</span>
+                </Button>
+              )}
             </div>
 
-            <Card>
-              <MemberList groupId={group.id} members={members} isAdmin={isAdmin} />
-            </Card>
+            {friendsSubTab === 'list' ? (
+              <Card>
+                <MemberList groupId={group.id} members={members} isAdmin={isAdmin} />
+              </Card>
+            ) : (
+              <GroupChatSection
+                groupId={group.id}
+                groupName={group.name}
+                members={members}
+                isAdmin={isAdmin}
+              />
+            )}
           </div>
         )}
 
@@ -763,6 +812,7 @@ export default function GroupDetailPage() {
 
       </main>
 
+      <Footer />
       <BottomNav onAddClick={handleOpenNewExpense} groupId={group.id} />
 
       <ExpenseForm
