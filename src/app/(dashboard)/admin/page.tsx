@@ -125,7 +125,7 @@ interface MetricsData {
 
 export default function AdminBackofficePage() {
   const router = useRouter();
-  const { currentUser, isAppAdmin } = usePachas();
+  const { currentUser, isAppAdmin, groups, getGroupMembers, getGroupExpenses, getGroupSettlements, availableUsers } = usePachas();
   const { t } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<'health' | 'users' | 'groups' | 'analytics' | 'anomalies'>('health');
@@ -141,13 +141,161 @@ export default function AdminBackofficePage() {
   const [groupFilter, setGroupFilter] = useState<'all' | 'active' | 'archived'>('all');
   const [updatingUserRole, setUpdatingUserRole] = useState<string | null>(null);
 
+  // Enrich server metrics with local state if DB is running in local/demo mode
+  const enrichMetrics = (serverData: MetricsData): MetricsData => {
+    // If server has real groups in PostgreSQL, return server data
+    if (serverData.groupsList && serverData.groupsList.length > 0) {
+      return serverData;
+    }
+
+    // Otherwise, build from client-side state
+    const allExpensesList = (groups || []).flatMap((g) => getGroupExpenses(g.id) || []);
+    const allSettlementsList = (groups || []).flatMap((g) => getGroupSettlements(g.id) || []);
+
+    const userMap = new Map<string, any>();
+    (availableUsers || []).forEach((u) => {
+      userMap.set(u.id, {
+        id: u.id,
+        full_name: u.full_name,
+        email: u.email,
+        role: (u.role || 'member') as 'admin' | 'member',
+        bizum_phone: u.bizum_phone,
+        avatar_url: u.avatar_url,
+        created_at: u.created_at || '2026-06-01T10:00:00Z',
+        groups_count: 0,
+        expenses_count: 0,
+        has_push: false,
+      });
+    });
+
+    if (currentUser && !userMap.has(currentUser.id)) {
+      userMap.set(currentUser.id, {
+        id: currentUser.id,
+        full_name: currentUser.full_name,
+        email: currentUser.email,
+        role: (currentUser.role || 'admin') as 'admin' | 'member',
+        bizum_phone: currentUser.bizum_phone,
+        avatar_url: currentUser.avatar_url,
+        created_at: currentUser.created_at || new Date().toISOString(),
+        groups_count: 0,
+        expenses_count: 0,
+        has_push: true,
+      });
+    }
+
+    const clientGroupsList = (groups || []).map((g) => {
+      const grpMembers = getGroupMembers(g.id) || [];
+      const grpExpenses = getGroupExpenses(g.id) || [];
+      const totalAmount = grpExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+      const creator = userMap.get(g.created_by);
+
+      grpMembers.forEach((m: any) => {
+        if (m.profile && !userMap.has(m.user_id)) {
+          userMap.set(m.user_id, {
+            id: m.user_id,
+            full_name: m.profile.full_name,
+            email: m.profile.email,
+            role: (m.profile.role || 'member') as 'admin' | 'member',
+            bizum_phone: m.profile.bizum_phone,
+            avatar_url: m.profile.avatar_url,
+            created_at: m.joined_at,
+            groups_count: 1,
+            expenses_count: 0,
+            has_push: false,
+          });
+        } else if (userMap.has(m.user_id)) {
+          const existing = userMap.get(m.user_id);
+          existing.groups_count = (existing.groups_count || 0) + 1;
+        }
+      });
+
+      grpExpenses.forEach((e: any) => {
+        if (e.created_by && userMap.has(e.created_by)) {
+          const existing = userMap.get(e.created_by);
+          existing.expenses_count = (existing.expenses_count || 0) + 1;
+        }
+      });
+
+      return {
+        id: g.id,
+        name: g.name,
+        description: g.description || undefined,
+        icon_emoji: g.icon_emoji,
+        base_currency: g.base_currency || 'EUR',
+        is_archived: Boolean(g.is_archived),
+        created_at: g.created_at,
+        creator_name: creator?.full_name || 'Admin',
+        members_count: grpMembers.length,
+        expenses_count: grpExpenses.length,
+        total_amount: Math.round(totalAmount * 100) / 100,
+      };
+    });
+
+    const clientUsersList = Array.from(userMap.values());
+
+    const totalExp = allExpensesList.length;
+    const ocrExp = allExpensesList.filter((e: any) => e.receipt_url && e.receipt_url.length > 0).length;
+    const totalVolEur = allExpensesList.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+    const totalSettleEur = allSettlementsList.reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
+
+    const splitTypes = {
+      equal: allExpensesList.filter((e: any) => !e.split_type || e.split_type === 'EQUAL').length,
+      exact: allExpensesList.filter((e: any) => e.split_type === 'EXACT').length,
+      percentage: allExpensesList.filter((e: any) => e.split_type === 'PERCENTAGE').length,
+      shares: allExpensesList.filter((e: any) => e.split_type === 'SHARES').length,
+    };
+
+    const paymentMethods = {
+      BIZUM: allSettlementsList.filter((s: any) => s.payment_method === 'BIZUM').length,
+      CASH: allSettlementsList.filter((s: any) => s.payment_method === 'CASH').length,
+      REVOLUT: allSettlementsList.filter((s: any) => s.payment_method === 'REVOLUT').length,
+      BANK_TRANSFER: allSettlementsList.filter((s: any) => s.payment_method === 'BANK_TRANSFER').length,
+      OTHER: allSettlementsList.filter((s: any) => s.payment_method === 'OTHER').length,
+    };
+
+    const currencyCounts: Record<string, number> = {};
+    allExpensesList.forEach((e: any) => {
+      const c = e.currency || 'EUR';
+      currencyCounts[c] = (currencyCounts[c] || 0) + 1;
+    });
+    const topCurrencies = Object.entries(currencyCounts).map(([currency, count]) => ({ currency, count }));
+
+    return {
+      ...serverData,
+      totals: {
+        totalUsers: clientUsersList.length,
+        totalGroups: clientGroupsList.length,
+        activeGroups: clientGroupsList.filter((g) => !g.is_archived).length,
+        archivedGroups: clientGroupsList.filter((g) => g.is_archived).length,
+        totalExpenses: totalExp,
+        totalVolumeEur: Math.round(totalVolEur * 100) / 100,
+        totalSettlements: allSettlementsList.length,
+        totalSettledEur: Math.round(totalSettleEur * 100) / 100,
+        totalComments: 0,
+        totalPushSubscriptions: serverData.totals?.totalPushSubscriptions || 1,
+      },
+      featureUsage: {
+        ocr: {
+          ocrScannedExpenses: ocrExp,
+          manualExpenses: totalExp - ocrExp,
+          ocrPercentage: totalExp > 0 ? Math.round((ocrExp / totalExp) * 100) : 0,
+        },
+        splitTypes,
+        paymentMethods,
+        topCurrencies: topCurrencies.length > 0 ? topCurrencies : [{ currency: 'EUR', count: totalExp }],
+      },
+      usersList: clientUsersList.length > 0 ? clientUsersList : serverData.usersList,
+      groupsList: clientGroupsList,
+    };
+  };
+
   const fetchMetrics = async () => {
     try {
       setIsRefreshing(true);
       const res = await fetch('/api/admin/metrics');
       if (res.ok) {
         const data = await res.json();
-        setMetrics(data);
+        setMetrics(enrichMetrics(data));
       }
     } catch (err) {
       console.warn('Error fetching admin metrics:', err);
@@ -159,7 +307,7 @@ export default function AdminBackofficePage() {
 
   useEffect(() => {
     fetchMetrics();
-  }, []);
+  }, [groups, availableUsers]);
 
   const handleRunDiagnostics = async () => {
     if (isRunningDiagnostics) return;

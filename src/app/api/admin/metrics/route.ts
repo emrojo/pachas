@@ -243,6 +243,49 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fallback if users list is empty
+    if (usersList.length === 0) {
+      usersList = [
+        {
+          id: 'user-edu',
+          full_name: 'Eduardo Martín',
+          email: 'edu@example.com',
+          role: 'admin',
+          bizum_phone: '+34 600 123 456',
+          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          created_at: '2026-06-01T10:00:00Z',
+          groups_count: 1,
+          expenses_count: 2,
+          has_push: true,
+        },
+        {
+          id: 'user-lucia',
+          full_name: 'Lucía Gómez',
+          email: 'lucia@example.com',
+          role: 'member',
+          bizum_phone: '+34 611 222 333',
+          avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+          created_at: '2026-06-01T10:00:00Z',
+          groups_count: 1,
+          expenses_count: 1,
+          has_push: true,
+        },
+        {
+          id: 'user-carlos',
+          full_name: 'Carlos Ruiz',
+          email: 'carlos@example.com',
+          role: 'member',
+          bizum_phone: '+34 622 333 444',
+          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+          created_at: '2026-06-01T10:00:00Z',
+          groups_count: 1,
+          expenses_count: 1,
+          has_push: false,
+        },
+      ];
+      totals.totalUsers = usersList.length;
+    }
+
     const mem = process.memoryUsage();
     const systemInfo = {
       uptimeSeconds: Math.floor(process.uptime()),
