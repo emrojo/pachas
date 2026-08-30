@@ -8,7 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { Phone, Shield, UserMinus, AlertTriangle } from 'lucide-react';
+import { Phone, Shield, ShieldCheck, ShieldAlert, UserMinus, AlertTriangle, Check } from 'lucide-react';
 
 export interface MemberListProps {
   groupId?: string;
@@ -17,10 +17,14 @@ export interface MemberListProps {
 }
 
 export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmin }) => {
-  const { currentUser, removeMemberFromGroup } = usePachas();
+  const { currentUser, removeMemberFromGroup, updateMemberRole, getGroup } = usePachas();
   const { t } = useTranslation();
   const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(null);
+  const [memberToToggleRole, setMemberToToggleRole] = useState<GroupMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+
+  const group = groupId ? getGroup(groupId) : undefined;
 
   const handleConfirmRemove = async () => {
     if (!groupId || !memberToRemove) return;
@@ -35,12 +39,28 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
     }
   };
 
+  const handleConfirmToggleRole = async () => {
+    if (!groupId || !memberToToggleRole) return;
+    try {
+      setIsUpdatingRole(true);
+      const newRole = memberToToggleRole.role === 'admin' ? 'member' : 'admin';
+      await updateMemberRole(groupId, memberToToggleRole.user_id, newRole);
+      setMemberToToggleRole(null);
+    } catch (err) {
+      console.error('Error toggling member role:', err);
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
+
   return (
     <>
       <div className="divide-y divide-slate-100 dark:divide-slate-800">
         {members.map((member) => {
           const isCurrentUser = currentUser ? member.user_id === currentUser.id : false;
           const canRemove = groupId && (isAdmin || isCurrentUser);
+          const isCreator = group ? group.created_by === member.user_id : false;
+          const canToggleAdmin = groupId && isAdmin && !isCurrentUser && !isCreator;
 
           return (
             <div key={member.id} className="py-3.5 flex items-center justify-between gap-3">
@@ -78,6 +98,31 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
                   </div>
                 )}
 
+                {/* Group Admin Toggle Button */}
+                {canToggleAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setMemberToToggleRole(member)}
+                    className={`px-2 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border ${
+                      member.role === 'admin'
+                        ? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50 hover:bg-amber-100'
+                        : 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                    }`}
+                    title={
+                      member.role === 'admin'
+                        ? (t('groups.removeAdmin') || 'Quitar Admin del grupo')
+                        : (t('groups.makeAdmin') || 'Hacer Admin del grupo')
+                    }
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">
+                      {member.role === 'admin'
+                        ? (t('groups.removeAdmin') || 'Quitar Admin')
+                        : (t('groups.makeAdmin') || 'Hacer Admin')}
+                    </span>
+                  </button>
+                )}
+
                 {/* Remove Member Button */}
                 {canRemove && (
                   <button
@@ -95,7 +140,7 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
         })}
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Remove Member Confirmation Modal */}
       <Modal
         isOpen={!!memberToRemove}
         onClose={() => setMemberToRemove(null)}
@@ -129,6 +174,59 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
             >
               <UserMinus className="w-4 h-4" />
               <span>{t('groups.removeMemberBtn')}</span>
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Group Admin Role Toggle Modal */}
+      <Modal
+        isOpen={!!memberToToggleRole}
+        onClose={() => setMemberToToggleRole(null)}
+        title={
+          memberToToggleRole?.role === 'admin'
+            ? (t('groups.removeAdmin') || 'Quitar Administrador del Grupo')
+            : (t('groups.makeAdmin') || 'Nombrar Administrador del Grupo')
+        }
+        description={
+          memberToToggleRole?.role === 'admin'
+            ? 'Retirar permisos de administración en este grupo'
+            : 'Otorgar permisos de administración en este grupo'
+        }
+        maxWidth="sm"
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl flex items-start gap-3">
+            <Shield className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
+              {memberToToggleRole?.role === 'admin'
+                ? (t('groups.removeAdminPrompt', { name: memberToToggleRole?.profile?.full_name || 'este amigo' }) || `¿Deseas retirar los permisos de administrador del grupo a ${memberToToggleRole?.profile?.full_name}?`)
+                : (t('groups.makeAdminPrompt', { name: memberToToggleRole?.profile?.full_name || 'este amigo' }) || `¿Deseas nombrar administrador a ${memberToToggleRole?.profile?.full_name}? Podrá editar la información, divisa y gestionar participantes en este grupo.`)}
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMemberToToggleRole(null)}
+              disabled={isUpdatingRole}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="brand"
+              size="sm"
+              isLoading={isUpdatingRole}
+              onClick={handleConfirmToggleRole}
+              className="gap-1.5 font-bold"
+            >
+              <Check className="w-4 h-4" />
+              <span>
+                {memberToToggleRole?.role === 'admin'
+                  ? (t('groups.removeAdmin') || 'Quitar Admin')
+                  : (t('groups.makeAdmin') || 'Hacer Admin')}
+              </span>
             </Button>
           </div>
         </div>

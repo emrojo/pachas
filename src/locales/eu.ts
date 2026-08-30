@@ -209,6 +209,11 @@ export const eu: TranslationDictionary = {
   },
   groups: {
     groupAdmin: 'Taldeko admina',
+    makeAdmin: 'Admin egin',
+    removeAdmin: 'Admin kendu',
+    makeAdminPrompt: '{name} taldeko administratzaile izendatu nahi duzu?',
+    removeAdminPrompt: '{name}ri taldeko administratzaile baimenak kendu nahi dizkiozu?',
+
     recalculatingCurrency: 'Recalculating expenses to new base currency ({currency})...',
     recalculatedCurrencySuccess: '{count} expenses recalculated with official historical exchange rates.',
     currencyChangeWarning: '⚠️ Changing group base currency will automatically recalculate all existing expenses using the official exchange rate on their date.',

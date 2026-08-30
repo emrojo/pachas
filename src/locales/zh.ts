@@ -209,6 +209,11 @@ export const zh: TranslationDictionary = {
   },
   groups: {
     groupAdmin: 'Group Admin',
+    makeAdmin: 'Make Admin',
+    removeAdmin: 'Remove Admin',
+    makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',
+    removeAdminPrompt: 'Do you want to remove group admin permissions from {name}?',
+
     recalculatingCurrency: 'Recalculating expenses to new base currency ({currency})...',
     recalculatedCurrencySuccess: '{count} expenses recalculated with official historical exchange rates.',
     currencyChangeWarning: '⚠️ Changing group base currency will automatically recalculate all existing expenses using the official exchange rate on their date.',
