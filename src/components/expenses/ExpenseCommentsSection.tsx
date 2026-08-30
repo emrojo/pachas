@@ -5,7 +5,7 @@ import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
-import { MessageSquare, Send, Trash2, Loader2, Smile, Film, X, Heart, ThumbsUp } from 'lucide-react';
+import { MessageSquare, Send, Trash2, Loader2, Smile, Film, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { GifPickerModal } from './GifPickerModal';
@@ -41,9 +41,10 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
   // Pickers state
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isGifModalOpen, setIsGifModalOpen] = useState(false);
-  const [reactingCommentId, setReactingCommentId] = useState<string | null>(null);
+  const [reactingComment, setReactingComment] = useState<{ id: string; anchorEl: HTMLElement } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
 
   const comments = getExpenseComments(expenseId);
 
@@ -236,29 +237,23 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
                   );
                 })}
 
-                {/* Quick Add Reaction Popover Button */}
-                <div className="relative inline-block">
-                  <button
-                    type="button"
-                    onClick={() => setReactingCommentId(reactingCommentId === cmt.id ? null : cmt.id)}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    title="Añadir reacción"
-                  >
-                    <Smile className="w-3 h-3 text-amber-500" />
-                    <span>+</span>
-                  </button>
-
-                  <EmojiPickerPopover
-                    isOpen={reactingCommentId === cmt.id}
-                    onClose={() => setReactingCommentId(null)}
-                    onSelectEmoji={(emoji) => {
-                      handleToggleReaction(cmt.id, emoji);
-                      setReactingCommentId(null);
-                    }}
-                    position="top"
-                    className="left-0"
-                  />
-                </div>
+                {/* Quick Add Reaction Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (reactingComment?.id === cmt.id) {
+                      setReactingComment(null);
+                    } else {
+                      setReactingComment({ id: cmt.id, anchorEl: e.currentTarget });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  title="Añadir reacción"
+                >
+                  <Smile className="w-3 h-3 text-amber-500" />
+                  <span>+</span>
+                </button>
               </div>
             </div>
           );
@@ -326,8 +321,12 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 {/* Emoji trigger */}
                 <button
+                  ref={emojiButtonRef}
                   type="button"
-                  onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEmojiPickerOpen(!isEmojiPickerOpen);
+                  }}
                   className="p-1.5 text-slate-400 hover:text-amber-500 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   title="Insertar emoticono"
                 >
@@ -344,15 +343,6 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
                   <Film className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* Main Composer Emoji Popover */}
-              <EmojiPickerPopover
-                isOpen={isEmojiPickerOpen}
-                onClose={() => setIsEmojiPickerOpen(false)}
-                onSelectEmoji={handleInsertEmoji}
-                position="top"
-                className="right-0"
-              />
             </div>
 
             <Button
@@ -374,6 +364,29 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
           {t('comments.loginRequired') || 'Inicia sesión para participar en los comentarios.'}
         </p>
       )}
+
+      {/* Portal Popover for quick comment reaction */}
+      <EmojiPickerPopover
+        isOpen={Boolean(reactingComment)}
+        anchorEl={reactingComment?.anchorEl}
+        onClose={() => setReactingComment(null)}
+        onSelectEmoji={(emoji) => {
+          if (reactingComment) {
+            handleToggleReaction(reactingComment.id, emoji);
+            setReactingComment(null);
+          }
+        }}
+        position="auto"
+      />
+
+      {/* Portal Popover for composer emoji insert */}
+      <EmojiPickerPopover
+        isOpen={isEmojiPickerOpen}
+        anchorEl={emojiButtonRef.current}
+        onClose={() => setIsEmojiPickerOpen(false)}
+        onSelectEmoji={handleInsertEmoji}
+        position="top"
+      />
 
       {/* GIF Picker Modal */}
       <GifPickerModal
