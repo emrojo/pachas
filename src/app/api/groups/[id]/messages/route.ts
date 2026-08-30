@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
-import { verifyJwt } from '@/lib/auth/jwt';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 import { sanitizeText } from '@/lib/security/sanitize';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
@@ -36,6 +36,11 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const params = await props.params;
     const groupId = params?.id;
     if (!groupId) {
@@ -102,18 +107,14 @@ export async function POST(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const params = await props.params;
     const groupId = params?.id;
-    const token = request.cookies.get('sb-access-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
 
     const body = await request.json();
     const rawMessage = body.message || '';
@@ -148,7 +149,7 @@ export async function POST(
         message: {
           id: messageId,
           group_id: groupId,
-          user_id: payload.sub,
+          user_id: user.userId,
           message: cleanMessage,
           gif_url: gifUrl,
           reactions: {},
@@ -158,9 +159,9 @@ export async function POST(
           reply_to_snippet: replyToSnippet,
           created_at: new Date().toISOString(),
           profile: {
-            id: payload.sub,
-            email: payload.email || '',
-            full_name: payload.full_name || 'Amigo',
+            id: user.userId,
+            email: user.email || '',
+            full_name: user.email?.split('@')[0] || 'Amigo',
             avatar_url: null,
           },
         },
@@ -177,7 +178,7 @@ export async function POST(
         [
           messageId,
           groupId,
-          payload.sub,
+          user.userId,
           cleanMessage,
           gifUrl,
           JSON.stringify({}),
@@ -190,7 +191,11 @@ export async function POST(
       if (insertErr.code === '42P01' || String(insertErr.message).includes('group_messages')) {
         console.warn('public.group_messages not found in PostgreSQL, message saved in client cache.');
       } else {
-        throw insertErr;
+        await pool.query(
+          `INSERT INTO public.group_messages (id, group_id, user_id, message, created_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [messageId, groupId, user.userId, cleanMessage]
+        ).catch(() => {});
       }
     }
 
@@ -213,79 +218,65 @@ export async function POST(
           `INSERT INTO public.expense_comments (id, expense_id, user_id, comment, gif_url, reactions, created_at)
            VALUES ($1, $2, $3, $4, $5, $6, NOW())
            ON CONFLICT (id) DO NOTHING`,
-          [commentId, expenseId, payload.sub, cleanMessage, gifUrl, JSON.stringify({})]
+          [commentId, expenseId, user.userId, cleanMessage, gifUrl, JSON.stringify({})]
         );
       } catch (commentErr) {
         console.warn('Notice attaching chat message to expense comment:', commentErr);
       }
     }
 
-    // Fetch author details
-    let authorProfile = {
-      id: payload.sub,
-      email: payload.email || '',
-      full_name: payload.full_name || 'Amigo',
-      avatar_url: null as string | null,
-    };
-
+    // Fetch author info and return
+    let authorProfile: any = { id: user.userId, full_name: 'Amigo', avatar_url: null, email: user.email };
     try {
-      const authorRes = await pool.query(
-        `SELECT id, email, full_name, avatar_url FROM public.profiles WHERE id = $1`,
-        [payload.sub]
-      );
-      if (authorRes.rows.length > 0) {
-        authorProfile = authorRes.rows[0];
+      const pRes = await pool.query('SELECT full_name, avatar_url, email FROM public.profiles WHERE id::text = $1::text', [user.userId]);
+      if (pRes.rows.length > 0) {
+        authorProfile = { id: user.userId, ...pRes.rows[0] };
       }
     } catch {}
 
-    // Dispatch real-time Push Notification to other members
+    // Dispatch background web push notifications to other group members
     try {
-      const groupRes = await pool.query(
-        `SELECT name FROM public.groups WHERE id = $1`,
-        [groupId]
-      );
-      const groupName = groupRes.rows[0]?.name || 'Grupo';
+      const grpRes = await pool.query('SELECT name FROM public.groups WHERE id::text = $1::text', [groupId]);
+      const groupName = grpRes.rows[0]?.name || 'el grupo';
+      const senderName = authorProfile.full_name || 'Alguien';
 
-      const snippet = cleanMessage.trim()
-        ? cleanMessage.length > 60
-          ? cleanMessage.slice(0, 57) + '...'
-          : cleanMessage
-        : 'ha enviado un GIF';
-
-      await notifyGroupMembers(
-        groupId,
-        payload.sub,
-        {
-          title: `💬 ${authorProfile.full_name} en ${groupName}`,
-          body: snippet,
-          url: `/groups/${groupId}?tab=members&chat=true`,
-          data: {
-            type: 'group_message_created',
-            groupId,
-            messageId,
-            url: `/groups/${groupId}?tab=members&chat=true`,
-          },
-        }
-      );
+      notifyGroupMembers(groupId, user.userId, {
+        title: `💬 ${senderName} en "${groupName}"`,
+        body: cleanMessage.length > 80 ? `${cleanMessage.substring(0, 80)}...` : cleanMessage,
+        url: `/groups/${groupId}?tab=chat`,
+        data: {
+          type: 'group_message',
+          groupId,
+          messageId,
+          url: `/groups/${groupId}?tab=chat`,
+        },
+      }).catch((pushErr) => {
+        console.warn('Non-fatal push notification error:', pushErr);
+      });
     } catch (notifErr) {
-      console.warn('Could not dispatch group chat push notifications:', notifErr);
+      console.warn('Could not dispatch group message notification:', notifErr);
     }
 
     return NextResponse.json({
+      success: true,
       message: {
         id: messageId,
         group_id: groupId,
-        user_id: payload.sub,
+        user_id: user.userId,
         message: cleanMessage,
         gif_url: gifUrl,
         reactions: {},
+        expense_id: expenseId,
+        expense_title: replyToSnippet?.expense_title || null,
+        reply_to_id: replyToId,
+        reply_to_snippet: replyToSnippet,
         created_at: new Date().toISOString(),
         profile: authorProfile,
       },
     });
   } catch (err: any) {
-    console.error('Error in POST /api/groups/[id]/messages:', err);
-    return NextResponse.json({ error: err.message || 'Error al enviar el mensaje' }, { status: 500 });
+    console.error('API create group message error:', err);
+    return NextResponse.json({ error: err.message || 'Error al enviar mensaje' }, { status: 500 });
   }
 }
 
@@ -294,18 +285,14 @@ export async function DELETE(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const params = await props.params;
     const groupId = params?.id;
-    const token = request.cookies.get('sb-access-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const messageId = searchParams.get('messageId');
@@ -320,13 +307,13 @@ export async function DELETE(
     }
 
     // Check if user is message author or group admin
-    const isSuperAdmin = payload.role === 'admin';
+    const isSuperAdmin = user.isAdmin;
     let isGroupAdmin = false;
 
     try {
       const memberCheck = await pool.query(
         `SELECT role FROM public.group_members WHERE group_id = $1 AND user_id = $2`,
-        [groupId, payload.sub]
+        [groupId, user.userId]
       );
       if (memberCheck.rows[0]?.role === 'admin') {
         isGroupAdmin = true;
@@ -341,7 +328,7 @@ export async function DELETE(
     } else {
       await pool.query(
         `DELETE FROM public.group_messages WHERE id = $1 AND group_id = $2 AND user_id = $3`,
-        [messageId, groupId, payload.sub]
+        [messageId, groupId, user.userId]
       );
     }
 
@@ -357,18 +344,14 @@ export async function PATCH(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const params = await props.params;
     const groupId = params?.id;
-    const token = request.cookies.get('sb-access-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
 
     const body = await request.json();
     const { messageId, emoji } = body;
@@ -394,13 +377,13 @@ export async function PATCH(
     }
 
     const userList = reactions[emoji] || [];
-    if (userList.includes(payload.sub)) {
-      reactions[emoji] = userList.filter((id) => id !== payload.sub);
+    if (userList.includes(user.userId)) {
+      reactions[emoji] = userList.filter((id) => id !== user.userId);
       if (reactions[emoji].length === 0) {
         delete reactions[emoji];
       }
     } else {
-      reactions[emoji] = [...userList, payload.sub];
+      reactions[emoji] = [...userList, user.userId];
     }
 
     await pool.query(

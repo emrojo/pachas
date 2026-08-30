@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
-import { verifyJwt } from '@/lib/auth/jwt';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 import { sanitizeText } from '@/lib/security/sanitize';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
@@ -30,6 +30,11 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const params = await props.params;
     const expenseId = params?.id;
     if (!expenseId) {
@@ -88,18 +93,14 @@ export async function POST(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const params = await props.params;
     const expenseId = params?.id;
-    const token = request.cookies.get('sb-access-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
 
     const body = await request.json();
     const rawComment = body.comment || '';
@@ -134,15 +135,15 @@ export async function POST(
         comment: {
           id: commentId,
           expense_id: expenseId,
-          user_id: payload.sub,
+          user_id: user.userId,
           comment: cleanComment,
           gif_url: gifUrl,
           reactions: {},
           created_at: new Date().toISOString(),
           profile: {
-            id: payload.sub,
-            email: payload.email || '',
-            full_name: payload.full_name || 'Amigo',
+            id: user.userId,
+            email: user.email || '',
+            full_name: user.email?.split('@')[0] || 'Amigo',
             avatar_url: null,
           },
         },
@@ -156,7 +157,7 @@ export async function POST(
         `INSERT INTO public.expense_comments (id, expense_id, user_id, comment, gif_url, reactions, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW())
          ON CONFLICT (id) DO UPDATE SET comment = EXCLUDED.comment, gif_url = EXCLUDED.gif_url`,
-        [commentId, expenseId, payload.sub, cleanComment, gifUrl, JSON.stringify({})]
+        [commentId, expenseId, user.userId, cleanComment, gifUrl, JSON.stringify({})]
       );
     } catch (insertErr: any) {
       if (insertErr.code === '42P01' || String(insertErr.message).includes('expense_comments')) {
@@ -168,13 +169,13 @@ export async function POST(
 
     // Fetch author profile
     const profileRes = await pool.query(
-      `SELECT id, email, full_name, avatar_url FROM public.profiles WHERE id = $1`,
-      [payload.sub]
+      `SELECT id, email, full_name, avatar_url FROM public.profiles WHERE id::text = $1::text`,
+      [user.userId]
     );
     const authorProfile = profileRes.rows[0] || {
-      id: payload.sub,
-      email: payload.email || '',
-      full_name: payload.full_name || 'Amigo',
+      id: user.userId,
+      email: user.email || '',
+      full_name: user.email?.split('@')[0] || 'Amigo',
       avatar_url: null,
     };
 
@@ -212,7 +213,7 @@ export async function POST(
             `INSERT INTO public.group_messages (id, group_id, user_id, message, gif_url, reactions, expense_id, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
              ON CONFLICT (id) DO NOTHING`,
-            [commentId, exp.group_id, payload.sub, cleanComment, gifUrl, JSON.stringify({}), expenseId]
+            [commentId, exp.group_id, user.userId, cleanComment, gifUrl, JSON.stringify({}), expenseId]
           );
         } catch (mirrorErr) {
           console.warn('Notice mirroring expense comment to group chat:', mirrorErr);
@@ -220,7 +221,7 @@ export async function POST(
 
         // Single push notification dispatching (prevents double notifications)
         const preview = cleanComment ? (cleanComment.length > 65 ? `${cleanComment.substring(0, 62)}...` : cleanComment) : '🎬 [GIF animado]';
-        notifyGroupMembers(exp.group_id, payload.sub, {
+        notifyGroupMembers(exp.group_id, user.userId, {
           title: `💬 Comentario en ${exp.title}`,
           body: `${authorProfile.full_name}: "${preview}"`,
           url: `/groups/${exp.group_id}?tab=expenses&expenseId=${expenseId}&comments=true`,
@@ -241,7 +242,7 @@ export async function POST(
       comment: {
         id: commentId,
         expense_id: expenseId,
-        user_id: payload.sub,
+        user_id: user.userId,
         comment: cleanComment,
         gif_url: gifUrl,
         reactions: {},
@@ -260,18 +261,14 @@ export async function PATCH(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const params = await props.params;
     const expenseId = params?.id;
-    const token = request.cookies.get('sb-access-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
 
     const body = await request.json();
     const { commentId, emoji } = body;
@@ -298,15 +295,15 @@ export async function PATCH(
     }
 
     const userList = reactions[emoji] || [];
-    const hasReacted = userList.includes(payload.sub);
+    const hasReacted = userList.includes(user.userId);
 
     if (hasReacted) {
-      reactions[emoji] = userList.filter((uId) => uId !== payload.sub);
+      reactions[emoji] = userList.filter((uId) => uId !== user.userId);
       if (reactions[emoji].length === 0) {
         delete reactions[emoji];
       }
     } else {
-      reactions[emoji] = [...userList, payload.sub];
+      reactions[emoji] = [...userList, user.userId];
     }
 
     await pool.query(
@@ -326,18 +323,14 @@ export async function DELETE(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const params = await props.params;
     const expenseId = params?.id;
-    const token = request.cookies.get('sb-access-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
 
     const url = new URL(request.url);
     const commentId = url.searchParams.get('commentId');
@@ -351,7 +344,7 @@ export async function DELETE(
       try {
         await pool.query(
           `DELETE FROM public.expense_comments WHERE id::text = $1::text AND (user_id::text = $2::text OR expense_id::text = $3::text)`,
-          [commentId, payload.sub, expenseId]
+          [commentId, user.userId, expenseId]
         );
       } catch (delErr: any) {
         if (delErr.code !== '42P01') throw delErr;

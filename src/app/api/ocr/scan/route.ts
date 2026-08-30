@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { verifyJwt } from '@/lib/auth/jwt';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 import { ExpenseCategory } from '@/types/database';
 
 export interface SensitiveBox {
@@ -83,13 +83,13 @@ export function getGeminiApiKey(): string | undefined {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Session verification (Optional in local mode, enforced when tokens present)
-    const token = request.cookies.get('sb-access-token')?.value;
+    // 1. Session verification
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader || request.cookies.get('sb-access-token')?.value || request.cookies.get('pachas_demo_user')?.value;
     if (token) {
-      const payload = await verifyJwt(token);
-      if (!payload?.sub) {
-        // Token exists but is invalid
-        return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
+      const authResult = await requireActiveUser(request);
+      if (authResult.errorResponse) {
+        return authResult.errorResponse;
       }
     }
 
