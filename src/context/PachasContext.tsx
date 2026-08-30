@@ -13,6 +13,7 @@ import {
   ExpenseCategory,
   PaymentMethod,
   ExpenseComment,
+  PendingReceiptScan,
 } from '@/types/database';
 import {
   DEMO_CURRENT_USER,
@@ -25,7 +26,7 @@ import {
 import { calculateBalances, simplifyDebts } from '@/lib/algorithms/simplifyDebts';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
-import { isUserAdmin, isDemoModeAllowed } from '@/lib/authConfig';
+import { isAppAdmin, isGroupAdmin as checkIsGroupAdmin, isDemoModeAllowed } from '@/lib/authConfig';
 import {
   getSyncQueue,
   enqueueSyncAction,
@@ -61,7 +62,9 @@ export interface CreateExpenseInput {
 interface PachasContextType {
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
+  isAppAdmin: boolean;
   isCurrentUserAdmin: boolean;
+  isGroupAdmin: (groupId: string, userId?: string) => boolean;
   isDemoMode: boolean;
   groups: Group[];
   isLoading: boolean;
@@ -75,6 +78,10 @@ interface PachasContextType {
   getGroupDebts: (groupId: string) => SimplifiedDebt[];
   addExpense: (input: CreateExpenseInput) => Promise<Expense>;
   scanAndCreateExpenseAsync: (groupId: string, receiptDataUrl: string) => Promise<Expense>;
+  pendingReceiptScans: PendingReceiptScan[];
+  queueReceiptScan: (groupId: string, censoredImageDataUrl: string) => Promise<PendingReceiptScan>;
+  confirmPendingScan: (scanId: string, input: CreateExpenseInput) => Promise<Expense>;
+  dismissPendingScan: (scanId: string) => void;
   importExpenses: (groupId: string, inputs: CreateExpenseInput[]) => Promise<Expense[]>;
   lastImportBatch: { groupId: string; expenseIds: string[]; count: number } | null;
   undoLastImport: (groupId: string) => Promise<number>;
@@ -209,6 +216,27 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
+  const [pendingReceiptScans, setPendingReceiptScans] = useState<PendingReceiptScan[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pachas_pending_scans_v1');
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        safeSetLocalStorage('pachas_pending_scans_v1', JSON.stringify(pendingReceiptScans));
+      } catch (err) {
+        console.warn('Error saving pending scans to storage:', err);
+      }
+    }
+  }, [pendingReceiptScans]);
 
   const groupsRef = useRef<Group[]>(groups);
   const membersRef = useRef<Record<string, GroupMember[]>>(members);
@@ -1202,6 +1230,95 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return initialExpense;
   };
 
+  const queueReceiptScan = async (groupId: string, censoredImageDataUrl: string): Promise<PendingReceiptScan> => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para escanear un ticket.');
+    }
+
+    const scanId = `scan-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newScan: PendingReceiptScan = {
+      id: scanId,
+      group_id: groupId,
+      user_id: currentUser.id,
+      created_at: new Date().toISOString(),
+      original_image: censoredImageDataUrl,
+      status: 'processing',
+    };
+
+    setPendingReceiptScans((prev) => [newScan, ...prev.filter((s) => s.id !== scanId)]);
+
+    // Non-blocking background OCR processing
+    (async () => {
+      try {
+        console.log('[QueueScan] 🚀 Procesando ticket en segundo plano:', scanId);
+        const scannedData = await scanReceipt(censoredImageDataUrl);
+        console.log('[QueueScan] 📥 Resultado de IA para scanId:', scanId, scannedData);
+
+        setPendingReceiptScans((prev) =>
+          prev.map((s) =>
+            s.id === scanId
+              ? {
+                  ...s,
+                  status: 'ready',
+                  scanned_data: scannedData,
+                }
+              : s
+          )
+        );
+
+        // Show push / in-app notification when ready
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+          if (Notification.permission === 'granted') {
+            try {
+              const notifTitle = `🧾 Ticket listo para validar: ${scannedData?.title || 'Nuevo gasto'}`;
+              const notifBody = `Importe: ${scannedData?.amountFormatted || (typeof scannedData?.amount === 'number' ? `${scannedData.amount} €` : '')}. Pulsa para revisar las censuras y confirmar el gasto.`;
+              
+              if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                const reg = await navigator.serviceWorker.ready;
+                reg.showNotification(notifTitle, {
+                  body: notifBody,
+                  icon: '/icon-192.png',
+                  badge: '/badge-72.png',
+                  tag: `scan-${scanId}`,
+                  data: { scanId, groupId, url: `/groups/${groupId}?validateScan=${scanId}` },
+                });
+              } else {
+                new Notification(notifTitle, { body: notifBody, icon: '/icon-192.png' });
+              }
+            } catch (notifErr) {
+              console.warn('Error showing scan notification:', notifErr);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn('[QueueScan] Error analizando ticket:', err);
+        setPendingReceiptScans((prev) =>
+          prev.map((s) =>
+            s.id === scanId
+              ? {
+                  ...s,
+                  status: 'error',
+                  error_message: err.message || 'Error al analizar el ticket',
+                }
+              : s
+          )
+        );
+      }
+    })();
+
+    return newScan;
+  };
+
+  const confirmPendingScan = async (scanId: string, input: CreateExpenseInput): Promise<Expense> => {
+    const createdExpense = await addExpense(input);
+    setPendingReceiptScans((prev) => prev.filter((s) => s.id !== scanId));
+    return createdExpense;
+  };
+
+  const dismissPendingScan = (scanId: string) => {
+    setPendingReceiptScans((prev) => prev.filter((s) => s.id !== scanId));
+  };
+
   const importExpenses = async (groupId: string, inputs: CreateExpenseInput[]): Promise<Expense[]> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para importar gastos.');
@@ -1596,7 +1713,19 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 
 
-  const isCurrentUserAdmin = isUserAdmin(currentUser, groups, members);
+  const isAppAdminUser = isAppAdmin(currentUser);
+  const isCurrentUserAdmin = isAppAdminUser;
+
+  const isUserGroupAdmin = (groupId: string, targetUserId?: string): boolean => {
+    const checkUser = targetUserId
+      ? availableUsers.find((u) => u.id === targetUserId) || (currentUser?.id === targetUserId ? currentUser : null)
+      : currentUser;
+    if (!checkUser || !groupId) return false;
+    const group = groups.find((g) => g.id === groupId);
+    const groupMembers = members[groupId] || [];
+    return checkIsGroupAdmin(groupId, checkUser, group, groupMembers);
+  };
+
   const isDemoMode = isDemoModeAllowed();
 
   const createLocalUser = async (data: {
@@ -1868,7 +1997,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       value={{
         currentUser,
         setCurrentUser,
+        isAppAdmin: isAppAdminUser,
         isCurrentUserAdmin,
+        isGroupAdmin: isUserGroupAdmin,
         isDemoMode,
         availableUsers,
         createLocalUser,
@@ -1885,6 +2016,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         getGroupDebts,
         addExpense,
         scanAndCreateExpenseAsync,
+        pendingReceiptScans,
+        queueReceiptScan,
+        confirmPendingScan,
+        dismissPendingScan,
         importExpenses,
         lastImportBatch,
         undoLastImport,

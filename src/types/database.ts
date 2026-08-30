@@ -167,3 +167,15 @@ export interface ExpenseComment {
   profile?: Profile;
 }
 
+export interface PendingReceiptScan {
+  id: string;
+  group_id: string;
+  user_id: string;
+  created_at: string;
+  original_image: string; // Base64 pre-censored image
+  status: 'processing' | 'ready' | 'error';
+  error_message?: string;
+  scanned_data?: any; // ScannedReceiptData
+}
+
+

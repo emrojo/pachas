@@ -9,6 +9,9 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { GroupCard } from '@/components/groups/GroupCard';
 import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
+import { PendingScansBanner } from '@/components/expenses/PendingScansBanner';
+import { ReceiptValidationModal } from '@/components/expenses/ReceiptValidationModal';
+import { PendingReceiptScan } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 
 import { Input } from '@/components/ui/Input';
@@ -35,6 +38,7 @@ export default function DashboardPage() {
   const [joinCode, setJoinCode] = useState('');
   const [joinError, setJoinError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [validatingScan, setValidatingScan] = useState<PendingReceiptScan | null>(null);
 
   if (!currentUser) return null;
 
@@ -127,6 +131,11 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Pending Scans Banner for user */}
+        <PendingScansBanner
+          onSelectScanToValidate={(scan) => setValidatingScan(scan)}
+        />
 
         {/* Search Bar & Join with Code Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -303,6 +312,15 @@ export default function DashboardPage() {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
       />
+
+      {validatingScan && (
+        <ReceiptValidationModal
+          isOpen={!!validatingScan}
+          onClose={() => setValidatingScan(null)}
+          pendingScan={validatingScan}
+          groupId={validatingScan.group_id}
+        />
+      )}
     </div>
   );
 }

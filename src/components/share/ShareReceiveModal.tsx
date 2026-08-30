@@ -58,7 +58,7 @@ async function renderFirstPdfPageAsDataUrl(pdfDataUrl: string): Promise<string> 
 
 export function ShareReceiveModal({ file, onClose }: Props) {
   const router = useRouter();
-  const { groups, scanAndCreateExpenseAsync } = usePachas();
+  const { groups, queueReceiptScan } = usePachas();
 
   // Only show non-archived groups
   const activeGroups = groups.filter((g) => !g.is_archived);
@@ -82,22 +82,22 @@ export function ShareReceiveModal({ file, onClose }: Props) {
         imageDataUrl = await renderFirstPdfPageAsDataUrl(file.dataUrl);
       }
 
-      // 2. Scan + create expense
+      // 2. Queue receipt scan in background
       setStatus('scanning');
-      await scanAndCreateExpenseAsync(selectedGroupId, imageDataUrl);
+      await queueReceiptScan(selectedGroupId, imageDataUrl);
 
       setStatus('done');
 
-      // 3. Navigate to the group after a brief success moment
+      // 3. Navigate to the group after a brief moment
       setTimeout(() => {
         router.push(`/groups/${selectedGroupId}`);
-      }, 1400);
+      }, 1000);
     } catch (err: any) {
       console.error('[ShareReceiveModal] scan error:', err);
       setErrorMsg(err?.message ?? 'Error al procesar el archivo.');
       setStatus('error');
     }
-  }, [file, selectedGroupId, scanAndCreateExpenseAsync, router]);
+  }, [file, selectedGroupId, queueReceiptScan, router]);
 
   // ── UI ──────────────────────────────────────────────────────────────────────
 

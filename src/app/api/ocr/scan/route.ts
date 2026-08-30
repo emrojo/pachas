@@ -4,6 +4,11 @@ import path from 'path';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { ExpenseCategory } from '@/types/database';
 
+export interface SensitiveBox {
+  box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
+  label?: string;
+}
+
 export interface VisionScanResult {
   title?: string;
   amount?: number;
@@ -15,6 +20,7 @@ export interface VisionScanResult {
   longitude?: number;
   mapsUrl?: string;
   currency?: string;
+  sensitiveBoxes?: SensitiveBox[];
   confidence: number;
   source: string;
 }
@@ -115,9 +121,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datos de imagen insuficientes' }, { status: 400 });
     }
 
-    // 3. System prompt for structured receipt extraction
+    // 3. System prompt for structured receipt extraction with sensitive information detection
     const prompt = `Analiza detalladamente esta fotografía de un ticket, factura o recibo de compra (restaurante, supermercado, hotel, transporte, etc.).
-Extrae la información económica clave con máxima precisión y responde ESTRICTAMENTE en formato JSON válido sin texto adicional.
+Extrae la información económica clave con máxima precisión y detecta cualquier dato bancario o sensible para su censura. Responde ESTRICTAMENTE en formato JSON válido sin texto adicional.
 
 Esquema JSON requerido:
 {
@@ -127,7 +133,13 @@ Esquema JSON requerido:
   "date": "YYYY-MM-DDTHH:mm",
   "category": "food" | "shopping" | "transport" | "accommodation" | "activities" | "other",
   "locationName": "Dirección física (calle, número, código postal y/o ciudad) del establecimiento si aparece en el ticket (ej: 'C/ Gran Vía 28, Madrid') o null",
-  "currency": "EUR"
+  "currency": "EUR",
+  "sensitiveBoxes": [
+    {
+      "box_2d": [ymin, xmin, ymax, xmax],
+      "label": "Datos de tarjeta / Banco / DNI"
+    }
+  ]
 }
 
 Reglas críticas de extracción:
@@ -143,7 +155,12 @@ Reglas críticas de extracción:
    - "other": cualquier otro concepto.
 5. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay dirección legible, devuelve null.
 6. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").
-7. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
+7. sensitiveBoxes: Coordenadas de cajas delimitadoras normalizadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 que cubran información bancaria o sensible:
+   - Números de tarjeta de crédito/débito (PAN, **** 1234, fecha caducidad, tipo de tarjeta).
+   - Datos bancarios, números de cuenta, IBAN, códigos de autorización de datáfono, PINs o firmas.
+   - DNI/NIF/CIF del cliente, nombres personales o teléfonos privados del comprador.
+   Si no hay información sensible presente en la imagen, devuelve un array vacío: [].
+8. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
 
     // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
     const candidateModels = [
@@ -500,6 +517,23 @@ Reglas críticas de extracción:
       return rawDate ? String(rawDate).trim() : undefined;
     };
 
+    const sanitizeSensitiveBoxes = (rawBoxes: any): SensitiveBox[] => {
+      if (!Array.isArray(rawBoxes)) return [];
+      return rawBoxes
+        .filter((b) => b && Array.isArray(b.box_2d) && b.box_2d.length === 4)
+        .map((b) => {
+          const coords = b.box_2d.map((val: any) => {
+            const num = Number(val);
+            if (isNaN(num)) return 0;
+            return num <= 1.0 && num > 0 ? Math.round(num * 1000) : Math.min(1000, Math.max(0, Math.round(num)));
+          }) as [number, number, number, number];
+          return {
+            box_2d: coords,
+            label: typeof b.label === 'string' ? b.label.slice(0, 100) : 'Información sensible',
+          };
+        });
+    };
+
     const result: VisionScanResult = {
       title: cleanTitle(parsed.title),
       amount: detectedAmount,
@@ -511,6 +545,7 @@ Reglas críticas de extracción:
       longitude: detectedLongitude,
       mapsUrl: detectedMapsUrl,
       currency: parsed.currency || 'EUR',
+      sensitiveBoxes: sanitizeSensitiveBoxes(parsed.sensitiveBoxes),
       confidence: detectedAmount ? 0.98 : 0.7,
       source: successfulModel || 'gemini-1.5-flash',
     };

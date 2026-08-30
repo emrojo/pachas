@@ -59,7 +59,7 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
                     {member.role === 'admin' ? (
                       <Badge variant="amber" size="sm">
                         <Shield className="w-2.5 h-2.5" />
-                        {t('common.admin')}
+                        {t('groups.groupAdmin') || 'Admin del grupo'}
                       </Badge>
                     ) : null}
                   </div>
