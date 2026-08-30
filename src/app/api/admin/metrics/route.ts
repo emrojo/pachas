@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
-import { getDbPool } from '@/lib/db/postgres';
+import { getDbPool, ensureGlobalSchema } from '@/lib/db/postgres';
 import { isServerAdmin } from '@/lib/auth/adminAuth';
 
 async function checkAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string; email?: string }> {
@@ -95,6 +95,8 @@ export async function GET(request: NextRequest) {
 
     if (pool && isDbConnected) {
       try {
+        await ensureGlobalSchema(pool);
+
         // 1. Users directory
         const usersRes = await pool.query(`
           SELECT 
@@ -104,6 +106,9 @@ export async function GET(request: NextRequest) {
             p.role, 
             p.bizum_phone, 
             p.avatar_url,
+            COALESCE(p.is_banned, FALSE) AS is_banned,
+            p.banned_at,
+            p.ban_reason,
             p.created_at,
             (SELECT COUNT(*) FROM public.group_members gm WHERE gm.user_id = p.id) AS groups_count,
             (SELECT COUNT(*) FROM public.expenses e WHERE e.created_by = p.id) AS expenses_count,
@@ -113,6 +118,7 @@ export async function GET(request: NextRequest) {
         `);
         usersList = usersRes.rows.map((r: any) => ({
           ...r,
+          is_banned: Boolean(r.is_banned),
           groups_count: parseInt(r.groups_count || '0', 10),
           expenses_count: parseInt(r.expenses_count || '0', 10),
           has_push: Boolean(r.has_push),
