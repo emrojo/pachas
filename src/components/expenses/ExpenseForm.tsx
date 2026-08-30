@@ -1473,127 +1473,124 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           />
         </div>
 
-        {/* Fecha y Hora del gasto y Foto de Ticket */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* DateTime Picker strictly in European Format DD/MM/AAAA and 24h HH:mm */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                {t('expenses.dateTime')}
-              </label>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-medium truncate max-w-[130px]" title={getUserTimezoneLabel()}>
-                {getUserTimezoneLabel()}
+        {/* FECHA Y HORA DEL GASTO (Estricto formato europeo DD/MM/AAAA y 24h) */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              {t('expenses.dateTime')}
+            </label>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-medium" title={getUserTimezoneLabel()}>
+              {getUserTimezoneLabel()}
+            </span>
+          </div>
+          {isReadOnly ? (
+            <div className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>
+                {dateDisplayStr} • {timeDisplayStr}
               </span>
             </div>
-            {isReadOnly ? (
-              <div className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>
-                  {dateDisplayStr} • {timeDisplayStr}
-                </span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Fecha Europea DD/MM/AAAA */}
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                      Fecha <span className="text-[10px] text-slate-400 font-normal">(DD/MM/AAAA)</span>
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={setTodayDate}
-                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-                      >
-                        Hoy
-                      </button>
-                      <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
-                      <button
-                        type="button"
-                        onClick={setYesterdayDate}
-                        className="text-[10px] font-bold text-slate-500 hover:underline"
-                      >
-                        Ayer
-                      </button>
-                    </div>
-                  </div>
-                  <div className="relative flex items-center">
-                    <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="DD/MM/AAAA (ej: 30/08/2026)"
-                      value={dateDisplayStr}
-                      onChange={(e) => handleDateInputChange(e.target.value)}
-                      className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
-                    />
-                    {/* Native hidden date picker for calendar click */}
-                    <input
-                      type="date"
-                      ref={datePickerRef}
-                      value={(() => {
-                        const parts = (dateDisplayStr || '').split(/[\/\.-]/);
-                        if (parts.length >= 3) {
-                          const d = parts[0].padStart(2, '0');
-                          const m = parts[1].padStart(2, '0');
-                          let y = parts[2];
-                          if (y.length === 2) y = `20${y}`;
-                          return `${y}-${m}-${d}`;
-                        }
-                        return '';
-                      })()}
-                      onChange={(e) => handleNativeDateChange(e.target.value)}
-                      className="absolute right-2 opacity-0 w-6 h-6 cursor-pointer"
-                      tabIndex={-1}
-                    />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Fecha Europea DD/MM/AAAA */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                    Fecha <span className="text-[10px] text-slate-400 font-normal">(DD/MM/AAAA)</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => datePickerRef.current?.showPicker?.() || datePickerRef.current?.click()}
-                      className="absolute right-2.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1"
-                      title="Abrir calendario"
+                      onClick={setTodayDate}
+                      className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
                     >
-                      <Calendar className="w-3.5 h-3.5" />
+                      Hoy
+                    </button>
+                    <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
+                    <button
+                      type="button"
+                      onClick={setYesterdayDate}
+                      className="text-[11px] font-bold text-slate-500 hover:underline"
+                    >
+                      Ayer
                     </button>
                   </div>
                 </div>
-
-                {/* Hora HH:mm (24h) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                      Hora <span className="text-[10px] text-slate-400 font-normal">(24h)</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={setNowTime}
-                      className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-                    >
-                      Ahora
-                    </button>
-                  </div>
-                  <div className="relative flex items-center">
-                    <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="HH:MM (ej: 14:35)"
-                      value={timeDisplayStr}
-                      onChange={(e) => handleTimeInputChange(e.target.value)}
-                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
-                    />
-                  </div>
+                <div className="relative flex items-center">
+                  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="DD/MM/AAAA (ej: 30/08/2026)"
+                    value={dateDisplayStr}
+                    onChange={(e) => handleDateInputChange(e.target.value)}
+                    className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
+                  />
+                  {/* Native hidden date picker for calendar click */}
+                  <input
+                    type="date"
+                    ref={datePickerRef}
+                    value={(() => {
+                      const parts = (dateDisplayStr || '').split(/[\/\.-]/);
+                      if (parts.length >= 3) {
+                        const d = parts[0].padStart(2, '0');
+                        const m = parts[1].padStart(2, '0');
+                        let y = parts[2];
+                        if (y.length === 2) y = `20${y}`;
+                        return `${y}-${m}-${d}`;
+                      }
+                      return '';
+                    })()}
+                    onChange={(e) => handleNativeDateChange(e.target.value)}
+                    className="absolute right-2 opacity-0 w-6 h-6 cursor-pointer"
+                    tabIndex={-1}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => datePickerRef.current?.showPicker?.() || datePickerRef.current?.click()}
+                    className="absolute right-2.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1"
+                    title="Abrir calendario"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Receipt Photo Upload / View */}
-          {/* Receipt Photo Upload / Camera / View */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-              {t('expenses.receiptPhoto')}
-            </label>
+              {/* Hora HH:mm (24h) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                    Hora <span className="text-[10px] text-slate-400 font-normal">(24h)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={setNowTime}
+                    className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    Ahora
+                  </button>
+                </div>
+                <div className="relative flex items-center">
+                  <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="HH:MM (ej: 14:35)"
+                    value={timeDisplayStr}
+                    onChange={(e) => handleTimeInputChange(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* FOTO DEL TICKET / FACTURA */}
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+            {t('expenses.receiptPhoto')}
+          </label>
             <div className="flex items-center gap-2">
               {!isReadOnly ? (
                 <>
@@ -1668,7 +1665,6 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               </p>
             )}
           </div>
-        </div>
 
         {/* Comentarios y aclaraciones del gasto */}
         {expenseToEdit?.id && (
