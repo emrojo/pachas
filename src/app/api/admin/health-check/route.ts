@@ -1,37 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { getDbPool } from '@/lib/db/postgres';
-import { isDemoModeAllowed } from '@/lib/authConfig';
+import { isServerAdmin } from '@/lib/auth/adminAuth';
 
 async function checkAdminAuth(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get('sb-access-token')?.value;
-  const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL)?.trim().toLowerCase();
+  const authHeader = request.headers.get('authorization');
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : undefined;
+  const token = bearerToken || request.cookies.get('sb-access-token')?.value;
 
   if (token) {
     const payload = await verifyJwt(token);
     if (payload?.sub) {
-      if (payload.role === 'admin' || (adminEmail && payload.email?.toLowerCase() === adminEmail)) return true;
+      if (isServerAdmin(payload.email, payload.sub, payload.role)) return true;
       const pool = getDbPool();
       if (pool) {
         try {
           const uRes = await pool.query('SELECT role, email FROM public.profiles WHERE id::text = $1::text', [payload.sub]);
           if (uRes.rows.length > 0) {
             const user = uRes.rows[0];
-            if (user.role === 'admin' || (adminEmail && user.email?.toLowerCase() === adminEmail)) return true;
+            if (isServerAdmin(user.email, payload.sub, user.role)) return true;
           }
         } catch {}
       }
     }
   }
 
-  if (isDemoModeAllowed()) {
-    const demoCookie = request.cookies.get('pachas_demo_user')?.value;
-    if (demoCookie) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(demoCookie));
-        if (parsed.id === 'user-1' || parsed.email === 'ana@example.com' || parsed.role === 'admin') return true;
-      } catch {}
-    }
+  const demoCookie = request.cookies.get('pachas_demo_user')?.value;
+  if (demoCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(demoCookie));
+      if (isServerAdmin(parsed.email, parsed.id, parsed.role)) return true;
+    } catch {}
   }
 
   return false;

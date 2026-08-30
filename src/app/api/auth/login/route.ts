@@ -4,6 +4,7 @@ import { verifyPassword } from '@/lib/auth/password';
 import { signJwt } from '@/lib/auth/jwt';
 import { DEMO_USERS } from '@/lib/demoData';
 import { isDemoModeAllowed } from '@/lib/authConfig';
+import { isServerAdmin } from '@/lib/auth/adminAuth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,14 +26,17 @@ export async function POST(request: NextRequest) {
     if (isDemo && demoAllowed) {
       const demoUser = DEMO_USERS.find((u) => u.email.toLowerCase() === cleanEmail);
       if (demoUser) {
+        const isAdmin = isServerAdmin(demoUser.email, demoUser.id, demoUser.role);
+        const role = isAdmin ? 'admin' : demoUser.role;
+        const finalUser = { ...demoUser, role };
         const token = await signJwt({
-          sub: demoUser.id,
-          email: demoUser.email,
-          role: demoUser.role,
-          full_name: demoUser.full_name,
+          sub: finalUser.id,
+          email: finalUser.email,
+          role,
+          full_name: finalUser.full_name,
         });
 
-        const response = NextResponse.json({ success: true, user: demoUser });
+        const response = NextResponse.json({ success: true, user: finalUser });
         response.cookies.set('sb-access-token', token, {
           httpOnly: true,
           secure: isHttps,
@@ -66,7 +70,8 @@ export async function POST(request: NextRequest) {
           const isPasswordValid = verifyPassword(password, row.encrypted_password);
 
           if (isPasswordValid) {
-            const role = row.role || (cleanEmail === process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ? 'admin' : 'member');
+            const isAdmin = isServerAdmin(cleanEmail, row.id, row.role);
+            const role = isAdmin ? 'admin' : (row.role || 'member');
             const fullName = row.full_name || row.raw_user_meta_data?.full_name || cleanEmail.split('@')[0];
 
             const userProfile = {
