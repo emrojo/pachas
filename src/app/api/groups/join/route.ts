@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { randomUUID } from 'crypto';
+import { notifyGroupMembers } from '@/lib/notifications/webPush';
 
 export async function POST(request: NextRequest) {
   try {
@@ -106,6 +107,19 @@ export async function POST(request: NextRequest) {
         role: m.role,
       },
     }));
+
+    // Dispatch push notification to existing group members
+    try {
+      const joiner = members.find((m) => m.user_id === payload.sub)?.profile;
+      const joinerName = joiner?.full_name || payload.full_name || 'Un nuevo amigo';
+      notifyGroupMembers(group.id, payload.sub, {
+        title: `👥 Nuevo miembro en ${group.name}`,
+        body: `${joinerName} se ha unido al grupo.`,
+        url: `/groups/${group.id}`,
+      }).catch((pushErr) => console.warn('Push notification for new member failed:', pushErr));
+    } catch (notifErr) {
+      console.warn('Could not dispatch join notification:', notifErr);
+    }
 
     return NextResponse.json({
       success: true,

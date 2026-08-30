@@ -313,7 +313,12 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-30.3**: **Granular In-Group Toggling**:
   - 1-click toggle directly in the Group Tools Submenu (`GroupActionMenu.tsx`) and in Group Settings (`EditGroupModal.tsx`).
 - **FR-30.4**: **Automated Activity Dispatching**:
-  - Triggers push notifications on new expenses and settlements exclusively to subscribed group members with `notifications_enabled = true`.
+  - **💸 Nuevos Gastos**: Triggers push alerts when a group member logs a new expense (`POST /api/expenses`).
+  - **🤝 Liquidaciones y Deudas**: Dispatches push alerts when debts are settled or recorded (`POST /api/settlements`).
+  - **💬 Comentarios en Gastos**: Dispatches push alerts to group members when a discussion comment is posted on an expense (`POST /api/expenses/[id]/comments`).
+  - **👥 Nuevos Miembros**: Dispatches push alerts when a friend joins the group via invitation code (`POST /api/groups/join`).
+  - **✏️ Gastos Modificados**: Dispatches push alerts when an expense is edited, or when async AI OCR processing completes (`PUT /api/expenses/[id]`).
+  - **🗑️ Gastos Eliminados**: Dispatches push alerts when an expense is deleted to maintain full group transparency (`DELETE /api/expenses/[id]`).
 
 ### 📷 FR-31: Intelligent Receipt Vision Scanning with Google Gemini 1.5 Flash (Free Tier) & Local Fallback
 - **FR-31.1**: **Multimodal Vision AI Backend ([`/api/ocr/scan`](file:///d:/Projects/pachas/src/app/api/ocr/scan/route.ts))**:
@@ -455,3 +460,4 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 📄 Added | **FR-09.3** | **Dual PDF Action: Contextual Direct Download vs Native OS Sharing**: Contextual submenu in `GroupActionMenu` separating PDF export into direct local download (`downloadPDF`) and native OS share sheet (`sharePDF` via Capacitor/Web Share API), fully synchronized across all 19 language dictionaries. |
 | **30/08/2026** | ⏰ Added | **FR-31.4** | **Exact Time & Minute Receipt Extraction**: Enhanced the AI vision engine and fallback parser to extract exact hours and minutes (`HH:mm`), preserving full ISO timestamps across database `INSERT`/`UPDATE` operations without date-only truncation. |
 | **30/08/2026** | 📅 Fixed | **FR-13.1 & FR-13.2** | **Strict European Date Standard & Timezone Skew Immunity**: Prohibited month-first formats (`MM/DD/YYYY`) across the entire project in favor of strict day-first (`DD/MM/YYYY`), configured `node-postgres` raw type parsers (OIDs 1082, 1114, 1184) and PostgreSQL migration `06-expense-datetime.sql` (`TIMESTAMPTZ`), preventing UTC midnight dates from displaying as 02:00 AM on reload and preserving exact OCR timestamps. |
+| **30/08/2026** | 🔔 Added | **FR-30.4** | **Expanded Push Notifications Coverage**: Added automated WebPush & mobile push alerts for **💬 Comments in Expenses** (`/api/expenses/[id]/comments`), **👥 New Members Joined** (`/api/groups/join`), and **✏️/🗑️ Expenses Modified & Deleted** (`/api/expenses/[id]`) respecting group opt-in preferences. |

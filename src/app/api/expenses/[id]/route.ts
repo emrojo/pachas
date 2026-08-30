@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { randomUUID } from 'crypto';
+import { notifyGroupMembers } from '@/lib/notifications/webPush';
 
 export async function PUT(
   request: NextRequest,
@@ -231,6 +232,44 @@ export async function PUT(
       }
 
       await client.query('COMMIT');
+
+      // Dispatch push notification to group members
+      try {
+        const pool = getDbPool();
+        if (pool) {
+          const groupRes = await pool.query(
+            `SELECT e.group_id, g.name as group_name, p.full_name as editor_name
+             FROM public.expenses e
+             JOIN public.groups g ON g.id = e.group_id
+             LEFT JOIN public.profiles p ON p.id = $2
+             WHERE e.id = $1`,
+            [expenseId, payload.sub]
+          );
+          if (groupRes.rows.length > 0) {
+            const g = groupRes.rows[0];
+            const editor = g.editor_name || payload.full_name || 'Un amigo';
+            const formattedAmt = typeof dbAmount === 'number' ? dbAmount.toFixed(2).replace('.', ',') : String(dbAmount);
+            const isOcrFinished = body.ocr_status === 'completed' && title !== 'Analizando ticket con IA...';
+
+            if (isOcrFinished) {
+              notifyGroupMembers(g.group_id, payload.sub, {
+                title: `✨ Factura procesada en ${g.group_name}`,
+                body: `Se reconoció "${title}" por ${formattedAmt} ${currency || 'EUR'}`,
+                url: `/groups/${g.group_id}`,
+              }).catch((pushErr) => console.warn('Push notification for ocr completion failed:', pushErr));
+            } else {
+              notifyGroupMembers(g.group_id, payload.sub, {
+                title: `✏️ Gasto modificado en ${g.group_name}`,
+                body: `${editor} modificó "${title}" (${formattedAmt} ${currency || 'EUR'})`,
+                url: `/groups/${g.group_id}`,
+              }).catch((pushErr) => console.warn('Push notification for expense update failed:', pushErr));
+            }
+          }
+        }
+      } catch (notifErr) {
+        console.warn('Could not dispatch expense update notification:', notifErr);
+      }
+
       return NextResponse.json({ success: true, id: expenseId });
     } catch (err) {
       await client.query('ROLLBACK');
@@ -266,7 +305,48 @@ export async function DELETE(
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
+    // Query expense info before deletion to notify group
+    let deletedExpenseInfo: { title: string; amount: string; currency: string; group_id: string; group_name: string; deleter_name: string } | null = null;
+    try {
+      const expRes = await pool.query(
+        `SELECT e.title, e.amount, e.currency, e.group_id, g.name as group_name, p.full_name as deleter_name
+         FROM public.expenses e
+         JOIN public.groups g ON g.id = e.group_id
+         LEFT JOIN public.profiles p ON p.id = $2
+         WHERE e.id = $1`,
+        [expenseId, payload.sub]
+      );
+      if (expRes.rows.length > 0) {
+        const row = expRes.rows[0];
+        const numAmt = Number(row.amount) || 0;
+        deletedExpenseInfo = {
+          title: row.title,
+          amount: numAmt.toFixed(2).replace('.', ','),
+          currency: row.currency || 'EUR',
+          group_id: row.group_id,
+          group_name: row.group_name,
+          deleter_name: row.deleter_name || payload.full_name || 'Un amigo',
+        };
+      }
+    } catch (infoErr) {
+      console.warn('Could not query expense info before deletion:', infoErr);
+    }
+
     await pool.query('DELETE FROM public.expenses WHERE id = $1', [expenseId]);
+
+    // Dispatch push notification to group members
+    if (deletedExpenseInfo) {
+      try {
+        notifyGroupMembers(deletedExpenseInfo.group_id, payload.sub, {
+          title: `🗑️ Gasto eliminado en ${deletedExpenseInfo.group_name}`,
+          body: `${deletedExpenseInfo.deleter_name} eliminó "${deletedExpenseInfo.title}" (${deletedExpenseInfo.amount} ${deletedExpenseInfo.currency})`,
+          url: `/groups/${deletedExpenseInfo.group_id}`,
+        }).catch((pushErr) => console.warn('Push notification for expense deletion failed:', pushErr));
+      } catch (notifErr) {
+        console.warn('Could not dispatch delete notification:', notifErr);
+      }
+    }
+
     return NextResponse.json({ success: true, id: expenseId });
   } catch (err: any) {
     console.error('API delete expense error:', err);

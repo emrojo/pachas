@@ -3,6 +3,7 @@ import { getDbPool } from '@/lib/db/postgres';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { randomUUID } from 'crypto';
 import { sanitizeText } from '@/lib/security/sanitize';
+import { notifyGroupMembers } from '@/lib/notifications/webPush';
 
 export async function GET(
   request: NextRequest,
@@ -162,6 +163,28 @@ export async function POST(
       full_name: payload.full_name || 'Amigo',
       avatar_url: null,
     };
+
+    // Dispatch push notification to group members
+    try {
+      const expRes = await pool.query(
+        `SELECT e.title, e.group_id, g.name as group_name
+         FROM public.expenses e
+         JOIN public.groups g ON g.id = e.group_id
+         WHERE e.id = $1`,
+        [expenseId]
+      );
+      if (expRes.rows.length > 0) {
+        const exp = expRes.rows[0];
+        const shortComment = cleanComment.length > 65 ? `${cleanComment.substring(0, 62)}...` : cleanComment;
+        notifyGroupMembers(exp.group_id, payload.sub, {
+          title: `💬 Comentario en ${exp.title}`,
+          body: `${authorProfile.full_name}: "${shortComment}"`,
+          url: `/groups/${exp.group_id}`,
+        }).catch((pushErr) => console.warn('Push notification for comment failed:', pushErr));
+      }
+    } catch (notifErr) {
+      console.warn('Could not dispatch comment notification:', notifErr);
+    }
 
     return NextResponse.json({
       success: true,
