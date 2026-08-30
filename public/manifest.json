@@ -44,5 +44,27 @@
       "url": "/profile",
       "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/share-receive",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": [
+            "application/pdf",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp"
+          ]
+        }
+      ]
+    }
+  }
 }

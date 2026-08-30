@@ -44,6 +44,43 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // === Web Share Target: intercept POST /share-receive ===
+  // When the user shares a PDF/image to Pachas from another app (Chrome Android),
+  // the browser POSTs multipart/form-data to /share-receive. We forward the file
+  // to /api/share-receive, cache the JSON result, and redirect to GET /share-receive
+  // so the React page can read the data from the cache.
+  if (request.method === 'POST' && url.pathname === '/share-receive') {
+    event.respondWith(
+      (async () => {
+        try {
+          // Forward the POST to our API route
+          const formData = await request.formData();
+          const apiResponse = await fetch('/api/share-receive', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (apiResponse.ok) {
+            const json = await apiResponse.json();
+            // Store result in Cache API so the GET page can read it
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(
+              '/share-receive-data',
+              new Response(JSON.stringify(json), {
+                headers: { 'Content-Type': 'application/json' },
+              })
+            );
+          }
+        } catch (err) {
+          console.warn('[SW] share-receive POST error:', err);
+        }
+        // Always redirect to the GET version of the page
+        return Response.redirect('/share-receive?from=sw', 303);
+      })()
+    );
+    return;
+  }
+
   // Ignore non-GET, cross-origin or chrome-extension requests
   if (request.method !== 'GET' || !url.origin.includes(self.location.origin)) {
     return;
@@ -53,6 +90,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) {
     return;
   }
+
 
   // Strategy A: Static Chunks & Media (Cache-First with Background Update)
   if (
