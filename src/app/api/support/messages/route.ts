@@ -99,13 +99,15 @@ export async function GET(request: NextRequest) {
 
     // If admin is requesting all conversation summaries
     if (auth.isAdmin && loadConversations && !requestedUserId) {
-      const convQuery = hasBanCol
-        ? `SELECT 
+      let convRes;
+      try {
+        convRes = await pool.query(`
+          SELECT 
             m.user_id,
             COALESCE(p.full_name, 'Usuario') as user_name,
             p.email as user_email,
             p.avatar_url as user_avatar,
-            p.is_banned,
+            COALESCE(p.is_banned, FALSE) as is_banned,
             p.ban_reason,
             COUNT(CASE WHEN m.is_read_by_admin = FALSE AND m.sender_role = 'user' THEN 1 END)::int as unread_count,
             MAX(m.created_at) as last_message_at,
@@ -126,70 +128,84 @@ export async function GET(request: NextRequest) {
           FROM public.support_messages m
           LEFT JOIN public.profiles p ON p.id::text = m.user_id::text
           GROUP BY m.user_id, p.full_name, p.email, p.avatar_url, p.is_banned, p.ban_reason
-          ORDER BY last_message_at DESC`
-        : `SELECT 
-            m.user_id,
-            COALESCE(p.full_name, 'Usuario') as user_name,
-            p.email as user_email,
-            p.avatar_url as user_avatar,
-            FALSE as is_banned,
-            NULL as ban_reason,
-            COUNT(CASE WHEN m.is_read_by_admin = FALSE AND m.sender_role = 'user' THEN 1 END)::int as unread_count,
-            MAX(m.created_at) as last_message_at,
-            (
-              SELECT message 
-              FROM public.support_messages 
-              WHERE user_id = m.user_id 
-              ORDER BY created_at DESC 
-              LIMIT 1
-            ) as last_message,
-            (
-              SELECT category 
-              FROM public.support_messages 
-              WHERE user_id = m.user_id 
-              ORDER BY created_at DESC 
-              LIMIT 1
-            ) as last_category
-          FROM public.support_messages m
-          LEFT JOIN public.profiles p ON p.id::text = m.user_id::text
-          GROUP BY m.user_id, p.full_name, p.email, p.avatar_url
-          ORDER BY last_message_at DESC`;
+          ORDER BY last_message_at DESC
+        `);
+      } catch (err: any) {
+        // If is_banned column is missing on profiles, query without it
+        if (err?.message?.includes('is_banned')) {
+          convRes = await pool.query(`
+            SELECT 
+              m.user_id,
+              COALESCE(p.full_name, 'Usuario') as user_name,
+              p.email as user_email,
+              p.avatar_url as user_avatar,
+              FALSE as is_banned,
+              NULL as ban_reason,
+              COUNT(CASE WHEN m.is_read_by_admin = FALSE AND m.sender_role = 'user' THEN 1 END)::int as unread_count,
+              MAX(m.created_at) as last_message_at,
+              (
+                SELECT message 
+                FROM public.support_messages 
+                WHERE user_id = m.user_id 
+                ORDER BY created_at DESC 
+                LIMIT 1
+              ) as last_message,
+              (
+                SELECT category 
+                FROM public.support_messages 
+                WHERE user_id = m.user_id 
+                ORDER BY created_at DESC 
+                LIMIT 1
+              ) as last_category
+            FROM public.support_messages m
+            LEFT JOIN public.profiles p ON p.id::text = m.user_id::text
+            GROUP BY m.user_id, p.full_name, p.email, p.avatar_url
+            ORDER BY last_message_at DESC
+          `).catch(() => ({ rows: [] }));
+        } else {
+          return NextResponse.json({ conversations: [] });
+        }
+      }
 
-      const convRes = await pool.query(convQuery);
-      return NextResponse.json({ conversations: convRes.rows });
+      return NextResponse.json({ conversations: convRes?.rows || [] });
     }
 
     // Determine target user thread
     const targetUserId = auth.isAdmin && requestedUserId ? requestedUserId : auth.userId;
 
-    const msgRes = await pool.query(
-      `SELECT 
-        m.id,
-        m.user_id,
-        m.sender_id,
-        m.sender_role,
-        m.message,
-        m.category,
-        m.attachment_url,
-        m.is_read_by_user,
-        m.is_read_by_admin,
-        m.created_at,
-        p.full_name as sender_name,
-        p.avatar_url as sender_avatar,
-        up.full_name as user_name,
-        up.email as user_email
-      FROM public.support_messages m
-      LEFT JOIN public.profiles p ON p.id = m.sender_id
-      LEFT JOIN public.profiles up ON up.id = m.user_id
-      WHERE m.user_id = $1
-      ORDER BY m.created_at ASC`,
-      [targetUserId]
-    );
+    let msgRes;
+    try {
+      msgRes = await pool.query(
+        `SELECT 
+          m.id,
+          m.user_id,
+          m.sender_id,
+          m.sender_role,
+          m.message,
+          m.category,
+          m.attachment_url,
+          m.is_read_by_user,
+          m.is_read_by_admin,
+          m.created_at,
+          p.full_name as sender_name,
+          p.avatar_url as sender_avatar,
+          up.full_name as user_name,
+          up.email as user_email
+        FROM public.support_messages m
+        LEFT JOIN public.profiles p ON p.id::text = m.sender_id::text
+        LEFT JOIN public.profiles up ON up.id::text = m.user_id::text
+        WHERE m.user_id::text = $1::text
+        ORDER BY m.created_at ASC`,
+        [targetUserId]
+      );
+    } catch (err: any) {
+      return NextResponse.json({ messages: [] });
+    }
 
-    return NextResponse.json({ messages: msgRes.rows });
+    return NextResponse.json({ messages: msgRes?.rows || [] });
   } catch (err: any) {
     console.error('Error fetching support messages:', err);
-    return NextResponse.json({ error: err.message || 'Error al obtener mensajes de soporte' }, { status: 500 });
+    return NextResponse.json({ messages: [], conversations: [] });
   }
 }
 

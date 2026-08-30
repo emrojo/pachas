@@ -97,18 +97,11 @@ export async function GET(request: NextRequest) {
       try {
         await ensureGlobalSchema(pool);
 
-        let hasBanCol = false;
-        try {
-          const checkCol = await pool.query(`
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'is_banned'
-          `);
-          hasBanCol = checkCol.rows.length > 0;
-        } catch {}
-
         // 1. Users directory
-        const usersQuery = hasBanCol
-          ? `SELECT 
+        let usersRes;
+        try {
+          usersRes = await pool.query(`
+            SELECT 
               p.id, 
               p.full_name, 
               p.email, 
@@ -123,8 +116,12 @@ export async function GET(request: NextRequest) {
               (SELECT COUNT(*) FROM public.expenses e WHERE e.created_by = p.id) AS expenses_count,
               (SELECT COUNT(*) > 0 FROM public.push_subscriptions ps WHERE ps.user_id = p.id) AS has_push
             FROM public.profiles p
-            ORDER BY p.created_at DESC`
-          : `SELECT 
+            ORDER BY p.created_at DESC
+          `);
+        } catch (err: any) {
+          // If is_banned or other ban column is not found in profiles, query baseline columns
+          usersRes = await pool.query(`
+            SELECT 
               p.id, 
               p.full_name, 
               p.email, 
@@ -139,10 +136,11 @@ export async function GET(request: NextRequest) {
               (SELECT COUNT(*) FROM public.expenses e WHERE e.created_by = p.id) AS expenses_count,
               (SELECT COUNT(*) > 0 FROM public.push_subscriptions ps WHERE ps.user_id = p.id) AS has_push
             FROM public.profiles p
-            ORDER BY p.created_at DESC`;
+            ORDER BY p.created_at DESC
+          `).catch(() => ({ rows: [] }));
+        }
 
-        const usersRes = await pool.query(usersQuery);
-        usersList = usersRes.rows.map((r: any) => ({
+        usersList = (usersRes?.rows || []).map((r: any) => ({
           ...r,
           is_banned: Boolean(r.is_banned),
           groups_count: parseInt(r.groups_count || '0', 10),
