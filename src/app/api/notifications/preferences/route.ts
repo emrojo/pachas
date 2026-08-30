@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { getDbPool } from '@/lib/db/postgres';
+import { randomUUID } from 'crypto';
 
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get('sb-access-token')?.value;
+    const { searchParams } = new URL(request.url);
+    const groupId = searchParams.get('groupId');
+
+    if (!groupId) {
+      return NextResponse.json({ enabled: false, isMember: false });
+    }
+
     if (!token) {
       return NextResponse.json({ enabled: false, isMember: false });
     }
 
     const payload = await verifyJwt(token);
     if (!payload?.sub) {
-      return NextResponse.json({ enabled: false, isMember: false });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const groupId = searchParams.get('groupId');
-
-    if (!groupId) {
       return NextResponse.json({ enabled: false, isMember: false });
     }
 
@@ -45,6 +46,21 @@ export async function GET(request: NextRequest) {
       );
 
       if (res.rows.length === 0) {
+        // Check if user is creator of the group and auto-insert member
+        const groupRes = await pool.query(
+          `SELECT created_by FROM public.groups WHERE id::text = $1::text`,
+          [groupId]
+        );
+        if (groupRes.rows.length > 0 && groupRes.rows[0].created_by === payload.sub) {
+          const memberId = randomUUID();
+          await pool.query(
+            `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
+             VALUES ($1, $2, $3, 'admin', false, NOW())
+             ON CONFLICT (group_id, user_id) DO NOTHING`,
+            [memberId, groupId, payload.sub]
+          );
+          return NextResponse.json({ enabled: false, isMember: true });
+        }
         return NextResponse.json({ enabled: false, isMember: false });
       }
 
@@ -54,7 +70,6 @@ export async function GET(request: NextRequest) {
       });
     } catch (queryErr: any) {
       if (queryErr.code === '42703' || String(queryErr.message).includes('notifications_enabled')) {
-        // Fallback: check membership if column doesn't exist
         const memRes = await pool.query(
           `SELECT id FROM public.group_members WHERE group_id::text = $1::text AND user_id::text = $2::text`,
           [groupId, payload.sub]
@@ -116,7 +131,14 @@ export async function PUT(request: NextRequest) {
       );
 
       if (res.rows.length === 0) {
-        return NextResponse.json({ error: 'No eres miembro de este grupo' }, { status: 404 });
+        // Auto-upsert into group_members
+        const memberId = randomUUID();
+        await pool.query(
+          `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
+           VALUES ($1, $2, $3, 'member', $4, NOW())
+           ON CONFLICT (group_id, user_id) DO UPDATE SET notifications_enabled = EXCLUDED.notifications_enabled`,
+          [memberId, groupId, payload.sub, enabled]
+        );
       }
 
       return NextResponse.json({
@@ -126,14 +148,6 @@ export async function PUT(request: NextRequest) {
       });
     } catch (updateErr: any) {
       if (updateErr.code === '42703' || String(updateErr.message).includes('notifications_enabled')) {
-        // Fallback: check membership and return success
-        const memRes = await pool.query(
-          `SELECT id FROM public.group_members WHERE group_id::text = $1::text AND user_id::text = $2::text`,
-          [groupId, payload.sub]
-        );
-        if (memRes.rows.length === 0) {
-          return NextResponse.json({ error: 'No eres miembro de este grupo' }, { status: 404 });
-        }
         return NextResponse.json({
           success: true,
           enabled,
