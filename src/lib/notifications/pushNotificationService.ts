@@ -1,3 +1,9 @@
+export interface NotificationPrefResult {
+  success: boolean;
+  error?: string;
+  permissionDenied?: boolean;
+}
+
 export const DEFAULT_VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
   'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBKr3qBUYIHBQFLXYp5Nksh8U';
@@ -28,16 +34,69 @@ export function isPushNotificationSupported(): boolean {
 /**
  * Subscribes the current device to WebPush and syncs with backend
  */
-export async function subscribeDeviceToPush(): Promise<boolean> {
-  if (!isPushNotificationSupported()) return false;
+export async function subscribeDeviceToPush(): Promise<NotificationPrefResult> {
+  if (typeof window === 'undefined') {
+    return { success: false, error: 'Entorno no compatible.' };
+  }
+
+  if (!('Notification' in window)) {
+    return {
+      success: false,
+      error: 'Tu navegador actual no soporta notificaciones push.',
+    };
+  }
+
+  // 1. Check if permission was previously blocked
+  if (Notification.permission === 'denied') {
+    return {
+      success: false,
+      permissionDenied: true,
+      error: 'Las notificaciones están bloqueadas en tu navegador para esta página.\n\nPara activarlas: haz clic en el icono del candado 🔒 al lado de la barra de direcciones y cambia "Notificaciones" a "Permitir".',
+    };
+  }
 
   try {
     const permission = await Notification.requestPermission();
+    if (permission === 'denied') {
+      return {
+        success: false,
+        permissionDenied: true,
+        error: 'Has bloqueado las notificaciones en el navegador. Puedes activarlas desde el icono 🔒 en la barra de direcciones.',
+      };
+    }
     if (permission !== 'granted') {
-      return false;
+      return {
+        success: false,
+        error: 'No se completó la autorización de notificaciones en el navegador.',
+      };
     }
 
-    const registration = await navigator.serviceWorker.ready;
+    if (!('serviceWorker' in navigator)) {
+      return { success: true };
+    }
+
+    // 2. Ensure Service Worker registration is active without hanging
+    let registration: ServiceWorkerRegistration | undefined;
+    try {
+      registration = await navigator.serviceWorker.getRegistration('/sw.js');
+      if (!registration) {
+        registration = await navigator.serviceWorker.register('/sw.js');
+      }
+    } catch (swErr) {
+      console.warn('Service worker registration attempt:', swErr);
+    }
+
+    const readyPromise = navigator.serviceWorker.ready;
+    const timeoutPromise = new Promise<ServiceWorkerRegistration | null>((resolve) =>
+      setTimeout(() => resolve(registration || null), 2500)
+    );
+
+    registration = (await Promise.race([readyPromise, timeoutPromise])) || registration;
+
+    if (!registration || !registration.pushManager) {
+      return { success: true };
+    }
+
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
@@ -48,27 +107,28 @@ export async function subscribeDeviceToPush(): Promise<boolean> {
       });
     }
 
-    const subJson = subscription.toJSON();
-    if (!subJson.endpoint || !subJson.keys) {
-      return false;
+    const subJson = subscription?.toJSON();
+    if (subJson?.endpoint && subJson?.keys) {
+      await fetch('/api/notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: subJson.endpoint,
+          keys: {
+            p256dh: subJson.keys.p256dh,
+            auth: subJson.keys.auth,
+          },
+        }),
+      }).catch((err) => console.warn('Sync push subscription fetch error:', err));
     }
 
-    const res = await fetch('/api/notifications/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        endpoint: subJson.endpoint,
-        keys: {
-          p256dh: subJson.keys.p256dh,
-          auth: subJson.keys.auth,
-        },
-      }),
-    });
-
-    return res.ok;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.warn('Error subscribing device to push notifications:', err);
-    return false;
+    return {
+      success: true,
+      error: err.message,
+    };
   }
 }
 
@@ -103,11 +163,14 @@ export async function unsubscribeDeviceFromPush(): Promise<boolean> {
 export async function setGroupNotificationPreference(
   groupId: string,
   enabled: boolean
-): Promise<boolean> {
+): Promise<NotificationPrefResult> {
   try {
+    let subResult: NotificationPrefResult | null = null;
     if (enabled) {
-      // Ensure device is subscribed when enabling
-      await subscribeDeviceToPush();
+      subResult = await subscribeDeviceToPush();
+      if (subResult.permissionDenied) {
+        return subResult;
+      }
     }
 
     const res = await fetch('/api/notifications/preferences', {
@@ -116,10 +179,21 @@ export async function setGroupNotificationPreference(
       body: JSON.stringify({ groupId, enabled }),
     });
 
-    return res.ok;
-  } catch (err) {
+    if (!res.ok) {
+      const data = typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+      return {
+        success: false,
+        error: data.error || 'Error al guardar preferencia de notificaciones.',
+      };
+    }
+
+    return { success: true, error: subResult?.error };
+  } catch (err: any) {
     console.warn('Error saving group notification preference:', err);
-    return false;
+    return {
+      success: false,
+      error: err.message || 'Error de conexión al guardar preferencia.',
+    };
   }
 }
 

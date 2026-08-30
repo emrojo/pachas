@@ -9,9 +9,9 @@ export const ServiceWorkerRegister: React.FC = () => {
   const { t } = useTranslation();
 
   useEffect(() => {
-    // 1. Register Service Worker
+    // 1. Register Service Worker reliably
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
+      const registerSW = () => {
         navigator.serviceWorker
           .register('/sw.js')
           .then((registration) => {
@@ -30,7 +30,13 @@ export const ServiceWorkerRegister: React.FC = () => {
           .catch((err) => {
             console.warn('PWA: No se pudo registrar el Service Worker:', err);
           });
-      });
+      };
+
+      if (document.readyState === 'complete') {
+        registerSW();
+      } else {
+        window.addEventListener('load', registerSW);
+      }
     }
 
     // 2. Offline / Online network listeners
