@@ -80,9 +80,18 @@ create table if not exists public.profiles (
     avatar_url text,
     bizum_phone text,
     role text default 'member' check (role in ('admin', 'member')) not null,
+    is_banned boolean default false not null,
+    banned_at timestamp with time zone,
+    banned_by uuid,
+    ban_reason text,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table public.profiles add column if not exists is_banned boolean default false not null;
+alter table public.profiles add column if not exists banned_at timestamp with time zone;
+alter table public.profiles add column if not exists banned_by uuid;
+alter table public.profiles add column if not exists ban_reason text;
 
 do $$
 begin
@@ -144,10 +153,21 @@ create table if not exists public.groups (
     invite_code text unique not null default substring(md5(random()::text) from 1 for 10),
     is_archived boolean default false not null,
     archived_at timestamp with time zone,
+    is_frozen boolean default false not null,
+    frozen_at timestamp with time zone,
+    frozen_by uuid,
+    frozen_reason text,
+    freeze_type text default 'full',
     created_by uuid references public.profiles(id) on delete set null,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table public.groups add column if not exists is_frozen boolean default false not null;
+alter table public.groups add column if not exists frozen_at timestamp with time zone;
+alter table public.groups add column if not exists frozen_by uuid;
+alter table public.groups add column if not exists frozen_reason text;
+alter table public.groups add column if not exists freeze_type text default 'full';
 
 -- 3. GROUP MEMBERS TABLE
 create table if not exists public.group_members (
