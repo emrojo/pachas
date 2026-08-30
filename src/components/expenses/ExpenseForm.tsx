@@ -28,6 +28,7 @@ import {
   getCurrentDateTimeISOWithTimezone,
   getUserTimezoneLabel,
   formatLocaleDate,
+  hasSpecificTime,
 } from '@/lib/utils';
 import {
   Receipt,
@@ -44,6 +45,7 @@ import {
   Globe,
   MapPin,
   Clock,
+  Calendar,
   Trash2,
   ShieldAlert,
   Loader2,
@@ -57,6 +59,72 @@ import { ReportContentModal } from '@/components/safety/ReportContentModal';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { ExpenseCommentsSection } from '@/components/expenses/ExpenseCommentsSection';
 import { scanReceipt, ScannedReceiptData } from '@/lib/ocr/receiptScanner';
+
+// Helper to parse date string into { dateStr: "DD/MM/YYYY", timeStr: "HH:mm", isoDate: "YYYY-MM-DD" }
+function splitEuropeanDateTime(rawIsoOrDate?: string | null): { dateStr: string; timeStr: string; isoDate: string } {
+  const now = new Date();
+  const pad = (n: number) => (n < 10 ? '0' : '') + n;
+  const defaultDateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+  const defaultTimeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const defaultIsoDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+  if (!rawIsoOrDate) {
+    return { dateStr: defaultDateStr, timeStr: defaultTimeStr, isoDate: defaultIsoDate };
+  }
+
+  const str = String(rawIsoOrDate).trim();
+
+  // Match ISO YYYY-MM-DDTHH:mm or YYYY-MM-DD HH:mm
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}))?/);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = isoMatch[2];
+    const d = isoMatch[3];
+    const h = isoMatch[4] || (hasSpecificTime(str) ? '12' : pad(now.getHours()));
+    const min = isoMatch[5] || (hasSpecificTime(str) ? '00' : pad(now.getMinutes()));
+    return {
+      dateStr: `${d}/${m}/${y}`,
+      timeStr: `${h}:${min}`,
+      isoDate: `${y}-${m}-${d}`,
+    };
+  }
+
+  // Match European DD/MM/YYYY HH:mm or DD/MM/YYYY
+  const euMatch = str.match(/^(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})(?:[T\s](\d{2}):(\d{2}))?/);
+  if (euMatch) {
+    const d = euMatch[1].padStart(2, '0');
+    const m = euMatch[2].padStart(2, '0');
+    let y = euMatch[3];
+    if (y.length === 2) y = `20${y}`;
+    const h = euMatch[4] || pad(now.getHours());
+    const min = euMatch[5] || pad(now.getMinutes());
+    return {
+      dateStr: `${d}/${m}/${y}`,
+      timeStr: `${h}:${min}`,
+      isoDate: `${y}-${m}-${d}`,
+    };
+  }
+
+  return { dateStr: defaultDateStr, timeStr: defaultTimeStr, isoDate: defaultIsoDate };
+}
+
+// Convert DD/MM/YYYY + HH:mm into ISO string with timezone
+function combineEuropeanDateTimeToISO(dateStr: string, timeStr: string): string {
+  const parts = (dateStr || '').trim().split(/[\/\.-]/);
+  let d = 1, m = 1, y = new Date().getFullYear();
+  if (parts.length >= 3) {
+    d = parseInt(parts[0], 10) || 1;
+    m = parseInt(parts[1], 10) || 1;
+    y = parseInt(parts[2], 10) || y;
+    if (y < 100) y += 2000;
+  }
+  const timeParts = (timeStr || '').trim().split(':');
+  const h = timeParts[0] ? parseInt(timeParts[0], 10) : 12;
+  const min = timeParts[1] ? parseInt(timeParts[1], 10) : 0;
+
+  const dateObj = new Date(y, m - 1, d, h, min, 0);
+  return getCurrentDateTimeISOWithTimezone(dateObj);
+}
 
 export interface ExpenseFormProps {
   groupId: string;
@@ -77,7 +145,6 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 }) => {
   const { getGroup, getGroupMembers, currentUser, addExpense, scanAndCreateExpenseAsync, updateExpense, deleteExpense } = usePachas();
   const { t, language } = useTranslation();
-
 
   const group = getGroup(groupId);
   const members = getGroupMembers(groupId);
@@ -103,9 +170,20 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [currency, setCurrency] = useState(baseCurrency);
   const [exchangeRateStr, setExchangeRateStr] = useState('1,0000');
   const [category, setCategory] = useState<ExpenseCategory>('food');
+  const [dateDisplayStr, setDateDisplayStr] = useState(() => {
+    const now = new Date();
+    const pad = (n: number) => (n < 10 ? '0' : '') + n;
+    return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+  });
+  const [timeDisplayStr, setTimeDisplayStr] = useState(() => {
+    const now = new Date();
+    const pad = (n: number) => (n < 10 ? '0' : '') + n;
+    return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  });
   const [expenseDateTime, setExpenseDateTime] = useState(() =>
     toDateTimeLocalValue(getCurrentDateTimeISOWithTimezone())
   );
+  const datePickerRef = React.useRef<HTMLInputElement>(null);
   const [notes, setNotes] = useState('');
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -216,6 +294,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           : getDefaultExchangeRate(expCurrency);
       setExchangeRateStr(rate.toFixed(4).replace('.', ','));
       setCategory(expenseToEdit.category || 'food');
+      const dt = splitEuropeanDateTime(targetDateIso);
+      setDateDisplayStr(dt.dateStr);
+      setTimeDisplayStr(dt.timeStr);
       setExpenseDateTime(toDateTimeLocalValue(targetDateIso));
       setNotes(expenseToEdit.notes || '');
       setReceiptUrl(expenseToEdit.receipt_url || null);
@@ -277,11 +358,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       // New expense defaults
       const defaultUserId = currentUser?.id || members[0]?.user_id || '';
       const nowIso = getCurrentDateTimeISOWithTimezone();
+      const dt = splitEuropeanDateTime(nowIso);
       setTitle('');
       setAmountStr('');
       setCurrency(baseCurrency);
       setExchangeRateStr('1,0000');
       setCategory('food');
+      setDateDisplayStr(dt.dateStr);
+      setTimeDisplayStr(dt.timeStr);
       setExpenseDateTime(toDateTimeLocalValue(nowIso));
       setNotes('');
       setReceiptUrl(null);
@@ -308,8 +392,60 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     }
   };
 
+  const handleDateInputChange = (val: string) => {
+    setDateDisplayStr(val);
+    const combined = combineEuropeanDateTimeToISO(val, timeDisplayStr);
+    setExpenseDateTime(toDateTimeLocalValue(combined));
+    if (currency !== baseCurrency && !isReadOnly) {
+      fetchOfficialRate(currency, combined);
+    }
+  };
+
+  const handleNativeDateChange = (isoYmd: string) => {
+    if (!isoYmd) return;
+    const [y, m, d] = isoYmd.split('-');
+    const newDateStr = `${d}/${m}/${y}`;
+    setDateDisplayStr(newDateStr);
+    const combined = combineEuropeanDateTimeToISO(newDateStr, timeDisplayStr);
+    setExpenseDateTime(toDateTimeLocalValue(combined));
+    if (currency !== baseCurrency && !isReadOnly) {
+      fetchOfficialRate(currency, combined);
+    }
+  };
+
+  const handleTimeInputChange = (val: string) => {
+    setTimeDisplayStr(val);
+    const combined = combineEuropeanDateTimeToISO(dateDisplayStr, val);
+    setExpenseDateTime(toDateTimeLocalValue(combined));
+  };
+
+  const setTodayDate = () => {
+    const now = new Date();
+    const pad = (n: number) => (n < 10 ? '0' : '') + n;
+    const todayStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+    handleDateInputChange(todayStr);
+  };
+
+  const setYesterdayDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const pad = (n: number) => (n < 10 ? '0' : '') + n;
+    const yesterdayStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+    handleDateInputChange(yesterdayStr);
+  };
+
+  const setNowTime = () => {
+    const now = new Date();
+    const pad = (n: number) => (n < 10 ? '0' : '') + n;
+    const nowTimeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    handleTimeInputChange(nowTimeStr);
+  };
+
   const handleDateTimeChange = (newDateTime: string) => {
     setExpenseDateTime(newDateTime);
+    const dt = splitEuropeanDateTime(newDateTime);
+    setDateDisplayStr(dt.dateStr);
+    setTimeDisplayStr(dt.timeStr);
     if (!isReadOnly && currency !== baseCurrency) {
       fetchOfficialRate(currency, newDateTime);
     }
@@ -381,6 +517,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setCategory(scannedData.category);
     }
     if (scannedData.date) {
+      const dt = splitEuropeanDateTime(scannedData.date);
+      setDateDisplayStr(dt.dateStr);
+      setTimeDisplayStr(dt.timeStr);
       setExpenseDateTime(toDateTimeLocalValue(scannedData.date));
     }
     if (scannedData.locationName) {
@@ -473,7 +612,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
     try {
       setIsLoading(true);
-      const finalIsoDate = fromDateTimeLocalToISOWithTimezone(expenseDateTime);
+      const finalIsoDate = combineEuropeanDateTimeToISO(dateDisplayStr, timeDisplayStr);
 
       if (expenseToEdit) {
         await updateExpense(groupId, expenseToEdit.id, {
@@ -1336,7 +1475,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
         {/* Fecha y Hora del gasto y Foto de Ticket */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* DateTime Picker with Timezone */}
+          {/* DateTime Picker strictly in European Format DD/MM/AAAA and 24h HH:mm */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
@@ -1350,24 +1489,101 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <div className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>
-                  {expenseDateTime
-                    ? formatDate(fromDateTimeLocalToISOWithTimezone(expenseDateTime), 'dd/MM/yyyy HH:mm')
-                    : '-'}
+                  {dateDisplayStr} • {timeDisplayStr}
                 </span>
               </div>
             ) : (
-              <div className="relative">
-                <input
-                  type="datetime-local"
-                  value={expenseDateTime}
-                  onChange={(e) => handleDateTimeChange(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
-                />
-                {expenseDateTime && (
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 pl-1 font-medium">
-                    🗓️ {formatDate(fromDateTimeLocalToISOWithTimezone(expenseDateTime), 'dd/MM/yyyy HH:mm')}
-                  </p>
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Fecha Europea DD/MM/AAAA */}
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      Fecha <span className="text-[10px] text-slate-400 font-normal">(DD/MM/AAAA)</span>
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={setTodayDate}
+                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                      >
+                        Hoy
+                      </button>
+                      <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
+                      <button
+                        type="button"
+                        onClick={setYesterdayDate}
+                        className="text-[10px] font-bold text-slate-500 hover:underline"
+                      >
+                        Ayer
+                      </button>
+                    </div>
+                  </div>
+                  <div className="relative flex items-center">
+                    <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="DD/MM/AAAA (ej: 30/08/2026)"
+                      value={dateDisplayStr}
+                      onChange={(e) => handleDateInputChange(e.target.value)}
+                      className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
+                    />
+                    {/* Native hidden date picker for calendar click */}
+                    <input
+                      type="date"
+                      ref={datePickerRef}
+                      value={(() => {
+                        const parts = (dateDisplayStr || '').split(/[\/\.-]/);
+                        if (parts.length >= 3) {
+                          const d = parts[0].padStart(2, '0');
+                          const m = parts[1].padStart(2, '0');
+                          let y = parts[2];
+                          if (y.length === 2) y = `20${y}`;
+                          return `${y}-${m}-${d}`;
+                        }
+                        return '';
+                      })()}
+                      onChange={(e) => handleNativeDateChange(e.target.value)}
+                      className="absolute right-2 opacity-0 w-6 h-6 cursor-pointer"
+                      tabIndex={-1}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => datePickerRef.current?.showPicker?.() || datePickerRef.current?.click()}
+                      className="absolute right-2.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1"
+                      title="Abrir calendario"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hora HH:mm (24h) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      Hora <span className="text-[10px] text-slate-400 font-normal">(24h)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={setNowTime}
+                      className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                    >
+                      Ahora
+                    </button>
+                  </div>
+                  <div className="relative flex items-center">
+                    <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="HH:MM (ej: 14:35)"
+                      value={timeDisplayStr}
+                      onChange={(e) => handleTimeInputChange(e.target.value)}
+                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
