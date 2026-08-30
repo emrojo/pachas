@@ -646,6 +646,18 @@ export const es = {
     "banner": "Modo sin conexión: guardando cambios localmente"
   },
   notifications: {
+    title: 'Notificaciones',
+    centerTitle: 'Centro de Notificaciones',
+    centerSubtitle: 'Historial completo de pagos por validar, cambios en el grupo, comentarios y alertas',
+    all: 'Todas',
+    unread: 'No leídas',
+    payments: 'Pagos y Validaciones',
+    commentsTab: 'Comentarios',
+    groupsTab: 'Grupos y Roles',
+    markAllRead: 'Marcar todas leídas',
+    clearRead: 'Limpiar leídas',
+    noNotifications: 'No hay notificaciones',
+    noUnreadNotifications: 'Estás al día. No tienes ninguna notificación pendiente sin leer.',
     testButton: 'Enviar notificación de prueba',
     testSending: 'Enviando notificación...',
     testSuccess: '¡Notificación enviada! Revisa el banner en tu pantalla.',

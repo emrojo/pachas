@@ -647,6 +647,18 @@ export const tr: TranslationDictionary = {
     "banner": "Çevrimdışı mod: değişiklikler yerel olarak kaydediliyor"
   },
   notifications: {
+    title: 'Bildirimler',
+    centerTitle: 'Bildirim Merkezi',
+    centerSubtitle: 'Bekleyen ödeme onayları, grup değişiklikleri, yorumlar ve uyarıların geçmişi',
+    all: 'Tümü',
+    unread: 'Okunmamış',
+    payments: 'Ödemeler ve Doğrulamalar',
+    commentsTab: 'Yorumlar',
+    groupsTab: 'Gruplar ve Roller',
+    markAllRead: 'Tümünü okundu işaretle',
+    clearRead: 'Okunanları temizle',
+    noNotifications: 'Bildirim yok',
+    noUnreadNotifications: 'Okunmamış bildiriminiz bulunmuyor.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

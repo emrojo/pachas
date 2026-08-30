@@ -180,4 +180,31 @@ export interface PendingReceiptScan {
   scanned_data?: any; // ScannedReceiptData
 }
 
+export type NotificationType =
+  | 'receipt_pending'
+  | 'expense_created'
+  | 'expense_updated'
+  | 'expense_deleted'
+  | 'comment_created'
+  | 'comment_reaction'
+  | 'settlement_created'
+  | 'group_role_updated'
+  | 'member_joined'
+  | 'system';
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  created_at: string;
+  read: boolean;
+  group_id?: string;
+  group_name?: string;
+  expense_id?: string;
+  action_url?: string;
+  data?: Record<string, any>;
+}
+
 

@@ -647,6 +647,18 @@ export const nl: TranslationDictionary = {
     "banner": "Offlinemodus: wijzigingen lokaal opslaan"
   },
   notifications: {
+    title: 'Meldingen',
+    centerTitle: 'Meldingencentrum',
+    centerSubtitle: 'Volledige geschiedenis van openstaande betalingsvalidaties, groepswijzigingen, reacties en meldingen',
+    all: 'Alle',
+    unread: 'Ongelezen',
+    payments: 'Betalingen & Validaties',
+    commentsTab: 'Reacties',
+    groupsTab: 'Groepen & Rollen',
+    markAllRead: 'Alles als gelezen markeren',
+    clearRead: 'Gelezen wissen',
+    noNotifications: 'Geen meldingen',
+    noUnreadNotifications: 'Je bent helemaal bij. Geen ongelezen meldingen.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

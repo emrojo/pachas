@@ -647,6 +647,18 @@ export const af: TranslationDictionary = {
     "banner": "Vanlyn modus: stoor veranderinge plaaslik"
   },
   notifications: {
+    title: 'Notifications',
+    centerTitle: 'Notification Center',
+    centerSubtitle: 'Complete history of pending payment validations, group changes, comments, and alerts',
+    all: 'All',
+    unread: 'Unread',
+    payments: 'Payments & Validations',
+    commentsTab: 'Comments',
+    groupsTab: 'Groups & Roles',
+    markAllRead: 'Mark all read',
+    clearRead: 'Clear read',
+    noNotifications: 'No notifications',
+    noUnreadNotifications: 'You are all caught up. No pending unread notifications.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

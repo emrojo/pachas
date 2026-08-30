@@ -6,9 +6,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Avatar } from '@/components/ui/Avatar';
-import { Plus, Users, User, Compass, Sparkles, ChevronDown, UserPlus, Check, LogOut, ShieldCheck } from 'lucide-react';
+import { Plus, Users, User, Compass, Sparkles, ChevronDown, UserPlus, Check, LogOut, ShieldCheck, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { NotificationBellDropdown } from '@/components/notifications/NotificationBellDropdown';
 import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { Profile } from '@/types/database';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
@@ -21,7 +22,7 @@ export interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, availableUsers, setCurrentUser, isAppAdmin, isDemoMode, logout } = usePachas();
+  const { currentUser, availableUsers, setCurrentUser, isAppAdmin, isDemoMode, logout, unreadNotificationsCount } = usePachas();
   const { t } = useTranslation();
   const donationUrl = useDonationUrl();
 
@@ -88,6 +89,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
             >
               {t('nav.profile')}
             </Link>
+            <Link
+              href="/notifications"
+              className={`transition-colors flex items-center gap-1.5 hover:text-emerald-600 dark:hover:text-emerald-400 ${
+                pathname === '/notifications' ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''
+              }`}
+            >
+              <span>{t('notifications.title') || 'Notificaciones'}</span>
+              {unreadNotificationsCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                  {unreadNotificationsCount}
+                </span>
+              )}
+            </Link>
             {isAppAdmin && (
               <Link
                 href="/admin"
@@ -105,6 +119,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
 
           {/* Action Button & User Dropdown */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Notification Bell Dropdown */}
+            <NotificationBellDropdown />
+
             {/* Language Selector */}
             <LanguageSelector />
 
@@ -228,6 +245,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                           <span>{t('admin.backofficeTitle') || 'Panel de Administración'}</span>
                         </Link>
                       )}
+
+                      <Link
+                        href="/notifications"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{t('notifications.title') || 'Notificaciones'}</span>
+                        </div>
+                        {unreadNotificationsCount > 0 && (
+                          <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                            {unreadNotificationsCount}
+                          </span>
+                        )}
+                      </Link>
 
                       <Link
                         href="/profile"

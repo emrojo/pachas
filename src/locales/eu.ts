@@ -647,6 +647,18 @@ export const eu: TranslationDictionary = {
     "banner": "Lineaz kanpoko modua: aldaketak lokalean gordetzen"
   },
   notifications: {
+    title: 'Jakinarazpenak',
+    centerTitle: 'Jakinarazpen Zentroa',
+    centerSubtitle: 'Baliozkotzeko zain dauden ordainketak, talde-aldaketak, iruzkinak eta alertak',
+    all: 'Guztiak',
+    unread: 'Irakurri gabeak',
+    payments: 'Ordainketak eta Baliozkotzeak',
+    commentsTab: 'Iruzkinak',
+    groupsTab: 'Taldeak eta Rolak',
+    markAllRead: 'Denak irakurritzat markatu',
+    clearRead: 'Irakurriak garbitu',
+    noNotifications: 'Jakinarazpenik ez',
+    noUnreadNotifications: 'Eguneratuta zaude. Ez dago irakurri gabeko jakinarazpenik.',
     testButton: 'Probako jakinarazpena bidali',
     testSending: 'Jakinarazpena bidaltzen...',
     testSuccess: 'Probako jakinarazpena bidalita! Egiaztatu pantaila.',

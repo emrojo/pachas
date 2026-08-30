@@ -647,6 +647,18 @@ export const ar: TranslationDictionary = {
     "banner": "وضع عدم الاتصال: حفظ التغييرات محليًا"
   },
   notifications: {
+    title: 'الإشعارات',
+    centerTitle: 'مركز الإشعارات',
+    centerSubtitle: 'سجل كامل لمدفوعات قيد التحقق، وتغييرات المجموعة، والتعليقات والتنبيهات',
+    all: 'الكل',
+    unread: 'غير مقروءة',
+    payments: 'المدفوعات والتحقق',
+    commentsTab: 'التعليقات',
+    groupsTab: 'المجموعات والأدوار',
+    markAllRead: 'تحديد الكل كمقروء',
+    clearRead: 'مسح المقروء',
+    noNotifications: 'لا توجد إشعارات',
+    noUnreadNotifications: 'ليس لديك أي إشعارات غير مقروءة.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

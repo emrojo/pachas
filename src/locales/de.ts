@@ -647,6 +647,18 @@ export const de: TranslationDictionary = {
     "banner": "Offline-Modus: Änderungen werden lokal gespeichert"
   },
   notifications: {
+    title: 'Benachrichtigungen',
+    centerTitle: 'Benachrichtigungszentrale',
+    centerSubtitle: 'Vollständiger Verlauf ausstehender Zahlungsvalidierungen, Gruppenänderungen, Kommentaren und Hinweisen',
+    all: 'Alle',
+    unread: 'Ungelesen',
+    payments: 'Zahlungen & Validierungen',
+    commentsTab: 'Kommentare',
+    groupsTab: 'Gruppen & Rollen',
+    markAllRead: 'Alle als gelesen markieren',
+    clearRead: 'Gelesene löschen',
+    noNotifications: 'Keine Benachrichtigungen',
+    noUnreadNotifications: 'Alles auf dem neuesten Stand. Keine ungelesenen Benachrichtigungen.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',
