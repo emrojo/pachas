@@ -22,6 +22,7 @@ import {
   Users,
   Paintbrush,
   Square,
+  Eraser,
   Undo2,
   AlertTriangle,
   CreditCard,
@@ -119,10 +120,12 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
   const [error, setError] = useState('');
 
   // Canvas extra redaction states
+  const baseImageRef = useRef<HTMLImageElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [drawMode, setDrawMode] = useState<'brush' | 'box'>('brush');
+  const [drawMode, setDrawMode] = useState<'brush' | 'box' | 'eraser'>('brush');
   const [history, setHistory] = useState<ImageData[]>([]);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(null);
   const [snapshotBeforeBox, setSnapshotBeforeBox] = useState<ImageData | null>(null);
   const [zoomModalUrl, setZoomModalUrl] = useState<string | null>(null);
 
@@ -155,6 +158,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     img.src = pendingScan.original_image;
 
     img.onload = () => {
+      baseImageRef.current = img;
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -230,6 +234,42 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     };
   };
 
+  const erasePoint = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, x: number, y: number) => {
+    if (!baseImageRef.current) return;
+    const radius = 16;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(baseImageRef.current, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  };
+
+  const eraseSegment = (
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+  ) => {
+    if (!baseImageRef.current) return;
+    const radius = 16;
+    const dist = Math.hypot(x2 - x1, y2 - y1);
+    const steps = Math.max(1, Math.ceil(dist / 8));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const cx = x1 + (x2 - x1) * t;
+      const cy = y1 + (y2 - y1) * t;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(baseImageRef.current, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+  };
+
   const handleStartDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -238,6 +278,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     const coords = getCanvasCoordinates(e);
     setIsDrawing(true);
     setStartPoint(coords);
+    setLastPoint(coords);
 
     if (drawMode === 'brush') {
       ctx.beginPath();
@@ -247,8 +288,12 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
       ctx.lineWidth = 18;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-    } else {
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
+    } else if (drawMode === 'box') {
       setSnapshotBeforeBox(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    } else if (drawMode === 'eraser') {
+      erasePoint(ctx, canvas, coords.x, coords.y);
     }
   };
 
@@ -272,13 +317,18 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
 
       ctx.fillStyle = '#000000';
       ctx.fillRect(x, y, w, h);
+    } else if (drawMode === 'eraser' && lastPoint) {
+      eraseSegment(ctx, canvas, lastPoint.x, lastPoint.y, coords.x, coords.y);
     }
+
+    setLastPoint(coords);
   };
 
   const handleEndDraw = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
     setStartPoint(null);
+    setLastPoint(null);
     setSnapshotBeforeBox(null);
 
     const canvas = canvasRef.current;
@@ -446,6 +496,16 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   title="Caja de censura"
                 >
                   <Square className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDrawMode('eraser')}
+                  className={`p-1.5 rounded-lg text-xs font-bold ${
+                    drawMode === 'eraser' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
+                  }`}
+                  title="Borrador para quitar censuras"
+                >
+                  <Eraser className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
