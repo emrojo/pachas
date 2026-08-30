@@ -647,6 +647,18 @@ export const ru: TranslationDictionary = {
     "banner": "Автономный режим: изменения сохраняются локально"
   },
   notifications: {
+    title: 'Уведомления',
+    centerTitle: 'Центр уведомлений',
+    centerSubtitle: 'История подтверждения платежей, изменений в группах, комментариев и оповещений',
+    all: 'Все',
+    unread: 'Непрочитанные',
+    payments: 'Платежи и валидация',
+    commentsTab: 'Комментарии',
+    groupsTab: 'Группы и роли',
+    markAllRead: 'Отметить все как прочитанные',
+    clearRead: 'Очистить прочитанные',
+    noNotifications: 'Нет уведомлений',
+    noUnreadNotifications: 'У вас нет непрочитанных уведомлений.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

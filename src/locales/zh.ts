@@ -647,6 +647,18 @@ export const zh: TranslationDictionary = {
     "banner": "离线模式：正在本地保存更改"
   },
   notifications: {
+    title: '通知',
+    centerTitle: '通知中心',
+    centerSubtitle: '待验证支付、群组变动、评论和提醒的历史记录',
+    all: '全部',
+    unread: '未读',
+    payments: '支付与验证',
+    commentsTab: '评论',
+    groupsTab: '群组与角色',
+    markAllRead: '全部标记为已读',
+    clearRead: '清除已读',
+    noNotifications: '暂无通知',
+    noUnreadNotifications: '没有未读通知。',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

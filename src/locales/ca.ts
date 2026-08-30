@@ -647,6 +647,18 @@ export const ca: TranslationDictionary = {
     "banner": "Mode fora de línia: desant canvis localment"
   },
   notifications: {
+    title: 'Notificacions',
+    centerTitle: 'Centre de Notificacions',
+    centerSubtitle: 'Historial complet de validacions de pagaments pendents, canvis al grup, comentaris i alertes',
+    all: 'Totes',
+    unread: 'No llegides',
+    payments: 'Pagaments i Validacions',
+    commentsTab: 'Comentaris',
+    groupsTab: 'Grups i Rols',
+    markAllRead: 'Marcar totes com a llegides',
+    clearRead: 'Netejar llegides',
+    noNotifications: 'Sense notificacions',
+    noUnreadNotifications: 'Estàs al dia. No tens cap notificació pendent sense llegir.',
     testButton: 'Enviar notificació de prova',
     testSending: 'Enviant notificació...',
     testSuccess: 'Notificació de prova enviada! Revisa el teu dispositiu.',

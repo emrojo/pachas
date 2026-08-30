@@ -176,10 +176,10 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
       if (ctx) {
         ctx.drawImage(img, 0, 0, w, h);
 
-        // Apply auto-detected sensitive bounding boxes from AI
+        // Apply auto-detected sensitive bounding boxes from AI (in distinct gray #4b5563)
         const sensitiveBoxes = data.sensitiveBoxes || [];
         if (sensitiveBoxes.length > 0) {
-          ctx.fillStyle = '#000000';
+          ctx.fillStyle = '#4b5563';
           sensitiveBoxes.forEach((sb: any) => {
             if (Array.isArray(sb.box_2d) && sb.box_2d.length === 4) {
               const [ymin, xmin, ymax, xmax] = sb.box_2d;
@@ -452,9 +452,18 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                 className="max-w-full h-auto cursor-crosshair rounded-lg shadow-sm"
               />
             </div>
-            <span className="text-[10px] text-slate-400 block text-center">
-              Trazos negros aplicados sobre datos de tarjeta y cuentas detectados
-            </span>
+            
+            {/* Color Legend */}
+            <div className="flex flex-wrap items-center justify-center gap-3 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-800 text-[11px]">
+              <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                <span className="w-3 h-3 rounded-xs bg-black border border-slate-600 shrink-0 inline-block shadow-2xs" />
+                <span>Negro: Tu censura</span>
+              </div>
+              <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                <span className="w-3 h-3 rounded-xs bg-slate-600 border border-slate-500 shrink-0 inline-block shadow-2xs" />
+                <span>Gris: Censura de la IA</span>
+              </div>
+            </div>
           </div>
 
           {/* Right Column: Extracted Fields Review */}

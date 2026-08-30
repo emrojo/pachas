@@ -647,6 +647,18 @@ export const hi: TranslationDictionary = {
     "banner": "ऑफ़लाइन मोड: परिवर्तनों को स्थानीय रूप से सहेजा जा रहा है"
   },
   notifications: {
+    title: 'सूचनाएं',
+    centerTitle: 'सूचना केंद्र',
+    centerSubtitle: 'लंबित भुगतान सत्यापन, समूह परिवर्तन, टिप्पणियों और अलर्ट का इतिहास',
+    all: 'सभी',
+    unread: 'अपठित',
+    payments: 'भुगतान और सत्यापन',
+    commentsTab: 'टिप्पणियां',
+    groupsTab: 'समूह और भूमिकाएं',
+    markAllRead: 'सभी को पढ़ा हुआ चिह्नित करें',
+    clearRead: 'पढ़े गए साफ़ करें',
+    noNotifications: 'कोई सूचना नहीं',
+    noUnreadNotifications: 'कोई अपठित सूचना नहीं है।',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

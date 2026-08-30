@@ -647,6 +647,18 @@ export const gl: TranslationDictionary = {
     "banner": "Modo fóra de liña: gardando cambios localmente"
   },
   notifications: {
+    title: 'Notificacións',
+    centerTitle: 'Centro de Notificacións',
+    centerSubtitle: 'Historial completo de validacións de pagamentos pendentes, cambios no grupo, comentarios e alertas',
+    all: 'Todas',
+    unread: 'Non lidas',
+    payments: 'Pagamentos e Validacións',
+    commentsTab: 'Comentarios',
+    groupsTab: 'Grupos e Roles',
+    markAllRead: 'Marcar todas como lidas',
+    clearRead: 'Limpar lidas',
+    noNotifications: 'Sen notificacións',
+    noUnreadNotifications: 'Estás ao día. Non tes ningunha notificación pendente sen ler.',
     testButton: 'Enviar notificación de proba',
     testSending: 'Enviando notificación...',
     testSuccess: 'Notificación de proba enviada! Revisa a túa pantalla.',

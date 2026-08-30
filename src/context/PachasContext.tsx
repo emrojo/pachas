@@ -14,6 +14,7 @@ import {
   PaymentMethod,
   ExpenseComment,
   PendingReceiptScan,
+  AppNotification,
 } from '@/types/database';
 import {
   DEMO_CURRENT_USER,
@@ -125,6 +126,13 @@ interface PachasContextType {
   deleteExpenseComment: (commentId: string, expenseId: string) => Promise<void>;
   fetchExpenseComments: (expenseId: string) => Promise<ExpenseComment[]>;
   toggleCommentReaction: (commentId: string, expenseId: string, emoji: string) => Promise<void>;
+  notifications: AppNotification[];
+  unreadNotificationsCount: number;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  deleteNotification: (id: string) => void;
+  clearAllNotifications: () => void;
+  addNotification: (notif: Omit<AppNotification, 'id' | 'created_at' | 'read'>) => void;
 }
 
 
@@ -138,6 +146,7 @@ const STORAGE_KEYS = {
   EXPENSES: 'pachas_expenses_v2',
   SETTLEMENTS: 'pachas_settlements_v2',
   COMMENTS: 'pachas_expense_comments_v2',
+  NOTIFICATIONS: 'pachas_notifications_v2',
 };
 
 // Helper to strip heavy base64 strings from objects before saving to localStorage to prevent QuotaExceededError
@@ -153,6 +162,15 @@ function sanitizeExpensesForLocalStorage(data: Record<string, Expense[]>): Recor
     });
   }
   return sanitized;
+}
+
+export function safeGetLocalStorage(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 export function safeSetLocalStorage(key: string, value: string): void {
@@ -239,6 +257,53 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
   }, [pendingReceiptScans]);
+
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = safeGetLocalStorage(STORAGE_KEYS.NOTIFICATIONS);
+        if (saved) return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
+    }
+  }, [notifications]);
+
+  // Synchronize pending receipt scans into notifications
+  useEffect(() => {
+    if (pendingReceiptScans.length > 0 && currentUser) {
+      pendingReceiptScans.forEach((scan) => {
+        if (scan.status === 'ready') {
+          const notifId = `notif-scan-${scan.id}`;
+          setNotifications((prev) => {
+            if (prev.some((n) => n.id === notifId)) return prev;
+            const newNotif: AppNotification = {
+              id: notifId,
+              user_id: scan.user_id,
+              type: 'receipt_pending',
+              title: '🧾 Ticket listo para validar',
+              message: scan.scanned_data?.title
+                ? `Se ha procesado "${scan.scanned_data.title}" (${scan.scanned_data.amount || 0} €). Valídalo para añadirlo al grupo.`
+                : 'Tu ticket escaneado por IA está listo para que lo revises y confirmes.',
+              created_at: scan.created_at || new Date().toISOString(),
+              read: false,
+              group_id: scan.group_id,
+              action_url: `/groups/${scan.group_id}`,
+              data: { scanId: scan.id },
+            };
+            return [newNotif, ...prev];
+          });
+        }
+      });
+    }
+  }, [pendingReceiptScans, currentUser]);
 
   const groupsRef = useRef<Group[]>(groups);
   const membersRef = useRef<Record<string, GroupMember[]>>(members);
@@ -2090,6 +2155,51 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const markNotificationAsRead = (id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+      safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.filter((n) => n.id !== id);
+      safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+  };
+
+  const addNotification = (notif: Omit<AppNotification, 'id' | 'created_at' | 'read'>) => {
+    const newNotif: AppNotification = {
+      ...notif,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+    setNotifications((prev) => {
+      const updated = [newNotif, ...prev];
+      safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
   return (
     <PachasContext.Provider
       value={{
@@ -2144,6 +2254,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteExpenseComment,
         fetchExpenseComments,
         toggleCommentReaction,
+        notifications,
+        unreadNotificationsCount,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        deleteNotification,
+        clearAllNotifications,
+        addNotification,
       }}
     >
 

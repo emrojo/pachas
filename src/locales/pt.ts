@@ -647,6 +647,18 @@ export const pt: TranslationDictionary = {
     "banner": "Modo offline: a guardar alterações localmente"
   },
   notifications: {
+    title: 'Notificações',
+    centerTitle: 'Central de Notificações',
+    centerSubtitle: 'Histórico completo de validações de pagamentos pendentes, alterações de grupos, comentários e alertas',
+    all: 'Todas',
+    unread: 'Não lidas',
+    payments: 'Pagamentos e Validações',
+    commentsTab: 'Comentários',
+    groupsTab: 'Grupos e Funções',
+    markAllRead: 'Marcar todas como lidas',
+    clearRead: 'Limpar lidas',
+    noNotifications: 'Sem notificações',
+    noUnreadNotifications: 'Você está em dia. Nenhuma notificação pendente não lida.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

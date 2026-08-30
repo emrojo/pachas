@@ -647,6 +647,18 @@ export const el: TranslationDictionary = {
     "banner": "Λειτουργία εκτός σύνδεσης: τοπική αποθήκευση αλλαγών"
   },
   notifications: {
+    title: 'Ειδοποιήσεις',
+    centerTitle: 'Κέντρο Ειδοποιήσεων',
+    centerSubtitle: 'Πλήρες ιστορικό επικυρώσεων πληρωμών, αλλαγών ομάδας, σχολίων και ειδοποιήσεων',
+    all: 'Όλες',
+    unread: 'Μη αναγνωσμένες',
+    payments: 'Πληρωμές & Επικυρώσεις',
+    commentsTab: 'Σχόλια',
+    groupsTab: 'Ομάδες & Ρόλοι',
+    markAllRead: 'Επισήμανση όλων ως αναγνωσμένα',
+    clearRead: 'Εκκαθάριση αναγνωσμένων',
+    noNotifications: 'Δεν υπάρχουν ειδοποιήσεις',
+    noUnreadNotifications: 'Είστε ενημερωμένοι. Δεν υπάρχουν μη αναγνωσμένες ειδοποιήσεις.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

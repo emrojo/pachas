@@ -647,6 +647,18 @@ export const ja: TranslationDictionary = {
     "banner": "オフラインモード：変更をローカルに保存中"
   },
   notifications: {
+    title: '通知',
+    centerTitle: '通知センター',
+    centerSubtitle: '保留中の支払い確認、グループ変更、コメント、アラートの履歴',
+    all: 'すべて',
+    unread: '未読',
+    payments: '支払いと検証',
+    commentsTab: 'コメント',
+    groupsTab: 'グループと役割',
+    markAllRead: 'すべて既読にする',
+    clearRead: '既読をクリア',
+    noNotifications: '通知はありません',
+    noUnreadNotifications: '未読の通知はありません。',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',

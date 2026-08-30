@@ -647,6 +647,18 @@ export const fr: TranslationDictionary = {
     "banner": "Mode hors ligne : enregistrement local des modifications"
   },
   notifications: {
+    title: 'Notifications',
+    centerTitle: 'Centre de Notifications',
+    centerSubtitle: 'Historique complet des validations de paiements, modifications de groupes, commentaires et alertes',
+    all: 'Toutes',
+    unread: 'Non lues',
+    payments: 'Paiements et Validations',
+    commentsTab: 'Commentaires',
+    groupsTab: 'Groupes et Rôles',
+    markAllRead: 'Tout marquer comme lu',
+    clearRead: 'Effacer les lues',
+    noNotifications: 'Aucune notification',
+    noUnreadNotifications: 'Vous êtes à jour. Aucune notification non lue.',
     testButton: 'Send test notification',
     testSending: 'Sending notification...',
     testSuccess: 'Test notification sent! Check your screen banner.',
