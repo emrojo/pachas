@@ -60,7 +60,7 @@ export async function PUT(
       convertedAmount !== undefined && !isNaN(Number(convertedAmount)) && Number(convertedAmount) > 0
         ? Number(convertedAmount)
         : Math.round(dbAmount * safeExchangeRate * 100) / 100;
-    const cleanDate = expenseDate?.includes('T') ? expenseDate.split('T')[0] : expenseDate;
+    const cleanDate = expenseDate || new Date().toISOString();
 
     const client = await pool.connect();
     try {
