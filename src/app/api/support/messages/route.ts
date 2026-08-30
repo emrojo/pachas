@@ -7,11 +7,15 @@ import { notifyAppAdmins } from '@/lib/notifications/webPush';
 
 async function autoHealSupportTable(pool: any) {
   try {
+    await pool.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_at TIMESTAMP WITH TIME ZONE;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_by UUID;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;`).catch(() => {});
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.support_messages (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-        sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        sender_id UUID NOT NULL,
         sender_role TEXT NOT NULL,
         message TEXT NOT NULL,
         category TEXT DEFAULT 'general',
@@ -20,11 +24,22 @@ async function autoHealSupportTable(pool: any) {
         is_read_by_admin BOOLEAN DEFAULT FALSE NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
       );
-      ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE NOT NULL;
-      ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_at TIMESTAMP WITH TIME ZONE;
-      ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
-      ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;
-    `);
+    `).catch(async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS public.support_messages (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL,
+          sender_id UUID NOT NULL,
+          sender_role TEXT NOT NULL,
+          message TEXT NOT NULL,
+          category TEXT DEFAULT 'general',
+          attachment_url TEXT,
+          is_read_by_user BOOLEAN DEFAULT FALSE NOT NULL,
+          is_read_by_admin BOOLEAN DEFAULT FALSE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+        );
+      `).catch(() => {});
+    });
   } catch {}
 }
 
@@ -78,10 +93,10 @@ export async function GET(request: NextRequest) {
       const convRes = await pool.query(`
         SELECT 
           m.user_id,
-          p.full_name as user_name,
+          COALESCE(p.full_name, 'Usuario') as user_name,
           p.email as user_email,
           p.avatar_url as user_avatar,
-          p.is_banned,
+          COALESCE(p.is_banned, FALSE) as is_banned,
           p.ban_reason,
           COUNT(CASE WHEN m.is_read_by_admin = FALSE AND m.sender_role = 'user' THEN 1 END)::int as unread_count,
           MAX(m.created_at) as last_message_at,
@@ -100,7 +115,7 @@ export async function GET(request: NextRequest) {
             LIMIT 1
           ) as last_category
         FROM public.support_messages m
-        JOIN public.profiles p ON p.id = m.user_id
+        LEFT JOIN public.profiles p ON p.id::text = m.user_id::text
         GROUP BY m.user_id, p.full_name, p.email, p.avatar_url, p.is_banned, p.ban_reason
         ORDER BY last_message_at DESC
       `);
@@ -195,7 +210,7 @@ export async function POST(request: NextRequest) {
     if (senderRole === 'user') {
       // Notify System Admins
       try {
-        const uRes = await pool.query('SELECT full_name, email FROM public.profiles WHERE id = $1', [auth.userId]);
+        const uRes = await pool.query('SELECT full_name, email FROM public.profiles WHERE id::text = $1::text', [auth.userId]);
         const userName = uRes.rows[0]?.full_name || auth.email || 'Un usuario';
 
         await notifyAppAdmins({

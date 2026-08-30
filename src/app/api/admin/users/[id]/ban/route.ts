@@ -48,12 +48,10 @@ async function checkAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean;
 
 async function autoHealBanColumns(pool: any) {
   try {
-    await pool.query(`
-      ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE NOT NULL;
-      ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_at TIMESTAMP WITH TIME ZONE;
-      ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
-      ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;
-    `);
+    await pool.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_at TIMESTAMP WITH TIME ZONE;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_by UUID;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;`).catch(() => {});
   } catch {}
 }
 

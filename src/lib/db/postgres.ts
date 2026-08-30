@@ -47,6 +47,69 @@ export function parseDatabaseConfig(
   return { connectionString: dbUrl };
 }
 
+let schemaInitialized = false;
+
+export async function ensureGlobalSchema(p: Pool): Promise<void> {
+  if (schemaInitialized) return;
+  schemaInitialized = true;
+
+  try {
+    // 1. Profiles ban columns
+    await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;`).catch(() => {});
+    await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_at TIMESTAMP WITH TIME ZONE;`).catch(() => {});
+    await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_by UUID;`).catch(() => {});
+    await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;`).catch(() => {});
+
+    // 2. Groups freeze columns
+    await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS is_frozen BOOLEAN DEFAULT FALSE;`).catch(() => {});
+    await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS frozen_at TIMESTAMP WITH TIME ZONE;`).catch(() => {});
+    await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS frozen_by UUID;`).catch(() => {});
+    await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS frozen_reason TEXT;`).catch(() => {});
+    await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS freeze_type TEXT DEFAULT 'full';`).catch(() => {});
+
+    // 3. Reports moderation columns
+    await p.query(`ALTER TABLE public.content_reports ADD COLUMN IF NOT EXISTS resolution_notes TEXT;`).catch(() => {});
+    await p.query(`ALTER TABLE public.content_reports ADD COLUMN IF NOT EXISTS evidence_snapshot JSONB;`).catch(() => {});
+
+    // 4. Support Messages Table
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS public.support_messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        sender_id UUID NOT NULL,
+        sender_role TEXT NOT NULL,
+        message TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        attachment_url TEXT,
+        is_read_by_user BOOLEAN DEFAULT FALSE NOT NULL,
+        is_read_by_admin BOOLEAN DEFAULT FALSE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+      );
+    `).catch(async () => {
+      await p.query(`
+        CREATE TABLE IF NOT EXISTS public.support_messages (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL,
+          sender_id UUID NOT NULL,
+          sender_role TEXT NOT NULL,
+          message TEXT NOT NULL,
+          category TEXT DEFAULT 'general',
+          attachment_url TEXT,
+          is_read_by_user BOOLEAN DEFAULT FALSE NOT NULL,
+          is_read_by_admin BOOLEAN DEFAULT FALSE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+        );
+      `).catch(() => {});
+    });
+
+    // 5. Support message indexes
+    await p.query(`CREATE INDEX IF NOT EXISTS idx_support_messages_user ON public.support_messages(user_id);`).catch(() => {});
+    await p.query(`CREATE INDEX IF NOT EXISTS idx_support_messages_created ON public.support_messages(created_at DESC);`).catch(() => {});
+  } catch (err) {
+    console.warn('Schema auto-migration notice:', err);
+  }
+}
+
 export function getDbPool(): Pool | null {
   if (pool) return pool;
 
@@ -59,6 +122,8 @@ export function getDbPool(): Pool | null {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
   });
+
+  ensureGlobalSchema(pool).catch(() => {});
 
   return pool;
 }
