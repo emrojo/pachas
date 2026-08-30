@@ -1,56 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
 import { ShareReceiveModal } from '@/components/share/ShareReceiveModal';
 import { Loader2 } from 'lucide-react';
 
-/**
- * /share-receive
- *
- * Acts as the landing page for two share flows:
- *
- * A. PWA Web Share Target (Chrome Android)
- *    The browser POSTs multipart/form-data to /share-receive (as declared in
- *    manifest.json share_target). Next.js does NOT run route handlers for the
- *    root page method, so we intercept it client-side: the page mounts, reads
- *    the POST body via a fetch to /api/share-receive (forwarded in useEffect),
- *    and stores the result in sessionStorage for the modal.
- *
- *    In practice Chrome Android POSTs and then loads the page GET, so we use
- *    a small service worker trick: the SW intercepts the POST, stores the file
- *    data in the Cache API, responds with a redirect to GET /share-receive, and
- *    this page reads from that cache via /api/share-receive.
- *
- *    For simplicity (no custom SW needed) we use the sessionStorage approach:
- *    the API route at /api/share-receive receives the POST, serialises the file
- *    to JSON, and redirects to /share-receive?from=api. This page reads from
- *    sessionStorage key "pachas-shared-file" written by the SW redirect.
- *
- * B. Capacitor Native (Android intent / iOS Share Extension)
- *    The Capacitor plugin @capacitor-community/receive-sharing-intent fires
- *    the receivedFiles event, which is consumed by the PachasContext and stored
- *    in a global state. This page reads it and shows the modal.
- *
- * Implementation note for the PWA case:
- *   We use the simplest pattern that does NOT require a custom service worker:
- *   the manifest share_target points to /share-receive with method POST.
- *   Chrome Android will load /share-receive and attach the file data. Since
- *   Next.js page routes do not handle POST, Chrome will actually GET the page
- *   after the post (it follows the redirect). We therefore intercept via a
- *   minimal service-worker registration already present in PwaRegistrar
- *   (or we add a dedicated one below). Until then, a simpler approach:
- *
- *   We register a one-time fetch handler in the existing SW (or via a small
- *   inline script) that:
- *     1. Intercepts POST /share-receive
- *     2. Reads FormData
- *     3. POSTs the file to /api/share-receive
- *     4. Stores the JSON response in sessionStorage
- *     5. Redirects to GET /share-receive
- *   This page then reads sessionStorage on mount.
- */
+export const dynamic = 'force-dynamic';
 
 interface SharedFileInfo {
   dataUrl: string;
@@ -58,9 +14,8 @@ interface SharedFileInfo {
   isPdf: boolean;
 }
 
-export default function ShareReceivePage() {
+function ShareReceiveContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { currentUser, isLoading } = usePachas();
 
   const [sharedFile, setSharedFile] = useState<SharedFileInfo | null>(null);
@@ -72,7 +27,9 @@ export default function ShareReceivePage() {
   useEffect(() => {
     if (!isLoading && !currentUser) {
       // Save the fact that we have a pending share so we can resume after login
-      sessionStorage.setItem('pachas-share-pending', 'true');
+      try {
+        sessionStorage.setItem('pachas-share-pending', 'true');
+      } catch {}
       router.replace('/login?redirectTo=/share-receive');
     }
   }, [currentUser, isLoading, router]);
@@ -84,7 +41,7 @@ export default function ShareReceivePage() {
     const loadSharedFile = async () => {
       // 1. Try Cache API (written by the SW share_target handler)
       try {
-        if ('caches' in window) {
+        if (typeof window !== 'undefined' && 'caches' in window) {
           const cache = await caches.open('pachas-offline-v2');
           const cached = await cache.match('/share-receive-data');
           if (cached) {
@@ -106,18 +63,22 @@ export default function ShareReceivePage() {
       }
 
       // 2. Try sessionStorage (legacy fallback)
-      const stored = sessionStorage.getItem('pachas-shared-file');
-      if (stored) {
-        try {
-          const parsed: SharedFileInfo = JSON.parse(stored);
-          sessionStorage.removeItem('pachas-shared-file');
-          setSharedFile(parsed);
-          setPageStatus('ready');
-          return;
-        } catch {
-          sessionStorage.removeItem('pachas-shared-file');
+      try {
+        if (typeof window !== 'undefined') {
+          const stored = sessionStorage.getItem('pachas-shared-file');
+          if (stored) {
+            try {
+              const parsed: SharedFileInfo = JSON.parse(stored);
+              sessionStorage.removeItem('pachas-shared-file');
+              setSharedFile(parsed);
+              setPageStatus('ready');
+              return;
+            } catch {
+              sessionStorage.removeItem('pachas-shared-file');
+            }
+          }
         }
-      }
+      } catch {}
 
       // 3. Try Capacitor native intent (receive-sharing-intent plugin)
       try {
@@ -125,29 +86,31 @@ export default function ShareReceivePage() {
           typeof window !== 'undefined' &&
           (window as any).Capacitor?.isNativePlatform?.()
         ) {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-expect-error — package only present in native Android/iOS builds
-          const { ReceiveSharingIntent } = await import('@capacitor-community/receive-sharing-intent');
-          const result = await ReceiveSharingIntent.getReceivedFiles();
-          const items = result?.sharedFiles ?? result?.files ?? [];
-          if (items.length > 0) {
-            const item = items[0];
-            const mimeType: string = item.type ?? item.mimeType ?? 'image/jpeg';
-            const isPdf = mimeType.includes('pdf');
-            let dataUrl: string = item.contentUri ?? item.url ?? '';
-            if (!dataUrl.startsWith('data:')) {
-              // Convert file URI to base64 via Capacitor Filesystem
-              const { Filesystem } = await import('@capacitor/filesystem');
-              const read = await Filesystem.readFile({ path: dataUrl });
-              dataUrl = `data:${mimeType};base64,${read.data}`;
+          const ReceiveSharingIntent = (window as any).Capacitor?.Plugins?.ReceiveSharingIntent;
+          if (ReceiveSharingIntent) {
+            const result = await ReceiveSharingIntent.getReceivedFiles();
+            const items = result?.sharedFiles ?? result?.files ?? [];
+            if (items.length > 0) {
+              const item = items[0];
+              const mimeType: string = item.type ?? item.mimeType ?? 'image/jpeg';
+              const isPdf = mimeType.includes('pdf');
+              let dataUrl: string = item.contentUri ?? item.url ?? '';
+              if (!dataUrl.startsWith('data:')) {
+                // Convert file URI to base64 via Capacitor Filesystem
+                const Filesystem = (window as any).Capacitor?.Plugins?.Filesystem;
+                if (Filesystem) {
+                  const read = await Filesystem.readFile({ path: dataUrl });
+                  dataUrl = `data:${mimeType};base64,${read.data}`;
+                }
+              }
+              setSharedFile({
+                dataUrl,
+                fileName: item.fileName ?? item.subject ?? 'archivo compartido',
+                isPdf,
+              });
+              setPageStatus('ready');
+              return;
             }
-            setSharedFile({
-              dataUrl,
-              fileName: item.fileName ?? item.subject ?? 'archivo compartido',
-              isPdf,
-            });
-            setPageStatus('ready');
-            return;
           }
         }
       } catch (err) {
@@ -206,5 +169,22 @@ export default function ShareReceivePage() {
         />
       )}
     </div>
+  );
+}
+
+export default function ShareReceivePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+          <div className="flex flex-col items-center gap-3 text-slate-400">
+            <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+            <p className="text-sm">Cargando...</p>
+          </div>
+        </div>
+      }
+    >
+      <ShareReceiveContent />
+    </Suspense>
   );
 }
