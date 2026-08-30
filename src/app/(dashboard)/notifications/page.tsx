@@ -125,15 +125,48 @@ export default function NotificationsPage() {
     return true;
   });
 
+  const resolveNotificationUrl = (notif: AppNotification): string => {
+    if (notif.action_url) return notif.action_url;
+    if (!notif.group_id) return '/dashboard';
+
+    switch (notif.type) {
+      case 'receipt_pending':
+        return `/groups/${notif.group_id}?validateScan=${notif.data?.scanId || ''}`;
+      case 'expense_created':
+      case 'expense_updated':
+        return notif.expense_id
+          ? `/groups/${notif.group_id}?tab=expenses&expenseId=${notif.expense_id}`
+          : `/groups/${notif.group_id}?tab=expenses`;
+      case 'expense_deleted':
+        return `/groups/${notif.group_id}?tab=expenses`;
+      case 'comment_created':
+      case 'comment_reaction':
+        return notif.expense_id
+          ? `/groups/${notif.group_id}?tab=expenses&expenseId=${notif.expense_id}&comments=true`
+          : `/groups/${notif.group_id}?tab=expenses`;
+      case 'member_invited':
+      case 'member_joined':
+      case 'member_removed':
+      case 'group_role_updated':
+        return `/groups/${notif.group_id}?tab=members`;
+      case 'settlement_created':
+        return `/groups/${notif.group_id}?tab=balances`;
+      case 'group_archived':
+      case 'group_deleted':
+        return '/dashboard';
+      case 'group_restored':
+        return `/groups/${notif.group_id}?tab=expenses`;
+      default:
+        return `/groups/${notif.group_id}`;
+    }
+  };
+
   const handleAction = (notif: AppNotification) => {
     if (!notif.read) {
       markNotificationAsRead(notif.id);
     }
-    if (notif.action_url) {
-      router.push(notif.action_url);
-    } else if (notif.group_id) {
-      router.push(`/groups/${notif.group_id}`);
-    }
+    const targetUrl = resolveNotificationUrl(notif);
+    router.push(targetUrl);
   };
 
   const handleClearRead = () => {

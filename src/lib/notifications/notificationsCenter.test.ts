@@ -174,4 +174,64 @@ describe('Unified Notification Center Logic', () => {
     const allMatched = extendedNotifications.every((n) => groupCategoryTypes.includes(n.type));
     expect(allMatched).toBe(true);
   });
+
+  it('correctly resolves deep-link contextual action URLs for all notification types', () => {
+    const resolveUrl = (notif: Partial<AppNotification>): string => {
+      if (notif.action_url) return notif.action_url;
+      if (!notif.group_id) return '/dashboard';
+
+      switch (notif.type) {
+        case 'receipt_pending':
+          return `/groups/${notif.group_id}?validateScan=${notif.data?.scanId || ''}`;
+        case 'expense_created':
+        case 'expense_updated':
+          return notif.expense_id
+            ? `/groups/${notif.group_id}?tab=expenses&expenseId=${notif.expense_id}`
+            : `/groups/${notif.group_id}?tab=expenses`;
+        case 'expense_deleted':
+          return `/groups/${notif.group_id}?tab=expenses`;
+        case 'comment_created':
+        case 'comment_reaction':
+          return notif.expense_id
+            ? `/groups/${notif.group_id}?tab=expenses&expenseId=${notif.expense_id}&comments=true`
+            : `/groups/${notif.group_id}?tab=expenses`;
+        case 'member_invited':
+        case 'member_joined':
+        case 'member_removed':
+        case 'group_role_updated':
+          return `/groups/${notif.group_id}?tab=members`;
+        case 'settlement_created':
+          return `/groups/${notif.group_id}?tab=balances`;
+        case 'group_archived':
+        case 'group_deleted':
+          return '/dashboard';
+        case 'group_restored':
+          return `/groups/${notif.group_id}?tab=expenses`;
+        default:
+          return `/groups/${notif.group_id}`;
+      }
+    };
+
+    // 1. Expense update -> deep links to expense detail
+    expect(resolveUrl({ type: 'expense_updated', group_id: 'grp-1', expense_id: 'exp-99' })).toBe(
+      '/groups/grp-1?tab=expenses&expenseId=exp-99'
+    );
+
+    // 2. Member changes -> deep links to members/friends tab
+    expect(resolveUrl({ type: 'member_joined', group_id: 'grp-1' })).toBe('/groups/grp-1?tab=members');
+    expect(resolveUrl({ type: 'group_role_updated', group_id: 'grp-1' })).toBe('/groups/grp-1?tab=members');
+
+    // 3. Comments -> deep links to comments on that expense
+    expect(resolveUrl({ type: 'comment_created', group_id: 'grp-1', expense_id: 'exp-123' })).toBe(
+      '/groups/grp-1?tab=expenses&expenseId=exp-123&comments=true'
+    );
+
+    // 4. Settlements -> deep links to balances/debts tab
+    expect(resolveUrl({ type: 'settlement_created', group_id: 'grp-1' })).toBe('/groups/grp-1?tab=balances');
+
+    // 5. Pending receipt -> deep links to validation modal with scanId
+    expect(resolveUrl({ type: 'receipt_pending', group_id: 'grp-1', data: { scanId: 'scan-7' } })).toBe(
+      '/groups/grp-1?validateScan=scan-7'
+    );
+  });
 });

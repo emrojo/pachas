@@ -434,6 +434,13 @@ This document serves as the official and permanent registry for all **user requi
     - **📦 Groups**: When archiving (`group_archived`), restoring (`group_restored`), or permanently deleting a group (`group_deleted`).
     - **💬 Comments & Reactions**: When posting a comment (`comment_created`) or reacting with an emoji (`comment_reaction`).
     - **🤝 Settlements & Debts**: When recording a debt settlement payment (`settlement_created`).
+- **FR-37.6**: **Deep Contextual Action Navigation**:
+  - Clicking any notification in the floating bell dropdown or the `/notifications` center routes directly to the specific contextual target:
+    - **Expense Modifications & Additions**: Opens `/groups/[id]?tab=expenses&expenseId=[id]` and immediately displays the detailed `ExpenseForm` modal with split shares, payers, and attached receipts.
+    - **Expense Comments & Reactions**: Opens `/groups/[id]?tab=expenses&expenseId=[id]&comments=true` focusing the conversation feed.
+    - **Friend & Member Updates**: Switches group tab to **"Friends"** (`/groups/[id]?tab=members`).
+    - **Settlements & Debts**: Switches group tab to **"Balances"** (`/groups/[id]?tab=balances`).
+    - **Pending AI Receipt Scans**: Opens the receipt validation modal (`/groups/[id]?validateScan=[id]`).
 
 ### ⚖️ FR-38: Judicial & Dispute Compliance Evidence Export Protocol
 - **FR-38.1**: **Comprehensive Audit Evidence Package**:
@@ -538,4 +545,5 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 💬 Added | **FR-36** | **Rich Conversational Features in Expense Discussions**: Categorized animated GIF selector (`GifPickerModal`), emoji reaction pills with counter badges on comments, and React Portal rendering preventing container clipping. |
 | **30/08/2026** | 🔔 Added | **FR-37** | **Unified Notification Center & Navbar Bell Dropdown**: Centralized notification hub (`/notifications`) with filters (*Payments/Validations, Comments, Groups/Roles*), direct action CTAs, unread badge, and default demo seeding. |
 | **30/08/2026** | ⚡ Added | **FR-37.5** | **Automatic Real-Time Notification Triggers**: Connected automatic notification dispatching across all application lifecycle events: expense creation/modification/deletion, member invite/join/exit, group admin elevation, group archiving/restoration/deletion, comment creation, emoji reactions, and debt settlements. |
+| **30/08/2026** | 🎯 Added | **FR-37.6** | **Deep Contextual Action Navigation from Notifications**: Intelligent URL query param resolution routing notifications directly into detailed expense modals, comments, friends tabs, balance sheets, and receipt validation popups. |
 | **30/08/2026** | ⚖️ Added | **FR-38** | **Judicial & Dispute Evidence Export Protocol**: Documented compliance package for court inquiries with mathematical PDF audit, European CSV, and JSON data exports. |

@@ -109,16 +109,43 @@ export default function GroupDetailPage() {
   const [redactionImage, setRedactionImage] = useState<string | null>(null);
   const [validatingScan, setValidatingScan] = useState<PendingReceiptScan | null>(null);
 
-  // Check URL search params to open validation directly from notification
+  // Deep-link handling: Check URL search params for tab, expenseId, and validateScan
   useEffect(() => {
-    const validateScanId = searchParams?.get('validateScan');
+    if (!searchParams) return;
+
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab) {
+      if (requestedTab === 'friends' || requestedTab === 'members') {
+        setActiveTab('members');
+      } else if (requestedTab === 'balances' || requestedTab === 'settlements' || requestedTab === 'debts') {
+        setActiveTab('balances');
+      } else if (requestedTab === 'charts' || requestedTab === 'analytics') {
+        setActiveTab('charts');
+      } else if (requestedTab === 'history') {
+        setActiveTab('history');
+      } else if (requestedTab === 'expenses') {
+        setActiveTab('expenses');
+      }
+    }
+
+    const expenseId = searchParams.get('expenseId');
+    if (expenseId && expenses.length > 0) {
+      const match = expenses.find((e) => e.id === expenseId);
+      if (match) {
+        setActiveTab('expenses');
+        setEditingExpense(match);
+        setIsExpenseFormOpen(true);
+      }
+    }
+
+    const validateScanId = searchParams.get('validateScan');
     if (validateScanId && pendingReceiptScans.length > 0) {
       const match = pendingReceiptScans.find((s) => s.id === validateScanId);
       if (match) {
         setValidatingScan(match);
       }
     }
-  }, [searchParams, pendingReceiptScans]);
+  }, [searchParams, expenses, pendingReceiptScans]);
 
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
