@@ -60,9 +60,11 @@ export const NotificationBellDropdown: React.FC = () => {
       case 'receipt_pending':
         return <Receipt className="w-4 h-4 text-amber-500" />;
       case 'expense_created':
-      case 'expense_updated':
-      case 'expense_deleted':
         return <DollarSign className="w-4 h-4 text-emerald-500" />;
+      case 'expense_updated':
+        return <Sparkles className="w-4 h-4 text-blue-500" />;
+      case 'expense_deleted':
+        return <Trash2 className="w-4 h-4 text-rose-500" />;
       case 'comment_created':
       case 'comment_reaction':
         return <MessageSquare className="w-4 h-4 text-sky-500" />;
@@ -70,8 +72,14 @@ export const NotificationBellDropdown: React.FC = () => {
         return <CheckCheck className="w-4 h-4 text-emerald-600" />;
       case 'group_role_updated':
         return <ShieldCheck className="w-4 h-4 text-amber-600" />;
+      case 'member_invited':
       case 'member_joined':
+      case 'member_removed':
         return <Users className="w-4 h-4 text-indigo-500" />;
+      case 'group_archived':
+      case 'group_restored':
+      case 'group_deleted':
+        return <Info className="w-4 h-4 text-purple-500" />;
       default:
         return <Info className="w-4 h-4 text-slate-400" />;
     }

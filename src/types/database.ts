@@ -189,7 +189,12 @@ export type NotificationType =
   | 'comment_reaction'
   | 'settlement_created'
   | 'group_role_updated'
+  | 'member_invited'
   | 'member_joined'
+  | 'member_removed'
+  | 'group_archived'
+  | 'group_restored'
+  | 'group_deleted'
   | 'system';
 
 export interface AppNotification {

@@ -47,9 +47,11 @@ export default function NotificationsPage() {
       case 'receipt_pending':
         return <Receipt className="w-5 h-5 text-amber-500" />;
       case 'expense_created':
-      case 'expense_updated':
-      case 'expense_deleted':
         return <DollarSign className="w-5 h-5 text-emerald-500" />;
+      case 'expense_updated':
+        return <Sparkles className="w-5 h-5 text-blue-500" />;
+      case 'expense_deleted':
+        return <Trash2 className="w-5 h-5 text-rose-500" />;
       case 'comment_created':
       case 'comment_reaction':
         return <MessageSquare className="w-5 h-5 text-sky-500" />;
@@ -57,8 +59,14 @@ export default function NotificationsPage() {
         return <CheckCheck className="w-5 h-5 text-emerald-600" />;
       case 'group_role_updated':
         return <ShieldCheck className="w-5 h-5 text-amber-600" />;
+      case 'member_invited':
       case 'member_joined':
+      case 'member_removed':
         return <Users className="w-5 h-5 text-indigo-500" />;
+      case 'group_archived':
+      case 'group_restored':
+      case 'group_deleted':
+        return <Info className="w-5 h-5 text-purple-500" />;
       default:
         return <Info className="w-5 h-5 text-slate-400" />;
     }
@@ -77,8 +85,15 @@ export default function NotificationsPage() {
       case 'settlement_created':
         return '🤝 Ver pago';
       case 'group_role_updated':
+      case 'member_invited':
       case 'member_joined':
+      case 'member_removed':
+      case 'group_archived':
+      case 'group_restored':
         return '👥 Ver grupo';
+      case 'expense_deleted':
+      case 'group_deleted':
+        return 'Ver aviso';
       default:
         return 'Abrir';
     }
@@ -95,7 +110,7 @@ export default function NotificationsPage() {
     if (activeTab === 'comments' && !['comment_created', 'comment_reaction'].includes(notif.type)) {
       return false;
     }
-    if (activeTab === 'groups' && !['group_role_updated', 'member_joined', 'expense_updated', 'expense_deleted'].includes(notif.type)) {
+    if (activeTab === 'groups' && !['group_role_updated', 'member_invited', 'member_joined', 'member_removed', 'group_archived', 'group_restored', 'group_deleted', 'expense_updated', 'expense_deleted'].includes(notif.type)) {
       return false;
     }
 
