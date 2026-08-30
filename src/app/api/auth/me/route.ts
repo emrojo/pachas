@@ -2,15 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { getDbPool } from '@/lib/db/postgres';
 import { isServerAdmin } from '@/lib/auth/adminAuth';
+import { isDemoModeAllowed } from '@/lib/authConfig';
+import { DEMO_USERS } from '@/lib/demoData';
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get('sb-access-token')?.value;
+  let payload = token ? await verifyJwt(token) : null;
 
-  if (!token) {
-    return NextResponse.json({ user: null }, { status: 401 });
+  // Fallback to demo cookie when demo mode is active
+  if (!payload && isDemoModeAllowed()) {
+    const demoCookie = request.cookies.get('pachas_demo_user')?.value;
+    if (demoCookie) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(demoCookie));
+        if (parsed?.id && parsed?.email) {
+          const matched = DEMO_USERS.find(
+            (d) => d.id === parsed.id || d.email.toLowerCase() === parsed.email.toLowerCase()
+          );
+          const isAdmin = isServerAdmin(parsed.email, parsed.id, parsed.role);
+          const effectiveRole = isAdmin ? 'admin' : (matched?.role || parsed.role || 'member');
+          return NextResponse.json({
+            user: {
+              id: parsed.id,
+              email: parsed.email,
+              full_name: matched?.full_name || parsed.email.split('@')[0],
+              avatar_url: matched?.avatar_url || null,
+              bizum_phone: matched?.bizum_phone || null,
+              role: effectiveRole,
+            },
+          });
+        }
+      } catch {}
+    }
   }
 
-  const payload = await verifyJwt(token);
   if (!payload) {
     return NextResponse.json({ user: null }, { status: 401 });
   }

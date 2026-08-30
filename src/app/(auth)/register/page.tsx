@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
@@ -15,8 +15,13 @@ import { User, Mail, Phone, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
-  const { setCurrentUser, createLocalUser } = usePachas();
+  const rawRedirect = searchParams?.get('redirectTo') || '/dashboard';
+  const redirectTo =
+    !rawRedirect || rawRedirect.startsWith('/login') || rawRedirect.startsWith('/register')
+      ? '/dashboard'
+      : rawRedirect;
+
+  const { currentUser, setCurrentUser, createLocalUser } = usePachas();
   const { t } = useTranslation();
 
   const [fullName, setFullName] = useState('');
@@ -28,6 +33,13 @@ function RegisterForm() {
   const [error, setError] = useState('');
 
   const isDemoAllowed = isDemoModeAllowed();
+
+  // If already authenticated, redirect immediately
+  useEffect(() => {
+    if (currentUser) {
+      router.replace(redirectTo);
+    }
+  }, [currentUser, redirectTo, router]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +75,7 @@ function RegisterForm() {
       if (res.ok && resData.user) {
         setCurrentUser(resData.user);
         router.replace(redirectTo);
+        router.refresh();
         return;
       }
 
@@ -75,6 +88,7 @@ function RegisterForm() {
         });
         setCurrentUser(newLocal);
         router.replace(redirectTo);
+        router.refresh();
         return;
       }
 
@@ -89,6 +103,7 @@ function RegisterForm() {
           });
           setCurrentUser(newLocal);
           router.replace(redirectTo);
+          router.refresh();
           return;
         } catch {}
       }
@@ -100,22 +115,24 @@ function RegisterForm() {
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-slate-50 dark:bg-slate-950">
-      <div className="flex-1 flex items-center justify-center p-4 relative">
-        <div className="absolute top-4 right-4">
-          <LanguageSelector />
-        </div>
+      {/* Top Header */}
+      <header className="w-full max-w-7xl mx-auto p-4 sm:p-6 flex items-center justify-between">
+        <Link href="/" className="inline-flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl shadow-md shadow-emerald-500/20">
+            💸
+          </div>
+          <span className="font-black text-2xl tracking-tight text-slate-900 dark:text-white">
+            Pachas
+          </span>
+        </Link>
+        <LanguageSelector />
+      </header>
 
-        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl my-8">
+      {/* Centered Main Form */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
           <div className="text-center mb-6">
-            <Link href="/" className="inline-flex items-center gap-2 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl shadow-md">
-                💸
-              </div>
-              <span className="font-black text-2xl tracking-tight text-slate-900 dark:text-white">
-                Pachas
-              </span>
-            </Link>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h2 className="text-xl font-black text-slate-900 dark:text-white">
               {t('auth.registerTitle')}
             </h2>
             <p className="text-xs text-slate-500 mt-1">
@@ -206,7 +223,7 @@ function RegisterForm() {
             </Link>
           </p>
         </div>
-      </div>
+      </main>
 
       <Footer showDonations={false} />
     </div>
