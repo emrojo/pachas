@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
-import { verifyJwt } from '@/lib/auth/jwt';
-import { isServerAdmin } from '@/lib/auth/adminAuth';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 
 async function autoHealGroupFrozenColumns(pool: any) {
   try {
@@ -20,17 +19,12 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const params = await props.params;
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
-
     const groupId = params?.id;
     const pool = getDbPool();
     if (!pool) {
@@ -84,17 +78,13 @@ export async function PUT(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const params = await props.params;
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
-
     const groupId = params?.id;
     const body = await request.json();
     const {
@@ -119,12 +109,12 @@ export async function PUT(
 
     await autoHealGroupFrozenColumns(pool);
 
-    const isAdmin = isServerAdmin(payload.email, payload.sub, payload.role);
+    const isAdmin = user.isAdmin;
 
     // Only system superadmins can freeze or unfreeze groups
     const safeIsFrozen = isAdmin && is_frozen !== undefined ? is_frozen : undefined;
     const safeFrozenAt = isAdmin && is_frozen !== undefined ? (is_frozen ? (frozen_at || new Date().toISOString()) : null) : undefined;
-    const safeFrozenBy = isAdmin && is_frozen !== undefined ? (is_frozen ? (frozen_by || payload.sub) : null) : undefined;
+    const safeFrozenBy = isAdmin && is_frozen !== undefined ? (is_frozen ? (frozen_by || user.userId) : null) : undefined;
     const safeFrozenReason = isAdmin && is_frozen !== undefined ? (is_frozen ? (frozen_reason || 'Bajo investigación por moderación') : null) : undefined;
     const safeFreezeType = isAdmin && is_frozen !== undefined ? (is_frozen ? (freeze_type || 'full') : null) : undefined;
 
@@ -178,17 +168,12 @@ export async function DELETE(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const params = await props.params;
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
-
     const groupId = params?.id;
     const pool = getDbPool();
     if (!pool) {

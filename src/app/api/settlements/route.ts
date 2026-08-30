@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
-import { verifyJwt } from '@/lib/auth/jwt';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
+    const user = authResult.user!;
 
     const body = await request.json();
     const {
@@ -69,9 +65,9 @@ export async function POST(request: NextRequest) {
     );
 
     // Notify subscribed group members in background
-    notifyGroupMembers(groupId, payload.sub, {
+    notifyGroupMembers(groupId, user.userId, {
       title: `Deuda liquidada`,
-      body: `${payload.full_name || 'Un amigo'} ha registrado un pago de ${amount} ${currency}.`,
+      body: `${user.email?.split('@')[0] || 'Un amigo'} ha registrado un pago de ${amount} ${currency}.`,
       url: `/groups/${groupId}`,
       tag: `settlement-${id}`,
       data: { groupId, settlementId: id },
@@ -99,6 +95,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const { searchParams } = new URL(request.url);
     const groupId = searchParams.get('groupId');
 

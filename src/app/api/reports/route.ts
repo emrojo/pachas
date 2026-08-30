@@ -1,51 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { sanitizeText } from '@/lib/security/sanitize';
-import { verifyJwt } from '@/lib/auth/jwt';
-import { isServerAdmin } from '@/lib/auth/adminAuth';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 import { notifyAppAdmins } from '@/lib/notifications/webPush';
-
-async function checkAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string; email?: string }> {
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : undefined;
-  const token = bearerToken || request.cookies.get('sb-access-token')?.value;
-
-  if (token) {
-    const payload = await verifyJwt(token);
-    if (payload?.sub) {
-      if (isServerAdmin(payload.email, payload.sub, payload.role)) {
-        return { isAdmin: true, userId: payload.sub, email: payload.email };
-      }
-      const pool = getDbPool();
-      if (pool) {
-        try {
-          const uRes = await pool.query(
-            'SELECT role, email FROM public.profiles WHERE id::text = $1::text',
-            [payload.sub]
-          );
-          if (uRes.rows.length > 0) {
-            const user = uRes.rows[0];
-            if (isServerAdmin(user.email, payload.sub, user.role)) {
-              return { isAdmin: true, userId: payload.sub, email: user.email };
-            }
-          }
-        } catch {}
-      }
-    }
-  }
-
-  const demoCookie = request.cookies.get('pachas_demo_user')?.value;
-  if (demoCookie) {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(demoCookie));
-      if (isServerAdmin(parsed.email, parsed.id, parsed.role)) {
-        return { isAdmin: true, userId: parsed.id, email: parsed.email };
-      }
-    } catch {}
-  }
-
-  return { isAdmin: false };
-}
 
 async function autoHealReportsTable(pool: any) {
   try {
@@ -76,12 +33,9 @@ async function autoHealReportsTable(pool: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await checkAdminAuth(request);
-    if (!auth.isAdmin) {
-      return NextResponse.json(
-        { error: 'Acceso denegado. Se requieren privilegios de Administrador de Sistema.' },
-        { status: 403 }
-      );
+    const authResult = await requireActiveUser(request, { requireAdmin: true });
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
 
     const pool = getDbPool();
@@ -134,6 +88,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const body = await request.json();
     const { targetType, targetId, targetTitle, targetUrl, groupId, reason, details } = body;
 
@@ -141,17 +101,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan campos obligatorios para el reporte' }, { status: 400 });
     }
 
-    // Resolve current user if logged in
-    const token = request.cookies.get('sb-access-token')?.value;
-    let reporterId: string | null = null;
-    let reporterEmail: string | null = null;
-    if (token) {
-      const payload = await verifyJwt(token);
-      if (payload?.sub) {
-        reporterId = payload.sub;
-        reporterEmail = payload.email || null;
-      }
-    }
+    const reporterId = user.userId;
+    const reporterEmail = user.email || null;
 
     const cleanReason = sanitizeText(reason, 100);
     const cleanDetails = details ? sanitizeText(details, 500) : null;
@@ -250,12 +201,9 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await checkAdminAuth(request);
-    if (!auth.isAdmin) {
-      return NextResponse.json(
-        { error: 'Acceso denegado. Se requieren privilegios de Administrador de Sistema.' },
-        { status: 403 }
-      );
+    const authResult = await requireActiveUser(request, { requireAdmin: true });
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
 
     const body = await request.json();

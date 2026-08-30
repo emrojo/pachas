@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
-import { verifyJwt } from '@/lib/auth/jwt';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Debes iniciar sesión para unirte a un grupo.' }, { status: 401 });
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
-
-    const payload = await verifyJwt(token);
-    if (!payload || !payload.sub) {
-      return NextResponse.json({ error: 'Sesión no válida o expirada.' }, { status: 401 });
-    }
+    const user = authResult.user!;
 
     const body = await request.json();
     const { inviteCode, enableNotifications = false } = body;
@@ -67,7 +63,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
          VALUES ($1, $2, $3, 'member', $4, NOW())
          ON CONFLICT (group_id, user_id) DO UPDATE SET notifications_enabled = EXCLUDED.notifications_enabled`,
-        [memberId, group.id, payload.sub, Boolean(enableNotifications)]
+        [memberId, group.id, user.userId, Boolean(enableNotifications)]
       );
     } catch (insertErr: any) {
       if (insertErr.code === '42703' || String(insertErr.message).includes('notifications_enabled')) {
@@ -75,7 +71,7 @@ export async function POST(request: NextRequest) {
           `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
            VALUES ($1, $2, $3, 'member', NOW())
            ON CONFLICT (group_id, user_id) DO NOTHING`,
-          [memberId, group.id, payload.sub]
+          [memberId, group.id, user.userId]
         );
       } else {
         throw insertErr;
@@ -110,9 +106,9 @@ export async function POST(request: NextRequest) {
 
     // Dispatch push notification to existing group members
     try {
-      const joiner = members.find((m) => m.user_id === payload.sub)?.profile;
-      const joinerName = joiner?.full_name || payload.full_name || 'Un nuevo amigo';
-      notifyGroupMembers(group.id, payload.sub, {
+      const joiner = members.find((m) => m.user_id === user.userId)?.profile;
+      const joinerName = joiner?.full_name || user.email?.split('@')[0] || 'Un nuevo amigo';
+      notifyGroupMembers(group.id, user.userId, {
         title: `👥 Nuevo miembro en ${group.name}`,
         body: `${joinerName} se ha unido al grupo.`,
         url: `/groups/${group.id}`,

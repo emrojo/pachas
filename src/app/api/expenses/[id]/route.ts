@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
-import { verifyJwt } from '@/lib/auth/jwt';
-import { isServerAdmin } from '@/lib/auth/adminAuth';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
 
@@ -10,16 +9,13 @@ export async function PUT(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
-    const params = await props.params;
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
+    const user = authResult.user!;
 
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
+    const params = await props.params;
 
     const expenseId = params?.id;
     const body = await request.json();
@@ -55,8 +51,7 @@ export async function PUT(
         [expenseId]
       );
       if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
-        const isAdmin = isServerAdmin(payload.email, payload.sub, payload.role);
-        if (!isAdmin) {
+        if (!user.isAdmin) {
           return NextResponse.json(
             { error: 'El grupo se encuentra temporalmente congelado por moderación. No se pueden modificar gastos.' },
             { status: 403 }
@@ -259,24 +254,24 @@ export async function PUT(
             `SELECT e.group_id, g.name as group_name, p.full_name as editor_name
              FROM public.expenses e
              JOIN public.groups g ON g.id = e.group_id
-             LEFT JOIN public.profiles p ON p.id = $2
-             WHERE e.id = $1`,
-            [expenseId, payload.sub]
+             LEFT JOIN public.profiles p ON p.id::text = $2::text
+             WHERE e.id::text = $1::text`,
+            [expenseId, user.userId]
           );
           if (groupRes.rows.length > 0) {
             const g = groupRes.rows[0];
-            const editor = g.editor_name || payload.full_name || 'Un amigo';
+            const editor = g.editor_name || user.email?.split('@')[0] || 'Un amigo';
             const formattedAmt = typeof dbAmount === 'number' ? dbAmount.toFixed(2).replace('.', ',') : String(dbAmount);
             const isOcrFinished = body.ocr_status === 'completed' && title !== 'Analizando ticket con IA...';
 
             if (isOcrFinished) {
-              notifyGroupMembers(g.group_id, payload.sub, {
+              notifyGroupMembers(g.group_id, user.userId, {
                 title: `✨ Factura procesada en ${g.group_name}`,
                 body: `Se reconoció "${title}" por ${formattedAmt} ${currency || 'EUR'}`,
                 url: `/groups/${g.group_id}`,
               }).catch((pushErr) => console.warn('Push notification for ocr completion failed:', pushErr));
             } else {
-              notifyGroupMembers(g.group_id, payload.sub, {
+              notifyGroupMembers(g.group_id, user.userId, {
                 title: `✏️ Gasto modificado en ${g.group_name}`,
                 body: `${editor} modificó "${title}" (${formattedAmt} ${currency || 'EUR'})`,
                 url: `/groups/${g.group_id}`,
@@ -306,17 +301,13 @@ export async function DELETE(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const user = authResult.user!;
+
     const params = await props.params;
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
-
     const expenseId = params?.id;
     const pool = getDbPool();
     if (!pool) {
@@ -330,8 +321,7 @@ export async function DELETE(
         [expenseId]
       );
       if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
-        const isAdmin = isServerAdmin(payload.email, payload.sub, payload.role);
-        if (!isAdmin) {
+        if (!user.isAdmin) {
           return NextResponse.json(
             { error: 'El grupo se encuentra temporalmente congelado por moderación. Solo el administrador puede eliminar gastos.' },
             { status: 403 }
@@ -347,9 +337,9 @@ export async function DELETE(
         `SELECT e.title, e.amount, e.currency, e.group_id, g.name as group_name, p.full_name as deleter_name
          FROM public.expenses e
          JOIN public.groups g ON g.id = e.group_id
-         LEFT JOIN public.profiles p ON p.id = $2
-         WHERE e.id = $1`,
-        [expenseId, payload.sub]
+         LEFT JOIN public.profiles p ON p.id::text = $2::text
+         WHERE e.id::text = $1::text`,
+        [expenseId, user.userId]
       );
       if (expRes.rows.length > 0) {
         const row = expRes.rows[0];
@@ -360,7 +350,7 @@ export async function DELETE(
           currency: row.currency || 'EUR',
           group_id: row.group_id,
           group_name: row.group_name,
-          deleter_name: row.deleter_name || payload.full_name || 'Un amigo',
+          deleter_name: row.deleter_name || user.email?.split('@')[0] || 'Un amigo',
         };
       }
     } catch (infoErr) {
@@ -372,7 +362,7 @@ export async function DELETE(
     // Dispatch push notification to group members
     if (deletedExpenseInfo) {
       try {
-        notifyGroupMembers(deletedExpenseInfo.group_id, payload.sub, {
+        notifyGroupMembers(deletedExpenseInfo.group_id, user.userId, {
           title: `🗑️ Gasto eliminado en ${deletedExpenseInfo.group_name}`,
           body: `${deletedExpenseInfo.deleter_name} eliminó "${deletedExpenseInfo.title}" (${deletedExpenseInfo.amount} ${deletedExpenseInfo.currency})`,
           url: `/groups/${deletedExpenseInfo.group_id}`,
@@ -394,6 +384,11 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const params = await props.params;
     const expenseId = params?.id;
     if (!expenseId) {

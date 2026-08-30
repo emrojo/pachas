@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
-import { verifyJwt } from '@/lib/auth/jwt';
+import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
+    const user = authResult.user!;
 
     const body = await request.json();
     const {
@@ -52,7 +48,7 @@ export async function POST(request: NextRequest) {
            base_currency = EXCLUDED.base_currency,
            updated_at = NOW()
          RETURNING *`,
-        [id, name, description, icon_emoji, cover_image_url, base_currency, invite_code, payload.sub]
+        [id, name, description, icon_emoji, cover_image_url, base_currency, invite_code, user.userId]
       );
 
       const memberId = randomUUID();
@@ -61,31 +57,18 @@ export async function POST(request: NextRequest) {
         await client.query(
           `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
            VALUES ($1, $2, $3, 'admin', $4, NOW())
-           ON CONFLICT (group_id, user_id) DO UPDATE SET notifications_enabled = EXCLUDED.notifications_enabled`,
-          [memberId, id, payload.sub, notificationsEnabled]
+           ON CONFLICT (group_id, user_id) DO NOTHING`,
+          [memberId, id, user.userId, notificationsEnabled]
         );
-      } catch (insertErr: any) {
-        if (insertErr.code === '42703' || String(insertErr.message).includes('notifications_enabled')) {
-          await client.query(
-            `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
-             VALUES ($1, $2, $3, 'admin', NOW())
-             ON CONFLICT (group_id, user_id) DO NOTHING`,
-            [memberId, id, payload.sub]
-          );
-        } else {
-          throw insertErr;
-        }
+      } catch (memErr) {
+        console.warn('Group member auto-join non-fatal warning:', memErr);
       }
 
       await client.query('COMMIT');
-
-      return NextResponse.json({
-        success: true,
-        group: groupRes.rows[0],
-      });
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
+      return NextResponse.json({ success: true, group: groupRes.rows[0] });
+    } catch (dbErr: any) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw dbErr;
     } finally {
       client.release();
     }
@@ -97,15 +80,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get('sb-access-token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    const authResult = await requireActiveUser(request);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
-
-    const payload = await verifyJwt(token);
-    if (!payload?.sub) {
-      return NextResponse.json({ error: 'Sesión no válida' }, { status: 401 });
-    }
+    const user = authResult.user!;
 
     const pool = getDbPool();
     if (!pool) {
@@ -143,7 +122,7 @@ export async function GET(request: NextRequest) {
       ORDER BY g.created_at DESC
     `;
 
-    const res = await pool.query(query, [payload.sub]);
+    const res = await pool.query(query, [user.userId]);
     return NextResponse.json({ success: true, groups: res.rows });
   } catch (err: any) {
     console.error('API get groups error:', err);

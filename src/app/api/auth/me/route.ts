@@ -6,7 +6,9 @@ import { isDemoModeAllowed } from '@/lib/authConfig';
 import { DEMO_USERS } from '@/lib/demoData';
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get('sb-access-token')?.value;
+  const authHeader = request.headers.get('authorization');
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : undefined;
+  const token = bearerToken || request.cookies.get('sb-access-token')?.value;
   let payload = token ? await verifyJwt(token) : null;
 
   // Fallback to demo cookie when demo mode is active
@@ -21,51 +23,89 @@ export async function GET(request: NextRequest) {
           );
           const isAdmin = isServerAdmin(parsed.email, parsed.id, parsed.role);
           const effectiveRole = isAdmin ? 'admin' : (matched?.role || parsed.role || 'member');
-          return NextResponse.json({
-            user: {
-              id: parsed.id,
-              email: parsed.email,
-              full_name: matched?.full_name || parsed.email.split('@')[0],
-              avatar_url: matched?.avatar_url || null,
-              bizum_phone: matched?.bizum_phone || null,
-              role: effectiveRole,
+          return NextResponse.json(
+            {
+              user: {
+                id: parsed.id,
+                email: parsed.email,
+                full_name: matched?.full_name || parsed.email.split('@')[0],
+                avatar_url: matched?.avatar_url || null,
+                bizum_phone: matched?.bizum_phone || null,
+                role: effectiveRole,
+                is_banned: Boolean(parsed.is_banned),
+                ban_reason: parsed.ban_reason || null,
+              },
             },
-          });
+            {
+              headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+            }
+          );
         }
       } catch {}
     }
   }
 
   if (!payload) {
-    return NextResponse.json({ user: null }, { status: 401 });
+    return NextResponse.json(
+      { user: null },
+      {
+        status: 401,
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+      }
+    );
   }
 
   try {
     const isAdmin = isServerAdmin(payload.email, payload.sub, payload.role);
     const pool = getDbPool();
     if (pool) {
-      const res = await pool.query('SELECT * FROM public.profiles WHERE id = $1', [payload.sub]);
+      const res = await pool.query('SELECT * FROM public.profiles WHERE id::text = $1::text', [payload.sub]);
       if (res.rows.length > 0) {
         const user = res.rows[0];
         const effectiveRole = isAdmin ? 'admin' : (user.role || 'member');
         if (isAdmin && user.role !== 'admin') {
-          pool.query('UPDATE public.profiles SET role = $1 WHERE id = $2', ['admin', payload.sub]).catch(() => {});
+          pool.query('UPDATE public.profiles SET role = $1 WHERE id::text = $2::text', ['admin', payload.sub]).catch(() => {});
         }
-        return NextResponse.json({ user: { ...user, role: effectiveRole } });
+        return NextResponse.json(
+          {
+            user: {
+              ...user,
+              role: effectiveRole,
+              is_banned: Boolean(user.is_banned),
+              banned_at: user.banned_at || null,
+              ban_reason: user.ban_reason || null,
+            },
+          },
+          {
+            headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+          }
+        );
       }
     }
 
     const effectiveRole = isAdmin ? 'admin' : (payload.role || 'member');
-    return NextResponse.json({
-      user: {
-        id: payload.sub,
-        email: payload.email,
-        full_name: payload.full_name || payload.email.split('@')[0],
-        role: effectiveRole,
+    return NextResponse.json(
+      {
+        user: {
+          id: payload.sub,
+          email: payload.email,
+          full_name: payload.full_name || payload.email.split('@')[0],
+          role: effectiveRole,
+          is_banned: false,
+        },
       },
-    });
+      {
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+      }
+    );
   } catch (err: any) {
-    return NextResponse.json({ user: null, error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { user: null, error: err.message },
+      {
+        status: 500,
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+      }
+    );
   }
 }
 
