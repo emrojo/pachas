@@ -88,38 +88,74 @@ export async function GET(request: NextRequest) {
     const requestedUserId = searchParams.get('userId');
     const loadConversations = searchParams.get('conversations') === 'true';
 
+    let hasBanCol = false;
+    try {
+      const checkCol = await pool.query(`
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'is_banned'
+      `);
+      hasBanCol = checkCol.rows.length > 0;
+    } catch {}
+
     // If admin is requesting all conversation summaries
     if (auth.isAdmin && loadConversations && !requestedUserId) {
-      const convRes = await pool.query(`
-        SELECT 
-          m.user_id,
-          COALESCE(p.full_name, 'Usuario') as user_name,
-          p.email as user_email,
-          p.avatar_url as user_avatar,
-          COALESCE(p.is_banned, FALSE) as is_banned,
-          p.ban_reason,
-          COUNT(CASE WHEN m.is_read_by_admin = FALSE AND m.sender_role = 'user' THEN 1 END)::int as unread_count,
-          MAX(m.created_at) as last_message_at,
-          (
-            SELECT message 
-            FROM public.support_messages 
-            WHERE user_id = m.user_id 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          ) as last_message,
-          (
-            SELECT category 
-            FROM public.support_messages 
-            WHERE user_id = m.user_id 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          ) as last_category
-        FROM public.support_messages m
-        LEFT JOIN public.profiles p ON p.id::text = m.user_id::text
-        GROUP BY m.user_id, p.full_name, p.email, p.avatar_url, p.is_banned, p.ban_reason
-        ORDER BY last_message_at DESC
-      `);
+      const convQuery = hasBanCol
+        ? `SELECT 
+            m.user_id,
+            COALESCE(p.full_name, 'Usuario') as user_name,
+            p.email as user_email,
+            p.avatar_url as user_avatar,
+            p.is_banned,
+            p.ban_reason,
+            COUNT(CASE WHEN m.is_read_by_admin = FALSE AND m.sender_role = 'user' THEN 1 END)::int as unread_count,
+            MAX(m.created_at) as last_message_at,
+            (
+              SELECT message 
+              FROM public.support_messages 
+              WHERE user_id = m.user_id 
+              ORDER BY created_at DESC 
+              LIMIT 1
+            ) as last_message,
+            (
+              SELECT category 
+              FROM public.support_messages 
+              WHERE user_id = m.user_id 
+              ORDER BY created_at DESC 
+              LIMIT 1
+            ) as last_category
+          FROM public.support_messages m
+          LEFT JOIN public.profiles p ON p.id::text = m.user_id::text
+          GROUP BY m.user_id, p.full_name, p.email, p.avatar_url, p.is_banned, p.ban_reason
+          ORDER BY last_message_at DESC`
+        : `SELECT 
+            m.user_id,
+            COALESCE(p.full_name, 'Usuario') as user_name,
+            p.email as user_email,
+            p.avatar_url as user_avatar,
+            FALSE as is_banned,
+            NULL as ban_reason,
+            COUNT(CASE WHEN m.is_read_by_admin = FALSE AND m.sender_role = 'user' THEN 1 END)::int as unread_count,
+            MAX(m.created_at) as last_message_at,
+            (
+              SELECT message 
+              FROM public.support_messages 
+              WHERE user_id = m.user_id 
+              ORDER BY created_at DESC 
+              LIMIT 1
+            ) as last_message,
+            (
+              SELECT category 
+              FROM public.support_messages 
+              WHERE user_id = m.user_id 
+              ORDER BY created_at DESC 
+              LIMIT 1
+            ) as last_category
+          FROM public.support_messages m
+          LEFT JOIN public.profiles p ON p.id::text = m.user_id::text
+          GROUP BY m.user_id, p.full_name, p.email, p.avatar_url
+          ORDER BY last_message_at DESC`;
 
+      const convRes = await pool.query(convQuery);
       return NextResponse.json({ conversations: convRes.rows });
     }
 

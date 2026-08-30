@@ -89,7 +89,7 @@ export async function POST(
            banned_at = NOW(),
            banned_by = $1,
            ban_reason = $2
-       WHERE id = $3`,
+       WHERE id::text = $3::text`,
       [auth.adminId || null, cleanReason, targetUserId]
     );
 
@@ -145,7 +145,7 @@ export async function DELETE(
            banned_at = NULL,
            banned_by = NULL,
            ban_reason = NULL
-       WHERE id = $1`,
+       WHERE id::text = $1::text`,
       [targetUserId]
     );
 

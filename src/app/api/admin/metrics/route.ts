@@ -97,25 +97,51 @@ export async function GET(request: NextRequest) {
       try {
         await ensureGlobalSchema(pool);
 
+        let hasBanCol = false;
+        try {
+          const checkCol = await pool.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'is_banned'
+          `);
+          hasBanCol = checkCol.rows.length > 0;
+        } catch {}
+
         // 1. Users directory
-        const usersRes = await pool.query(`
-          SELECT 
-            p.id, 
-            p.full_name, 
-            p.email, 
-            p.role, 
-            p.bizum_phone, 
-            p.avatar_url,
-            COALESCE(p.is_banned, FALSE) AS is_banned,
-            p.banned_at,
-            p.ban_reason,
-            p.created_at,
-            (SELECT COUNT(*) FROM public.group_members gm WHERE gm.user_id = p.id) AS groups_count,
-            (SELECT COUNT(*) FROM public.expenses e WHERE e.created_by = p.id) AS expenses_count,
-            (SELECT COUNT(*) > 0 FROM public.push_subscriptions ps WHERE ps.user_id = p.id) AS has_push
-          FROM public.profiles p
-          ORDER BY p.created_at DESC
-        `);
+        const usersQuery = hasBanCol
+          ? `SELECT 
+              p.id, 
+              p.full_name, 
+              p.email, 
+              p.role, 
+              p.bizum_phone, 
+              p.avatar_url,
+              p.is_banned,
+              p.banned_at,
+              p.ban_reason,
+              p.created_at,
+              (SELECT COUNT(*) FROM public.group_members gm WHERE gm.user_id = p.id) AS groups_count,
+              (SELECT COUNT(*) FROM public.expenses e WHERE e.created_by = p.id) AS expenses_count,
+              (SELECT COUNT(*) > 0 FROM public.push_subscriptions ps WHERE ps.user_id = p.id) AS has_push
+            FROM public.profiles p
+            ORDER BY p.created_at DESC`
+          : `SELECT 
+              p.id, 
+              p.full_name, 
+              p.email, 
+              p.role, 
+              p.bizum_phone, 
+              p.avatar_url,
+              FALSE AS is_banned,
+              NULL AS banned_at,
+              NULL AS ban_reason,
+              p.created_at,
+              (SELECT COUNT(*) FROM public.group_members gm WHERE gm.user_id = p.id) AS groups_count,
+              (SELECT COUNT(*) FROM public.expenses e WHERE e.created_by = p.id) AS expenses_count,
+              (SELECT COUNT(*) > 0 FROM public.push_subscriptions ps WHERE ps.user_id = p.id) AS has_push
+            FROM public.profiles p
+            ORDER BY p.created_at DESC`;
+
+        const usersRes = await pool.query(usersQuery);
         usersList = usersRes.rows.map((r: any) => ({
           ...r,
           is_banned: Boolean(r.is_banned),
