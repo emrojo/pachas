@@ -108,18 +108,15 @@ export async function GET(request: NextRequest) {
               p.role, 
               p.bizum_phone, 
               p.avatar_url,
-              p.is_banned,
+              COALESCE(p.is_banned, FALSE) AS is_banned,
               p.banned_at,
               p.ban_reason,
-              p.created_at,
-              (SELECT COUNT(*) FROM public.group_members gm WHERE gm.user_id = p.id) AS groups_count,
-              (SELECT COUNT(*) FROM public.expenses e WHERE e.created_by = p.id) AS expenses_count,
-              (SELECT COUNT(*) > 0 FROM public.push_subscriptions ps WHERE ps.user_id = p.id) AS has_push
+              p.created_at
             FROM public.profiles p
             ORDER BY p.created_at DESC
           `);
         } catch (err: any) {
-          // If is_banned or other ban column is not found in profiles, query baseline columns
+          // If is_banned column is missing on profiles, query baseline columns
           usersRes = await pool.query(`
             SELECT 
               p.id, 
@@ -131,45 +128,117 @@ export async function GET(request: NextRequest) {
               FALSE AS is_banned,
               NULL AS banned_at,
               NULL AS ban_reason,
-              p.created_at,
-              (SELECT COUNT(*) FROM public.group_members gm WHERE gm.user_id = p.id) AS groups_count,
-              (SELECT COUNT(*) FROM public.expenses e WHERE e.created_by = p.id) AS expenses_count,
-              (SELECT COUNT(*) > 0 FROM public.push_subscriptions ps WHERE ps.user_id = p.id) AS has_push
+              p.created_at
             FROM public.profiles p
             ORDER BY p.created_at DESC
           `).catch(() => ({ rows: [] }));
         }
 
-        usersList = (usersRes?.rows || []).map((r: any) => ({
+        const rawUsers = usersRes?.rows || [];
+
+        // Fetch counts safely in separate queries
+        const groupCountMap: Record<string, number> = {};
+        const expCountMap: Record<string, number> = {};
+        const pushUserSet = new Set<string>();
+
+        try {
+          const gmRes = await pool.query(`SELECT user_id::text, COUNT(*)::int as count FROM public.group_members GROUP BY user_id`);
+          (gmRes.rows || []).forEach((r: any) => { if (r.user_id) groupCountMap[String(r.user_id)] = r.count; });
+        } catch {}
+
+        try {
+          const expRes = await pool.query(`SELECT created_by::text, COUNT(*)::int as count FROM public.expenses GROUP BY created_by`);
+          (expRes.rows || []).forEach((r: any) => { if (r.created_by) expCountMap[String(r.created_by)] = r.count; });
+        } catch {}
+
+        try {
+          const psRes = await pool.query(`SELECT DISTINCT user_id::text FROM public.push_subscriptions`);
+          (psRes.rows || []).forEach((r: any) => { if (r.user_id) pushUserSet.add(String(r.user_id)); });
+        } catch {}
+
+        usersList = rawUsers.map((r: any) => ({
           ...r,
           is_banned: Boolean(r.is_banned),
-          groups_count: parseInt(r.groups_count || '0', 10),
-          expenses_count: parseInt(r.expenses_count || '0', 10),
-          has_push: Boolean(r.has_push),
+          groups_count: groupCountMap[String(r.id)] || 0,
+          expenses_count: expCountMap[String(r.id)] || 0,
+          has_push: pushUserSet.has(String(r.id)),
         }));
 
         // 2. Groups directory
-        const groupsRes = await pool.query(`
-          SELECT 
-            g.id, 
-            g.name, 
-            g.description,
-            g.icon_emoji, 
-            g.base_currency, 
-            g.is_archived,
-            g.created_at,
-            (SELECT p.full_name FROM public.profiles p WHERE p.id = g.created_by) AS creator_name,
-            (SELECT COUNT(*) FROM public.group_members gm WHERE gm.group_id = g.id) AS members_count,
-            (SELECT COUNT(*) FROM public.expenses e WHERE e.group_id = g.id) AS expenses_count,
-            (SELECT COALESCE(SUM(e.amount), 0) FROM public.expenses e WHERE e.group_id = g.id) AS total_amount
-          FROM public.groups g
-          ORDER BY g.created_at DESC
-        `);
-        groupsList = groupsRes.rows.map((r: any) => ({
+        let groupsRes;
+        try {
+          groupsRes = await pool.query(`
+            SELECT 
+              g.id, 
+              g.name, 
+              g.description,
+              g.icon_emoji, 
+              g.base_currency, 
+              COALESCE(g.is_archived, FALSE) AS is_archived,
+              COALESCE(g.is_frozen, FALSE) AS is_frozen,
+              g.frozen_at,
+              g.frozen_by,
+              g.frozen_reason,
+              g.freeze_type,
+              g.created_by,
+              g.created_at
+            FROM public.groups g
+            ORDER BY g.created_at DESC
+          `);
+        } catch (err: any) {
+          groupsRes = await pool.query(`
+            SELECT 
+              g.id, 
+              g.name, 
+              g.description,
+              g.icon_emoji, 
+              g.base_currency, 
+              COALESCE(g.is_archived, FALSE) AS is_archived,
+              FALSE AS is_frozen,
+              NULL AS frozen_at,
+              NULL AS frozen_by,
+              NULL AS frozen_reason,
+              'full' AS freeze_type,
+              g.created_by,
+              g.created_at
+            FROM public.groups g
+            ORDER BY g.created_at DESC
+          `).catch(() => ({ rows: [] }));
+        }
+
+        const rawGroups = groupsRes?.rows || [];
+        const memberCountMap: Record<string, number> = {};
+        const groupExpCountMap: Record<string, number> = {};
+        const groupExpSumMap: Record<string, number> = {};
+        const creatorNameMap: Record<string, string> = {};
+
+        rawUsers.forEach((u: any) => {
+          creatorNameMap[String(u.id)] = u.full_name || u.email;
+        });
+
+        try {
+          const gMemRes = await pool.query(`SELECT group_id::text, COUNT(*)::int as count FROM public.group_members GROUP BY group_id`);
+          (gMemRes.rows || []).forEach((r: any) => { if (r.group_id) memberCountMap[String(r.group_id)] = r.count; });
+        } catch {}
+
+        try {
+          const gExpRes = await pool.query(`SELECT group_id::text, COUNT(*)::int as count, COALESCE(SUM(amount), 0)::float as total FROM public.expenses GROUP BY group_id`);
+          (gExpRes.rows || []).forEach((r: any) => {
+            if (r.group_id) {
+              groupExpCountMap[String(r.group_id)] = r.count;
+              groupExpSumMap[String(r.group_id)] = r.total;
+            }
+          });
+        } catch {}
+
+        groupsList = rawGroups.map((r: any) => ({
           ...r,
-          members_count: parseInt(r.members_count || '0', 10),
-          expenses_count: parseInt(r.expenses_count || '0', 10),
-          total_amount: parseFloat(r.total_amount || '0'),
+          is_archived: Boolean(r.is_archived),
+          is_frozen: Boolean(r.is_frozen),
+          creator_name: creatorNameMap[String(r.created_by)] || 'Creador',
+          members_count: memberCountMap[String(r.id)] || 0,
+          expenses_count: groupExpCountMap[String(r.id)] || 0,
+          total_amount: groupExpSumMap[String(r.id)] || 0,
         }));
 
         // 3. Totals

@@ -314,10 +314,13 @@ export default function AdminBackofficePage() {
   const [groupFilter, setGroupFilter] = useState<'all' | 'active' | 'archived' | 'frozen'>('all');
   const [updatingUserRole, setUpdatingUserRole] = useState<string | null>(null);
 
-  // Enrich server metrics with local state if DB is running in local/demo mode
+  // Enrich server metrics with local state if DB is running in local/demo mode or tables are partially empty
   const enrichMetrics = (serverData: MetricsData): MetricsData => {
-    // If server has real groups in PostgreSQL, return server data
-    if (serverData.groupsList && serverData.groupsList.length > 0) {
+    const hasServerUsers = Boolean(serverData.usersList && serverData.usersList.length > 0);
+    const hasServerGroups = Boolean(serverData.groupsList && serverData.groupsList.length > 0);
+
+    // If server has both real users and groups in PostgreSQL, return server data
+    if (hasServerUsers && hasServerGroups) {
       return serverData;
     }
 
@@ -750,14 +753,16 @@ export default function AdminBackofficePage() {
 
   // Filtered users & groups
   const filteredUsers = (metrics?.usersList || []).filter((u) => {
-    const q = userSearch.toLowerCase();
+    const q = (userSearch || '').trim().toLowerCase();
     const matchesQuery =
-      u.full_name?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q) ||
-      u.bizum_phone?.toLowerCase().includes(q);
+      !q ||
+      (u.full_name && u.full_name.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.bizum_phone && u.bizum_phone.toLowerCase().includes(q));
+
     if (userStatusFilter === 'active') return matchesQuery && !u.is_banned;
-    if (userStatusFilter === 'banned') return matchesQuery && u.is_banned;
-    return matchesQuery;
+    if (userStatusFilter === 'banned') return matchesQuery && Boolean(u.is_banned);
+    return Boolean(matchesQuery);
   });
 
   const filteredGroups = (metrics?.groupsList || []).filter((g) => {
