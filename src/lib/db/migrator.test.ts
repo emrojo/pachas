@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getMigrationFiles, ensureMigrationsTable, getMigrationStatus, runPendingMigrations } from './migrator';
+import {
+  getMigrationFiles,
+  ensureMigrationsTable,
+  getMigrationStatus,
+  runPendingMigrations,
+  splitSqlStatements,
+} from './migrator';
 import path from 'path';
 
 describe('Deterministic Database Migrator (Pachas Migrations Engine)', () => {
@@ -73,6 +79,56 @@ describe('Deterministic Database Migrator (Pachas Migrations Engine)', () => {
     expect(result.applied).toContain('10-support-chat-and-bans.sql');
     expect(executedQueries).toContain('BEGIN');
     expect(executedQueries).toContain('COMMIT');
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
+  it('correctly splits SQL statements respecting single quotes and dollar quotes', () => {
+    const sql = `
+      CREATE TABLE public.test (id UUID PRIMARY KEY);
+      DO $$
+      BEGIN
+        RAISE NOTICE 'Hello; world';
+      END
+      $$;
+      ALTER TABLE public.test ADD COLUMN name TEXT;
+    `;
+
+    const statements = splitSqlStatements(sql);
+    expect(statements).toHaveLength(3);
+    expect(statements[0]).toContain('CREATE TABLE public.test');
+    expect(statements[1]).toContain('DO $$');
+    expect(statements[1]).toContain("RAISE NOTICE 'Hello; world'");
+    expect(statements[2]).toContain('ALTER TABLE public.test ADD COLUMN name TEXT');
+  });
+
+  it('switches to resilient statement-by-statement mode if transaction encounters ownership notice', async () => {
+    const executedStmts: string[] = [];
+    const mockClient = {
+      query: vi.fn(async (query: string) => {
+        if (query === 'BEGIN') return;
+        if (query.includes('CREATE TABLE IF NOT EXISTS public._migrations')) return { rows: [] };
+        if (query.includes('SELECT id FROM public._migrations')) return { rows: [] };
+        if (query.includes('INSERT INTO public._migrations')) return { rows: [] };
+        if (query === 'ROLLBACK') return;
+
+        // Simulate failing on full batch transaction
+        if (query.includes('create table if not exists auth.users') && query.length > 500) {
+          throw new Error('must be owner of function handle_new_user');
+        }
+
+        executedStmts.push(query.substring(0, 40));
+        return { rows: [] };
+      }),
+      release: vi.fn(),
+    };
+
+    const mockPool = {
+      connect: vi.fn().mockResolvedValue(mockClient),
+    } as any;
+
+    const result = await runPendingMigrations(mockPool);
+    expect(result.errors).toHaveLength(0);
+    expect(result.applied.length).toBeGreaterThanOrEqual(10);
     expect(mockClient.release).toHaveBeenCalled();
   });
 });
