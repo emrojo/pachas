@@ -95,7 +95,7 @@ export default function ProfilePage() {
           export_date: new Date().toISOString(),
           user: currentUser,
           local_groups: JSON.parse(localStorage.getItem('pachas_groups_v2') || '[]'),
-          local_expenses: JSON.parse(localStorage.getItem('pachas_expenses_v2') || '[]'),
+          local_expenses: JSON.parse(localStorage.getItem('pachas_expenses_v2') || '{}'),
         };
         const blob = new Blob([JSON.stringify(localData, null, 2)], { type: 'application/json' });
         const url = window.URL.createObjectURL(blob);
