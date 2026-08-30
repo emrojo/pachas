@@ -16,11 +16,16 @@ import {
   Clock,
   Sparkles,
   Users,
+  CornerDownRight,
+  Reply,
+  Receipt,
+  ExternalLink,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { formatMoney } from '@/lib/currencies';
 import { EmojiPickerPopover } from '@/components/expenses/EmojiPickerPopover';
 import { GifPickerModal } from '@/components/expenses/GifPickerModal';
-import { GroupMember } from '@/types/database';
+import { GroupMember, GroupMessage } from '@/types/database';
 
 export interface GroupChatSectionProps {
   groupId: string;
@@ -50,6 +55,13 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
 
   const [messageText, setMessageText] = useState('');
   const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{
+    id: string;
+    authorName: string;
+    textSnippet: string;
+    expenseId?: string | null;
+    expenseTitle?: string | null;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -111,13 +123,49 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
 
     try {
       setIsSubmitting(true);
-      await addGroupMessage(groupId, messageText.trim(), selectedGifUrl);
+      await addGroupMessage(
+        groupId,
+        messageText.trim(),
+        selectedGifUrl,
+        replyingTo?.id || null,
+        replyingTo
+          ? {
+              id: replyingTo.id,
+              author_name: replyingTo.authorName,
+              message: replyingTo.textSnippet,
+              expense_id: replyingTo.expenseId || null,
+              expense_title: replyingTo.expenseTitle || null,
+            }
+          : null,
+        replyingTo?.expenseId || null
+      );
       setMessageText('');
       setSelectedGifUrl(null);
+      setReplyingTo(null);
     } catch (err: any) {
       alert(err.message || 'Error al enviar el mensaje.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleStartReply = (msg: GroupMessage, authorProfile: any) => {
+    const authorName = authorProfile?.full_name?.split(' ')[0] || 'Amigo';
+    const textSnippet = msg.message?.trim()
+      ? msg.message.length > 70
+        ? msg.message.slice(0, 67) + '...'
+        : msg.message
+      : '🎬 GIF animado';
+
+    setReplyingTo({
+      id: msg.id,
+      authorName,
+      textSnippet,
+      expenseId: msg.expense_id || null,
+      expenseTitle: msg.expense_title || null,
+    });
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
   };
 
@@ -146,7 +194,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[520px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
+    <div className="flex flex-col h-[560px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
       {/* Chat Header */}
       <div className="px-5 py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -196,7 +244,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
                 {t('chat.emptyTitle') || '¡Aún no hay mensajes!'}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                {t('chat.emptySubtitle') || 'Sé el primero en saludar a tus amigos, proponer planes o compartir notas para el viaje.'}
+                {t('chat.emptySubtitle') || 'Sé el primero en saludar a tus amigos, proponer planes o comentar gastos.'}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
@@ -233,7 +281,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
                 <Avatar profile={authorProfile} size="sm" className="mt-0.5 shrink-0" />
 
                 {/* Message Bubble Container */}
-                <div className={`flex flex-col max-w-[82%] sm:max-w-[70%] ${isAuthor ? 'items-end' : 'items-start'}`}>
+                <div className={`flex flex-col max-w-[85%] sm:max-w-[72%] ${isAuthor ? 'items-end' : 'items-start'}`}>
                   {/* Author Name and Timestamp */}
                   <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-slate-400">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
@@ -257,6 +305,71 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
                         : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200/80 dark:border-slate-700/80 rounded-tl-xs'
                     }`}
                   >
+                    {/* Quoted Reply Block */}
+                    {msg.reply_to_snippet && (
+                      <div
+                        className={`mb-2.5 p-2 rounded-xl text-[11px] border-l-3 ${
+                          isAuthor
+                            ? 'bg-black/15 border-white/70 text-white/90'
+                            : 'bg-slate-100 dark:bg-slate-700/60 border-emerald-500 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="font-bold flex items-center gap-1.5">
+                          <CornerDownRight className="w-3 h-3 shrink-0" />
+                          <span>{msg.reply_to_snippet.author_name}</span>
+                          {msg.reply_to_snippet.expense_title && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 font-semibold truncate max-w-[130px]">
+                              💸 {msg.reply_to_snippet.expense_title}
+                            </span>
+                          )}
+                        </div>
+                        <p className="line-clamp-1 italic text-[10.5px] opacity-90 mt-0.5">
+                          {msg.reply_to_snippet.message}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Linked Expense Banner */}
+                    {msg.expense_id && (
+                      <div
+                        className={`mb-2.5 p-2.5 rounded-xl border flex items-center justify-between gap-2.5 ${
+                          isAuthor
+                            ? 'bg-white/15 border-white/30 text-white'
+                            : 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-slate-800 dark:text-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 text-xs font-bold shadow-2xs">
+                            💸
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                              {t('chat.expenseBadge') || 'Gasto vinculado'}
+                            </div>
+                            <div className="font-bold text-xs truncate">
+                              {msg.expense_title || 'Gasto del grupo'}
+                              {msg.expense_amount !== null && msg.expense_amount !== undefined && (
+                                <span className="ml-1 font-semibold text-[11px] opacity-90 tabular-nums">
+                                  ({formatMoney(msg.expense_amount, msg.expense_currency || 'EUR')})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <a
+                          href={`/groups/${groupId}?tab=expenses&expenseId=${msg.expense_id}`}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors flex items-center gap-1 ${
+                            isAuthor
+                              ? 'bg-white text-emerald-800 hover:bg-white/90'
+                              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          }`}
+                        >
+                          <span>{t('chat.viewExpense') || 'Ver gasto'}</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      </div>
+                    )}
+
                     {/* Message Text */}
                     {msg.message && (
                       <p className="whitespace-pre-wrap break-words">{msg.message}</p>
@@ -274,12 +387,22 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
                       </div>
                     )}
 
-                    {/* Hover Quick Actions */}
+                    {/* Hover Quick Actions Toolbar */}
                     <div
-                      className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs border border-slate-200 dark:border-slate-700 rounded-xl px-1.5 py-0.5 shadow-md ${
-                        isAuthor ? '-left-16' : '-right-16'
+                      className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-slate-200 dark:border-slate-700 rounded-xl px-1.5 py-0.5 shadow-md ${
+                        isAuthor ? '-left-24' : '-right-24'
                       }`}
                     >
+                      {/* Reply Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleStartReply(msg, authorProfile)}
+                        className="p-1 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors"
+                        title={t('chat.reply') || 'Responder'}
+                      >
+                        <Reply className="w-3.5 h-3.5" />
+                      </button>
+
                       {/* React trigger */}
                       <button
                         type="button"
@@ -321,7 +444,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
                             }`}
                           >
                             <span>{emoji}</span>
-                            <span className="text-[10px] opacity-80">{userIds.length}</span>
+                            <span className="text-[10px] opacity-80 tabular-nums">{userIds.length}</span>
                           </button>
                         );
                       })}
@@ -334,6 +457,36 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Replying To Banner above input */}
+      {replyingTo && (
+        <div className="px-4 py-2 bg-emerald-50/90 dark:bg-emerald-950/70 border-t border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <div className="flex items-center gap-2 min-w-0">
+            <CornerDownRight className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="min-w-0">
+              <span className="font-bold text-emerald-900 dark:text-emerald-100">
+                {t('chat.replyingTo') || 'Respondiendo a'} {replyingTo.authorName}:
+              </span>
+              <span className="ml-1 text-emerald-700 dark:text-emerald-300 truncate inline-block max-w-[200px] sm:max-w-md align-bottom italic">
+                "{replyingTo.textSnippet}"
+              </span>
+              {replyingTo.expenseId && (
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                  <span>💸 {t('chat.syncWithExpenseNotice') || 'Se añadirá también como comentario en el gasto'}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReplyingTo(null)}
+            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg shrink-0"
+            title={t('chat.cancelReply') || 'Cancelar respuesta'}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Selected GIF Preview above input */}
       {selectedGifUrl && (
@@ -390,7 +543,11 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
           type="text"
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
-          placeholder={t('chat.placeholder') || 'Escribe un mensaje al grupo...'}
+          placeholder={
+            replyingTo
+              ? `${t('chat.replyingTo') || 'Respondiendo a'} ${replyingTo.authorName}...`
+              : (t('chat.placeholder') || 'Escribe un mensaje al grupo...')
+          }
           className="flex-1 bg-slate-100 dark:bg-slate-800/80 border-0 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           disabled={isSubmitting}
         />

@@ -711,6 +711,12 @@ export const nl: TranslationDictionary = {
     "placeholder": "Schrijf een bericht naar de groep...",
     "emptyTitle": "Nog geen berichten!",
     "emptySubtitle": "Wees de eerste om vrienden te begroeten, plannen voor te stellen of notities te delen.",
-    "deleteConfirm": "Dit bericht uit de chat verwijderen?"
+    "deleteConfirm": "Dit bericht uit de chat verwijderen?",
+    reply: 'Beantwoorden',
+    replyingTo: 'Antwoord aan',
+    cancelReply: 'Antwoord annuleren',
+    expenseBadge: 'Gekoppelde uitgave',
+    viewExpense: 'Uitgave bekijken',
+    syncWithExpenseNotice: 'Wordt ook toegevoegd als reactie op de uitgave',
   },
 };

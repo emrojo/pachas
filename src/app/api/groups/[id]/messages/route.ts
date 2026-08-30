@@ -15,11 +15,17 @@ async function autoHealGroupMessagesTable(pool: any) {
         message text not null,
         gif_url text,
         reactions jsonb default '{}'::jsonb,
+        expense_id uuid references public.expenses(id) on delete cascade,
+        reply_to_id uuid references public.group_messages(id) on delete set null,
+        reply_to_snippet jsonb,
         created_at timestamp with time zone default timezone('utc'::text, now()) not null
       );
     `);
     await pool.query(`ALTER TABLE public.group_messages ADD COLUMN IF NOT EXISTS gif_url text;`).catch(() => {});
     await pool.query(`ALTER TABLE public.group_messages ADD COLUMN IF NOT EXISTS reactions jsonb default '{}'::jsonb;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.group_messages ADD COLUMN IF NOT EXISTS expense_id uuid;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.group_messages ADD COLUMN IF NOT EXISTS reply_to_id uuid;`).catch(() => {});
+    await pool.query(`ALTER TABLE public.group_messages ADD COLUMN IF NOT EXISTS reply_to_snippet jsonb;`).catch(() => {});
   } catch {
     // Ignored if table creation is restricted
   }
@@ -45,10 +51,12 @@ export async function GET(
 
     try {
       const res = await pool.query(
-        `SELECT m.id, m.group_id, m.user_id, m.message, m.gif_url, m.reactions, m.created_at,
-                p.full_name as author_name, p.avatar_url as author_avatar, p.email as author_email
+        `SELECT m.id, m.group_id, m.user_id, m.message, m.gif_url, m.reactions, m.expense_id, m.reply_to_id, m.reply_to_snippet, m.created_at,
+                p.full_name as author_name, p.avatar_url as author_avatar, p.email as author_email,
+                e.title as expense_title, e.amount as expense_amount, e.currency as expense_currency
          FROM public.group_messages m
          LEFT JOIN public.profiles p ON p.id = m.user_id
+         LEFT JOIN public.expenses e ON e.id = m.expense_id
          WHERE m.group_id::text = $1::text
          ORDER BY m.created_at ASC`,
         [groupId]
@@ -61,6 +69,12 @@ export async function GET(
         message: row.message || '',
         gif_url: row.gif_url || null,
         reactions: (typeof row.reactions === 'object' && row.reactions !== null) ? row.reactions : {},
+        expense_id: row.expense_id || null,
+        expense_title: row.expense_title || null,
+        expense_amount: row.expense_amount !== null && row.expense_amount !== undefined ? Number(row.expense_amount) : null,
+        expense_currency: row.expense_currency || null,
+        reply_to_id: row.reply_to_id || null,
+        reply_to_snippet: (typeof row.reply_to_snippet === 'object' && row.reply_to_snippet !== null) ? row.reply_to_snippet : null,
         created_at: row.created_at,
         profile: {
           id: row.user_id,
@@ -105,6 +119,9 @@ export async function POST(
     const rawMessage = body.message || '';
     const cleanMessage = sanitizeText(rawMessage, 1000);
     const gifUrl = body.gif_url ? String(body.gif_url).trim() : null;
+    const replyToId = body.reply_to_id ? String(body.reply_to_id) : null;
+    const replyToSnippet = body.reply_to_snippet && typeof body.reply_to_snippet === 'object' ? body.reply_to_snippet : null;
+    const expenseId = body.expense_id ? String(body.expense_id) : (replyToSnippet?.expense_id ? String(replyToSnippet.expense_id) : null);
 
     if (!cleanMessage.trim() && !gifUrl) {
       return NextResponse.json({ error: 'El mensaje no puede estar vacío' }, { status: 400 });
@@ -122,6 +139,10 @@ export async function POST(
           message: cleanMessage,
           gif_url: gifUrl,
           reactions: {},
+          expense_id: expenseId,
+          expense_title: replyToSnippet?.expense_title || null,
+          reply_to_id: replyToId,
+          reply_to_snippet: replyToSnippet,
           created_at: new Date().toISOString(),
           profile: {
             id: payload.sub,
@@ -137,16 +158,52 @@ export async function POST(
 
     try {
       await pool.query(
-        `INSERT INTO public.group_messages (id, group_id, user_id, message, gif_url, reactions, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())
-         ON CONFLICT (id) DO UPDATE SET message = EXCLUDED.message, gif_url = EXCLUDED.gif_url`,
-        [messageId, groupId, payload.sub, cleanMessage, gifUrl, JSON.stringify({})]
+        `INSERT INTO public.group_messages (id, group_id, user_id, message, gif_url, reactions, expense_id, reply_to_id, reply_to_snippet, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+         ON CONFLICT (id) DO UPDATE SET message = EXCLUDED.message, gif_url = EXCLUDED.gif_url, reply_to_snippet = EXCLUDED.reply_to_snippet`,
+        [
+          messageId,
+          groupId,
+          payload.sub,
+          cleanMessage,
+          gifUrl,
+          JSON.stringify({}),
+          expenseId,
+          replyToId,
+          replyToSnippet ? JSON.stringify(replyToSnippet) : null,
+        ]
       );
     } catch (insertErr: any) {
       if (insertErr.code === '42P01' || String(insertErr.message).includes('group_messages')) {
         console.warn('public.group_messages not found in PostgreSQL, message saved in client cache.');
       } else {
         throw insertErr;
+      }
+    }
+
+    // If this chat message relates to an expense, also record it as an expense comment in public.expense_comments!
+    if (expenseId) {
+      try {
+        await pool.query(
+          `CREATE TABLE IF NOT EXISTS public.expense_comments (
+            id uuid primary key default uuid_generate_v4(),
+            expense_id uuid references public.expenses(id) on delete cascade not null,
+            user_id uuid references public.profiles(id) on delete cascade not null,
+            comment text not null,
+            gif_url text,
+            reactions jsonb default '{}'::jsonb,
+            created_at timestamp with time zone default timezone('utc'::text, now()) not null
+          )`
+        );
+        const commentId = randomUUID();
+        await pool.query(
+          `INSERT INTO public.expense_comments (id, expense_id, user_id, comment, gif_url, reactions, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())
+           ON CONFLICT (id) DO NOTHING`,
+          [commentId, expenseId, payload.sub, cleanMessage, gifUrl, JSON.stringify({})]
+        );
+      } catch (commentErr) {
+        console.warn('Notice attaching chat message to expense comment:', commentErr);
       }
     }
 

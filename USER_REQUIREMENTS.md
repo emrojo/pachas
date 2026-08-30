@@ -472,6 +472,27 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-40.4**: **Automated Push & Notification Center Dispatching**:
   - Real-time WebPush/mobile push notifications and unified notification center alerts (`group_message_created`, `group_message_reaction`) routing directly to `/groups/[id]?tab=members&chat=true`.
 
+### 📐 FR-41: Grid Column Alignment & Harmonized Expense Presentation
+- **FR-41.1**: **Aligned Multi-Column Layout (`ExpenseCard.tsx`)**:
+  - Re-architected expense card structure into 4 strictly aligned columns:
+    1. **Fixed Category Icon Slot** (`w-11 h-11 sm:w-12 sm:h-12`).
+    2. **Middle Fluid Info & Standardized Meta Tray** (`flex-1 min-w-0` with title, date, payer, and inline interactive pill badges for receipt photos 🧾, map locations 📍, participant counters 👥, and discussion comments 💬).
+    3. **Fixed-Width, Right-Aligned Financial Column** (`tabular-nums font-black` total amount and personal balance difference `+X € / -X € / Al día` on consistent single-line height).
+    4. **Dedicated Fixed Action Toolbar** (`shrink-0 w-7 sm:w-14` preserving horizontal stability across all cards).
+- **FR-41.2**: **Tabular Column Header in Group Expenses (`/groups/[id]?tab=expenses`)**:
+  - Desktop/tablet structured column header bar (`Categoría | Detalles | Importe | Acciones`) guaranteeing financial alignment without visual scattering.
+
+### 💬 FR-42: Contextual Chat Replies & Omnichannel Expense Discussions
+- **FR-42.1**: **Direct Contextual Message Replies (`GroupChatSection.tsx`, `reply_to_snippet`)**:
+  - 1-tap **"Responder"** (Reply ↩️) action on chat messages.
+  - Floating reply composer bar above input displaying active author, quoted text snippet, linked expense indicator, and cancel (✕) button.
+  - Formatted quotation snippet bubble rendering parent author and text inside the reply.
+- **FR-42.2**: **Automatic Expense Discussion Mirroring in Group Chat**:
+  - Comments posted inside any expense modal (`ExpenseCommentsSection`) automatically mirror into the group chat stream with an interactive expense header chip (`💸 Gasto: "[Título]" ([Importe])`) and deep link.
+  - **Single Notification Guarantee**: Only a single notification (`comment_created`) is dispatched when a comment is posted, preventing annoying duplicate alerts across channels.
+- **FR-42.3**: **Bidirectional Cross-Synchronization of Replies**:
+  - Replying to an expense comment message within the group chat automatically attaches the reply as a new comment in the expense's private discussion thread in `public.expense_comments`, ensuring users in both views see complete conversation context.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -573,3 +594,5 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | ⚖️ Added | **FR-38** | **Judicial & Dispute Evidence Export Protocol**: Documented compliance package for court inquiries with mathematical PDF audit, European CSV, and JSON data exports. |
 | **30/08/2026** | 🏛️ Added | **FR-39** | **Unified Layout Header & Global Legal Compliance Footer**: Normalized visual header, hero banner and navigation in `/notifications`, and implemented the complete legal & RGPD compliance footer across 100% of application views. |
 | **30/08/2026** | 💬 Added | **FR-40** | **Real-Time Group Chat in Friends Section**: Built group chat sub-tab in `GroupDetailPage` (`GroupChatSection.tsx`, `/api/groups/[id]/messages`, `07-group-messages.sql`) with real-time text, animated GIFs, emoji picker, floating reactions, deep-link navigation, and 20-language i18n support. |
+| **30/08/2026** | 📐 Changed | **FR-41** | **Grid Column Alignment & Harmonized Expense Presentation**: Redesigned `ExpenseCard.tsx` and `/groups/[id]` with 4 strictly aligned columns (fixed category icon slot, structured metadata tray with interactive pills, fixed-width right-aligned financial column with `tabular-nums`, and dedicated action toolbar) plus desktop list column headers. |
+| **30/08/2026** | 💬 Added | **FR-42** | **Contextual Chat Replies & Omnichannel Expense Discussions**: Built direct message reply system (↩️) with quotation bubbles and composer preview, bidirectional mirroring between expense comments and the group chat stream, and single push notification dispatching to prevent duplicate alerts. |

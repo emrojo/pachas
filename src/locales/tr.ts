@@ -711,6 +711,12 @@ export const tr: TranslationDictionary = {
     "placeholder": "Gruba bir mesaj yazın...",
     "emptyTitle": "Henüz mesaj yok!",
     "emptySubtitle": "Arkadaşlarınıza selam veren, plan öneren veya not paylaşan ilk siz olun.",
-    "deleteConfirm": "Bu mesaj sohbetten silinsin mi?"
+    "deleteConfirm": "Bu mesaj sohbetten silinsin mi?",
+    reply: 'Yanıtla',
+    replyingTo: 'Yanıtlanıyor:',
+    cancelReply: 'Yanıtı iptal et',
+    expenseBadge: 'Bağlantılı harcama',
+    viewExpense: 'Harcamayı gör',
+    syncWithExpenseNotice: 'Harcamaya yorum olarak da eklenecek',
   },
 };

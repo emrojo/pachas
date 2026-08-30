@@ -711,6 +711,12 @@ export const ar: TranslationDictionary = {
     "placeholder": "اكتب رسالة إلى المجموعة...",
     "emptyTitle": "لا توجد رسائل بعد!",
     "emptySubtitle": "كن أول من يرحب بالأصدقاء أو يقترح خططًا أو يشارك الملاحظات.",
-    "deleteConfirm": "حذف هذه الرسالة من الدردشة؟"
+    "deleteConfirm": "حذف هذه الرسالة من الدردشة؟",
+    reply: 'رد',
+    replyingTo: 'الرد على',
+    cancelReply: 'إلغاء الرد',
+    expenseBadge: 'مصروف مرتبط',
+    viewExpense: 'عرض المصروف',
+    syncWithExpenseNotice: 'ستتم إضافته أيضاً كتعليق على المصروف',
   },
 };

@@ -711,6 +711,12 @@ export const ru: TranslationDictionary = {
     "placeholder": "Напишите сообщение группе...",
     "emptyTitle": "Сообщений пока нет!",
     "emptySubtitle": "Будьте первым, кто поприветствует друзей, предложит планы или поделится заметками.",
-    "deleteConfirm": "Удалить это сообщение из чата?"
+    "deleteConfirm": "Удалить это сообщение из чата?",
+    reply: 'Ответить',
+    replyingTo: 'В ответ',
+    cancelReply: 'Отменить ответ',
+    expenseBadge: 'Связанный расход',
+    viewExpense: 'Посмотреть расход',
+    syncWithExpenseNotice: 'Также будет добавлено в комментарии к расходу',
   },
 };

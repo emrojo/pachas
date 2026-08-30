@@ -1,14 +1,15 @@
 # 💸 Pachas — Group Vacation Expense Splitter App
 
-[![Next.js](https://img.shields.io/badge/Next.js-14.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![Docker Swarm](https://img.shields.io/badge/Docker-Swarm_%26_Compose-2496ED?style=flat-square&logo=docker)](https://www.docker.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
-[![Vitest](https://img.shields.io/badge/Vitest-2.1-6E9F18?style=flat-square&logo=vitest)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-4.1-6E9F18?style=flat-square&logo=vitest)](https://vitest.dev/)
+[![Capacitor](https://img.shields.io/badge/Capacitor-8.0-119EFF?style=flat-square&logo=capacitor)](https://capacitorjs.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**Pachas** is a modern, mobile-first Web & Progressive Web App (PWA) designed to split and manage group travel and vacation expenses with friends fairly, transparently, and without accounting headaches.
+**Pachas** is a modern, mobile-first Web, Progressive Web App (PWA), and native mobile application designed to split and manage group travel and vacation expenses with friends fairly, transparently, and without accounting headaches.
 
 ---
 
@@ -20,24 +21,42 @@
 - **Trip Archiving & Restoration**: Group administrators can archive completed trips to keep their dashboard clutter-free, with an admin-only restore zone.
 - **Member Management**: Remove friends from groups with safety confirmation dialogs or leave groups seamlessly.
 
-### 🧾 Smart Expense Recording & Splitting
+### 💬 Real-Time Group Chat & Omnichannel Discussions (FR-40, FR-42)
+- **Integrated Group Chat Sub-Tab (`tab=members&chat=true`)**: Direct conversational stream inside the Friends section of every group.
+- **Rich Messaging**: Send real-time text, categorized **animated GIFs** (Giphy API), emoji selector, and multi-user **floating emoji reaction pills** (`❤️ 👍 😂 🎉 🔥 👏`).
+- **Contextual Message Replies (↩️)**:
+  - 1-tap reply action on any message with floating composer preview and cancel (✕) option.
+  - Quoted snippet bubble rendering parent author and text inside the reply.
+- **Omnichannel Expense Comments Integration**:
+  - Comments posted inside any expense discussion automatically mirror into the group chat with an interactive card (`💸 Gasto: "[Título]" ([Importe])`).
+  - Replies in group chat to an expense comment automatically synchronize back to the expense's private discussion thread.
+  - **Single Notification Guarantee**: Only a single notification is dispatched per comment, preventing duplicate alerts across channels.
+
+### 🧾 Smart Expense Recording, Multimodal AI OCR & Splitting
+- **Intelligent Multimodal OCR Vision Scanner (Google Gemini 1.5 Flash Vision & Tesseract.js fallback)**:
+  - High-accuracy optical extraction of monetary totals, merchant names, categories, European dates (`DD/MM/YYYY`), exact hours/minutes (`HH:mm`), and physical establishment addresses.
+  - **Automatic Forward Geocoding**: Automatically resolves GPS coordinates (`latitude`, `longitude`) and attaches Google Maps pin links directly from receipt addresses.
+  - **Privacy Pre-Censorship & Inspection Tools**: Black marker manual pre-censorship, mandatory post-AI validation, 50%-400% zoom, pan/hand tool (✋), and precision eraser (🧼).
 - **Optimized 2-Line Input**: Streamlined form hierarchy featuring full-width title concept input, prominent amount/currency selection, and collapsed payer/participant accordions.
+- **Strict 4-Column Aligned Financial Presentation**:
+  - Re-architected expense card (`ExpenseCard.tsx`) with fixed category icon slot, standardized metadata tray with interactive pill badges (receipt 🧾, map location 📍, participants 👥, comments 💬), right-aligned fixed-width price slot with `tabular-nums`, and dedicated action toolbar.
+  - Desktop list column header (`Categoría | Detalles | Importe | Acciones`).
 - **Flexible Splitting Modes**:
   - ⚖️ **Equal Shares**: Divide evenly among all or selected friends with exact residual penny distribution.
   - 💶 **Exact Amounts**: Assign specific monetary amounts per participant.
   - 📊 **Percentages (%)**: Allocate custom percentages with strict 100% total verification.
   - 🍕 **Portions / Shares**: Allocate weighted shares (ideal for couples or families: 2 shares, 1 share, 0.5 shares).
   - 👥 **Multiple Payers**: Support for split-paid bills where multiple friends contributed different amounts to the same ticket.
-- **Multi-Currency Support**: Record expenses in foreign local currencies with real-time conversion to the trip's base currency and custom exchange rate editing.
-- **Receipt & Proof Attachments**: Attach ticket/receipt photos with a full-screen image viewer.
-- **Creator Permission Control**: Strict security ensuring only the original creator of an expense can edit or delete it.
+- **Multi-Currency Support**: Real-time conversion via European Central Bank / Frankfurter and Open Exchange Rates with historical date-rate fetching.
+- **Creator Permission Control**: Strict security ensuring only the original creator of an expense or group admin can edit or delete it.
 
-### 🧠 Debt Simplification & Settlements
+### 🧠 Debt Simplification, Settlements & Mathematical Audit (FR-27)
 - **Greedy Cash Flow Algorithm**: Minimizes the total number of transactions needed to settle all trip debts ($O(N)$ complexity).
+- **Step-by-Step Mathematical Audit & Virtual Calculator (`/groups/[id]/audit`)**: Complete step-by-step arithmetic proof of payments, individual consumptions, net balances, and settlement chains with 1-tap formula loading into an interactive virtual calculator.
 - **Bizum Integration**: Instant copy button for the payee's Bizum phone number to transfer money effortlessly.
 - **Celebratory Confetti**: Interactive confetti animation upon logging a settlement.
 
-### 📊 Analytics, Charts & Trip Maps
+### 📊 Analytics, Charts & Trip Route Maps
 - **Interactive Expense Analytics**: Time-series charts broken down by **Hours, Days, Weeks, or Overall Total** with stacked bars by Payer, Consumption, or Total Spend.
 - **KPI Dashboards**: Real-time metrics for total trip spend, average spend per person, peak spending timeframe, and active intervals.
 - **GPS & Google Maps Integration**:
@@ -50,22 +69,31 @@
   - Upload `.csv`, `.tsv`, `.txt` files or copy-paste spreadsheet tables.
   - Official downloadable CSV template customized with actual group member names and location examples.
   - Multi-payer parsing (`Eduardo: 350 + Carlos: 250`) and `"Todos"` / `"All"` aliases.
-  - **Location & Google Maps Import**: Parses establishment names, raw GPS coordinates (`39.8631, 4.2186` or `39,8631; 4,2186`), Google Maps URLs, or leaves blank for non-located expenses.
   - Interactive preview table with location pin indicators, diagnostic error popup modals, and **1-Click Undo Import**.
 - **Vector PDF & CSV Exporting**:
   - **Full PDF Report**: Official trip header, vector charts (daily evolution, category distribution, friend comparison), complete history table, and **individualized breakdown pages per person**.
-  - **European CSV with Location**: Clean spreadsheet export with semicolon separators, decimal commas, and dedicated columns for `Establecimiento / Ubicación`, `Coordenadas`, and clickable `Enlace Google Maps`.
+  - Contextual direct download (`downloadPDF`) vs native OS share sheet (`sharePDF`).
+  - **European CSV with Location**: Clean spreadsheet export with semicolon separators, decimal commas, and dedicated columns for establishment names, coordinates, and Google Maps links.
+
+### 🔔 Granular Notification Center & Deep-Linking (FR-30, FR-37)
+- **Unified Notification Hub (`/notifications`)**: Centralized inbox with filters (*Payments/Validations, Comments, Groups/Roles*), direct action CTAs, and unread counter badges.
+- **Contextual Deep Linking**: Clicking any notification routes directly to the relevant expense detail, comment thread, group chat, or member list.
+- **WebPush & Push Preferences**: Opt-in notification defaults with customizable toggles during group creation, joining, and in trip settings.
+
+### 🌐 20-Language Internationalization (i18n) & RTL Support
+- Full multi-language localization supporting 20 languages: Spanish (es), English (en), Catalan (ca), Valencian (va), Basque (eu), Galician (gl), French (fr), German (de), Italian (it), Portuguese (pt), Dutch (nl), Russian (ru), Chinese (zh), Japanese (ja), Arabic (ar - RTL), Hindi (hi), Turkish (tr), Greek (el), and Afrikaans (af).
+- Searchable language picker modal with country flags and native name display.
+
+### ⚖️ Legal Framework, GDPR & Compliance (FR-26, FR-39)
+- Complete legal pages: Terms of Service (`/terms`), Privacy Policy (`/privacy`), Cookie Policy (`/cookies`), and Legal Notice (`/legal`).
+- European GDPR / RGPD (EU 2016/679) and LSSI-CE compliance disclosures.
+- Personal data portability export (`/api/user/export-data`) and right to erasure (`/api/user/delete-account`).
+- Global compliant footer present across 100% of application views.
 
 ### 📱 Mobile Applications (PWA & Native Capacitor Wrapper)
-- **Progressive Web App (PWA)**: Full standalone installability on iOS (Safari) and Android (Chrome) with custom app manifest, icons, theme colors, and full-screen experience.
-- **Native Store Packaging (Capacitor.js)**: Pre-configured Capacitor integration (`capacitor.config.ts`, `@capacitor/core`, splash screen, status bar, and haptics) ready to generate native Xcode (iOS) and Android Studio projects for Google Play and the Apple App Store.
-- **Comprehensive Mobile Guide**: Detailed instructions in [`deploy/MOBILE.md`](file:///d:/Projects/pachas/deploy/MOBILE.md).
-
-### 🔐 Security, Profiles & Production Readiness
-- **Custom Profile Photos**: Upload custom photos directly from mobile/desktop with automatic canvas compression, preset avatar gallery, and initials fallback.
-- **Production Mode Lockdown**: Demo user switchers are completely removed in production (`NODE_ENV === 'production'`), requiring real authentication and admin-only user provisioning.
-- **Initial Global Admin**: Configurable via `NEXT_PUBLIC_ADMIN_EMAIL`.
-- **Safe SSR Fallbacks**: Robust Next.js standalone compilation with defensive build arguments.
+- **Progressive Web App (PWA)**: Standalone installability on iOS (Safari) and Android (Chrome) with cache-first offline service worker (`public/sw.js`), app manifest, and splash screens.
+- **Native Store Packaging (Capacitor.js)**: Pre-configured Capacitor integration ready to generate native Xcode (iOS) and Android Studio projects for Google Play and Apple App Store.
+- Detailed mobile build guide in [`deploy/MOBILE.md`](file:///d:/Projects/pachas/deploy/MOBILE.md).
 
 ---
 
@@ -73,13 +101,16 @@
 
 | Layer | Technologies |
 |---|---|
-| **Framework** | [Next.js 14](https://nextjs.org/) (App Router, Server Components & Client Hooks) |
+| **Framework** | [Next.js 16 (Turbopack)](https://nextjs.org/) (App Router, Server Components & Proxy Middleware) |
 | **Language** | [TypeScript 5](https://www.typescriptlang.org/) (Strict type-safety) |
-| **Styling & UI** | [Tailwind CSS](https://tailwindcss.com/), [Lucide React Icons](https://lucide.dev/), [Canvas Confetti](https://www.npmjs.com/package/canvas-confetti) |
-| **State & Persistence** | React Context (`PachasContext`), `localStorage` resilient caching, and Supabase SSR client |
-| **Backend & DB** | [PostgreSQL 15](https://www.postgresql.org/) with Row Level Security (RLS) & [PostgREST](https://postgrest.org/) |
-| **Testing** | [Vitest](https://vitest.dev/) (Unit testing for split algorithms & debt simplification) |
-| **Containerization** | [Docker](https://www.docker.com/) (Multi-stage Alpine standalone image, Docker Swarm Stack, Docker Compose) |
+| **Styling & UI** | [Tailwind CSS 3.4](https://tailwindcss.com/), [Lucide React Icons](https://lucide.dev/), [Canvas Confetti](https://www.npmjs.com/package/canvas-confetti) |
+| **State & Persistence** | React Context (`PachasContext`), `localStorage` resilient caching, and PostgreSQL backend |
+| **Backend & DB** | [PostgreSQL 15](https://www.postgresql.org/) with Row Level Security (RLS) & Connection Pooling (`pg`) |
+| **AI / OCR** | [Google Gemini 1.5 Flash Vision](https://ai.google.dev/) API & [Tesseract.js](https://tesseract.projectnaptha.com/) Client Fallback |
+| **Push Notifications** | [web-push](https://www.npmjs.com/package/web-push) (VAPID protocol) |
+| **Mobile Runtime** | [Capacitor 8](https://capacitorjs.com/) (Haptics, Share, Splash Screen, Status Bar, Filesystem) |
+| **Testing** | [Vitest 4.1](https://vitest.dev/) (100+ unit tests across 23 test suites) |
+| **Containerization** | [Docker](https://www.docker.com/) (Multi-stage standalone image, Docker Swarm Stack, Docker Compose) |
 | **Reporting** | [jsPDF](https://github.com/parallax/jsPDF) & [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) |
 
 ---
@@ -96,13 +127,15 @@ npm install
 ### 2. Environment Variables Setup
 Copy the template or create `.env.local`:
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key_for_development
-NEXT_PUBLIC_ADMIN_EMAIL=admin@pachas.local
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_ADMIN_EMAIL=admin@pachas.local
+GEMINI_API_KEY=your_gemini_api_key_here
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=pachas
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 ```
-
-> **Note:** The application includes a self-contained local state engine, allowing you to test all workflows immediately out of the box.
 
 ### 3. Run Development Server
 ```bash
@@ -112,14 +145,19 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 4. Run Automated Tests
 ```bash
-npm test
+npx vitest run
+```
+
+### 5. Build for Production
+```bash
+npm run build
 ```
 
 ---
 
 ## 🐳 Production Deployment (Docker Swarm & Compose)
 
-Pachas includes production-ready Docker deployment configs in [`deploy/`](./deploy).
+Pachas includes production-ready Docker deployment configurations in [`deploy/`](./deploy).
 
 ### 1-Click Deployment:
 - **On Linux / macOS:**
@@ -154,30 +192,34 @@ For detailed deployment guides, service scaling, and rolling updates, refer to [
 pachas/
 ├── deploy/                      # Production deployment configurations
 │   ├── Dockerfile               # Multi-stage standalone Next.js build
-│   ├── docker-stack.yml         # Docker Swarm stack definition (App, PostgreSQL, PostgREST)
+│   ├── docker-stack.yml         # Docker Swarm stack definition (App, PostgreSQL)
 │   ├── docker-compose.yml       # Local development Compose definition
 │   ├── deploy.sh / deploy.ps1   # 1-click deployment automation scripts
 │   ├── reset-db.sh / reset-db.ps1 # Database reset automation scripts
 │   ├── README.md                # Dedicated deployment documentation
-│   └── init-scripts/            # PostgreSQL auto-init schemas and RLS policies
+│   ├── MOBILE.md                # Native mobile build guide (iOS / Android)
+│   └── init-scripts/            # PostgreSQL auto-init schemas and RLS policies (01-07)
 ├── src/
-│   ├── app/                     # Next.js App Router (Auth, Dashboard, Groups, Profile)
+│   ├── app/                     # Next.js App Router (Auth, Dashboard, Groups, Notifications, Legal, Admin)
 │   ├── components/
-│   │   ├── balances/            # Debt summary, Bizum settlement modals
+│   │   ├── balances/            # Debt summary, Bizum settlement modals, audit calculator
 │   │   ├── charts/              # Time-series analytics & breakdown charts
-│   │   ├── expenses/            # Expense forms, receipt viewers, route maps
-│   │   ├── groups/              # Group cards, creation, settings, invite modals
-│   │   ├── layout/              # Navbar, BottomNav mobile navigation
+│   │   ├── expenses/            # Expense cards, forms, receipt OCR, route maps, comments
+│   │   ├── groups/              # Group chat section, creation, settings, invite modals
+│   │   ├── layout/              # Navbar, BottomNav, Legal Footer
 │   │   ├── profile/             # Profile management, custom avatar upload
 │   │   └── ui/                  # Reusable accessible UI components
-│   ├── context/                 # PachasContext (Global state & storage sync)
+│   ├── context/                 # PachasContext, LanguageContext
 │   ├── lib/
-│   │   ├── algorithms/          # Debt simplification & split calculations
-│   │   ├── authConfig.ts        # Admin role enforcement & production checks
-│   │   ├── export.ts            # Vector PDF and CSV generators
-│   │   └── supabase/            # Client and Server Supabase SSR initializers
+│   │   ├── algorithms/          # Debt simplification, split calculations, audit math
+│   │   ├── ocr/                 # Google Gemini 1.5 Flash Vision & Tesseract.js scanner
+│   │   ├── notifications/       # WebPush & in-app notification dispatchers
+│   │   ├── currencies/          # Real-time exchange rate engine
+│   │   ├── export.ts            # Vector PDF and European CSV generators
+│   │   └── db/                  # PostgreSQL connection pool & helpers
+│   ├── locales/                 # 20 full language dictionary definitions
 │   └── types/                   # Database & application TypeScript definitions
-├── USER_REQUIREMENTS.md         # Formal User Requirements Registry (FR-01 to FR-21)
+├── USER_REQUIREMENTS.md         # Formal User Requirements Registry (FR-01 to FR-42)
 └── README.md                    # Main project documentation
 ```
 

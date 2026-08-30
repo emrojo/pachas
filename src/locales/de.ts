@@ -711,6 +711,12 @@ export const de: TranslationDictionary = {
     "placeholder": "Schreibe eine Nachricht an die Gruppe...",
     "emptyTitle": "Noch keine Nachrichten!",
     "emptySubtitle": "Sei der Erste, der Freunde grüßt, Pläne vorschlägt oder Notizen teilt.",
-    "deleteConfirm": "Diese Nachricht aus dem Chat löschen?"
+    "deleteConfirm": "Diese Nachricht aus dem Chat löschen?",
+    reply: 'Antworten',
+    replyingTo: 'Antwort an',
+    cancelReply: 'Antwort abbrechen',
+    expenseBadge: 'Verknüpfte Ausgabe',
+    viewExpense: 'Ausgabe ansehen',
+    syncWithExpenseNotice: 'Wird auch als Kommentar zur Ausgabe hinzugefügt',
   },
 };

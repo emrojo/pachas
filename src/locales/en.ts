@@ -713,7 +713,13 @@ export const en: TranslationDictionary = {
     "placeholder": "Write a message to the group...",
     "emptyTitle": "No messages yet!",
     "emptySubtitle": "Be the first to say hello to friends, propose plans, or share travel notes.",
-    "deleteConfirm": "Delete this message from the chat?"
+    "deleteConfirm": "Delete this message from the chat?",
+    reply: 'Reply',
+    replyingTo: 'Replying to',
+    cancelReply: 'Cancel reply',
+    expenseBadge: 'Linked expense',
+    viewExpense: 'View expense',
+    syncWithExpenseNotice: 'Will also be added as a comment to the expense',
   },
 };
 

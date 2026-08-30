@@ -711,6 +711,12 @@ export const ca: TranslationDictionary = {
     "placeholder": "Escriu un missatge al grup...",
     "emptyTitle": "Encara no hi ha missatges!",
     "emptySubtitle": "Sigues el primer en saludar els teus amics, proposar plans o compartir notes.",
-    "deleteConfirm": "Vols eliminar aquest missatge del xat?"
+    "deleteConfirm": "Vols eliminar aquest missatge del xat?",
+    reply: 'Respondre',
+    replyingTo: 'Responent a',
+    cancelReply: 'Cancel·lar resposta',
+    expenseBadge: 'Despesa vinculada',
+    viewExpense: 'Veure despesa',
+    syncWithExpenseNotice: 'S’afegirà també com a comentari a la despesa',
   },
 };

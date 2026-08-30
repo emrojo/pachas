@@ -711,6 +711,12 @@ export const zh: TranslationDictionary = {
     "placeholder": "给群组发送消息...",
     "emptyTitle": "暂无消息！",
     "emptySubtitle": "成为第一个向朋友打招呼、提议出行或分享备忘录的人。",
-    "deleteConfirm": "从聊天中删除此消息？"
+    "deleteConfirm": "从聊天中删除此消息？",
+    reply: '回复',
+    replyingTo: '回复给',
+    cancelReply: '取消回复',
+    expenseBadge: '关联支出',
+    viewExpense: '查看支出',
+    syncWithExpenseNotice: '也将作为评论同步到该支出',
   },
 };
