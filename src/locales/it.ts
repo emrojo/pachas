@@ -711,6 +711,12 @@ export const it: TranslationDictionary = {
     "placeholder": "Scrivi un messaggio al gruppo...",
     "emptyTitle": "Nessun messaggio finora!",
     "emptySubtitle": "Sii il primo a salutare gli amici, proporre piani o condividere note.",
-    "deleteConfirm": "Eliminare questo messaggio dalla chat?"
+    "deleteConfirm": "Eliminare questo messaggio dalla chat?",
+    reply: 'Rispondi',
+    replyingTo: 'In risposta a',
+    cancelReply: 'Annulla risposta',
+    expenseBadge: 'Spesa collegata',
+    viewExpense: 'Vedi spesa',
+    syncWithExpenseNotice: 'Verrà aggiunto anche come commento alla spesa',
   },
 };

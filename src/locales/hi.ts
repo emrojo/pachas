@@ -711,6 +711,12 @@ export const hi: TranslationDictionary = {
     "placeholder": "समूह को संदेश लिखें...",
     "emptyTitle": "अभी तक कोई संदेश नहीं!",
     "emptySubtitle": "दोस्तों का स्वागत करने, योजनाएं बनाने या नोट्स साझा करने वाले पहले व्यक्ति बनें।",
-    "deleteConfirm": "चैट से यह संदेश हटाएं?"
+    "deleteConfirm": "चैट से यह संदेश हटाएं?",
+    reply: 'उत्तर दें',
+    replyingTo: 'को उत्तर दे रहे हैं',
+    cancelReply: 'उत्तर रद्द करें',
+    expenseBadge: 'जुड़ा हुआ खर्च',
+    viewExpense: 'खर्च देखें',
+    syncWithExpenseNotice: 'खर्च की टिप्पणी में भी जोड़ा जाएगा',
   },
 };

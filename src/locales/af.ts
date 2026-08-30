@@ -711,6 +711,12 @@ export const af: TranslationDictionary = {
     "placeholder": "Skryf ’n boodskap aan die groep...",
     "emptyTitle": "Nog geen boodskappe nie!",
     "emptySubtitle": "Wees die eerste om vriende te groet, planne voor te stel of notas te deel.",
-    "deleteConfirm": "Verwyder hierdie boodskap uit die klets?"
+    "deleteConfirm": "Verwyder hierdie boodskap uit die klets?",
+    reply: 'Antwoord',
+    replyingTo: 'Antwoord aan',
+    cancelReply: 'Kanselleer antwoord',
+    expenseBadge: 'Gekoppelde uitgawe',
+    viewExpense: 'Sien uitgawe',
+    syncWithExpenseNotice: 'Sal ook as kommentaar by die uitgawe gevoeg word',
   },
 };

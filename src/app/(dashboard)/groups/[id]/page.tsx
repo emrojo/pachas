@@ -639,6 +639,18 @@ export default function GroupDetailPage() {
               </Card>
             ) : (
               <div className="space-y-2.5">
+                {/* Column Headers for aligned presentation */}
+                <div className="hidden sm:flex items-center justify-between px-4 py-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider bg-slate-100/70 dark:bg-slate-800/40 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                  <div className="flex items-center gap-3">
+                    <span className="w-12 text-center">{t('expenses.category') || 'Categoría'}</span>
+                    <span>{t('common.details') || 'Detalles'}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="min-w-[130px] text-right">{t('expenses.amount') || 'Importe'}</span>
+                    <span className="w-14 text-right">{t('common.actions') || 'Acciones'}</span>
+                  </div>
+                </div>
+
                 {filteredExpenses.map((expense) => (
                   <ExpenseCard
                     key={expense.id}

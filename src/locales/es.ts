@@ -711,6 +711,12 @@ export const es = {
     emptyTitle: '¡Aún no hay mensajes!',
     emptySubtitle: 'Sé el primero en saludar a tus amigos, proponer planes o compartir notas para el viaje.',
     deleteConfirm: '¿Eliminar este mensaje del chat?',
+      reply: 'Responder',
+    replyingTo: 'Respondiendo a',
+    cancelReply: 'Cancelar respuesta',
+    expenseBadge: 'Gasto vinculado',
+    viewExpense: 'Ver gasto',
+    syncWithExpenseNotice: 'Se añadirá también como comentario en el gasto',
   },
 } as const;
 

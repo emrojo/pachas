@@ -711,6 +711,12 @@ export const eu: TranslationDictionary = {
     "placeholder": "Idatzi mezu bat taldeari...",
     "emptyTitle": "Oraindik ez dago mezurik!",
     "emptySubtitle": "Izan zaitez lehena lagunak agurtzen, planak proposatzen edo oharrak partekatzen.",
-    "deleteConfirm": "Txateko mezu hau ezabatu?"
+    "deleteConfirm": "Txateko mezu hau ezabatu?",
+    reply: 'Erantzun',
+    replyingTo: 'Honi erantzuten:',
+    cancelReply: 'Erantzuna ezeztatu',
+    expenseBadge: 'Lotutako gastua',
+    viewExpense: 'Ikusi gastua',
+    syncWithExpenseNotice: 'Gastuan iruzkin gisa ere gehituko da',
   },
 };

@@ -711,6 +711,12 @@ export const ja: TranslationDictionary = {
     "placeholder": "グループにメッセージを送信...",
     "emptyTitle": "メッセージはまだありません！",
     "emptySubtitle": "最初に挨拶したり、計画を提案したり、メモを共有しましょう。",
-    "deleteConfirm": "このメッセージを削除しますか？"
+    "deleteConfirm": "このメッセージを削除しますか？",
+    reply: '返信する',
+    replyingTo: '返信先：',
+    cancelReply: '返信をキャンセル',
+    expenseBadge: 'リンクされた支出',
+    viewExpense: '支出を見る',
+    syncWithExpenseNotice: '支出のコメントにも追加されます',
   },
 };

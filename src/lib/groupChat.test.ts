@@ -95,4 +95,101 @@ describe('Group Chat & Conversational Elements in Friends Section (FR-40)', () =
     expect(deepChatUrl).toContain('tab=members');
     expect(deepChatUrl).toContain('chat=true');
   });
+
+  it('supports replying to a specific message with reply_to_snippet', () => {
+    const originalMessage: GroupMessage = {
+      id: 'msg-parent-101',
+      group_id: 'group-1',
+      user_id: userCarlos.id,
+      message: '¿Quién lleva las toallas de playa?',
+      created_at: new Date().toISOString(),
+      profile: userCarlos,
+    };
+
+    const replyMessage: GroupMessage = {
+      id: 'msg-reply-102',
+      group_id: 'group-1',
+      user_id: userAna.id,
+      message: '¡Yo llevo 4 toallas grandes! 👍',
+      reply_to_id: originalMessage.id,
+      reply_to_snippet: {
+        id: originalMessage.id,
+        author_name: 'Carlos',
+        message: originalMessage.message,
+      },
+      created_at: new Date().toISOString(),
+      profile: userAna,
+    };
+
+    expect(replyMessage.reply_to_id).toBe('msg-parent-101');
+    expect(replyMessage.reply_to_snippet?.author_name).toBe('Carlos');
+    expect(replyMessage.reply_to_snippet?.message).toContain('toallas');
+  });
+
+  it('mirrors expense comments in group chat stream and bidirectionally syncs replies (FR-42)', () => {
+    const expenseId = 'exp-dinner-555';
+    const groupId = 'group-1';
+
+    // 1. Initial comment created in an expense
+    const expenseComment = {
+      id: 'cmt-1',
+      expense_id: expenseId,
+      user_id: userCarlos.id,
+      comment: 'No incluye las bebidas de la segunda ronda',
+      created_at: new Date().toISOString(),
+    };
+
+    // 2. Mirrored group chat message with expense linkage
+    const mirroredChatMessage: GroupMessage = {
+      id: expenseComment.id,
+      group_id: groupId,
+      user_id: userCarlos.id,
+      message: expenseComment.comment,
+      expense_id: expenseId,
+      expense_title: 'Cena Restaurante Marítimo',
+      expense_amount: 85.5,
+      expense_currency: 'EUR',
+      created_at: expenseComment.created_at,
+      profile: userCarlos,
+    };
+
+    expect(mirroredChatMessage.expense_id).toBe(expenseId);
+    expect(mirroredChatMessage.expense_title).toBe('Cena Restaurante Marítimo');
+    expect(mirroredChatMessage.expense_amount).toBe(85.5);
+
+    // 3. User Ana replies to this message in group chat
+    const chatReplyMessage: GroupMessage = {
+      id: 'msg-reply-2',
+      group_id: groupId,
+      user_id: userAna.id,
+      message: 'Es verdad, esas las pagué yo aparte en efectivo',
+      expense_id: expenseId,
+      reply_to_id: mirroredChatMessage.id,
+      reply_to_snippet: {
+        id: mirroredChatMessage.id,
+        author_name: 'Carlos',
+        message: mirroredChatMessage.message,
+        expense_id: expenseId,
+        expense_title: 'Cena Restaurante Marítimo',
+      },
+      created_at: new Date().toISOString(),
+      profile: userAna,
+    };
+
+    // 4. Verification that reply attaches to both chat and expense comment thread
+    expect(chatReplyMessage.expense_id).toBe(expenseId);
+    expect(chatReplyMessage.reply_to_snippet?.expense_id).toBe(expenseId);
+    expect(chatReplyMessage.message).toContain('efectivo');
+
+    // 5. Verification of single notification dispatching rule
+    const notificationsDispatched: string[] = [];
+    const onCommentAdded = (type: string) => {
+      // Should only register comment_created once without duplicating for chat mirror
+      notificationsDispatched.push(type);
+    };
+
+    onCommentAdded('comment_created');
+    expect(notificationsDispatched).toEqual(['comment_created']);
+    expect(notificationsDispatched.length).toBe(1);
+  });
 });

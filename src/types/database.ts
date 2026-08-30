@@ -169,6 +169,14 @@ export interface ExpenseComment {
   profile?: Profile;
 }
 
+export interface GroupMessageReplySnippet {
+  id: string;
+  author_name: string;
+  message: string;
+  expense_id?: string | null;
+  expense_title?: string | null;
+}
+
 export interface GroupMessage {
   id: string;
   group_id: string;
@@ -178,6 +186,12 @@ export interface GroupMessage {
   reactions?: Record<string, string[]>; // emoji -> string[] of user_ids
   created_at: string;
   profile?: Profile;
+  expense_id?: string | null;
+  expense_title?: string | null;
+  expense_amount?: number | null;
+  expense_currency?: string | null;
+  reply_to_id?: string | null;
+  reply_to_snippet?: GroupMessageReplySnippet | null;
 }
 
 export interface PendingReceiptScan {

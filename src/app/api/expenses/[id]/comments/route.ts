@@ -162,10 +162,11 @@ export async function POST(
       avatar_url: null,
     };
 
-    // Dispatch push notification to group members
+    // Fetch expense and group details, and mirror comment into group_messages
+    let targetGroupId: string | null = null;
     try {
       const expRes = await pool.query(
-        `SELECT e.title, e.group_id, g.name as group_name
+        `SELECT e.title, e.group_id, e.amount, e.currency, g.name as group_name
          FROM public.expenses e
          JOIN public.groups g ON g.id = e.group_id
          WHERE e.id = $1`,
@@ -173,15 +174,50 @@ export async function POST(
       );
       if (expRes.rows.length > 0) {
         const exp = expRes.rows[0];
+        targetGroupId = exp.group_id;
+
+        // Auto-mirror into group_messages table so it seamlessly appears in the group chat stream
+        try {
+          await pool.query(
+            `CREATE TABLE IF NOT EXISTS public.group_messages (
+              id uuid primary key default uuid_generate_v4(),
+              group_id uuid references public.groups(id) on delete cascade not null,
+              user_id uuid references public.profiles(id) on delete cascade not null,
+              message text not null,
+              gif_url text,
+              reactions jsonb default '{}'::jsonb,
+              expense_id uuid references public.expenses(id) on delete cascade,
+              reply_to_id uuid references public.group_messages(id) on delete set null,
+              reply_to_snippet jsonb,
+              created_at timestamp with time zone default timezone('utc'::text, now()) not null
+            )`
+          );
+          await pool.query(
+            `INSERT INTO public.group_messages (id, group_id, user_id, message, gif_url, reactions, expense_id, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+             ON CONFLICT (id) DO NOTHING`,
+            [commentId, exp.group_id, payload.sub, cleanComment, gifUrl, JSON.stringify({}), expenseId]
+          );
+        } catch (mirrorErr) {
+          console.warn('Notice mirroring expense comment to group chat:', mirrorErr);
+        }
+
+        // Single push notification dispatching (prevents double notifications)
         const preview = cleanComment ? (cleanComment.length > 65 ? `${cleanComment.substring(0, 62)}...` : cleanComment) : '🎬 [GIF animado]';
         notifyGroupMembers(exp.group_id, payload.sub, {
           title: `💬 Comentario en ${exp.title}`,
           body: `${authorProfile.full_name}: "${preview}"`,
-          url: `/groups/${exp.group_id}`,
+          url: `/groups/${exp.group_id}?tab=expenses&expenseId=${expenseId}&comments=true`,
+          data: {
+            type: 'comment_created',
+            groupId: exp.group_id,
+            expenseId: expenseId,
+            url: `/groups/${exp.group_id}?tab=expenses&expenseId=${expenseId}&comments=true`,
+          },
         }).catch((pushErr) => console.warn('Push notification for comment failed:', pushErr));
       }
     } catch (notifErr) {
-      console.warn('Could not dispatch comment notification:', notifErr);
+      console.warn('Could not dispatch comment notification or mirror to chat:', notifErr);
     }
 
     return NextResponse.json({

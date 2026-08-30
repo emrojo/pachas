@@ -711,6 +711,12 @@ export const fr: TranslationDictionary = {
     "placeholder": "Écrivez un message au groupe...",
     "emptyTitle": "Aucun message pour le moment !",
     "emptySubtitle": "Soyez le premier à saluer vos amis, proposer des sorties ou partager des notes.",
-    "deleteConfirm": "Supprimer ce message du chat ?"
+    "deleteConfirm": "Supprimer ce message du chat ?",
+    reply: 'Répondre',
+    replyingTo: 'En réponse à',
+    cancelReply: 'Annuler la réponse',
+    expenseBadge: 'Dépense liée',
+    viewExpense: 'Voir dépense',
+    syncWithExpenseNotice: 'Sera également ajouté en commentaire sur la dépense',
   },
 };

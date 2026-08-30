@@ -711,6 +711,12 @@ export const el: TranslationDictionary = {
     "placeholder": "Γράψτε ένα μήνυμα στην ομάδα...",
     "emptyTitle": "Δεν υπάρχουν μηνύματα ακόμα!",
     "emptySubtitle": "Γίνετε ο πρώτος που θα χαιρετήσει φίλους, θα προτείνει σχέδια ή θα μοιραστεί σημειώσεις.",
-    "deleteConfirm": "Διαγραφή αυτού του μηνύματος;"
+    "deleteConfirm": "Διαγραφή αυτού του μηνύματος;",
+    reply: 'Απάντηση',
+    replyingTo: 'Απάντηση σε',
+    cancelReply: 'Ακύρωση απάντησης',
+    expenseBadge: 'Συνδεδεμένο έξοδο',
+    viewExpense: 'Προβολή εξόδου',
+    syncWithExpenseNotice: 'Θα προστεθεί επίσης ως σχόλιο στο έξοδο',
   },
 };

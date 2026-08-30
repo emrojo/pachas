@@ -14,6 +14,7 @@ import {
   PaymentMethod,
   ExpenseComment,
   GroupMessage,
+  GroupMessageReplySnippet,
   PendingReceiptScan,
   AppNotification,
 } from '@/types/database';
@@ -139,7 +140,14 @@ interface PachasContextType {
   toggleCommentReaction: (commentId: string, expenseId: string, emoji: string) => Promise<void>;
   groupMessages: Record<string, GroupMessage[]>;
   getGroupMessages: (groupId: string) => GroupMessage[];
-  addGroupMessage: (groupId: string, message: string, gifUrl?: string | null) => Promise<GroupMessage>;
+  addGroupMessage: (
+    groupId: string,
+    message: string,
+    gifUrl?: string | null,
+    replyToId?: string | null,
+    replyToSnippet?: GroupMessageReplySnippet | null,
+    expenseId?: string | null
+  ) => Promise<GroupMessage>;
   deleteGroupMessage: (messageId: string, groupId: string) => Promise<void>;
   fetchGroupMessages: (groupId: string) => Promise<GroupMessage[]>;
   toggleGroupMessageReaction: (messageId: string, groupId: string, emoji: string) => Promise<void>;
@@ -2238,13 +2246,43 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       profile: currentUser,
     };
 
-    // Optimistic local update
+    // Optimistic local update in expense comments
     setComments((prev) => {
       const currentList = prev[expenseId] || [];
       const updated = { ...prev, [expenseId]: [...currentList, newComment] };
       safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
       return updated;
     });
+
+    const allExpenses = Object.values(expensesRef.current || {}).flat();
+    const targetExpense = allExpenses.find((e) => e.id === expenseId);
+    const targetGroup = targetExpense ? getGroup(targetExpense.group_id) : undefined;
+
+    // Omnichannel integration: ALSO mirror into groupMessages stream with expense chip
+    if (targetExpense?.group_id) {
+      const mirroredMsg: GroupMessage = {
+        id: newComment.id,
+        group_id: targetExpense.group_id,
+        user_id: currentUser.id,
+        message: text,
+        gif_url: gifUrl || null,
+        reactions: {},
+        expense_id: expenseId,
+        expense_title: targetExpense.title,
+        expense_amount: targetExpense.amount,
+        expense_currency: targetExpense.currency,
+        created_at: newComment.created_at,
+        profile: currentUser,
+      };
+
+      setGroupMessages((prev) => {
+        const currentList = prev[targetExpense.group_id] || [];
+        if (currentList.some((m) => m.id === newComment.id)) return prev;
+        const updated = { ...prev, [targetExpense.group_id]: [...currentList, mirroredMsg] };
+        safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+        return updated;
+      });
+    }
 
     // Sync to backend
     try {
@@ -2268,10 +2306,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (err) {
       console.warn('Error syncing comment to backend:', err);
     }
-
-    const allExpenses = Object.values(expensesRef.current || {}).flat();
-    const targetExpense = allExpenses.find((e) => e.id === expenseId);
-    const targetGroup = targetExpense ? getGroup(targetExpense.group_id) : undefined;
 
     addNotification({
       user_id: currentUser.id,
@@ -2397,8 +2431,19 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return groupMessages[groupId] || [];
   };
 
-  const addGroupMessage = async (groupId: string, message: string, gifUrl?: string | null): Promise<GroupMessage> => {
+  const addGroupMessage = async (
+    groupId: string,
+    message: string,
+    gifUrl?: string | null,
+    replyToId?: string | null,
+    replyToSnippet?: GroupMessageReplySnippet | null,
+    expenseId?: string | null
+  ): Promise<GroupMessage> => {
     if (!currentUser) throw new Error('Debes iniciar sesión para enviar mensajes.');
+
+    const effExpenseId = expenseId || replyToSnippet?.expense_id || null;
+    const allExpenses = Object.values(expensesRef.current || {}).flat();
+    const targetExpense = effExpenseId ? allExpenses.find((e) => e.id === effExpenseId) : undefined;
 
     const newMessage: GroupMessage = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -2407,11 +2452,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       message: message,
       gif_url: gifUrl || null,
       reactions: {},
+      expense_id: effExpenseId,
+      expense_title: targetExpense?.title || replyToSnippet?.expense_title || null,
+      expense_amount: targetExpense?.amount || null,
+      expense_currency: targetExpense?.currency || null,
+      reply_to_id: replyToId || null,
+      reply_to_snippet: replyToSnippet || null,
       created_at: new Date().toISOString(),
       profile: currentUser,
     };
 
-    // Optimistic local update
+    // Optimistic local update in groupMessages
     setGroupMessages((prev) => {
       const currentList = prev[groupId] || [];
       const updated = { ...prev, [groupId]: [...currentList, newMessage] };
@@ -2419,12 +2470,40 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return updated;
     });
 
+    // Bidirectional sync: If message is linked/replying to an expense, also record in comments cache!
+    if (effExpenseId) {
+      const mirroredComment: ExpenseComment = {
+        id: newMessage.id,
+        expense_id: effExpenseId,
+        user_id: currentUser.id,
+        comment: message,
+        gif_url: gifUrl || null,
+        reactions: {},
+        created_at: newMessage.created_at,
+        profile: currentUser,
+      };
+      setComments((prev) => {
+        const currentList = prev[effExpenseId] || [];
+        if (currentList.some((c) => c.id === newMessage.id)) return prev;
+        const updated = { ...prev, [effExpenseId]: [...currentList, mirroredComment] };
+        safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+        return updated;
+      });
+    }
+
     // Sync to backend
     try {
       const res = await fetch(`/api/groups/${groupId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: newMessage.id, message, gif_url: gifUrl }),
+        body: JSON.stringify({
+          id: newMessage.id,
+          message,
+          gif_url: gifUrl,
+          reply_to_id: replyToId,
+          reply_to_snippet: replyToSnippet,
+          expense_id: effExpenseId,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -2455,7 +2534,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       group_id: groupId,
       group_name: targetGroup?.name,
       action_url: `/groups/${groupId}?tab=members&chat=true`,
-      data: { messageId: newMessage.id, groupId },
+      data: { messageId: newMessage.id, groupId, expenseId: effExpenseId },
     });
 
     return newMessage;
