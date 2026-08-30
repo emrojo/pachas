@@ -208,6 +208,11 @@ export const es = {
 
   groups: {
     groupAdmin: 'Admin del grupo',
+    makeAdmin: 'Hacer Admin',
+    removeAdmin: 'Quitar Admin',
+    makeAdminPrompt: '¿Quieres otorgar permisos de administrador del grupo a {name}?',
+    removeAdminPrompt: '¿Quieres quitar los permisos de administrador del grupo a {name}?',
+
     recalculatingCurrency: 'Recalculando gastos a la nueva divisa base ({currency})...',
     recalculatedCurrencySuccess: 'Se han recalculado {count} gastos con tipos de cambio históricos oficiales.',
     currencyChangeWarning: '⚠️ Cambiar la divisa base del grupo recalculará automáticamente todos los gastos existentes según el tipo de cambio oficial en la fecha en que se realizaron.',

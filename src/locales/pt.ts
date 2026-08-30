@@ -209,6 +209,11 @@ export const pt: TranslationDictionary = {
   },
   groups: {
     groupAdmin: 'Admin do grupo',
+    makeAdmin: 'Tornar Admin',
+    removeAdmin: 'Remover Admin',
+    makeAdminPrompt: 'Deseja conceder permissões de administrador do grupo a {name}?',
+    removeAdminPrompt: 'Deseja remover as permissões de administrador do grupo a {name}?',
+
     recalculatingCurrency: 'Recalculating expenses to new base currency ({currency})...',
     recalculatedCurrencySuccess: '{count} expenses recalculated with official historical exchange rates.',
     currencyChangeWarning: '⚠️ Changing group base currency will automatically recalculate all existing expenses using the official exchange rate on their date.',

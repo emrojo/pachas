@@ -209,6 +209,11 @@ export const ca: TranslationDictionary = {
   },
   groups: {
     groupAdmin: 'Admin del grup',
+    makeAdmin: 'Fer Admin',
+    removeAdmin: 'Treure Admin',
+    makeAdminPrompt: 'Vols atorgar permisos d\'administrador del grup a {name}?',
+    removeAdminPrompt: 'Vols treure els permisos d\'administrador del grup a {name}?',
+
     recalculatingCurrency: 'Recalculating expenses to new base currency ({currency})...',
     recalculatedCurrencySuccess: '{count} expenses recalculated with official historical exchange rates.',
     currencyChangeWarning: '⚠️ Changing group base currency will automatically recalculate all existing expenses using the official exchange rate on their date.',

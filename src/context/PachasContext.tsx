@@ -101,6 +101,7 @@ interface PachasContextType {
   addMemberByEmail: (groupId: string, email: string) => Promise<boolean>;
   addMemberToGroup: (groupId: string, userId: string) => Promise<boolean>;
   removeMemberFromGroup: (groupId: string, userId: string) => Promise<boolean>;
+  updateMemberRole: (groupId: string, userId: string, newRole: 'admin' | 'member') => Promise<boolean>;
   availableUsers: Profile[];
   createLocalUser: (data: {
     full_name: string;
@@ -914,6 +915,36 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [groupId]: updated,
     };
     saveState(undefined, updatedMembers);
+    return true;
+  };
+
+  const updateMemberRole = async (groupId: string, userId: string, newRole: 'admin' | 'member'): Promise<boolean> => {
+    const grpMembers = members[groupId] || [];
+    const targetMember = grpMembers.find((m) => m.user_id === userId);
+    if (!targetMember) return false;
+
+    const updated = grpMembers.map((m) =>
+      m.user_id === userId ? { ...m, role: newRole } : m
+    );
+    const updatedMembers = {
+      ...members,
+      [groupId]: updated,
+    };
+    saveState(undefined, updatedMembers);
+
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = createClient();
+        await supabase
+          .from('group_members')
+          .update({ role: newRole })
+          .eq('group_id', groupId)
+          .eq('user_id', userId);
+      } catch (e) {
+        console.warn('Supabase updateMemberRole sync warning:', e);
+      }
+    }
+
     return true;
   };
 
@@ -2032,6 +2063,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addMemberByEmail,
         addMemberToGroup,
         removeMemberFromGroup,
+        updateMemberRole,
         updateProfile,
         logout,
         resetLocalDatabase,
