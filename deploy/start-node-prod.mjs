@@ -12,7 +12,7 @@
 
 import { existsSync, cpSync, mkdirSync, readFileSync } from 'fs';
 import { resolve, join } from 'path';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 
 const rootDir = process.cwd();
 const standaloneDir = join(rootDir, '.next', 'standalone');
@@ -71,10 +71,25 @@ const port = customEnv.PORT || 3000;
 const host = customEnv.HOSTNAME || '0.0.0.0';
 
 console.log('\x1b[32m%s\x1b[0m', '✅ Standalone assets synchronized.');
+
+// 4. Run database migrations if database is configured
+const migrateScript = join(rootDir, 'deploy', 'migrate.mjs');
+if (existsSync(migrateScript)) {
+  try {
+    console.log('\x1b[34m%s\x1b[0m', '🐘 Running database migrations check...');
+    execSync(`node "${migrateScript}"`, {
+      stdio: 'inherit',
+      env: customEnv,
+    });
+  } catch (migErr) {
+    console.warn('\x1b[33m%s\x1b[0m', '⚠️  Migration runner notice: Database might not be reachable yet or is managed externally.');
+  }
+}
+
 console.log('\x1b[32m%s\x1b[0m', `🌐 Starting native Node.js production server on http://${host}:${port}`);
 console.log('\x1b[32m%s\x1b[0m', `🛡️  NODE_ENV=production | Security Headers Active | PID: ${process.pid}\n`);
 
-// 4. Spawn the standalone Node.js server
+// 5. Spawn the standalone Node.js server
 const child = spawn(process.execPath, [serverScript], {
   cwd: standaloneDir,
   env: {

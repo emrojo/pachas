@@ -570,6 +570,19 @@ This document serves as the official and permanent registry for all **user requi
   - `POST /api/admin/users/[id]/ban`: Apply suspension with reason.
   - `DELETE /api/admin/users/[id]/ban`: Revoke suspension and restore full access.
 
+### 🐘 FR-48: Deterministic Database Migration Engine & Transactional Ledger (`public._migrations`)
+- **FR-48.1**: **Transactional Ledger Table (`public._migrations`)**:
+  - Tracks schema version progression (`id`, `name`, `executed_at`) preventing duplicate execution and ensuring deterministic state.
+- **FR-48.2**: **Automated Sequential Migration Runner ([`deploy/migrate.mjs`](file:///d:/Projects/pachas/deploy/migrate.mjs) & [`src/lib/db/migrator.ts`](file:///d:/Projects/pachas/src/lib/db/migrator.ts))**:
+  - Scans `deploy/init-scripts/*.sql` in chronological order (`01-schema.sql` through `10-support-chat-and-bans.sql`).
+  - Executes pending migrations within isolated database transactions (`BEGIN ... COMMIT`) with automatic rollback on error.
+- **FR-48.3**: **NPM CLI Commands**:
+  - `npm run db:migrate`: Applies all pending migrations in a single pass.
+  - `npm run db:status`: Displays a visual CLI table of applied vs pending migrations.
+  - `npm run db:reset`: Resets schema and reapplies all migrations.
+- **FR-48.4**: **Production Boot Synchronization**:
+  - Integrates migration execution into Node.js startup ([`deploy/start-node-prod.mjs`](file:///d:/Projects/pachas/deploy/start-node-prod.mjs)) and runtime connection pool ([`src/lib/db/postgres.ts`](file:///d:/Projects/pachas/src/lib/db/postgres.ts)), ensuring the backend always operates against an up-to-date schema.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -681,5 +694,6 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 🛡️ Added | **FR-45** | **Moderation Feedback Loop, Resolution Notes, Evidence Snapshots & Dual Freeze Mode**: Added automated reporter feedback notifications upon resolution/dismissal; administrative resolution note input (`ResolveReportModal`) and persistence (`public.content_reports.resolution_notes`); evidence snapshots on expense deletion (`evidence_snapshot`); and dual freeze mode (🔒 *Full Lockout* vs 👁️ *Read-Only*) with 20-language translation support. |
 | **30/08/2026** | 💬 Added | **FR-46** | **Official Support Chat & User-Admin Communication Channel**: Created dedicated user support modal (`SupportChatModal.tsx`) with category selection (*General, Bug, Report Clarification, Appeal*); backoffice admin chat hub (`/admin?tab=support`) with real-time response capability; database migration `10-support-chat-and-bans.sql`; automated push notifications to admins on inquiry and to users on reply; and 20-language translation support. |
 | **30/08/2026** | 🚫 Added | **FR-47** | **User Moderation, Account Bans & Suspension Protocol**: Implemented user ban database columns (`is_banned`, `banned_at`, `banned_by`, `ban_reason`); dashboard suspension lockout screen with formal reason and direct appeal button; 1-click ban/unban controls in Users table, Support thread header, and Moderation reports cards; REST endpoints `/api/admin/users/[id]/ban` (`POST`, `DELETE`); and automated user notification upon sanction/reactivation. |
+| **30/08/2026** | 🐘 Added | **FR-48** | **Deterministic Database Migration Engine & Transactional Ledger**: Built automatic migration runner (`deploy/migrate.mjs`, `src/lib/db/migrator.ts`) with `public._migrations` tracking table; scans and executes `01` to `10` `.sql` scripts sequentially inside atomic transactions; adds `npm run db:migrate`, `npm run db:status`, `npm run db:reset` CLI commands; and synchronizes on server boot and connection pool initialization. |
 
 
