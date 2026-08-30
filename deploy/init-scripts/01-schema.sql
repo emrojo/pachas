@@ -61,11 +61,16 @@ end
 $$;
 
 -- Function to resolve current user ID from JWT claim for Row Level Security (RLS)
-
-create or replace function auth.uid()
-returns uuid as $$
-    select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
-$$ language sql stable;
+do $$
+begin
+    create or replace function auth.uid()
+    returns uuid as $f$
+        select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+    $f$ language sql stable;
+exception when others then
+    null;
+end
+$$;
 
 -- 1. PROFILES TABLE (Linked to auth.users)
 create table if not exists public.profiles (
