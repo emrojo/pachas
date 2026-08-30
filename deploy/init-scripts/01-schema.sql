@@ -3,7 +3,13 @@
 -- ==============================================================================
 
 -- Enable UUID extension
-create extension if not exists "uuid-ossp";
+do $$
+begin
+    create extension if not exists "uuid-ossp";
+exception when others then
+    null;
+end
+$$;
 
 -- Ensure standard roles exist for PostgREST / Supabase / Native PostgreSQL
 do $$
@@ -17,31 +23,42 @@ begin
     if not exists (select from pg_roles where rolname = 'service_role') then
         create role service_role nologin;
     end if;
+exception when others then
+    null;
 end
 $$;
 
 -- Ensure auth schema and auth.users table exist for standalone PostgreSQL / PostgREST compatibility
-create schema if not exists auth;
+do $$
+begin
+    create schema if not exists auth;
 
-create table if not exists auth.users (
-    id uuid primary key default uuid_generate_v4(),
-    email text unique,
-    encrypted_password text,
-    raw_user_meta_data jsonb default '{}'::jsonb,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
+    create table if not exists auth.users (
+        id uuid primary key default gen_random_uuid(),
+        email text unique,
+        encrypted_password text,
+        raw_user_meta_data jsonb default '{}'::jsonb,
+        created_at timestamp with time zone default timezone('utc'::text, now()) not null
+    );
 
-alter table auth.users add column if not exists encrypted_password text;
+    begin
+        alter table auth.users add column if not exists encrypted_password text;
+    exception when others then
+        null;
+    end;
 
--- Password reset tokens for self-hosted recovery
-create table if not exists auth.password_reset_tokens (
-    id uuid primary key default uuid_generate_v4(),
-    user_id uuid references auth.users(id) on delete cascade not null,
-    token text unique not null,
-    expires_at timestamp with time zone not null,
-    used boolean default false not null,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
+    create table if not exists auth.password_reset_tokens (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid references auth.users(id) on delete cascade not null,
+        token text unique not null,
+        expires_at timestamp with time zone not null,
+        used boolean default false not null,
+        created_at timestamp with time zone default timezone('utc'::text, now()) not null
+    );
+exception when others then
+    null;
+end
+$$;
 
 -- Function to resolve current user ID from JWT claim for Row Level Security (RLS)
 
@@ -52,7 +69,7 @@ $$ language sql stable;
 
 -- 1. PROFILES TABLE (Linked to auth.users)
 create table if not exists public.profiles (
-    id uuid primary key references auth.users(id) on delete cascade,
+    id uuid primary key,
     email text unique not null,
     full_name text not null,
     avatar_url text,
@@ -61,6 +78,19 @@ create table if not exists public.profiles (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+do $$
+begin
+    if not exists (
+        select 1 from information_schema.table_constraints 
+        where constraint_name = 'profiles_id_fkey' and table_name = 'profiles'
+    ) then
+        alter table public.profiles add constraint profiles_id_fkey foreign key (id) references auth.users(id) on delete cascade;
+    end if;
+exception when others then
+    null;
+end
+$$;
 
 -- Trigger to auto-create profile on signup
 create or replace function public.handle_new_user()
@@ -73,15 +103,24 @@ begin
         coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
         new.raw_user_meta_data->>'avatar_url',
         coalesce(new.raw_user_meta_data->>'role', 'member')
-    );
+    )
+    on conflict (id) do update
+    set email = excluded.email,
+        full_name = coalesce(excluded.full_name, public.profiles.full_name);
     return new;
 end;
 $$ language plpgsql security definer set search_path = public;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-    after insert on auth.users
-    for each row execute procedure public.handle_new_user();
+do $$
+begin
+    drop trigger if exists on_auth_user_created on auth.users;
+    create trigger on_auth_user_created
+        after insert on auth.users
+        for each row execute procedure public.handle_new_user();
+exception when others then
+    null;
+end
+$$;
 
 -- 2. GROUPS TABLE
 create table if not exists public.groups (
@@ -197,23 +236,29 @@ create index if not exists idx_push_subscriptions_user on public.push_subscripti
 -- ==============================================================================
 
 grant usage, create on schema public to public, anon, authenticated, service_role;
-grant usage, create on schema auth to public, anon, authenticated, service_role;
 
 grant all on all tables in schema public to public, anon, authenticated, service_role;
 grant all on all sequences in schema public to public, anon, authenticated, service_role;
 grant all on all routines in schema public to public, anon, authenticated, service_role;
 
-grant all on all tables in schema auth to public, anon, authenticated, service_role;
-grant all on all sequences in schema auth to public, anon, authenticated, service_role;
-grant all on all routines in schema auth to public, anon, authenticated, service_role;
-
 alter default privileges in schema public grant all on tables to public, anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to public, anon, authenticated, service_role;
 alter default privileges in schema public grant all on routines to public, anon, authenticated, service_role;
 
-alter default privileges in schema auth grant all on tables to public, anon, authenticated, service_role;
-alter default privileges in schema auth grant all on sequences to public, anon, authenticated, service_role;
-alter default privileges in schema auth grant all on routines to public, anon, authenticated, service_role;
+do $$
+begin
+    grant usage, create on schema auth to public, anon, authenticated, service_role;
+    grant all on all tables in schema auth to public, anon, authenticated, service_role;
+    grant all on all sequences in schema auth to public, anon, authenticated, service_role;
+    grant all on all routines in schema auth to public, anon, authenticated, service_role;
+
+    alter default privileges in schema auth grant all on tables to public, anon, authenticated, service_role;
+    alter default privileges in schema auth grant all on sequences to public, anon, authenticated, service_role;
+    alter default privileges in schema auth grant all on routines to public, anon, authenticated, service_role;
+exception when others then
+    null;
+end
+$$;
 
 
 -- ==============================================================================
