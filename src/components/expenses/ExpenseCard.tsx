@@ -329,6 +329,8 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
         targetType="expense"
         targetId={expense.id}
         targetTitle={expense.title}
+        groupId={expense.group_id}
+        targetUrl={`/groups/${expense.group_id}?tab=expenses&expenseId=${expense.id}`}
       />
     </>
   );

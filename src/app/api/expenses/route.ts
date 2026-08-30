@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
+import { isServerAdmin } from '@/lib/auth/adminAuth';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -47,6 +48,20 @@ export async function POST(request: NextRequest) {
     if (!pool) {
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
+
+    // Check if target group is frozen
+    try {
+      const grpCheck = await pool.query('SELECT is_frozen FROM public.groups WHERE id = $1', [groupId]);
+      if (grpCheck.rows.length > 0 && grpCheck.rows[0].is_frozen) {
+        const isAdmin = isServerAdmin(payload.email, payload.sub, payload.role);
+        if (!isAdmin) {
+          return NextResponse.json(
+            { error: 'El grupo se encuentra temporalmente congelado por moderación. No se pueden añadir nuevos gastos.' },
+            { status: 403 }
+          );
+        }
+      }
+    } catch {}
 
     // Auto-heal ocr_status column and upgrade expense_date to timestamptz outside transaction if database permissions allow
     try {

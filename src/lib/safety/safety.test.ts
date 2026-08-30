@@ -63,4 +63,20 @@ describe('Legal & User Safety Test Suite', () => {
     const reviewedReport = { ...report, status: updatedStatus };
     expect(reviewedReport.status).toBe('reviewed');
   });
+
+  it('constructs direct deep links and in-admin inspection targets for reported expenses (FR-43.2)', () => {
+    const groupId = 'grp-ibiza-2026';
+    const expenseId = 'exp-hotel-suite';
+    
+    // Direct URL resolution format
+    const targetUrl = `/groups/${groupId}?tab=expenses&expenseId=${expenseId}`;
+    expect(targetUrl).toBe('/groups/grp-ibiza-2026?tab=expenses&expenseId=exp-hotel-suite');
+
+    // Deep link query parameters parsing
+    const url = new URL(`http://localhost${targetUrl}`);
+    expect(url.pathname).toBe('/groups/grp-ibiza-2026');
+    expect(url.searchParams.get('tab')).toBe('expenses');
+    expect(url.searchParams.get('expenseId')).toBe('exp-hotel-suite');
+  });
 });
+

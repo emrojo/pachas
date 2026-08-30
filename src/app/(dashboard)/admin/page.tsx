@@ -11,10 +11,16 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
+import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
 import { formatDate } from '@/lib/utils';
+import { ExpenseForm } from '@/components/expenses/ExpenseForm';
+import { Expense, SupportMessage } from '@/types/database';
 import {
   ShieldCheck,
   ShieldAlert,
+  Shield,
+  Send,
   Activity,
   Users,
   Compass,
@@ -38,6 +44,7 @@ import {
   Check,
   ChevronRight,
   Filter,
+  Trash2,
 } from 'lucide-react';
 
 interface MetricsData {
@@ -98,6 +105,9 @@ interface MetricsData {
     role: 'admin' | 'member';
     bizum_phone?: string;
     avatar_url?: string;
+    is_banned?: boolean;
+    banned_at?: string | null;
+    ban_reason?: string | null;
     created_at: string;
     groups_count: number;
     expenses_count: number;
@@ -110,6 +120,8 @@ interface MetricsData {
     icon_emoji: string;
     base_currency: string;
     is_archived: boolean;
+    is_frozen?: boolean;
+    frozen_reason?: string | null;
     created_at: string;
     creator_name?: string;
     members_count: number;
@@ -138,30 +150,168 @@ export interface ContentReport {
   reporter_name?: string;
   reporter_avatar?: string;
   status: 'pending' | 'reviewed' | 'dismissed' | 'action_taken';
+  resolution_notes?: string | null;
+  evidence_snapshot?: any;
   created_at: string;
 }
 
 export default function AdminBackofficePage() {
   const router = useRouter();
-  const { currentUser, isAppAdmin, groups, getGroupMembers, getGroupExpenses, getGroupSettlements, availableUsers } = usePachas();
+  const {
+    currentUser,
+    isAppAdmin,
+    groups,
+    getGroupMembers,
+    getGroupExpenses,
+    getGroupSettlements,
+    availableUsers,
+    freezeGroup,
+    unfreezeGroup,
+    deleteExpense,
+    isGroupFrozen,
+    banUser,
+    unbanUser,
+    sendSupportMessage,
+  } = usePachas();
   const { t } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<'health' | 'users' | 'groups' | 'analytics' | 'anomalies' | 'reports'>('health');
+  const [activeTab, setActiveTab] = useState<'health' | 'users' | 'groups' | 'analytics' | 'anomalies' | 'reports' | 'support'>('health');
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [reports, setReports] = useState<ContentReport[]>([]);
   const [reportSearch, setReportSearch] = useState('');
   const [reportStatusFilter, setReportStatusFilter] = useState<'all' | 'pending' | 'reviewed' | 'dismissed'>('all');
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [updatingReportId, setUpdatingReportId] = useState<string | null>(null);
+  const [inspectingExpense, setInspectingExpense] = useState<{ expense: Expense; groupId: string } | null>(null);
+  const [isInspectingExpenseId, setIsInspectingExpenseId] = useState<string | null>(null);
+  const [freezingGroupId, setFreezingGroupId] = useState<string | null>(null);
+  const [freezeReason, setFreezeReason] = useState('Bajo investigación por disputa de gastos / moderación');
+  const [freezeType, setFreezeType] = useState<'full' | 'read_only'>('full');
+  const [isFreezingSubmitting, setIsFreezingSubmitting] = useState(false);
+  const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+  const [resolvingReport, setResolvingReport] = useState<{ report: ContentReport; targetStatus: 'reviewed' | 'action_taken' | 'dismissed' } | null>(null);
+  const [resolutionNotesInput, setResolutionNotesInput] = useState('');
+
+  // Support Chat States
+  const [supportConversations, setSupportConversations] = useState<any[]>([]);
+  const [selectedSupportUserId, setSelectedSupportUserId] = useState<string | null>(null);
+  const [supportThreadMessages, setSupportThreadMessages] = useState<SupportMessage[]>([]);
+  const [isLoadingSupport, setIsLoadingSupport] = useState(false);
+  const [adminReplyText, setAdminReplyText] = useState('');
+  const [isSendingAdminReply, setIsSendingAdminReply] = useState(false);
+
+  // User Ban States
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'banned'>('all');
+  const [banningUserId, setBanningUserId] = useState<string | null>(null);
+  const [banReasonInput, setBanReasonInput] = useState('Infracción de las normas de convivencia / conducta inapropiada');
+  const [isBanSubmitting, setIsBanSubmitting] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
   const [diagnosticsResult, setDiagnosticsResult] = useState<any[] | null>(null);
 
+  const handleFreezeGroup = async (groupId: string, reason?: string, type?: 'full' | 'read_only') => {
+    setIsFreezingSubmitting(true);
+    try {
+      await freezeGroup(groupId, reason || freezeReason, type || freezeType);
+      setFreezingGroupId(null);
+      setFreezeReason('Bajo investigación por disputa de gastos / moderación');
+      setFreezeType('full');
+      fetchMetrics();
+      fetchReports();
+    } catch (e: any) {
+      alert(e.message || 'Error al congelar grupo');
+    } finally {
+      setIsFreezingSubmitting(false);
+    }
+  };
+
+  const handleUnfreezeGroup = async (groupId: string) => {
+    try {
+      await unfreezeGroup(groupId);
+      fetchMetrics();
+      fetchReports();
+    } catch (e: any) {
+      alert(e.message || 'Error al descongelar grupo');
+    }
+  };
+
+  const handleDeleteReportedExpense = async (reportId: string, expenseId: string, groupId?: string | null) => {
+    if (!confirm('¿Seguro que deseas eliminar este gasto denunciado? Esta acción guardará una copia de seguridad como evidencia y no se puede deshacer.')) {
+      return;
+    }
+    setDeletingExpenseId(expenseId);
+    try {
+      let expenseSnapshot: any = null;
+      if (groupId) {
+        const localExpenses = getGroupExpenses(groupId) || [];
+        expenseSnapshot = localExpenses.find((e) => e.id === expenseId);
+      }
+
+      if (groupId) {
+        await deleteExpense(groupId, expenseId);
+      } else {
+        await fetch(`/api/expenses/${expenseId}`, { method: 'DELETE' });
+      }
+
+      await handleUpdateReportStatus(
+        reportId,
+        'action_taken',
+        'Gasto eliminado por moderación tras confirmarse infracción de normas.',
+        expenseSnapshot ? { expense: expenseSnapshot, deleted_at: new Date().toISOString(), deleted_by: currentUser?.full_name || 'Admin' } : undefined
+      );
+      fetchReports();
+      fetchMetrics();
+    } catch (e: any) {
+      alert(e.message || 'Error al eliminar gasto');
+    } finally {
+      setDeletingExpenseId(null);
+    }
+  };
+
+  const handleInspectExpense = async (targetId: string, groupId?: string | null) => {
+    setIsInspectingExpenseId(targetId);
+    try {
+      if (groupId) {
+        const localExpenses = getGroupExpenses(groupId) || [];
+        const found = localExpenses.find((e) => e.id === targetId);
+        if (found) {
+          setInspectingExpense({ expense: found, groupId });
+          setIsInspectingExpenseId(null);
+          return;
+        }
+      } else {
+        for (const g of groups || []) {
+          const found = (getGroupExpenses(g.id) || []).find((e) => e.id === targetId);
+          if (found) {
+            setInspectingExpense({ expense: found, groupId: g.id });
+            setIsInspectingExpenseId(null);
+            return;
+          }
+        }
+      }
+
+      const res = await fetch(`/api/expenses/${targetId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.expense) {
+          setInspectingExpense({ expense: data.expense, groupId: data.expense.group_id });
+          setIsInspectingExpenseId(null);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching expense for inspection in admin:', e);
+    } finally {
+      setIsInspectingExpenseId(null);
+    }
+  };
+
   // Filter & search states
   const [userSearch, setUserSearch] = useState('');
   const [groupSearch, setGroupSearch] = useState('');
-  const [groupFilter, setGroupFilter] = useState<'all' | 'active' | 'archived'>('all');
+  const [groupFilter, setGroupFilter] = useState<'all' | 'active' | 'archived' | 'frozen'>('all');
   const [updatingUserRole, setUpdatingUserRole] = useState<string | null>(null);
 
   // Enrich server metrics with local state if DB is running in local/demo mode
@@ -246,6 +396,8 @@ export default function AdminBackofficePage() {
         icon_emoji: g.icon_emoji,
         base_currency: g.base_currency || 'EUR',
         is_archived: Boolean(g.is_archived),
+        is_frozen: Boolean(g.is_frozen),
+        frozen_reason: g.frozen_reason || null,
         created_at: g.created_at,
         creator_name: creator?.full_name || 'Admin',
         members_count: grpMembers.length,
@@ -345,23 +497,133 @@ export default function AdminBackofficePage() {
     }
   };
 
-  const handleUpdateReportStatus = async (reportId: string, newStatus: string) => {
+  const handleUpdateReportStatus = async (
+    reportId: string,
+    newStatus: string,
+    resolutionNotes?: string,
+    evidenceSnapshot?: any
+  ) => {
     try {
       setUpdatingReportId(reportId);
       const res = await fetch('/api/reports', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId, status: newStatus }),
+        body: JSON.stringify({
+          reportId,
+          status: newStatus,
+          resolutionNotes,
+          evidenceSnapshot,
+        }),
       });
       if (res.ok) {
         setReports((prev) =>
-          prev.map((r) => (r.id === reportId ? { ...r, status: newStatus as any } : r))
+          prev.map((r) =>
+            r.id === reportId
+              ? {
+                  ...r,
+                  status: newStatus as any,
+                  resolution_notes: resolutionNotes !== undefined ? resolutionNotes : r.resolution_notes,
+                  evidence_snapshot: evidenceSnapshot !== undefined ? evidenceSnapshot : r.evidence_snapshot,
+                }
+              : r
+          )
         );
       }
     } catch (err) {
       console.warn('Error updating report status:', err);
     } finally {
       setUpdatingReportId(null);
+      setResolvingReport(null);
+      setResolutionNotesInput('');
+    }
+  };
+
+  const fetchSupportConversations = async () => {
+    try {
+      setIsLoadingSupport(true);
+      const res = await fetch('/api/support/messages?conversations=true');
+      if (res.ok) {
+        const data = await res.json();
+        setSupportConversations(data.conversations || []);
+        if (data.conversations?.length > 0 && !selectedSupportUserId) {
+          fetchUserSupportThread(data.conversations[0].user_id);
+        }
+      }
+    } catch (err) {
+      console.warn('Error fetching support conversations:', err);
+    } finally {
+      setIsLoadingSupport(false);
+    }
+  };
+
+  const fetchUserSupportThread = async (userId: string) => {
+    try {
+      setSelectedSupportUserId(userId);
+      const res = await fetch(`/api/support/messages?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSupportThreadMessages(data.messages || []);
+        // Mark as read by admin
+        fetch('/api/support/messages', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Error fetching support thread:', err);
+    }
+  };
+
+  const handleSendAdminReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminReplyText.trim() || !selectedSupportUserId || isSendingAdminReply) return;
+
+    setIsSendingAdminReply(true);
+    try {
+      await sendSupportMessage(adminReplyText.trim(), 'general', selectedSupportUserId);
+      setAdminReplyText('');
+      await fetchUserSupportThread(selectedSupportUserId);
+      fetchSupportConversations();
+    } catch (err) {
+      console.error('Error sending admin reply:', err);
+    } finally {
+      setIsSendingAdminReply(false);
+    }
+  };
+
+  const handleBanUserAction = async (userId: string, reason?: string) => {
+    setIsBanSubmitting(true);
+    try {
+      const success = await banUser(userId, reason || banReasonInput);
+      if (success) {
+        setBanningUserId(null);
+        setBanReasonInput('Infracción de las normas de convivencia / conducta inapropiada');
+        fetchMetrics();
+        fetchReports();
+        if (selectedSupportUserId === userId) {
+          fetchUserSupportThread(userId);
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error al banear usuario');
+    } finally {
+      setIsBanSubmitting(false);
+    }
+  };
+
+  const handleUnbanUserAction = async (userId: string) => {
+    try {
+      const success = await unbanUser(userId);
+      if (success) {
+        fetchMetrics();
+        fetchReports();
+        if (selectedSupportUserId === userId) {
+          fetchUserSupportThread(userId);
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error al desbanear usuario');
     }
   };
 
@@ -369,8 +631,12 @@ export default function AdminBackofficePage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam && ['health', 'users', 'groups', 'analytics', 'anomalies', 'reports'].includes(tabParam)) {
+      const userParam = params.get('userId');
+      if (tabParam && ['health', 'users', 'groups', 'analytics', 'anomalies', 'reports', 'support'].includes(tabParam)) {
         setActiveTab(tabParam as any);
+      }
+      if (userParam) {
+        fetchUserSupportThread(userParam);
       }
     }
   }, []);
@@ -378,7 +644,10 @@ export default function AdminBackofficePage() {
   useEffect(() => {
     fetchMetrics();
     fetchReports();
-  }, [groups, availableUsers]);
+    if (activeTab === 'support') {
+      fetchSupportConversations();
+    }
+  }, [groups, availableUsers, activeTab]);
 
   const handleRunDiagnostics = async () => {
     if (isRunningDiagnostics) return;
@@ -482,18 +751,21 @@ export default function AdminBackofficePage() {
   // Filtered users & groups
   const filteredUsers = (metrics?.usersList || []).filter((u) => {
     const q = userSearch.toLowerCase();
-    return (
+    const matchesQuery =
       u.full_name?.toLowerCase().includes(q) ||
       u.email?.toLowerCase().includes(q) ||
-      u.bizum_phone?.toLowerCase().includes(q)
-    );
+      u.bizum_phone?.toLowerCase().includes(q);
+    if (userStatusFilter === 'active') return matchesQuery && !u.is_banned;
+    if (userStatusFilter === 'banned') return matchesQuery && u.is_banned;
+    return matchesQuery;
   });
 
   const filteredGroups = (metrics?.groupsList || []).filter((g) => {
     const q = groupSearch.toLowerCase();
     const matchesQuery = g.name.toLowerCase().includes(q) || (g.creator_name && g.creator_name.toLowerCase().includes(q));
-    if (groupFilter === 'active') return matchesQuery && !g.is_archived;
+    if (groupFilter === 'active') return matchesQuery && !g.is_archived && !g.is_frozen;
     if (groupFilter === 'archived') return matchesQuery && g.is_archived;
+    if (groupFilter === 'frozen') return matchesQuery && g.is_frozen;
     return matchesQuery;
   });
 
@@ -699,6 +971,24 @@ export default function AdminBackofficePage() {
               </span>
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('support')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
+              activeTab === 'support'
+                ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-500" />
+            <span>{t('admin.tabSupport') || '💬 Soporte y Chats'}</span>
+            {supportConversations.reduce((acc, c) => acc + (c.unread_count || 0), 0) > 0 && (
+              <span className="w-5 h-5 rounded-full bg-rose-500 text-white font-black text-[10px] flex items-center justify-center">
+                {supportConversations.reduce((acc, c) => acc + (c.unread_count || 0), 0)}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* TAB 1: SERVICE HEALTH & DIAGNOSTICS */}
@@ -857,9 +1147,41 @@ export default function AdminBackofficePage() {
                 />
               </div>
 
-              <span className="text-xs font-semibold text-slate-500 self-center">
-                Mostrando {filteredUsers.length} de {metrics?.usersList?.length || 0} usuarios
-              </span>
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setUserStatusFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    userStatusFilter === 'all'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  Todos ({metrics?.usersList?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserStatusFilter('active')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    userStatusFilter === 'active'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  Activos ({(metrics?.usersList || []).filter((u) => !u.is_banned).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserStatusFilter('banned')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    userStatusFilter === 'banned'
+                      ? 'bg-rose-500 text-white shadow-xs'
+                      : 'text-rose-600 dark:text-rose-400 hover:text-rose-700'
+                  }`}
+                >
+                  🚫 Baneados ({(metrics?.usersList || []).filter((u) => u.is_banned).length})
+                </button>
+              </div>
             </div>
 
             <Card className="overflow-hidden border-slate-200/80 dark:border-slate-800">
@@ -868,7 +1190,7 @@ export default function AdminBackofficePage() {
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <th className="py-3 px-4">Usuario</th>
-                      <th className="py-3 px-4">Rol</th>
+                      <th className="py-3 px-4">Rol / Estado</th>
                       <th className="py-3 px-4">Bizum</th>
                       <th className="py-3 px-4 text-center">Grupos</th>
                       <th className="py-3 px-4 text-center">Gastos</th>
@@ -881,7 +1203,7 @@ export default function AdminBackofficePage() {
                     {filteredUsers.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="py-8 text-center text-slate-400 font-medium">
-                          No se encontraron usuarios que coincidan con la búsqueda.
+                          No se encontraron usuarios que coincidan con la búsqueda o filtro.
                         </td>
                       </tr>
                     ) : (
@@ -894,7 +1216,7 @@ export default function AdminBackofficePage() {
                               <div className="flex items-center gap-2.5">
                                 <Avatar profile={u as any} size="sm" className="w-7 h-7 text-xs" />
                                 <div className="min-w-0">
-                                  <span className="font-bold text-slate-900 dark:text-white block truncate">
+                                  <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1 truncate">
                                     {u.full_name || 'Sin nombre'}
                                     {isSelf && <span className="text-[10px] text-emerald-600 font-bold ml-1">(Tú)</span>}
                                   </span>
@@ -903,9 +1225,19 @@ export default function AdminBackofficePage() {
                               </div>
                             </td>
                             <td className="py-3 px-4">
-                              <Badge variant={isAdmin ? 'purple' : 'gray'} size="sm">
-                                {isAdmin ? 'Administrador' : 'Miembro'}
-                              </Badge>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge variant={isAdmin ? 'purple' : 'gray'} size="sm">
+                                  {isAdmin ? 'Administrador' : 'Miembro'}
+                                </Badge>
+                                {u.is_banned && (
+                                  <span
+                                    className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60"
+                                    title={u.ban_reason || 'Baneado por moderación'}
+                                  >
+                                    🚫 Baneado
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">
                               {u.bizum_phone || '—'}
@@ -929,20 +1261,49 @@ export default function AdminBackofficePage() {
                               {new Date(u.created_at).toLocaleDateString('es-ES')}
                             </td>
                             <td className="py-3 px-4 text-right">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={isSelf || updatingUserRole === u.id}
-                                onClick={() => handleToggleUserRole(u.id, u.role)}
-                                className="text-[11px] font-bold px-2 py-1 h-auto"
-                              >
-                                {updatingUserRole === u.id
-                                  ? 'Guardando...'
-                                  : isAdmin
-                                  ? 'Quitar Admin'
-                                  : 'Hacer Admin'}
-                              </Button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={isSelf || updatingUserRole === u.id}
+                                  onClick={() => handleToggleUserRole(u.id, u.role)}
+                                  className="text-[11px] font-bold px-2 py-1 h-auto"
+                                >
+                                  {updatingUserRole === u.id
+                                    ? 'Guardando...'
+                                    : isAdmin
+                                    ? 'Quitar Admin'
+                                    : 'Hacer Admin'}
+                                </Button>
+
+                                {u.is_banned ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isSelf}
+                                    onClick={() => handleUnbanUserAction(u.id)}
+                                    className="text-[11px] font-bold px-2 py-1 h-auto text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                                  >
+                                    🟢 Desbanear
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isSelf}
+                                    onClick={() => {
+                                      setBanningUserId(u.id);
+                                      setBanReasonInput('Infracción de las normas de convivencia / conducta inapropiada');
+                                    }}
+                                    className="text-[11px] font-bold px-2 py-1 h-auto text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                  >
+                                    🚫 Banear
+                                  </Button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1004,6 +1365,17 @@ export default function AdminBackofficePage() {
                 >
                   Archivados ({metrics?.totals?.archivedGroups || 0})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupFilter('frozen')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    groupFilter === 'frozen'
+                      ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  ❄️ Congelados ({metrics?.groupsList?.filter((g: any) => g.is_frozen).length || 0})
+                </button>
               </div>
             </div>
 
@@ -1019,7 +1391,7 @@ export default function AdminBackofficePage() {
                       <th className="py-3 px-4 text-center">Gastos</th>
                       <th className="py-3 px-4 text-right">Volumen</th>
                       <th className="py-3 px-4">Fecha</th>
-                      <th className="py-3 px-4 text-right">Estado</th>
+                      <th className="py-3 px-4 text-right">Estado y Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
@@ -1069,9 +1441,44 @@ export default function AdminBackofficePage() {
                             {new Date(g.created_at).toLocaleDateString('es-ES')}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <Badge variant={g.is_archived ? 'gray' : 'emerald'} size="sm">
-                              {g.is_archived ? 'Archivado' : 'Activo'}
-                            </Badge>
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {g.is_frozen ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                                  ❄️ Congelado
+                                </span>
+                              ) : g.is_archived ? (
+                                <Badge variant="gray" size="sm">
+                                  Archivado
+                                </Badge>
+                              ) : (
+                                <Badge variant="emerald" size="sm">
+                                  Activo
+                                </Badge>
+                              )}
+
+                              {g.is_frozen ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUnfreezeGroup(g.id)}
+                                  className="text-[11px] font-bold py-0.5 px-2 border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                                >
+                                  🔥 Descongelar
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setFreezingGroupId(g.id);
+                                    setFreezeReason('Bajo investigación por disputa de gastos / moderación');
+                                  }}
+                                  className="text-[11px] font-bold py-0.5 px-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-sky-50 hover:text-sky-700 dark:hover:bg-sky-950/40 dark:hover:text-sky-300"
+                                >
+                                  ❄️ Congelar
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1575,6 +1982,22 @@ export default function AdminBackofficePage() {
                               )}
                             </div>
 
+                            {/* Resolution Notes & Evidence Snapshot if available */}
+                            {report.resolution_notes && (
+                              <div className="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-900/60 text-xs text-emerald-800 dark:text-emerald-200 space-y-0.5">
+                                <span className="font-bold flex items-center gap-1 text-[11px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                                  📝 Nota de Resolución del Administrador:
+                                </span>
+                                <p className="leading-relaxed">{report.resolution_notes}</p>
+                              </div>
+                            )}
+
+                            {report.evidence_snapshot && (
+                              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg w-fit">
+                                <span>🔒 Copia de seguridad de evidencia guardada</span>
+                              </div>
+                            )}
+
                             {/* Reporter Info */}
                             <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
                               <span>Reportado por:</span>
@@ -1589,42 +2012,125 @@ export default function AdminBackofficePage() {
 
                           {/* Right: Actions */}
                           <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start flex-wrap">
-                            {/* View Item Link */}
-                            {report.target_url ? (
-                              <a
-                                href={report.target_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 shadow-2xs"
-                              >
-                                <ArrowUpRight className="w-3.5 h-3.5" />
-                                <span>Ver</span>
-                              </a>
-                            ) : report.target_type === 'group' ? (
-                              <Link
-                                href={`/groups/${report.target_id}`}
-                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 shadow-2xs"
-                              >
-                                <ArrowUpRight className="w-3.5 h-3.5" />
-                                <span>Ver grupo</span>
-                              </Link>
-                            ) : report.group_id ? (
-                              <Link
-                                href={`/groups/${report.group_id}?tab=expenses&expenseId=${report.target_id}`}
-                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 shadow-2xs"
-                              >
-                                <ArrowUpRight className="w-3.5 h-3.5" />
-                                <span>Ver gasto</span>
-                              </Link>
-                            ) : null}
+                            {/* Deep link & Quick Inspect */}
+                            {(() => {
+                              const resolvedGroupId =
+                                report.group_id ||
+                                (groups || []).find((g) =>
+                                  (getGroupExpenses(g.id) || []).some((e) => e.id === report.target_id)
+                                )?.id;
+
+                              const deepLinkUrl =
+                                report.target_url ||
+                                (resolvedGroupId && (report.target_type === 'expense' || report.target_type === 'receipt')
+                                  ? `/groups/${resolvedGroupId}?tab=expenses&expenseId=${report.target_id}`
+                                  : resolvedGroupId && report.target_type === 'group'
+                                  ? `/groups/${resolvedGroupId}`
+                                  : report.target_type === 'group'
+                                  ? `/groups/${report.target_id}`
+                                  : null);
+
+                              const isExpense = report.target_type === 'expense' || report.target_type === 'receipt';
+                              const targetGroup = (groups || []).find((g) => g.id === resolvedGroupId) || (metrics?.groupsList || []).find((g: any) => g.id === resolvedGroupId);
+                              const isGroupCurrentlyFrozen = Boolean(targetGroup?.is_frozen);
+
+                              return (
+                                <>
+                                  {/* Quick In-Modal Inspect */}
+                                  {isExpense && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleInspectExpense(report.target_id, resolvedGroupId)}
+                                      isLoading={isInspectingExpenseId === report.target_id}
+                                      className="text-xs font-bold border-slate-300 dark:border-slate-700 hover:border-emerald-500 text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-slate-800 shadow-2xs"
+                                    >
+                                      <Search className="w-3.5 h-3.5 mr-1" />
+                                      <span>Inspeccionar</span>
+                                    </Button>
+                                  )}
+
+                                  {/* Direct Link to the Group/Expense View in a New Tab */}
+                                  {deepLinkUrl && (
+                                    <a
+                                      href={deepLinkUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors flex items-center gap-1 shadow-2xs"
+                                    >
+                                      <ArrowUpRight className="w-3.5 h-3.5" />
+                                      <span>{isExpense ? 'Ver gasto' : report.target_type === 'group' ? 'Ver grupo' : 'Ver'}</span>
+                                    </a>
+                                  )}
+
+                                  {/* Freeze / Unfreeze Group directly from report */}
+                                  {resolvedGroupId && (
+                                    isGroupCurrentlyFrozen ? (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleUnfreezeGroup(resolvedGroupId)}
+                                        className="text-xs font-bold border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                                      >
+                                        🔥 Descongelar
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setFreezingGroupId(resolvedGroupId);
+                                          setFreezeReason(`Bajo investigación por reporte de ${report.target_type}: ${report.reason}`);
+                                        }}
+                                        className="text-xs font-bold border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                                      >
+                                        ❄️ Congelar viaje
+                                      </Button>
+                                    )
+                                  )}
+
+                                  {/* Delete Reported Expense */}
+                                  {isExpense && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDeleteReportedExpense(report.id, report.target_id, resolvedGroupId)}
+                                      isLoading={deletingExpenseId === report.target_id}
+                                      className="text-xs font-bold border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                      <span>Eliminar gasto</span>
+                                    </Button>
+                                  )}
+
+                                  {/* Ban User if target_type is user */}
+                                  {report.target_type === 'user' && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setBanningUserId(report.target_id);
+                                        setBanReasonInput(`Reportado por: ${report.reason}`);
+                                      }}
+                                      className="text-xs font-bold border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                    >
+                                      🚫 Banear usuario
+                                    </Button>
+                                  )}
+                                </>
+                              );
+                            })()}
 
                             {/* Mark Reviewed */}
                             {report.status !== 'reviewed' && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleUpdateReportStatus(report.id, 'reviewed')}
-                                isLoading={isUpdating}
+                                onClick={() => {
+                                  setResolvingReport({ report, targetStatus: 'reviewed' });
+                                  setResolutionNotesInput('');
+                                }}
+                                isLoading={updatingReportId === report.id}
                                 className="text-xs font-bold border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40"
                               >
                                 <Check className="w-3.5 h-3.5" />
@@ -1637,8 +2143,11 @@ export default function AdminBackofficePage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleUpdateReportStatus(report.id, 'action_taken')}
-                                isLoading={isUpdating}
+                                onClick={() => {
+                                  setResolvingReport({ report, targetStatus: 'action_taken' });
+                                  setResolutionNotesInput('Medidas aplicadas tras revisión de moderación.');
+                                }}
+                                isLoading={updatingReportId === report.id}
                                 className="text-xs font-bold border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1651,8 +2160,11 @@ export default function AdminBackofficePage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleUpdateReportStatus(report.id, 'dismissed')}
-                                isLoading={isUpdating}
+                                onClick={() => {
+                                  setResolvingReport({ report, targetStatus: 'dismissed' });
+                                  setResolutionNotesInput('Revisado. No se aprecian infracciones de las normas.');
+                                }}
+                                isLoading={updatingReportId === report.id}
                                 className="text-xs font-bold text-slate-500 hover:text-rose-600"
                               >
                                 <XCircle className="w-3.5 h-3.5" />
@@ -1669,7 +2181,498 @@ export default function AdminBackofficePage() {
             </Card>
           </div>
         )}
+
+        {/* TAB 7: SUPPORT & USER CHATS */}
+        {activeTab === 'support' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[75vh] min-h-[560px]">
+            {/* Left: Conversations List (4 cols) */}
+            <Card className="lg:col-span-4 p-4 flex flex-col h-full border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>💬 Mensajes de Soporte</span>
+                  {supportConversations.length > 0 && (
+                    <span className="text-xs text-slate-400 font-normal">({supportConversations.length})</span>
+                  )}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={fetchSupportConversations}
+                  isLoading={isLoadingSupport}
+                  className="text-xs text-slate-500 hover:text-slate-900 h-auto p-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pt-2 space-y-1.5 no-scrollbar">
+                {supportConversations.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                    <MessageSquare className="w-8 h-8 mb-2 opacity-40" />
+                    <p className="text-xs font-semibold">No hay conversaciones de soporte aún.</p>
+                  </div>
+                ) : (
+                  supportConversations.map((conv) => {
+                    const isSelected = selectedSupportUserId === conv.user_id;
+                    const hasUnread = (conv.unread_count || 0) > 0;
+
+                    return (
+                      <button
+                        key={conv.user_id}
+                        type="button"
+                        onClick={() => fetchUserSupportThread(conv.user_id)}
+                        className={`w-full text-left p-3 rounded-2xl border transition-all ${
+                          isSelected
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 shadow-2xs'
+                            : 'bg-white dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <Avatar
+                            profile={{
+                              id: conv.user_id,
+                              full_name: conv.user_name || 'Usuario',
+                              email: conv.user_email,
+                              avatar_url: conv.user_avatar,
+                              created_at: '',
+                            }}
+                            size="sm"
+                            className="w-8 h-8 text-xs shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                {conv.user_name || conv.user_email || 'Usuario'}
+                              </span>
+                              {hasUnread && (
+                                <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black shrink-0">
+                                  {conv.unread_count}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-slate-400 truncate block">
+                              {conv.user_email}
+                            </span>
+                            {conv.last_message && (
+                              <p className="text-xs text-slate-600 dark:text-slate-300 truncate mt-1">
+                                {conv.last_message}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              {conv.last_category && (
+                                <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                  {conv.last_category === 'bug'
+                                    ? '🐛 Bug'
+                                    : conv.last_category === 'report_clarification'
+                                    ? '⚖️ Aclaración'
+                                    : conv.last_category === 'appeal'
+                                    ? '🛡️ Apelación'
+                                    : conv.last_category}
+                                </span>
+                              )}
+                              {conv.is_banned && (
+                                <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60">
+                                  🚫 Baneado
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </Card>
+
+            {/* Right: Active Chat View (8 cols) */}
+            <Card className="lg:col-span-8 p-4 sm:p-5 flex flex-col h-full border-slate-200/80 dark:border-slate-800">
+              {selectedSupportUserId ? (
+                <>
+                  {/* Chat Header */}
+                  {(() => {
+                    const currentConv = supportConversations.find((c) => c.user_id === selectedSupportUserId);
+                    const isBanned = Boolean(currentConv?.is_banned);
+
+                    return (
+                      <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800 gap-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            profile={{
+                              id: selectedSupportUserId,
+                              full_name: currentConv?.user_name || 'Usuario',
+                              email: currentConv?.user_email,
+                              avatar_url: currentConv?.user_avatar,
+                              created_at: '',
+                            }}
+                            size="md"
+                            className="w-10 h-10 text-xs shrink-0"
+                          />
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              <span>{currentConv?.user_name || 'Usuario'}</span>
+                              {isBanned && (
+                                <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                                  🚫 Baneado
+                                </span>
+                              )}
+                            </h4>
+                            <span className="text-xs text-slate-400">{currentConv?.user_email}</span>
+                          </div>
+                        </div>
+
+                        {/* Ban / Unban Shortcuts */}
+                        <div className="flex items-center gap-2">
+                          {isBanned ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUnbanUserAction(selectedSupportUserId)}
+                              className="text-xs font-bold text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                            >
+                              🟢 Desbanear
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setBanningUserId(selectedSupportUserId);
+                                setBanReasonInput('Infracción de las normas de convivencia / conducta inapropiada');
+                              }}
+                              className="text-xs font-bold text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            >
+                              🚫 Banear
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Messages Feed */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3.5 my-3 bg-slate-50/60 dark:bg-slate-950/40 rounded-2xl border border-slate-200/70 dark:border-slate-800/70">
+                    {supportThreadMessages.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                        <p className="text-xs">No hay mensajes en este canal.</p>
+                      </div>
+                    ) : (
+                      supportThreadMessages.map((msg) => {
+                        const isAdmin = msg.sender_role === 'admin';
+
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1 px-1">
+                              {isAdmin ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950 px-2 py-0.5 rounded-md border border-sky-200 dark:border-sky-800">
+                                  <Shield className="w-3 h-3" />
+                                  <span>Tú (Administrador)</span>
+                                </span>
+                              ) : (
+                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                  {msg.sender_name || 'Usuario'}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400">
+                                {formatDate(msg.created_at, 'dd/MM/yyyy HH:mm')}
+                              </span>
+                            </div>
+
+                            <div
+                              className={`p-3.5 rounded-2xl max-w-[85%] text-xs leading-relaxed shadow-2xs break-words ${
+                                isAdmin
+                                  ? 'bg-sky-600 text-white rounded-tr-xs'
+                                  : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-tl-xs'
+                              }`}
+                            >
+                              {msg.category && msg.category !== 'general' && (
+                                <div className="mb-1.5">
+                                  <span
+                                    className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                      isAdmin
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    }`}
+                                  >
+                                    {msg.category === 'bug'
+                                      ? '🐛 Bug'
+                                      : msg.category === 'report_clarification'
+                                      ? '⚖️ Aclaración'
+                                      : msg.category === 'appeal'
+                                      ? '🛡️ Apelación'
+                                      : msg.category}
+                                  </span>
+                                </div>
+                              )}
+                              <p className="whitespace-pre-wrap">{msg.message}</p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Admin Reply Form */}
+                  <form onSubmit={handleSendAdminReply} className="flex items-center gap-2 pt-1">
+                    <Input
+                      value={adminReplyText}
+                      onChange={(e) => setAdminReplyText(e.target.value)}
+                      placeholder="Escribe una respuesta como Administrador oficial..."
+                      className="flex-1 text-xs"
+                      disabled={isSendingAdminReply}
+                    />
+                    <Button
+                      type="submit"
+                      variant="brand"
+                      disabled={!adminReplyText.trim() || isSendingAdminReply}
+                      isLoading={isSendingAdminReply}
+                      className="bg-sky-600 hover:bg-sky-700 text-white px-4 font-bold shrink-0"
+                    >
+                      <Send className="w-4 h-4 mr-1" />
+                      <span>Responder</span>
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-2">
+                  <MessageSquare className="w-10 h-10 opacity-30 text-emerald-500" />
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    Selecciona una conversación
+                  </h4>
+                  <p className="text-xs max-w-xs">
+                    Haz clic en cualquier usuario de la izquierda para ver su historial y responderle en tiempo real.
+                  </p>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
       </main>
+
+      {/* In-Admin Read-Only Expense Detail Modal */}
+      {inspectingExpense && (
+        <ExpenseForm
+          isOpen={Boolean(inspectingExpense)}
+          groupId={inspectingExpense.groupId}
+          expenseToEdit={inspectingExpense.expense}
+          isReadOnly={true}
+          onClose={() => setInspectingExpense(null)}
+        />
+      )}
+
+      {/* Freeze Group Confirmation Modal with Dual Mode */}
+      {freezingGroupId && (
+        <Modal
+          isOpen={Boolean(freezingGroupId)}
+          onClose={() => setFreezingGroupId(null)}
+          title="❄️ Congelar Grupo bajo Investigación"
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <div className="p-3.5 bg-sky-50 dark:bg-sky-950/60 rounded-2xl border border-sky-200 dark:border-sky-800 text-xs text-sky-800 dark:text-sky-200 space-y-1.5">
+              <p className="font-bold">
+                Efectos de la medida cautelar:
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] opacity-90">
+                <li>Los miembros no podrán realizar modificaciones, crear gastos, chatear ni registrar pagos.</li>
+                <li>Tú como administrador conservarás acceso para inspeccionar y eliminar gastos denunciados.</li>
+                <li>Podrás descongelar el grupo en cualquier momento una vez resuelta la incidencia.</li>
+              </ul>
+            </div>
+
+            {/* Freeze Mode Selection */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Modalidad de congelación:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setFreezeType('full')}
+                  className={`p-3 rounded-2xl border text-left transition-all ${
+                    freezeType === 'full'
+                      ? 'border-sky-500 bg-sky-50/80 dark:bg-sky-950/60 ring-2 ring-sky-500/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>🔒 Bloqueo Total</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Oculta todo el grupo a los miembros (recomendado para sospechas de fraude o acoso).
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFreezeType('read_only')}
+                  className={`p-3 rounded-2xl border text-left transition-all ${
+                    freezeType === 'read_only'
+                      ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/60 ring-2 ring-amber-500/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>👁️ Solo Lectura</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Los miembros pueden consultar balances y tickets, pero no modificar nada.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Motivo de la congelación / investigación:
+              </label>
+              <Input
+                value={freezeReason}
+                onChange={(e) => setFreezeReason(e.target.value)}
+                placeholder="Ej: Bajo investigación por disputa de gastos / moderación"
+                className="w-full text-xs"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFreezingGroupId(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="brand"
+                size="sm"
+                onClick={() => handleFreezeGroup(freezingGroupId, freezeReason, freezeType)}
+                isLoading={isFreezingSubmitting}
+                className="bg-sky-600 hover:bg-sky-700 text-white font-bold"
+              >
+                ❄️ Confirmar Congelación
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Ban User Confirmation Modal */}
+      {banningUserId && (
+        <Modal
+          isOpen={Boolean(banningUserId)}
+          onClose={() => setBanningUserId(null)}
+          title="🚫 Suspender / Banear Usuario"
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/60 rounded-2xl border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 space-y-1.5">
+              <p className="font-bold">
+                Efectos de la suspensión de cuenta:
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] opacity-90">
+                <li>El usuario será bloqueado de inmediato en todas las vistas de la aplicación.</li>
+                <li>Verá una pantalla de aviso con el motivo formal de la sanción.</li>
+                <li>Podrá comunicarse contigo a través del Chat de Soporte para formular alegaciones.</li>
+                <li>Podrás desbanear al usuario en cualquier momento para restaurar su acceso.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Motivo de la suspensión / baneo:
+              </label>
+              <Input
+                value={banReasonInput}
+                onChange={(e) => setBanReasonInput(e.target.value)}
+                placeholder="Ej: Infracción de las normas de convivencia / reporte de fraude"
+                className="w-full text-xs"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBanningUserId(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="brand"
+                size="sm"
+                onClick={() => handleBanUserAction(banningUserId, banReasonInput)}
+                isLoading={isBanSubmitting}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              >
+                🚫 Confirmar Baneo
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Resolution Notes Modal */}
+      {resolvingReport && (
+        <Modal
+          isOpen={Boolean(resolvingReport)}
+          onClose={() => setResolvingReport(null)}
+          title={`📝 Actualizar Estado: ${
+            resolvingReport.targetStatus === 'action_taken'
+              ? 'Medida Tomada (Resuelto)'
+              : resolvingReport.targetStatus === 'reviewed'
+              ? 'Revisado'
+              : 'Desestimar Reporte'
+          }`}
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Puedes añadir una nota explicativa. Se notificará al usuario denunciante con el resultado de la revisión:
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Nota de Resolución / Explicación:
+              </label>
+              <textarea
+                value={resolutionNotesInput}
+                onChange={(e) => setResolutionNotesInput(e.target.value)}
+                placeholder="Ej: Se ha verificado el comprobante y corregido la discrepancia..."
+                rows={3}
+                className="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setResolvingReport(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="brand"
+                size="sm"
+                onClick={() =>
+                  handleUpdateReportStatus(
+                    resolvingReport.report.id,
+                    resolvingReport.targetStatus,
+                    resolutionNotesInput.trim() || undefined
+                  )
+                }
+                isLoading={updatingReportId === resolvingReport.report.id}
+                className="font-bold"
+              >
+                Guardar y Notificar
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       <Footer />
     </div>

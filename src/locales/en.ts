@@ -13,6 +13,7 @@ export const en: TranslationDictionary = {
     tabAnalytics: 'Feature Analytics',
     tabAnomalies: 'Issues & Alerts',
     tabReports: 'Reports & Moderation',
+    tabSupport: 'Support & Chats',
     reportsTitle: 'Content Moderation & Reports',
     systemHealth: 'System Health & Diagnostics',
     runDiagnostics: 'Run Live Diagnostics',
@@ -211,6 +212,18 @@ export const en: TranslationDictionary = {
   },
 
   groups: {
+    archived: 'Archived',
+    frozenStatus: 'Frozen',
+    frozenBadge: '❄️ Group Frozen for Investigation',
+    frozenTitle: 'Group frozen by administrator',
+    frozenSubtitle: 'This group is under moderation investigation and its operations and contents are temporarily suspended pending a decision.',
+    frozenReadOnlyTitle: 'Read-Only Mode under Investigation',
+    frozenNoticeTitle: 'Active Protection Mode',
+    frozenNotice: 'No user may view expenses, balances, or make changes in this group while it remains frozen.',
+    frozenAdminInvestigation: 'Investigation Mode / Frozen Group',
+    freezeAction: 'Freeze group',
+    unfreezeAction: 'Unfreeze group',
+    freezeReasonPlaceholder: 'Reason for freeze / investigation...',
     groupAdmin: 'Group Admin',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
@@ -724,6 +737,13 @@ export const en: TranslationDictionary = {
     expenseBadge: 'Linked expense',
     viewExpense: 'View expense',
     syncWithExpenseNotice: 'Will also be added as a comment to the expense',
+  },
+  support: {
+    chatTitle: 'Support & Help',
+    directChatWithAdmin: 'Direct Chat with Admin',
+    helpDesk: 'Support channel and issue resolution',
+    bannedNotice: 'Account Suspended',
+    contactAdmin: 'Contact Administrator',
   },
 };
 

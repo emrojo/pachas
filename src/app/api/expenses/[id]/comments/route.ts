@@ -113,6 +113,22 @@ export async function POST(
     const commentId = body.id && !body.id.startsWith('cmt-') ? body.id : randomUUID();
     const pool = getDbPool();
 
+    // Check if group is frozen
+    if (pool) {
+      try {
+        const grpRes = await pool.query(
+          'SELECT g.is_frozen FROM public.expenses e JOIN public.groups g ON g.id = e.group_id WHERE e.id = $1',
+          [expenseId]
+        );
+        if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
+          return NextResponse.json(
+            { error: 'El grupo se encuentra temporalmente congelado por moderación. Los comentarios están suspendidos.' },
+            { status: 403 }
+          );
+        }
+      } catch {}
+    }
+
     if (!pool) {
       return NextResponse.json({
         comment: {

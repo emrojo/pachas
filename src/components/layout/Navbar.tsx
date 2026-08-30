@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Avatar } from '@/components/ui/Avatar';
-import { Plus, Users, User, Compass, Sparkles, ChevronDown, UserPlus, Check, LogOut, ShieldCheck, Bell } from 'lucide-react';
+import { Plus, Users, User, Compass, Sparkles, ChevronDown, UserPlus, Check, LogOut, ShieldCheck, Bell, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { NotificationBellDropdown } from '@/components/notifications/NotificationBellDropdown';
@@ -22,7 +22,7 @@ export interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, availableUsers, setCurrentUser, isAppAdmin, isDemoMode, logout, unreadNotificationsCount } = usePachas();
+  const { currentUser, availableUsers, setCurrentUser, isAppAdmin, isDemoMode, logout, unreadNotificationsCount, openSupportModal } = usePachas();
   const { t } = useTranslation();
   const donationUrl = useDonationUrl();
 
@@ -261,6 +261,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                           </span>
                         )}
                       </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsDropdownOpen(false);
+                          openSupportModal();
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors text-left"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>💬 {t('support.chatTitle') || 'Soporte y Ayuda'}</span>
+                      </button>
 
                       <Link
                         href="/profile"

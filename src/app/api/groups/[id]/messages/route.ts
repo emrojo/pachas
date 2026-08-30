@@ -130,6 +130,19 @@ export async function POST(
     const messageId = body.id && !body.id.startsWith('msg-') ? body.id : randomUUID();
     const pool = getDbPool();
 
+    // Check if group is frozen
+    if (pool) {
+      try {
+        const grpRes = await pool.query('SELECT is_frozen FROM public.groups WHERE id = $1', [groupId]);
+        if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
+          return NextResponse.json(
+            { error: 'El grupo se encuentra temporalmente congelado por moderación. El chat está suspendido.' },
+            { status: 403 }
+          );
+        }
+      } catch {}
+    }
+
     if (!pool) {
       return NextResponse.json({
         message: {
