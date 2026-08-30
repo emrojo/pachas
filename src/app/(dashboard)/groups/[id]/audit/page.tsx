@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePachas } from '@/context/PachasContext';
@@ -45,6 +45,7 @@ export default function GroupAuditPage() {
 
   const {
     getGroup,
+    fetchGroup,
     getGroupMembers,
     getGroupExpenses,
     getGroupSettlements,
@@ -53,10 +54,22 @@ export default function GroupAuditPage() {
   } = usePachas();
   const { t } = useTranslation();
 
+  const [isFetchingGroup, setIsFetchingGroup] = useState(false);
+
   const group = getGroup(groupId);
   const members = getGroupMembers(groupId);
   const expenses = getGroupExpenses(groupId);
   const settlements = getGroupSettlements(groupId);
+
+  // Fetch group on-demand if not already in local state
+  useEffect(() => {
+    if (!group && groupId) {
+      setIsFetchingGroup(true);
+      fetchGroup(groupId)
+        .catch(() => {})
+        .finally(() => setIsFetchingGroup(false));
+    }
+  }, [groupId, group, fetchGroup]);
 
   const [selectedUserId, setSelectedUserId] = useState<string>(currentUser?.id || '');
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -122,7 +135,7 @@ export default function GroupAuditPage() {
     setCalculatorExpr(expr);
   };
 
-  if (isLoading && !group) {
+  if ((isLoading || isFetchingGroup) && !group) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
         <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />

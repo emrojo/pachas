@@ -91,7 +91,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
-    const query = `
+    const { searchParams } = new URL(request.url);
+    const fetchAll = searchParams.get('all') === 'true' && user.isAdmin;
+
+    let query = `
       SELECT g.*,
              COALESCE(
                json_agg(
@@ -115,14 +118,24 @@ export async function GET(request: NextRequest) {
       FROM public.groups g
       LEFT JOIN public.group_members gm ON gm.group_id = g.id
       LEFT JOIN public.profiles p ON p.id = gm.user_id
-      WHERE g.id IN (
-        SELECT gm2.group_id FROM public.group_members gm2 WHERE gm2.user_id = $1
-      ) OR g.created_by = $1
+    `;
+
+    const params: any[] = [];
+    if (!fetchAll) {
+      query += `
+        WHERE g.id IN (
+          SELECT gm2.group_id FROM public.group_members gm2 WHERE gm2.user_id = $1
+        ) OR g.created_by = $1
+      `;
+      params.push(user.userId);
+    }
+
+    query += `
       GROUP BY g.id
       ORDER BY g.created_at DESC
     `;
 
-    const res = await pool.query(query, [user.userId]);
+    const res = await pool.query(query, params);
     return NextResponse.json({ success: true, groups: res.rows });
   } catch (err: any) {
     console.error('API get groups error:', err);

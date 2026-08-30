@@ -63,6 +63,11 @@ export const isGroupAdmin = (
 ): boolean => {
   if (!user || !groupId) return false;
 
+  // 0. Superadmins have administrative and moderation access over all groups
+  if (isAppAdmin(user)) {
+    return true;
+  }
+
   // 1. If group object provided, check if user is the creator
   if (group && group.id === groupId && group.created_by === user.id) {
     return true;
