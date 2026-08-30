@@ -27,16 +27,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ enabled: false, isMember: true });
     }
 
-    // Auto-heal / Ensure notifications_enabled column exists
+    // Auto-create dedicated preferences table if not exists
     try {
       await pool.query(`
-        ALTER TABLE public.group_members
-        ADD COLUMN IF NOT EXISTS notifications_enabled boolean DEFAULT false NOT NULL;
+        CREATE TABLE IF NOT EXISTS public.user_group_notifications (
+          id uuid primary key default uuid_generate_v4(),
+          user_id uuid not null,
+          group_id uuid not null,
+          enabled boolean default false not null,
+          created_at timestamp with time zone default now(),
+          unique(user_id, group_id)
+        );
       `);
-    } catch {
-      // Ignored if permissions are restricted or column already present
-    }
+    } catch {}
 
+    // 1. Check dedicated preferences table first
+    try {
+      const prefRes = await pool.query(
+        `SELECT enabled FROM public.user_group_notifications
+         WHERE group_id::text = $1::text AND user_id::text = $2::text`,
+        [groupId, payload.sub]
+      );
+      if (prefRes.rows.length > 0) {
+        return NextResponse.json({
+          enabled: Boolean(prefRes.rows[0].enabled),
+          isMember: true,
+        });
+      }
+    } catch {}
+
+    // 2. Fallback to public.group_members
     try {
       const res = await pool.query(
         `SELECT notifications_enabled
@@ -45,31 +65,25 @@ export async function GET(request: NextRequest) {
         [groupId, payload.sub]
       );
 
-      if (res.rows.length === 0) {
-        // Check if user is creator of the group and auto-insert member
-        const groupRes = await pool.query(
-          `SELECT created_by FROM public.groups WHERE id::text = $1::text`,
-          [groupId]
-        );
-        if (groupRes.rows.length > 0 && groupRes.rows[0].created_by === payload.sub) {
-          const memberId = randomUUID();
-          await pool.query(
-            `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
-             VALUES ($1, $2, $3, 'admin', false, NOW())
-             ON CONFLICT (group_id, user_id) DO NOTHING`,
-            [memberId, groupId, payload.sub]
-          );
-          return NextResponse.json({ enabled: false, isMember: true });
-        }
-        return NextResponse.json({ enabled: false, isMember: false });
+      if (res.rows.length > 0) {
+        return NextResponse.json({
+          enabled: Boolean(res.rows[0].notifications_enabled),
+          isMember: true,
+        });
       }
 
-      return NextResponse.json({
-        enabled: Boolean(res.rows[0].notifications_enabled),
-        isMember: true,
-      });
+      // Check if user is creator of the group
+      const groupRes = await pool.query(
+        `SELECT created_by FROM public.groups WHERE id::text = $1::text`,
+        [groupId]
+      );
+      if (groupRes.rows.length > 0 && groupRes.rows[0].created_by === payload.sub) {
+        return NextResponse.json({ enabled: false, isMember: true });
+      }
+
+      return NextResponse.json({ enabled: false, isMember: false });
     } catch (queryErr: any) {
-      if (queryErr.code === '42703' || String(queryErr.message).includes('notifications_enabled')) {
+      try {
         const memRes = await pool.query(
           `SELECT id FROM public.group_members WHERE group_id::text = $1::text AND user_id::text = $2::text`,
           [groupId, payload.sub]
@@ -78,8 +92,9 @@ export async function GET(request: NextRequest) {
           enabled: false,
           isMember: memRes.rows.length > 0,
         });
+      } catch {
+        return NextResponse.json({ enabled: false, isMember: true });
       }
-      throw queryErr;
     }
   } catch (err: any) {
     console.warn('Notice in notification preferences GET:', err.message || err);
@@ -111,51 +126,44 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: true, enabled, groupId });
     }
 
-    // Ensure column exists
+    // 1. Ensure dedicated table exists and upsert preference
     try {
       await pool.query(`
-        ALTER TABLE public.group_members
-        ADD COLUMN IF NOT EXISTS notifications_enabled boolean DEFAULT false NOT NULL;
+        CREATE TABLE IF NOT EXISTS public.user_group_notifications (
+          id uuid primary key default uuid_generate_v4(),
+          user_id uuid not null,
+          group_id uuid not null,
+          enabled boolean default false not null,
+          created_at timestamp with time zone default now(),
+          unique(user_id, group_id)
+        );
       `);
-    } catch {
-      // Ignored
+
+      await pool.query(
+        `INSERT INTO public.user_group_notifications (user_id, group_id, enabled)
+         VALUES ($1::uuid, $2::uuid, $3)
+         ON CONFLICT (user_id, group_id) DO UPDATE SET enabled = EXCLUDED.enabled`,
+        [payload.sub, groupId, enabled]
+      );
+    } catch (prefTableErr) {
+      console.warn('Notice saving into user_group_notifications:', prefTableErr);
     }
 
+    // 2. Also try updating public.group_members if possible
     try {
-      const res = await pool.query(
+      await pool.query(
         `UPDATE public.group_members
          SET notifications_enabled = $1
-         WHERE group_id::text = $2::text AND user_id::text = $3::text
-         RETURNING *`,
+         WHERE group_id::text = $2::text AND user_id::text = $3::text`,
         [enabled, groupId, payload.sub]
       );
+    } catch {}
 
-      if (res.rows.length === 0) {
-        // Auto-upsert into group_members
-        const memberId = randomUUID();
-        await pool.query(
-          `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
-           VALUES ($1, $2, $3, 'member', $4, NOW())
-           ON CONFLICT (group_id, user_id) DO UPDATE SET notifications_enabled = EXCLUDED.notifications_enabled`,
-          [memberId, groupId, payload.sub, enabled]
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        enabled,
-        groupId,
-      });
-    } catch (updateErr: any) {
-      if (updateErr.code === '42703' || String(updateErr.message).includes('notifications_enabled')) {
-        return NextResponse.json({
-          success: true,
-          enabled,
-          groupId,
-        });
-      }
-      throw updateErr;
-    }
+    return NextResponse.json({
+      success: true,
+      enabled,
+      groupId,
+    });
   } catch (err: any) {
     console.error('Error updating notification preferences:', err);
     return NextResponse.json({ error: err.message || 'Error al actualizar preferencias' }, { status: 500 });
