@@ -277,6 +277,8 @@ This document serves as the official and permanent registry for all **user requi
   - 1-click buttons (**"Load Conversion"**, **"Load Division"**, **"Load Addition"**, **"Load Transfers Sum"**, **"Load Zero Proof"**) copying exact mathematical expressions directly into the calculator display for instant verification.
 - **FR-27.7**: **Navigation & Access Points**:
   - Direct option in Group Tools Submenu (`GroupActionMenu.tsx`) and quick-access banner in Balances Summary (`BalanceSummary.tsx`).
+- **FR-27.8**: **In-Audit Deep Expense Inspection & Receipt Verification**:
+  - In any mathematical step linked to a group expense (`payment` or `consumption` phases), an interactive **"👁️ Ver gasto en detalle"** action banner allows the auditor to inspect the full expense modal ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx) in read-only mode) with receipt photos, split breakdown, payers, participants, and map location pinpoints without losing their audit step position.
 
 ### 💱 FR-28: Reliable Real-Time & Historical Exchange Rate Engine and Group Base Currency Recalculation
 - **FR-28.1**: **Official Exchange Rate Integration (Frankfurter / European Central Bank & Fallbacks)**:
@@ -493,6 +495,19 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-42.3**: **Bidirectional Cross-Synchronization of Replies**:
   - Replying to an expense comment message within the group chat automatically attaches the reply as a new comment in the expense's private discussion thread in `public.expense_comments`, ensuring users in both views see complete conversation context.
 
+### 🛡️ FR-43: Centralized Content Moderation Backoffice & Real-time Administrator Dispatching
+- **FR-43.1**: **Dedicated Moderation Hub in Admin Backoffice (`/admin?tab=reports`)**:
+  - Centralized inbox for Application Superadmins displaying all submitted user safety reports (expenses, receipts, comments, groups, users) with real-time pending counter badge.
+  - Search filter by title, motive, details, or reporter email, and status filter tabs (*All, Pending, Reviewed, Dismissed*).
+  - Detailed report cards with motive badge, full explanation, reporter info, direct content preview links, and 1-click status actions (**"Revisado"**, **"Resuelto"**, **"Desestimar"**).
+- **FR-43.2**: **Real-Time Administrator Push & In-App Notification Alerts**:
+  - Upon safety report submission (`POST /api/reports`), automatically dispatches WebPush and mobile push alerts to all system administrators (`profiles.role = 'admin'` or matching `ADMIN_EMAIL`).
+  - In-app notification center alerts routing administrators directly to `/admin?tab=reports` for immediate resolution.
+- **FR-43.3**: **Admin-Only Moderation REST Endpoints**:
+  - `GET /api/reports`: Lists all reports with reporter profiles and target metadata.
+  - `PATCH /api/reports`: Updates report status (`pending`, `reviewed`, `dismissed`, `action_taken`).
+  - `POST /api/reports`: Persists safety reports with auto-healing table schema and triggers push notifications.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -596,3 +611,5 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 💬 Added | **FR-40** | **Real-Time Group Chat in Friends Section**: Built group chat sub-tab in `GroupDetailPage` (`GroupChatSection.tsx`, `/api/groups/[id]/messages`, `07-group-messages.sql`) with real-time text, animated GIFs, emoji picker, floating reactions, deep-link navigation, and 20-language i18n support. |
 | **30/08/2026** | 📐 Changed | **FR-41** | **Grid Column Alignment & Harmonized Expense Presentation**: Redesigned `ExpenseCard.tsx` and `/groups/[id]` with 4 strictly aligned columns (fixed category icon slot, structured metadata tray with interactive pills, fixed-width right-aligned financial column with `tabular-nums`, and dedicated action toolbar) plus desktop list column headers. |
 | **30/08/2026** | 💬 Added | **FR-42** | **Contextual Chat Replies & Omnichannel Expense Discussions**: Built direct message reply system (↩️) with quotation bubbles and composer preview, bidirectional mirroring between expense comments and the group chat stream, and single push notification dispatching to prevent duplicate alerts. |
+| **30/08/2026** | 🛡️ Added | **FR-43** | **Centralized Content Moderation Backoffice & Real-time Administrator Dispatching**: Built dedicated moderation inbox in `/admin?tab=reports` for reviewing user safety reports with filters, motive tags, preview links, and 1-click status actions; automatic WebPush/mobile push notification alerts to all system administrators on report creation; and REST endpoints `/api/reports` (`GET`, `PATCH`, `POST`). |
+| **30/08/2026** | 👁️ Added | **FR-27.8** | **In-Audit Deep Expense Inspection**: Added interactive **"👁️ Ver gasto en detalle"** action banner in calculator balance audits (`/groups/[id]/audit`) allowing auditors to open the full read-only expense breakdown modal without losing their sequential audit position. |

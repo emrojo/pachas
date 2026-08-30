@@ -16,6 +16,8 @@ import { VirtualCalculator } from '@/components/calculator/VirtualCalculator';
 import { generateUserAuditTrail, AuditStep } from '@/lib/algorithms/auditCalculator';
 import { formatMoney } from '@/lib/currencies';
 import { getCategoryInfo } from '@/lib/categories';
+import { Expense } from '@/types/database';
+import { ExpenseForm } from '@/components/expenses/ExpenseForm';
 import {
   ArrowLeft,
   Calculator as CalcIcon,
@@ -33,6 +35,7 @@ import {
   HelpCircle,
   Zap,
   Plus,
+  Eye,
 } from 'lucide-react';
 
 export default function GroupAuditPage() {
@@ -58,6 +61,7 @@ export default function GroupAuditPage() {
   const [selectedUserId, setSelectedUserId] = useState<string>(currentUser?.id || '');
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [calculatorExpr, setCalculatorExpr] = useState<string>('');
+  const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
 
   // Fallback to first member if currentUser not in group
   const activeUserId = useMemo(() => {
@@ -362,6 +366,32 @@ export default function GroupAuditPage() {
                       )}
                     </div>
                   </div>
+
+                  {currentStep.relatedExpense && (
+                    <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/80 text-emerald-950 dark:text-emerald-100 shadow-2xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs text-sm">
+                          🧾
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold truncate block">
+                            {currentStep.relatedExpense.title} ({formatMoney(currentStep.relatedExpense.amount, currentStep.relatedExpense.currency || group.base_currency)})
+                          </span>
+                          <span className="text-[10.5px] text-emerald-700 dark:text-emerald-300 block truncate">
+                            {t('audit.clickToInspectExpense') || 'Inspecciona recibo, pagadores, reparto y notas'}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setViewingExpense(currentStep.relatedExpense!)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-all flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer active:scale-95"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>{t('audit.viewExpenseDetail') || 'Ver gasto en detalle'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Explanation */}
@@ -736,6 +766,16 @@ export default function GroupAuditPage() {
 
       <Footer />
       <BottomNav groupId={group.id} />
+
+      {viewingExpense && (
+        <ExpenseForm
+          groupId={group.id}
+          isOpen={Boolean(viewingExpense)}
+          onClose={() => setViewingExpense(null)}
+          expenseToEdit={viewingExpense}
+          isReadOnly={true}
+        />
+      )}
     </div>
   );
 }

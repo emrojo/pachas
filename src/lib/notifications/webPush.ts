@@ -5,6 +5,7 @@
 
 import { getDbPool } from '@/lib/db/postgres';
 import { PushNotificationPayload } from '@/types/database';
+import { getAdminEmails } from '@/lib/auth/adminAuth';
 
 export const DEFAULT_VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
@@ -128,18 +129,34 @@ export async function notifyGroupMembers(
       await sendPushToUsers(targetUserIds, payload);
     }
   } catch (err: any) {
-    try {
-      const res = await pool.query(
-        `SELECT user_id FROM public.user_group_notifications
-         WHERE group_id::text = $1::text AND enabled = true AND user_id::text != $2::text`,
-        [groupId, excludeUserId]
-      );
-      const targetUserIds = res.rows.map((r: { user_id: string }) => r.user_id);
-      if (targetUserIds.length > 0) {
-        await sendPushToUsers(targetUserIds, payload);
-      }
-    } catch (fallbackErr) {
-      console.warn('Error notifying group members via push:', fallbackErr);
-    }
+    console.warn('Error notifying group members via push:', err);
   }
 }
+
+/**
+ * Dispatches a push notification to all application administrators
+ * (profiles with role = 'admin' or matching ADMIN_EMAIL).
+ */
+export async function notifyAppAdmins(payload: PushNotificationPayload): Promise<void> {
+  const pool = getDbPool();
+  if (!pool) return;
+
+  try {
+    const adminEmails = Array.from(getAdminEmails());
+    const res = await pool.query(
+      `SELECT DISTINCT id
+       FROM public.profiles
+       WHERE role = 'admin'
+          OR LOWER(email) = ANY($1::text[])`,
+      [adminEmails.map((e) => e.toLowerCase())]
+    );
+
+    const adminUserIds = res.rows.map((r: { id: string }) => r.id);
+    if (adminUserIds.length > 0) {
+      await sendPushToUsers(adminUserIds, payload);
+    }
+  } catch (err) {
+    console.warn('Error notifying admins via push:', err);
+  }
+}
+
