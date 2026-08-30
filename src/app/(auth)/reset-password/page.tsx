@@ -64,7 +64,7 @@ function ResetPasswordForm() {
   };
 
   return (
-    <Card className="p-6 sm:p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl space-y-6">
+    <Card className="p-6 sm:p-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl shadow-xl space-y-6">
       {isSuccess ? (
         <div className="text-center space-y-4 py-2">
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center text-2xl mx-auto shadow-xs">
@@ -85,7 +85,7 @@ function ResetPasswordForm() {
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-600 font-medium">
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-600 font-medium">
               {error}
             </div>
           )}
@@ -168,33 +168,39 @@ export default function ResetPasswordPage() {
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 relative">
-      <div className="absolute top-4 right-4">
+    <div className="min-h-screen flex flex-col justify-between bg-slate-50 dark:bg-slate-950">
+      {/* Top Header */}
+      <header className="w-full max-w-7xl mx-auto p-4 sm:p-6 flex items-center justify-between">
+        <Link href="/" className="inline-flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl shadow-md shadow-emerald-500/20">
+            💸
+          </div>
+          <span className="font-black text-2xl tracking-tight text-slate-900 dark:text-white">
+            Pachas
+          </span>
+        </Link>
         <LanguageSelector />
-      </div>
+      </header>
 
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <Link href="/login" className="inline-flex items-center gap-2 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-emerald-500/25">
-              💸
-            </div>
-          </Link>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-            {t('auth.resetPasswordTitle')}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {t('auth.resetPasswordSubtitle')}
-          </p>
+      {/* Main Centered Form */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              {t('auth.resetPasswordTitle')}
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              {t('auth.resetPasswordSubtitle')}
+            </p>
+          </div>
+
+          <Suspense fallback={<div className="p-8 text-center text-xs text-slate-400">{t('common.loading')}</div>}>
+            <ResetPasswordForm />
+          </Suspense>
         </div>
+      </main>
 
-        <Suspense fallback={<div className="p-8 text-center text-xs text-slate-400">{t('common.loading')}</div>}>
-          <ResetPasswordForm />
-        </Suspense>
-      </div>
-
-      <Footer showDonations={false} className="mt-12" />
+      <Footer showDonations={false} />
     </div>
   );
 }
-

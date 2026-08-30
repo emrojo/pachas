@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
 
@@ -11,21 +11,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { currentUser, isLoading } = usePachas();
   const router = useRouter();
   const pathname = usePathname();
-  const [hasTimedOut, setHasTimedOut] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setHasTimedOut(true);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if ((!isLoading || hasTimedOut) && !currentUser) {
-      const returnUrl = encodeURIComponent(pathname || '/dashboard');
+    if (!isLoading && !currentUser) {
+      const validPath =
+        pathname && !pathname.startsWith('/login') && !pathname.startsWith('/register')
+          ? pathname
+          : '/dashboard';
+      const returnUrl = encodeURIComponent(validPath);
       router.replace(`/login?redirectTo=${returnUrl}`);
     }
-  }, [currentUser, isLoading, hasTimedOut, router, pathname]);
+  }, [currentUser, isLoading, router, pathname]);
 
   // If currentUser is present, render immediately without blocking on background fetching
   if (currentUser) {
@@ -38,8 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-
-  if (isLoading && !hasTimedOut) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-2xl animate-pulse shadow-lg shadow-emerald-500/25 mb-4">
@@ -57,4 +52,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return <>{children}</>;
 }
-
