@@ -142,7 +142,8 @@ Reglas críticas de extracción:
    - "activities": museos, cine, teatro, parques de atracciones, tours, excursiones, espectáculos.
    - "other": cualquier otro concepto.
 5. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay dirección legible, devuelve null.
-6. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").`;
+6. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").
+7. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
 
     // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
     const candidateModels = [
@@ -271,14 +272,62 @@ Reglas críticas de extracción:
       );
     }
 
-    // 5. Parse and validate JSON output
-    let parsed: any;
-    try {
-      parsed = JSON.parse(rawContent.trim());
-    } catch {
-      // Clean possible markdown code fences (```json ... ```)
-      const cleaned = rawContent.replace(/```(?:json)?/g, '').replace(/```/g, '').trim();
-      parsed = JSON.parse(cleaned);
+    // 5. Parse and validate JSON output (robust regex & fence extraction)
+    const extractJson = (text: string): any => {
+      if (!text || typeof text !== 'string') return null;
+
+      // 1. Direct parse attempt
+      try {
+        return JSON.parse(text.trim());
+      } catch {}
+
+      // 2. Markdown code fence extraction ```json ... ``` or ``` ... ```
+      const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (fenceMatch && fenceMatch[1]) {
+        try {
+          return JSON.parse(fenceMatch[1].trim());
+        } catch {}
+      }
+
+      // 3. Outermost curly braces extraction { ... }
+      const braceMatch = text.match(/\{[\s\S]*\}/);
+      if (braceMatch && braceMatch[0]) {
+        try {
+          return JSON.parse(braceMatch[0].trim());
+        } catch {}
+      }
+
+      // 4. Regex key-value extraction fallback
+      try {
+        const titleMatch = text.match(/"title"\s*:\s*"([^"]+)"/);
+        const amountMatch = text.match(/"amount"\s*:\s*([0-9]+(?:\.[0-9]+)?)/);
+        const dateMatch = text.match(/"date"\s*:\s*"([^"]+)"/);
+        const categoryMatch = text.match(/"category"\s*:\s*"([^"]+)"/);
+        const locMatch = text.match(/"locationName"\s*:\s*"([^"]+)"/);
+
+        if (titleMatch || amountMatch) {
+          return {
+            title: titleMatch ? titleMatch[1] : undefined,
+            amount: amountMatch ? parseFloat(amountMatch[1]) : undefined,
+            date: dateMatch ? dateMatch[1] : undefined,
+            category: categoryMatch ? categoryMatch[1] : undefined,
+            locationName: locMatch ? locMatch[1] : undefined,
+          };
+        }
+      } catch {}
+
+      return null;
+    };
+
+    const parsed = extractJson(rawContent);
+
+    if (!parsed) {
+      console.warn('[Gemini OCR] ⚠️ No se pudo extraer JSON de la respuesta:', rawContent);
+      return NextResponse.json({
+        fallback: true,
+        error: 'No se pudo interpretar el formato del ticket.',
+        rawText: rawContent,
+      });
     }
 
     const detectedAmount = typeof parsed.amount === 'number' && !isNaN(parsed.amount) ? Math.round(parsed.amount * 100) / 100 : undefined;
