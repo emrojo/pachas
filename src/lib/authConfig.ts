@@ -22,14 +22,19 @@ export const isDemoModeAllowed = (): boolean => {
 export const isAppAdmin = (user: Profile | null | undefined): boolean => {
   if (!user) return false;
 
-  // 0. Configured admin email from environment variables
-  const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL)?.trim().toLowerCase();
-  if (adminEmail && user.email && user.email.toLowerCase() === adminEmail) {
-    return true;
-  }
-
   // 1. Direct admin role on profile
   if (user.role === 'admin') return true;
+
+  // 0. Configured admin email from environment variables (comma/space/semicolon separated)
+  const envRaw = `${process.env.ADMIN_EMAIL || ''},${process.env.NEXT_PUBLIC_ADMIN_EMAIL || ''}`;
+  const adminEmails = envRaw
+    .split(/[,;\s]+/)
+    .map((e) => e.trim().replace(/^["']|["']$/g, '').toLowerCase())
+    .filter((e) => e.length > 0 && e.includes('@'));
+
+  if (user.email && adminEmails.includes(user.email.trim().toLowerCase())) {
+    return true;
+  }
 
   // 2. In demo / local development mode, primary demo admin user (user-1 / ana) is allowed
   if (isDemoModeAllowed()) {

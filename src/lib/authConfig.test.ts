@@ -75,4 +75,33 @@ describe('Role Separation: App Admin vs Group Admin', () => {
     // 'user-carlos' is not admin of another group
     expect(isGroupAdmin('group-mountain', regularUser, { ...groupA, id: 'group-mountain', created_by: 'someone-else' }, [])).toBe(false);
   });
+
+  it('recognizes App Admin matching ADMIN_EMAIL or NEXT_PUBLIC_ADMIN_EMAIL', () => {
+    const originalEnv = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+    try {
+      process.env.NEXT_PUBLIC_ADMIN_EMAIL = 'custom-admin@example.com, boss@company.org';
+
+      const customAdminUser: Profile = {
+        id: 'user-custom',
+        email: 'custom-admin@example.com',
+        full_name: 'Custom Admin',
+        role: 'member', // Even if role is member in DB, email match makes them App Admin
+        created_at: new Date().toISOString(),
+      };
+
+      const secondAdminUser: Profile = {
+        id: 'user-boss',
+        email: 'boss@company.org',
+        full_name: 'Boss',
+        role: 'member',
+        created_at: new Date().toISOString(),
+      };
+
+      expect(isAppAdmin(customAdminUser)).toBe(true);
+      expect(isAppAdmin(secondAdminUser)).toBe(true);
+      expect(isAppAdmin({ ...regularUser, email: 'non-admin@example.com' })).toBe(false);
+    } finally {
+      process.env.NEXT_PUBLIC_ADMIN_EMAIL = originalEnv;
+    }
+  });
 });

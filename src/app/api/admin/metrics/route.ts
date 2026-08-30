@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { getDbPool } from '@/lib/db/postgres';
-import { isDemoModeAllowed } from '@/lib/authConfig';
+import { isServerAdmin } from '@/lib/auth/adminAuth';
 
 async function checkAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string; email?: string }> {
-  const token = request.cookies.get('sb-access-token')?.value;
-  const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL)?.trim().toLowerCase();
+  // 1. Check Bearer Authorization header or sb-access-token cookie
+  const authHeader = request.headers.get('authorization');
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : undefined;
+  const token = bearerToken || request.cookies.get('sb-access-token')?.value;
 
   if (token) {
     const payload = await verifyJwt(token);
     if (payload?.sub) {
-      if (payload.role === 'admin') {
-        return { isAdmin: true, userId: payload.sub, email: payload.email };
-      }
-      if (adminEmail && payload.email && payload.email.toLowerCase() === adminEmail) {
+      if (isServerAdmin(payload.email, payload.sub, payload.role)) {
         return { isAdmin: true, userId: payload.sub, email: payload.email };
       }
       const pool = getDbPool();
@@ -25,7 +24,7 @@ async function checkAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean;
           );
           if (uRes.rows.length > 0) {
             const user = uRes.rows[0];
-            if (user.role === 'admin' || (adminEmail && user.email?.toLowerCase() === adminEmail)) {
+            if (isServerAdmin(user.email, payload.sub, user.role)) {
               return { isAdmin: true, userId: payload.sub, email: user.email };
             }
           }
@@ -34,16 +33,15 @@ async function checkAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean;
     }
   }
 
-  if (isDemoModeAllowed()) {
-    const demoCookie = request.cookies.get('pachas_demo_user')?.value;
-    if (demoCookie) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(demoCookie));
-        if (parsed.id === 'user-1' || parsed.email === 'ana@example.com' || parsed.role === 'admin') {
-          return { isAdmin: true, userId: parsed.id, email: parsed.email };
-        }
-      } catch {}
-    }
+  // 2. Demo Cookie / Session fallback
+  const demoCookie = request.cookies.get('pachas_demo_user')?.value;
+  if (demoCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(demoCookie));
+      if (isServerAdmin(parsed.email, parsed.id, parsed.role)) {
+        return { isAdmin: true, userId: parsed.id, email: parsed.email };
+      }
+    } catch {}
   }
 
   return { isAdmin: false };

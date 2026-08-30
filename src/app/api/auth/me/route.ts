@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { getDbPool } from '@/lib/db/postgres';
+import { isServerAdmin } from '@/lib/auth/adminAuth';
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get('sb-access-token')?.value;
@@ -11,25 +12,31 @@ export async function GET(request: NextRequest) {
 
   const payload = await verifyJwt(token);
   if (!payload) {
-
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
   try {
+    const isAdmin = isServerAdmin(payload.email, payload.sub, payload.role);
     const pool = getDbPool();
     if (pool) {
       const res = await pool.query('SELECT * FROM public.profiles WHERE id = $1', [payload.sub]);
       if (res.rows.length > 0) {
-        return NextResponse.json({ user: res.rows[0] });
+        const user = res.rows[0];
+        const effectiveRole = isAdmin ? 'admin' : (user.role || 'member');
+        if (isAdmin && user.role !== 'admin') {
+          pool.query('UPDATE public.profiles SET role = $1 WHERE id = $2', ['admin', payload.sub]).catch(() => {});
+        }
+        return NextResponse.json({ user: { ...user, role: effectiveRole } });
       }
     }
 
+    const effectiveRole = isAdmin ? 'admin' : (payload.role || 'member');
     return NextResponse.json({
       user: {
         id: payload.sub,
         email: payload.email,
         full_name: payload.full_name || payload.email.split('@')[0],
-        role: payload.role || 'member',
+        role: effectiveRole,
       },
     });
   } catch (err: any) {

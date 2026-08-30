@@ -257,14 +257,22 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         safeSetLocalStorage(STORAGE_KEYS.USER, JSON.stringify(user));
         if (typeof document !== 'undefined') {
           document.cookie = `pachas_demo_user=${encodeURIComponent(
-            JSON.stringify({ id: user.id, email: user.email })
+            JSON.stringify({ id: user.id, email: user.email, role: user.role })
           )}; path=/; max-age=604800; SameSite=Lax`;
         }
         fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user }),
-        }).catch(() => {});
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.user && data.user.role && data.user.role !== user.role) {
+              _setCurrentUser(data.user);
+              safeSetLocalStorage(STORAGE_KEYS.USER, JSON.stringify(data.user));
+            }
+          })
+          .catch(() => {});
       } else {
         localStorage.removeItem(STORAGE_KEYS.USER);
         if (typeof document !== 'undefined') {
