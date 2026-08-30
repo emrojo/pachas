@@ -581,6 +581,15 @@ export const tr: TranslationDictionary = {
     "banner": "Çevrimdışı mod: değişiklikler yerel olarak kaydediliyor"
   },
   notifications: {
+    testButton: 'Send test notification',
+    testSending: 'Sending notification...',
+    testSuccess: 'Test notification sent! Check your screen banner.',
+    deviceTitle: 'Device Notifications',
+    deviceSubtitle: 'Verify that this browser or mobile device can receive expense and comment alerts.',
+    permissionGranted: 'Permission granted on this device',
+    permissionDenied: 'Permission blocked in browser (click 🔒 to allow)',
+    permissionDefault: 'Permission pending authorization',
+
   
     "groupTitle": "Grup Bildirimleri",
     "enableOnJoin": "Bu grup için bildirimleri etkinleştir",

@@ -581,6 +581,15 @@ export const eu: TranslationDictionary = {
     "banner": "Lineaz kanpoko modua: aldaketak lokalean gordetzen"
   },
   notifications: {
+    testButton: 'Probako jakinarazpena bidali',
+    testSending: 'Jakinarazpena bidaltzen...',
+    testSuccess: 'Probako jakinarazpena bidalita! Egiaztatu pantaila.',
+    deviceTitle: 'Gailuaren jakinarazpenak',
+    deviceSubtitle: 'Egiaztatu nabigatzaile honek abisuak jaso ditzakeela.',
+    permissionGranted: 'Baimena emanda gailu honetan',
+    permissionDenied: 'Baimena blokeatuta nabigatzailean (klikatu 🔒)',
+    permissionDefault: 'Baimena baimendu gabe',
+
   
     "groupTitle": "Taldearen jakinarazpenak",
     "enableOnJoin": "Gaitu jakinarazpenak talde honentzat",

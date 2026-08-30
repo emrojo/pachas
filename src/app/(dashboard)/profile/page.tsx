@@ -20,6 +20,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Profile } from '@/types/database';
 
 import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
+import { sendTestPushNotification } from '@/lib/notifications/pushNotificationService';
 
 import {
   User,
@@ -39,6 +40,9 @@ import {
   Download,
   Shield,
   FileText,
+  Bell,
+  Send,
+  AlertCircle,
 } from 'lucide-react';
 
 const AVATAR_PRESETS = [
@@ -74,7 +78,51 @@ export default function ProfilePage() {
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [isSendingTestNotif, setIsSendingTestNotif] = useState(false);
+  const [testNotifFeedback, setTestNotifFeedback] = useState<{ success?: boolean; text?: string } | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<string>('default');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  const handleSendTestNotification = async () => {
+    if (isSendingTestNotif) return;
+    try {
+      setIsSendingTestNotif(true);
+      setTestNotifFeedback(null);
+      const result = await sendTestPushNotification(currentUser?.id);
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setNotificationPermission(Notification.permission);
+      }
+      if (result.permissionDenied) {
+        setTestNotifFeedback({
+          success: false,
+          text: result.error || t('notifications.permissionDenied'),
+        });
+      } else if (result.success) {
+        setTestNotifFeedback({
+          success: true,
+          text: t('notifications.testSuccess'),
+        });
+      } else {
+        setTestNotifFeedback({
+          success: false,
+          text: result.error || 'Error al enviar notificación de prueba.',
+        });
+      }
+    } catch (err: any) {
+      setTestNotifFeedback({
+        success: false,
+        text: err.message || 'Error al enviar notificación de prueba.',
+      });
+    } finally {
+      setIsSendingTestNotif(false);
+    }
+  };
 
   const handleExportData = async () => {
     try {
@@ -367,6 +415,81 @@ export default function ProfilePage() {
               </Button>
             </div>
           </form>
+        </Card>
+
+        {/* Device Push Notifications Test Card */}
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center shrink-0">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {t('notifications.deviceTitle')}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('notifications.deviceSubtitle')}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {t('common.status')}:
+                </span>
+                <Badge
+                  variant={
+                    notificationPermission === 'granted'
+                      ? 'emerald'
+                      : notificationPermission === 'denied'
+                      ? 'rose'
+                      : 'gray'
+                  }
+                  size="sm"
+                >
+                  {notificationPermission === 'granted'
+                    ? t('notifications.permissionGranted')
+                    : notificationPermission === 'denied'
+                    ? t('notifications.permissionDenied')
+                    : t('notifications.permissionDefault')}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {t('notifications.enableOnJoinHint')}
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSendTestNotification}
+              isLoading={isSendingTestNotif}
+              className="text-xs font-bold gap-1.5 shrink-0 shadow-xs border-amber-300 dark:border-amber-700/60 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-amber-700 dark:text-amber-300"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{isSendingTestNotif ? t('notifications.testSending') : t('notifications.testButton')}</span>
+            </Button>
+          </div>
+
+          {testNotifFeedback && (
+            <div
+              className={`p-3 rounded-xl text-xs flex items-start gap-2 ${
+                testNotifFeedback.success
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50'
+                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50'
+              }`}
+            >
+              {testNotifFeedback.success ? (
+                <Check className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              )}
+              <span className="leading-snug">{testNotifFeedback.text}</span>
+            </div>
+          )}
         </Card>
 
         {/* Language Preference Card */}

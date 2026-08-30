@@ -580,6 +580,15 @@ export const es = {
     "banner": "Modo sin conexión: guardando cambios localmente"
   },
   notifications: {
+    testButton: 'Enviar notificación de prueba',
+    testSending: 'Enviando notificación...',
+    testSuccess: '¡Notificación enviada! Revisa el banner en tu pantalla.',
+    deviceTitle: 'Notificaciones del Dispositivo',
+    deviceSubtitle: 'Comprueba que este navegador o móvil puede recibir avisos de gastos y comentarios.',
+    permissionGranted: 'Permiso concedido en este dispositivo',
+    permissionDenied: 'Permiso bloqueado en el navegador (haz clic en 🔒 para permitir)',
+    permissionDefault: 'Permiso pendiente de autorizar',
+
   
     "groupTitle": "Notificaciones del Grupo",
     "enableOnJoin": "Activar notificaciones para este grupo",

@@ -581,6 +581,15 @@ export const ca: TranslationDictionary = {
     "banner": "Mode fora de línia: desant canvis localment"
   },
   notifications: {
+    testButton: 'Enviar notificació de prova',
+    testSending: 'Enviant notificació...',
+    testSuccess: 'Notificació de prova enviada! Revisa el teu dispositiu.',
+    deviceTitle: 'Notificacions del Dispositiu',
+    deviceSubtitle: 'Comprova que aquest navegador o mòbil pot rebre avisos.',
+    permissionGranted: 'Permís concedit en aquest dispositiu',
+    permissionDenied: 'Permís bloquejat al navegador (fes clic a 🔒 per permetre)',
+    permissionDefault: 'Permís pendent de autorització',
+
   
     "groupTitle": "Notificacions del grup",
     "enableOnJoin": "Activar notificacions per a aquest grup",

@@ -581,6 +581,15 @@ export const ja: TranslationDictionary = {
     "banner": "オフラインモード：変更をローカルに保存中"
   },
   notifications: {
+    testButton: 'Send test notification',
+    testSending: 'Sending notification...',
+    testSuccess: 'Test notification sent! Check your screen banner.',
+    deviceTitle: 'Device Notifications',
+    deviceSubtitle: 'Verify that this browser or mobile device can receive expense and comment alerts.',
+    permissionGranted: 'Permission granted on this device',
+    permissionDenied: 'Permission blocked in browser (click 🔒 to allow)',
+    permissionDefault: 'Permission pending authorization',
+
   
     "groupTitle": "グループ通知",
     "enableOnJoin": "このグループの通知を有効にする",

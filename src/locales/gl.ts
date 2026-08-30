@@ -581,6 +581,15 @@ export const gl: TranslationDictionary = {
     "banner": "Modo fóra de liña: gardando cambios localmente"
   },
   notifications: {
+    testButton: 'Enviar notificación de proba',
+    testSending: 'Enviando notificación...',
+    testSuccess: 'Notificación de proba enviada! Revisa a túa pantalla.',
+    deviceTitle: 'Notificacións do Dispositivo',
+    deviceSubtitle: 'Comproba que este navegador ou móbil pode recibir avisos.',
+    permissionGranted: 'Permiso concedido neste dispositivo',
+    permissionDenied: 'Permiso bloqueado no navegador (fai clic en 🔒)',
+    permissionDefault: 'Permiso pendente de autorizar',
+
   
     "groupTitle": "Notificacións do grupo",
     "enableOnJoin": "Activar notificacións para este grupo",
