@@ -225,6 +225,8 @@ export const en: TranslationDictionary = {
     unfreezeAction: 'Unfreeze group',
     freezeReasonPlaceholder: 'Reason for freeze / investigation...',
     groupAdmin: 'Group Admin',
+    bannedMember: 'Banned',
+    bannedMemberSubtitle: 'Account suspended for moderation',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',

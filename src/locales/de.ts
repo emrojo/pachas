@@ -224,6 +224,8 @@ export const de: TranslationDictionary = {
     unfreezeAction: 'Gruppe auftauen',
     freezeReasonPlaceholder: 'Grund für das Einfrieren / Untersuchung...',
     groupAdmin: 'Gruppen-Admin',
+    bannedMember: 'Gesperrt',
+    bannedMemberSubtitle: 'Konto wegen Moderation gesperrt',
     makeAdmin: 'Zum Admin machen',
     removeAdmin: 'Admin entfernen',
     makeAdminPrompt: 'Möchten Sie {name} zum Gruppen-Administrator ernennen?',

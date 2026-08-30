@@ -224,6 +224,8 @@ export const fr: TranslationDictionary = {
     unfreezeAction: 'Dégeler le groupe',
     freezeReasonPlaceholder: 'Raison du gel / enquête...',
     groupAdmin: 'Admin du groupe',
+    bannedMember: 'Banni',
+    bannedMemberSubtitle: 'Compte suspendu pour modération',
     makeAdmin: 'Nommer Admin',
     removeAdmin: 'Retirer Admin',
     makeAdminPrompt: 'Voulez-vous accorder les droits d\'administrateur du groupe à {name} ?',

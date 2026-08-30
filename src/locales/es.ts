@@ -223,6 +223,8 @@ export const es = {
     unfreezeAction: 'Descongelar grupo',
     freezeReasonPlaceholder: 'Motivo de congelación / investigación...',
     groupAdmin: 'Admin del grupo',
+    bannedMember: 'Baneado',
+    bannedMemberSubtitle: 'Cuenta suspendida por moderación',
     makeAdmin: 'Hacer Admin',
     removeAdmin: 'Quitar Admin',
     makeAdminPrompt: '¿Quieres otorgar permisos de administrador del grupo a {name}?',

@@ -224,6 +224,8 @@ export const zh: TranslationDictionary = {
     unfreezeAction: '解冻群组',
     freezeReasonPlaceholder: '冻结/调查原因...',
     groupAdmin: 'Group Admin',
+    bannedMember: '已封禁',
+    bannedMemberSubtitle: '账号已被系统封禁',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',

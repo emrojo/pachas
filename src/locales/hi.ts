@@ -224,6 +224,8 @@ export const hi: TranslationDictionary = {
     unfreezeAction: 'समूह पुनः सक्रिय करें',
     freezeReasonPlaceholder: 'स्थगित / जांच का कारण...',
     groupAdmin: 'Group Admin',
+    bannedMember: 'प्रतिबंधित',
+    bannedMemberSubtitle: 'खाता मॉडरेशन के लिए निलंबित है',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',

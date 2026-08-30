@@ -117,34 +117,56 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
             </div>
 
             <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-              {nonMemberUsers.map((u) => (
-                <div
-                  key={u.id}
-                  className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-between gap-2 shadow-xs"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Avatar profile={u} size="sm" />
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                        {u.full_name}
-                      </span>
-                      <span className="text-[10px] text-slate-400 block truncate">{u.email}</span>
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="brand"
-                    disabled={addingUserId === u.id}
-                    isLoading={addingUserId === u.id}
-                    onClick={() => handleQuickAddLocalUser(u)}
-                    className="text-xs h-7 px-2.5 shrink-0 gap-1"
+              {nonMemberUsers.map((u) => {
+                const isBanned = Boolean(u.is_banned);
+                return (
+                  <div
+                    key={u.id}
+                    className={`p-2 rounded-xl flex items-center justify-between gap-2 shadow-xs transition-colors ${
+                      isBanned
+                        ? 'bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40'
+                        : 'bg-white dark:bg-slate-900 border border-emerald-200/60 dark:border-emerald-800/40'
+                    }`}
                   >
-                    <UserPlus className="w-3 h-3" />
-                    <span>{t('common.add')}</span>
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="relative shrink-0">
+                        <Avatar profile={u} size="sm" className={isBanned ? 'opacity-75 ring-1 ring-rose-500/50' : ''} />
+                        {isBanned && (
+                          <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[8px] font-bold">
+                            🚫
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-xs font-bold truncate ${isBanned ? 'text-rose-900 dark:text-rose-200 line-through opacity-80' : 'text-slate-900 dark:text-white'}`}>
+                            {u.full_name}
+                          </span>
+                          {isBanned && (
+                            <span className="text-[9px] bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold px-1.5 py-0.2 rounded border border-rose-200 dark:border-rose-800">
+                              {t('groups.bannedMember') || 'Baneado'}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 block truncate">{u.email}</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant={isBanned ? 'outline' : 'brand'}
+                      disabled={isBanned || addingUserId === u.id}
+                      isLoading={addingUserId === u.id}
+                      onClick={() => handleQuickAddLocalUser(u)}
+                      className={`text-xs h-7 px-2.5 shrink-0 gap-1 ${isBanned ? 'opacity-50 cursor-not-allowed text-rose-500 border-rose-200 dark:border-rose-800' : ''}`}
+                      title={isBanned ? (t('groups.bannedMemberSubtitle') || 'Cuenta suspendida por moderación') : undefined}
+                    >
+                      <UserPlus className="w-3 h-3" />
+                      <span>{t('common.add')}</span>
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

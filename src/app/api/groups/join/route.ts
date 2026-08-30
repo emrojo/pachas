@@ -81,7 +81,8 @@ export async function POST(request: NextRequest) {
     // 3. Fetch all members with their profile
     const membersRes = await pool.query(
       `SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at,
-              p.full_name, p.avatar_url, p.bizum_phone, p.email
+              p.full_name, p.avatar_url, p.bizum_phone, p.email,
+              COALESCE(p.is_banned, false) as is_banned, p.ban_reason
        FROM public.group_members gm
        JOIN public.profiles p ON p.id = gm.user_id
        WHERE gm.group_id = $1`,
@@ -101,6 +102,8 @@ export async function POST(request: NextRequest) {
         avatar_url: m.avatar_url,
         bizum_phone: m.bizum_phone,
         role: m.role,
+        is_banned: Boolean(m.is_banned),
+        ban_reason: m.ban_reason,
       },
     }));
 

@@ -224,6 +224,8 @@ export const nl: TranslationDictionary = {
     unfreezeAction: 'Groep ontdooien',
     freezeReasonPlaceholder: 'Reden voor bevriezing / onderzoek...',
     groupAdmin: 'Group Admin',
+    bannedMember: 'Verbannen',
+    bannedMemberSubtitle: 'Account geschorst voor moderatie',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',
