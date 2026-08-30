@@ -48,11 +48,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
-    // Auto-heal ocr_status column outside transaction if database permissions allow
+    // Auto-heal ocr_status column and upgrade expense_date to timestamptz outside transaction if database permissions allow
     try {
       await pool.query("ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'completed'");
     } catch {
       // Ignored if permissions are restricted
+    }
+    try {
+      await pool.query("ALTER TABLE public.expenses ALTER COLUMN expense_date TYPE timestamp with time zone USING expense_date::timestamp with time zone");
+    } catch {
+      // Ignored if permissions are restricted or already migrated
     }
 
     const cleanDate = expenseDate || new Date().toISOString();
