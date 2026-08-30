@@ -26,8 +26,10 @@ import {
   AlertTriangle,
   CreditCard,
   Building,
+  ZoomIn,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { ReceiptModal } from './ReceiptModal';
 
 export interface ReceiptValidationModalProps {
   isOpen: boolean;
@@ -122,6 +124,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
   const [history, setHistory] = useState<ImageData[]>([]);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [snapshotBeforeBox, setSnapshotBeforeBox] = useState<ImageData | null>(null);
+  const [zoomModalUrl, setZoomModalUrl] = useState<string | null>(null);
 
   // Initialize form fields and canvas when pendingScan changes
   useEffect(() => {
@@ -409,6 +412,23 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
+                  onClick={() => {
+                    const canvas = canvasRef.current;
+                    if (canvas) {
+                      setZoomModalUrl(canvas.toDataURL('image/jpeg', 0.95));
+                    }
+                  }}
+                  className="px-2 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors border border-slate-200/60 dark:border-slate-700/60 shadow-2xs"
+                  title="Ampliar y hacer zoom a la imagen censurada"
+                >
+                  <ZoomIn className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-[11px]">Ampliar y Zoom</span>
+                </button>
+
+                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
+
+                <button
+                  type="button"
                   onClick={() => setDrawMode('brush')}
                   className={`p-1.5 rounded-lg text-xs font-bold ${
                     drawMode === 'brush' ? 'bg-black text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
@@ -439,7 +459,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               </div>
             </div>
 
-            <div className="relative max-h-[380px] overflow-auto rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center p-2 touch-none shadow-inner">
+            <div className="relative max-h-[380px] overflow-auto rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center p-2 touch-none shadow-inner group">
               <canvas
                 ref={canvasRef}
                 onMouseDown={handleStartDraw}
@@ -451,6 +471,21 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                 onTouchEnd={handleEndDraw}
                 className="max-w-full h-auto cursor-crosshair rounded-lg shadow-sm"
               />
+
+              <button
+                type="button"
+                onClick={() => {
+                  const canvas = canvasRef.current;
+                  if (canvas) {
+                    setZoomModalUrl(canvas.toDataURL('image/jpeg', 0.95));
+                  }
+                }}
+                className="absolute bottom-3 right-3 px-2.5 py-1 rounded-xl bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-bold flex items-center gap-1.5 hover:bg-emerald-600 transition-colors shadow-lg border border-white/10"
+                title="Ampliar a pantalla completa con zoom interactivo"
+              >
+                <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
+                <span>🔍 Zoom HD</span>
+              </button>
             </div>
             
             {/* Color Legend */}
@@ -638,6 +673,13 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
           </div>
         </div>
       </form>
+
+      <ReceiptModal
+        isOpen={Boolean(zoomModalUrl)}
+        onClose={() => setZoomModalUrl(null)}
+        receiptUrl={zoomModalUrl}
+        title={title || 'Ticket Censurado'}
+      />
     </Modal>
   );
 };

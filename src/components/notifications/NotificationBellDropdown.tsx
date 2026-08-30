@@ -16,6 +16,7 @@ import {
   Info,
   ChevronRight,
   Trash2,
+  Sparkles,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { NotificationType } from '@/types/database';
@@ -28,6 +29,7 @@ export const NotificationBellDropdown: React.FC = () => {
     markNotificationAsRead,
     markAllNotificationsAsRead,
     deleteNotification,
+    seedDemoNotifications,
   } = usePachas();
   const { t } = useTranslation();
 
@@ -212,13 +214,21 @@ export const NotificationBellDropdown: React.FC = () => {
                 </div>
               ))
             ) : (
-              <div className="py-8 text-center space-y-1.5">
+              <div className="py-8 text-center space-y-2">
                 <Bell className="w-6 h-6 text-slate-300 dark:text-slate-600 mx-auto" />
                 <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
                   {filter === 'unread'
                     ? 'No tienes notificaciones pendientes sin leer'
                     : 'No tienes notificaciones todavía'}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => seedDemoNotifications()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Cargar ejemplos</span>
+                </button>
               </div>
             )}
           </div>

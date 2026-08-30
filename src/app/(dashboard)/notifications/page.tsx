@@ -15,10 +15,7 @@ import {
   Users,
   Info,
   Search,
-  Filter,
   Trash2,
-  ExternalLink,
-  ChevronRight,
   CheckCircle2,
   Sparkles,
   ArrowRight,
@@ -38,6 +35,7 @@ export default function NotificationsPage() {
     markAllNotificationsAsRead,
     deleteNotification,
     clearAllNotifications,
+    seedDemoNotifications,
   } = usePachas();
   const { t } = useTranslation();
 
@@ -125,8 +123,6 @@ export default function NotificationsPage() {
 
   const handleClearRead = () => {
     if (!confirm('¿Deseas eliminar todas las notificaciones ya leídas?')) return;
-    const unread = notifications.filter((n) => !n.read);
-    // Delete read ones
     notifications.forEach((n) => {
       if (n.read) deleteNotification(n.id);
     });
@@ -158,7 +154,18 @@ export default function NotificationsPage() {
         </div>
 
         {/* Global actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={seedDemoNotifications}
+            className="text-xs font-bold gap-1.5 shadow-2xs"
+            title="Cargar notificaciones de ejemplo"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Cargar ejemplos</span>
+          </Button>
+
           {unreadNotificationsCount > 0 && (
             <Button
               variant="outline"
@@ -351,7 +358,7 @@ export default function NotificationsPage() {
             </div>
           ))
         ) : (
-          <div className="py-16 text-center space-y-3 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
+          <div className="py-16 text-center space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
               <Bell className="w-6 h-6" />
             </div>
@@ -364,6 +371,17 @@ export default function NotificationsPage() {
                   ? 'Estás al día. No tienes ninguna notificación pendiente sin leer.'
                   : 'Cuando haya tickets pendientes de validación, nuevos comentarios o pagos, aparecerán aquí.'}
               </p>
+            </div>
+            <div className="pt-2">
+              <Button
+                variant="brand"
+                size="sm"
+                onClick={seedDemoNotifications}
+                className="text-xs font-bold gap-2 shadow-xs"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Cargar notificaciones de ejemplo</span>
+              </Button>
             </div>
           </div>
         )}
