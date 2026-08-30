@@ -1,4 +1,4 @@
-import { Group, Profile, GroupMember, Expense, Settlement } from '@/types/database';
+import { Group, Profile, GroupMember, Expense, Settlement, AppNotification } from '@/types/database';
 
 export const DEMO_USERS: Profile[] = [
   {
@@ -57,4 +57,63 @@ export const DEMO_MEMBERS: Record<string, GroupMember[]> = {};
 export const DEMO_EXPENSES: Record<string, Expense[]> = {};
 
 export const DEMO_SETTLEMENTS: Record<string, Settlement[]> = {};
+
+export const DEFAULT_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: 'notif-demo-1',
+    user_id: 'user-edu',
+    type: 'receipt_pending',
+    title: '🧾 Ticket listo para validar',
+    message: 'Se ha procesado "Restaurante El Faro" (48,50 €) mediante IA. Valídalo para añadirlo al grupo.',
+    created_at: '2026-08-30T17:30:00Z',
+    read: false,
+    group_name: 'Vacaciones Playa',
+    action_url: '/notifications',
+    data: { scanId: 'scan-demo-1' },
+  },
+  {
+    id: 'notif-demo-2',
+    user_id: 'user-edu',
+    type: 'comment_created',
+    title: '💬 Nuevo comentario en gasto',
+    message: 'Lucía Gómez: "¡Qué buena paella comimos ayer! Ya he revisado las cuentas 🥘"',
+    created_at: '2026-08-30T16:15:00Z',
+    read: false,
+    group_name: 'Vacaciones Playa',
+    action_url: '/notifications',
+  },
+  {
+    id: 'notif-demo-3',
+    user_id: 'user-edu',
+    type: 'expense_created',
+    title: '💸 Nuevo gasto añadido',
+    message: 'Carlos Ruiz ha añadido "Gasolina coche de alquiler" por importe de 35,00 €.',
+    created_at: '2026-08-30T14:00:00Z',
+    read: true,
+    group_name: 'Vacaciones Playa',
+    action_url: '/notifications',
+  },
+  {
+    id: 'notif-demo-4',
+    user_id: 'user-edu',
+    type: 'group_role_updated',
+    title: '🛡️ Cambio de rol en el grupo',
+    message: 'Ahora eres administrador del grupo. Tienes permisos para editar el nombre, divisa y gestionar miembros.',
+    created_at: '2026-08-29T19:00:00Z',
+    read: true,
+    group_name: 'Vacaciones Playa',
+    action_url: '/notifications',
+  },
+  {
+    id: 'notif-demo-5',
+    user_id: 'user-edu',
+    type: 'settlement_created',
+    title: '🤝 Pago / Liquidación recibida',
+    message: 'Marta Soler ha registrado un pago de 22,50 € a tu favor.',
+    created_at: '2026-08-29T11:20:00Z',
+    read: true,
+    group_name: 'Vacaciones Playa',
+    action_url: '/notifications',
+  },
+];
 

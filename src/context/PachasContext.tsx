@@ -23,6 +23,7 @@ import {
   DEMO_EXPENSES,
   DEMO_SETTLEMENTS,
   DEMO_USERS,
+  DEFAULT_NOTIFICATIONS,
 } from '@/lib/demoData';
 import { calculateBalances, simplifyDebts } from '@/lib/algorithms/simplifyDebts';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
@@ -133,6 +134,7 @@ interface PachasContextType {
   deleteNotification: (id: string) => void;
   clearAllNotifications: () => void;
   addNotification: (notif: Omit<AppNotification, 'id' | 'created_at' | 'read'>) => void;
+  seedDemoNotifications: () => void;
 }
 
 
@@ -262,12 +264,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (typeof window !== 'undefined') {
       try {
         const saved = safeGetLocalStorage(STORAGE_KEYS.NOTIFICATIONS);
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
       } catch {
-        return [];
+        return DEFAULT_NOTIFICATIONS;
       }
     }
-    return [];
+    return DEFAULT_NOTIFICATIONS;
   });
 
   useEffect(() => {
@@ -2184,6 +2189,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
   };
 
+  const seedDemoNotifications = () => {
+    setNotifications(DEFAULT_NOTIFICATIONS);
+    safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(DEFAULT_NOTIFICATIONS));
+  };
+
   const addNotification = (notif: Omit<AppNotification, 'id' | 'created_at' | 'read'>) => {
     const newNotif: AppNotification = {
       ...notif,
@@ -2261,6 +2271,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteNotification,
         clearAllNotifications,
         addNotification,
+        seedDemoNotifications,
       }}
     >
 
