@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { Footer } from '@/components/layout/Footer';
 import { ArrowLeft, KeyRound, CheckCircle2, Mail, ArrowRight, Info } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
@@ -160,6 +161,8 @@ export default function ForgotPasswordPage() {
           )}
         </Card>
       </div>
+
+      <Footer showDonations={false} className="mt-12" />
     </div>
   );
 }

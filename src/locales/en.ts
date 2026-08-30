@@ -674,6 +674,8 @@ export const en: TranslationDictionary = {
     "groupTitle": "Group Notifications",
     "enableOnJoin": "Enable notifications for this group",
     "enableOnJoinHint": "Receive alerts when new expenses or settlements are added.",
+    "enableOnCreate": "Enable notifications for this group",
+    "enableOnCreateHint": "Receive instant alerts when friends add or update expenses, comment, or settle debts.",
     "enabled": "Notifications: Enabled",
     "disabled": "Notifications: Disabled",
     "receiving": "Receiving alerts",
@@ -702,6 +704,16 @@ export const en: TranslationDictionary = {
     gifPickerSubtitle: 'Choose an animated GIF or paste your link',
     searchGifsPlaceholder: 'Search party, money, laugh, travel...',
     addReaction: 'Add reaction',
+  },
+  "chat": {
+    "title": "Group Chat",
+    "subtitle": "Private discussion for all members of",
+    "tabMembers": "Friends",
+    "tabChat": "Group Chat",
+    "placeholder": "Write a message to the group...",
+    "emptyTitle": "No messages yet!",
+    "emptySubtitle": "Be the first to say hello to friends, propose plans, or share travel notes.",
+    "deleteConfirm": "Delete this message from the chat?"
   },
 };
 

@@ -671,6 +671,8 @@ export const es = {
     "groupTitle": "Notificaciones del Grupo",
     "enableOnJoin": "Activar notificaciones para este grupo",
     "enableOnJoinHint": "Recibe avisos cuando se registren nuevos gastos o liquidaciones.",
+    "enableOnCreate": "Activar notificaciones para este grupo",
+    "enableOnCreateHint": "Recibe avisos al instante cuando tus amigos añadan o modifiquen gastos, comenten o salden deudas.",
     "enabled": "Notificaciones: Activadas",
     "disabled": "Notificaciones: Desactivadas",
     "receiving": "Recibiendo avisos",
@@ -699,6 +701,16 @@ export const es = {
     gifPickerSubtitle: 'Elige un GIF animado o pega tu enlace',
     searchGifsPlaceholder: 'Buscar fiesta, dinero, risa, viaje...',
     addReaction: 'Añadir reacción',
+  },
+  chat: {
+    title: 'Chat del Grupo',
+    subtitle: 'Conversación privada para todos los miembros de',
+    tabMembers: 'Amigos',
+    tabChat: 'Chat de Grupo',
+    placeholder: 'Escribe un mensaje al grupo...',
+    emptyTitle: '¡Aún no hay mensajes!',
+    emptySubtitle: 'Sé el primero en saludar a tus amigos, proponer planes o compartir notas para el viaje.',
+    deleteConfirm: '¿Eliminar este mensaje del chat?',
   },
 } as const;
 

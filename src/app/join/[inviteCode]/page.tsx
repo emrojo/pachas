@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { Footer } from '@/components/layout/Footer';
 import { ArrowRight, CheckCircle2, Bell } from 'lucide-react';
 import { GroupMember } from '@/types/database';
 import { subscribeDeviceToPush } from '@/lib/notifications/pushNotificationService';
@@ -237,6 +238,8 @@ export default function JoinGroupPage() {
           )}
         </Card>
       </div>
+
+      <Footer showDonations={false} className="mt-12" />
     </div>
   );
 }

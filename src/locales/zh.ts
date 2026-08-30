@@ -672,6 +672,8 @@ export const zh: TranslationDictionary = {
     "groupTitle": "群组通知",
     "enableOnJoin": "为此群组开启通知",
     "enableOnJoinHint": "添加新支出或结算时接收通知。",
+    "enableOnCreate": "为此群组开启通知",
+    "enableOnCreateHint": "当朋友添加或修改支出、评论或结算债务时接收即时提醒。",
     "enabled": "通知：已开启",
     "disabled": "通知：已关闭",
     "receiving": "正在接收通知",
@@ -700,5 +702,15 @@ export const zh: TranslationDictionary = {
     gifPickerSubtitle: '选择动图或粘贴链接',
     searchGifsPlaceholder: '搜索聚会、金钱、笑声、旅行...',
     addReaction: '添加反应',
+  },
+  "chat": {
+    "title": "群组聊天",
+    "subtitle": "全体成员私密交流群：",
+    "tabMembers": "好友",
+    "tabChat": "群组聊天",
+    "placeholder": "给群组发送消息...",
+    "emptyTitle": "暂无消息！",
+    "emptySubtitle": "成为第一个向朋友打招呼、提议出行或分享备忘录的人。",
+    "deleteConfirm": "从聊天中删除此消息？"
   },
 };

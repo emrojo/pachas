@@ -67,6 +67,8 @@ export const NotificationBellDropdown: React.FC = () => {
         return <Trash2 className="w-4 h-4 text-rose-500" />;
       case 'comment_created':
       case 'comment_reaction':
+      case 'group_message_created':
+      case 'group_message_reaction':
         return <MessageSquare className="w-4 h-4 text-sky-500" />;
       case 'settlement_created':
         return <CheckCheck className="w-4 h-4 text-emerald-600" />;
@@ -104,6 +106,9 @@ export const NotificationBellDropdown: React.FC = () => {
         return notif.expense_id
           ? `/groups/${notif.group_id}?tab=expenses&expenseId=${notif.expense_id}&comments=true`
           : `/groups/${notif.group_id}?tab=expenses`;
+      case 'group_message_created':
+      case 'group_message_reaction':
+        return `/groups/${notif.group_id}?tab=members&chat=true`;
       case 'member_invited':
       case 'member_joined':
       case 'member_removed':

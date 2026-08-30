@@ -672,6 +672,8 @@ export const eu: TranslationDictionary = {
     "groupTitle": "Taldearen jakinarazpenak",
     "enableOnJoin": "Gaitu jakinarazpenak talde honentzat",
     "enableOnJoinHint": "Jaso alertak gastu edo kitatze berriak gehitzen direnean.",
+    "enableOnCreate": "Gaitu jakinarazpenak talde honentzat",
+    "enableOnCreateHint": "Jaso abisuak berehala zure lagunek gastuak gehitu edo aldatzen dituztenean, iruzkinak egiten dituztenean edo zorrak kitatzen dituztenean.",
     "enabled": "Jakinarazpenak: Gaituta",
     "disabled": "Jakinarazpenak: Desgaituta",
     "receiving": "Alertak jasotzen",
@@ -700,5 +702,15 @@ export const eu: TranslationDictionary = {
     gifPickerSubtitle: 'Aukeratu GIF animatu bat edo itsatsi zure esteka',
     searchGifsPlaceholder: 'Bilatu festa, dirua, barreak, bidaia...',
     addReaction: 'Erreakzioa gehitu',
+  },
+  "chat": {
+    "title": "Taldeko Txata",
+    "subtitle": "Kide guztientzako elkarrizketa pribatua:",
+    "tabMembers": "Lagunak",
+    "tabChat": "Taldeko Txata",
+    "placeholder": "Idatzi mezu bat taldeari...",
+    "emptyTitle": "Oraindik ez dago mezurik!",
+    "emptySubtitle": "Izan zaitez lehena lagunak agurtzen, planak proposatzen edo oharrak partekatzen.",
+    "deleteConfirm": "Txateko mezu hau ezabatu?"
   },
 };

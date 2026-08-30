@@ -313,12 +313,15 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-30.3**: **Granular In-Group Toggling**:
   - 1-click toggle directly in the Group Tools Submenu (`GroupActionMenu.tsx`) and in Group Settings (`EditGroupModal.tsx`).
 - **FR-30.4**: **Automated Activity Dispatching**:
-  - **💸 Nuevos Gastos**: Triggers push alerts when a group member logs a new expense (`POST /api/expenses`).
-  - **🤝 Liquidaciones y Deudas**: Dispatches push alerts when debts are settled or recorded (`POST /api/settlements`).
-  - **💬 Comentarios en Gastos**: Dispatches push alerts to group members when a discussion comment is posted on an expense (`POST /api/expenses/[id]/comments`).
-  - **👥 Nuevos Miembros**: Dispatches push alerts when a friend joins the group via invitation code (`POST /api/groups/join`).
-  - **✏️ Gastos Modificados**: Dispatches push alerts when an expense is edited, or when async AI OCR processing completes (`PUT /api/expenses/[id]`).
-  - **🗑️ Gastos Eliminados**: Dispatches push alerts when an expense is deleted to maintain full group transparency (`DELETE /api/expenses/[id]`).
+  - **💸 New Expenses**: Triggers push alerts when a group member logs a new expense (`POST /api/expenses`).
+  - **🤝 Debt Settlements**: Dispatches push alerts when debts are settled or recorded (`POST /api/settlements`).
+  - **💬 Expense Comments**: Dispatches push alerts to group members when a discussion comment is posted on an expense (`POST /api/expenses/[id]/comments`).
+  - **👥 New Members**: Dispatches push alerts when a friend joins the group via invitation code (`POST /api/groups/join`).
+  - **✏️ Modified Expenses**: Dispatches push alerts when an expense is edited, or when async AI OCR processing completes (`PUT /api/expenses/[id]`).
+  - **🗑️ Deleted Expenses**: Dispatches push alerts when an expense is deleted to maintain full group transparency (`DELETE /api/expenses/[id]`).
+- **FR-30.5**: **Notification Preference Configuration on Group Creation & Quick Join**:
+  - *Group Creation Modal* ([`CreateGroupModal.tsx`]): Dedicated notification toggle card enabling creators to customize push and in-app alert subscriptions directly during group setup.
+  - *Dashboard Quick Join* ([`dashboard/page.tsx`]): Contextual notification opt-in checkbox presented dynamically when entering a group invitation code.
 
 ### 📷 FR-31: Intelligent Receipt Vision Scanning with Google Gemini 1.5 Flash (Free Tier) & Local Fallback
 - **FR-31.1**: **Multimodal Vision AI Backend ([`/api/ocr/scan`](file:///d:/Projects/pachas/src/app/api/ocr/scan/route.ts))**:
@@ -449,6 +452,26 @@ This document serves as the official and permanent registry for all **user requi
     - Semicolon-delimited European CSV / Excel log with establishment names, GPS coordinates, and Google Maps links.
     - Raw JSON data export (`/api/user/export-data`) including cryptographic user IDs, timestamps, and relational comment threads.
 
+### 🏛️ FR-39: Unified Header Layout & Global Legal Compliance Footer Across 100% of Application Views
+- **FR-39.1**: **Unified View Headers & Layout Consistency**:
+  - The Notification Center (`/notifications`) and all main dashboard sections share the same visual structure: standard top navigation bar (`Navbar`), emerald/teal hero gradient banner, mobile bottom navigation (`BottomNav`), modal controller (`CreateGroupModal`), and unified spacing.
+- **FR-39.2**: **Global Legal & Regulatory Compliance Footer (`Footer.tsx`)**:
+  - Consistent presence across all 100% of application routes (Dashboard, Groups, Audit, Notifications, Profile, Admin, Login, Register, Forgot/Reset Password, Terms, Privacy, Cookies, Legal Notice).
+  - Explicit legal links: *Terms & Conditions* (`/terms`), *Privacy Policy* (`/privacy`), *Cookies Policy* (`/cookies`), and *Legal Notice* (`/legal`).
+  - Regulatory compliance disclosures: GDPR / RGPD (EU 2016/679), LOPDGDD, and LSSI-CE compliance confirmation noting non-custodial financial calculation tooling without banking intermediation.
+
+### 💬 FR-40: Real-Time Group Chat & Conversational Stream in Friends Section
+- **FR-40.1**: **Integrated Group Chat Sub-Tab (`GroupChatSection.tsx`, `tab=members&chat=true`)**:
+  - Dual-mode sub-navigation in the **"Amigos"** (Friends) tab allowing members to switch between 👥 **"Amigos del Grupo"** (member roster, roles, phone badges, invite button) and 💬 **"Chat del Grupo"** (real-time message stream).
+  - Clean visual distinction with custom chat bubbles: current user messages displayed right-aligned in emerald gradient with timestamps; other members displayed left-aligned with user avatars and group admin badges.
+- **FR-40.2**: **Rich Conversational Features (GIFs, Emojis & Floating Reactions)**:
+  - Integration with **Giphy** (`GifPickerModal`) and categorized emoji selector (`EmojiPickerPopover`).
+  - Multi-user floating emoji reaction pills (`❤️ 👍 😂 🎉 🔥 👏`) with real-time reaction toggle and counter badges on messages.
+- **FR-40.3**: **PostgreSQL Persistence & Auto-Healing Table (`public.group_messages`, `07-group-messages.sql`)**:
+  - Full CRUD operations via `/api/groups/[id]/messages` with optimistic client-side caching in `PachasContext`, offline fallback resilience, and author/admin deletion rights.
+- **FR-40.4**: **Automated Push & Notification Center Dispatching**:
+  - Real-time WebPush/mobile push notifications and unified notification center alerts (`group_message_created`, `group_message_reaction`) routing directly to `/groups/[id]?tab=members&chat=true`.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -544,6 +567,9 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 🔍 Added | **FR-35.3 & FR-35.6** | **Interactive Zoom, Pan & Eraser in Receipt Inspection**: Integrated 50%-400% zoom, wheel/pinch zoom, pan/hand tool (✋), and precision eraser (🧼) restoring original pixels in `ReceiptRedactionModal`, `ReceiptValidationModal`, and `ReceiptModal`. |
 | **30/08/2026** | 💬 Added | **FR-36** | **Rich Conversational Features in Expense Discussions**: Categorized animated GIF selector (`GifPickerModal`), emoji reaction pills with counter badges on comments, and React Portal rendering preventing container clipping. |
 | **30/08/2026** | 🔔 Added | **FR-37** | **Unified Notification Center & Navbar Bell Dropdown**: Centralized notification hub (`/notifications`) with filters (*Payments/Validations, Comments, Groups/Roles*), direct action CTAs, unread badge, and default demo seeding. |
+| **30/08/2026** | ⚙️ Added | **FR-30.5** | **Notification Settings Configuration on Group Creation & Joining**: Integrated customizable notification preference toggles in `CreateGroupModal`, `/join/[inviteCode]`, and the dashboard quick-join bar. |
 | **30/08/2026** | ⚡ Added | **FR-37.5** | **Automatic Real-Time Notification Triggers**: Connected automatic notification dispatching across all application lifecycle events: expense creation/modification/deletion, member invite/join/exit, group admin elevation, group archiving/restoration/deletion, comment creation, emoji reactions, and debt settlements. |
 | **30/08/2026** | 🎯 Added | **FR-37.6** | **Deep Contextual Action Navigation from Notifications**: Intelligent URL query param resolution routing notifications directly into detailed expense modals, comments, friends tabs, balance sheets, and receipt validation popups. |
 | **30/08/2026** | ⚖️ Added | **FR-38** | **Judicial & Dispute Evidence Export Protocol**: Documented compliance package for court inquiries with mathematical PDF audit, European CSV, and JSON data exports. |
+| **30/08/2026** | 🏛️ Added | **FR-39** | **Unified Layout Header & Global Legal Compliance Footer**: Normalized visual header, hero banner and navigation in `/notifications`, and implemented the complete legal & RGPD compliance footer across 100% of application views. |
+| **30/08/2026** | 💬 Added | **FR-40** | **Real-Time Group Chat in Friends Section**: Built group chat sub-tab in `GroupDetailPage` (`GroupChatSection.tsx`, `/api/groups/[id]/messages`, `07-group-messages.sql`) with real-time text, animated GIFs, emoji picker, floating reactions, deep-link navigation, and 20-language i18n support. |

@@ -23,6 +23,10 @@ import {
 import { formatDate } from '@/lib/utils';
 import { AppNotification, NotificationType } from '@/types/database';
 import { Button } from '@/components/ui/Button';
+import { Navbar } from '@/components/layout/Navbar';
+import { BottomNav } from '@/components/layout/BottomNav';
+import { Footer } from '@/components/layout/Footer';
+import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
 
 type FilterTab = 'all' | 'unread' | 'payments' | 'comments' | 'groups';
 
@@ -39,6 +43,7 @@ export default function NotificationsPage() {
   } = usePachas();
   const { t } = useTranslation();
 
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
 
@@ -54,6 +59,8 @@ export default function NotificationsPage() {
         return <Trash2 className="w-5 h-5 text-rose-500" />;
       case 'comment_created':
       case 'comment_reaction':
+      case 'group_message_created':
+      case 'group_message_reaction':
         return <MessageSquare className="w-5 h-5 text-sky-500" />;
       case 'settlement_created':
         return <CheckCheck className="w-5 h-5 text-emerald-600" />;
@@ -82,6 +89,9 @@ export default function NotificationsPage() {
       case 'comment_created':
       case 'comment_reaction':
         return '💬 Ver comentario';
+      case 'group_message_created':
+      case 'group_message_reaction':
+        return '💬 Ver chat';
       case 'settlement_created':
         return '🤝 Ver pago';
       case 'group_role_updated':
@@ -107,7 +117,7 @@ export default function NotificationsPage() {
     if (activeTab === 'payments' && !['receipt_pending', 'settlement_created', 'expense_created'].includes(notif.type)) {
       return false;
     }
-    if (activeTab === 'comments' && !['comment_created', 'comment_reaction'].includes(notif.type)) {
+    if (activeTab === 'comments' && !['comment_created', 'comment_reaction', 'group_message_created', 'group_message_reaction'].includes(notif.type)) {
       return false;
     }
     if (activeTab === 'groups' && !['group_role_updated', 'member_invited', 'member_joined', 'member_removed', 'group_archived', 'group_restored', 'group_deleted', 'expense_updated', 'expense_deleted'].includes(notif.type)) {
@@ -144,6 +154,9 @@ export default function NotificationsPage() {
         return notif.expense_id
           ? `/groups/${notif.group_id}?tab=expenses&expenseId=${notif.expense_id}&comments=true`
           : `/groups/${notif.group_id}?tab=expenses`;
+      case 'group_message_created':
+      case 'group_message_reaction':
+        return `/groups/${notif.group_id}?tab=members&chat=true`;
       case 'member_invited':
       case 'member_joined':
       case 'member_removed':
@@ -177,71 +190,76 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-sm">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
-            <Bell className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Centro de Notificaciones
-              </h1>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col pb-24 md:pb-12">
+      <Navbar onCreateGroupClick={() => setIsCreateOpen(true)} />
+
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-8 space-y-6">
+        {/* Header Hero Banner with gradient */}
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-6 text-white shadow-lg shadow-emerald-600/15 relative overflow-hidden">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white flex items-center justify-center shadow-md shadow-black/10 shrink-0">
+                <Bell className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                    Centro de Notificaciones
+                  </h1>
+                  {unreadNotificationsCount > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-bold shadow-xs">
+                      {unreadNotificationsCount} sin leer
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm text-emerald-50 mt-0.5">
+                  Consulta pagos por validar, cambios en grupos, comentarios y avisos
+                </p>
+              </div>
+            </div>
+
+            {/* Global actions */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={seedDemoNotifications}
+                className="text-xs font-bold gap-1.5 shadow-xs"
+                title="Cargar notificaciones de ejemplo"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Cargar ejemplos</span>
+              </Button>
+
               {unreadNotificationsCount > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 text-xs font-bold">
-                  {unreadNotificationsCount} sin leer
-                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={markAllNotificationsAsRead}
+                  className="text-xs font-bold gap-1.5 bg-white/15 hover:bg-white/25 text-white border-white/30"
+                >
+                  <CheckCheck className="w-4 h-4 text-emerald-200" />
+                  <span>Marcar todas leídas</span>
+                </Button>
+              )}
+
+              {notifications.some((n) => n.read) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearRead}
+                  className="text-xs font-bold gap-1.5 bg-white/15 hover:bg-white/25 text-white border-white/30"
+                  title="Limpiar notificaciones leídas"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-200" />
+                  <span>Limpiar leídas</span>
+                </Button>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Consulta pagos por validar, cambios en grupos, comentarios y avisos
-            </p>
           </div>
         </div>
 
-        {/* Global actions */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={seedDemoNotifications}
-            className="text-xs font-bold gap-1.5 shadow-2xs"
-            title="Cargar notificaciones de ejemplo"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Cargar ejemplos</span>
-          </Button>
-
-          {unreadNotificationsCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={markAllNotificationsAsRead}
-              className="text-xs font-bold gap-1.5 shadow-2xs"
-            >
-              <CheckCheck className="w-4 h-4 text-emerald-600" />
-              <span>Marcar todas leídas</span>
-            </Button>
-          )}
-
-          {notifications.some((n) => n.read) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearRead}
-              className="text-xs text-slate-500 hover:text-rose-600 gap-1.5"
-              title="Limpiar notificaciones leídas"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Limpiar leídas</span>
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Filter Tabs & Search Bar */}
+        {/* Filter Tabs & Search Bar */}
       <div className="space-y-3">
         {/* Search */}
         <div className="relative">
@@ -433,7 +451,17 @@ export default function NotificationsPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </main>
+
+      <Footer />
+      <BottomNav />
+
+      <CreateGroupModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={(newGroupId) => router.push(`/groups/${newGroupId}`)}
+      />
     </div>
   );
 }

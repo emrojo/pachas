@@ -13,6 +13,7 @@ import {
   ExpenseCategory,
   PaymentMethod,
   ExpenseComment,
+  GroupMessage,
   PendingReceiptScan,
   AppNotification,
 } from '@/types/database';
@@ -71,7 +72,14 @@ interface PachasContextType {
   isDemoMode: boolean;
   groups: Group[];
   isLoading: boolean;
-  createGroup: (name: string, description: string, emoji: string, currency: string, coverImageUrl?: string | null) => Promise<Group>;
+  createGroup: (
+    name: string,
+    description: string,
+    emoji: string,
+    currency: string,
+    coverImageUrl?: string | null,
+    enableNotifications?: boolean
+  ) => Promise<Group>;
   updateGroup: (groupId: string, data: Partial<Group>) => Promise<Group>;
   getGroup: (id: string) => Group | undefined;
   getGroupMembers: (groupId: string) => GroupMember[];
@@ -129,6 +137,12 @@ interface PachasContextType {
   deleteExpenseComment: (commentId: string, expenseId: string) => Promise<void>;
   fetchExpenseComments: (expenseId: string) => Promise<ExpenseComment[]>;
   toggleCommentReaction: (commentId: string, expenseId: string, emoji: string) => Promise<void>;
+  groupMessages: Record<string, GroupMessage[]>;
+  getGroupMessages: (groupId: string) => GroupMessage[];
+  addGroupMessage: (groupId: string, message: string, gifUrl?: string | null) => Promise<GroupMessage>;
+  deleteGroupMessage: (messageId: string, groupId: string) => Promise<void>;
+  fetchGroupMessages: (groupId: string) => Promise<GroupMessage[]>;
+  toggleGroupMessageReaction: (messageId: string, groupId: string, emoji: string) => Promise<void>;
   notifications: AppNotification[];
   unreadNotificationsCount: number;
   markNotificationAsRead: (id: string) => void;
@@ -150,6 +164,7 @@ const STORAGE_KEYS = {
   EXPENSES: 'pachas_expenses_v2',
   SETTLEMENTS: 'pachas_settlements_v2',
   COMMENTS: 'pachas_expense_comments_v2',
+  GROUP_MESSAGES: 'pachas_group_messages_v2',
   NOTIFICATIONS: 'pachas_notifications_v2',
 };
 
@@ -232,6 +247,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [expenses, setExpenses] = useState<Record<string, Expense[]>>({});
   const [settlements, setSettlements] = useState<Record<string, Settlement[]>>({});
   const [comments, setComments] = useState<Record<string, ExpenseComment[]>>({});
+  const [groupMessages, setGroupMessages] = useState<Record<string, GroupMessage[]>>({});
   const [lastImportBatch, setLastImportBatch] = useState<{
     groupId: string;
     expenseIds: string[];
@@ -425,6 +441,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (savedComments && isMounted) {
           try {
             setComments(JSON.parse(savedComments));
+          } catch {}
+        }
+
+        const savedGroupMessages = localStorage.getItem(STORAGE_KEYS.GROUP_MESSAGES);
+        if (savedGroupMessages && isMounted) {
+          try {
+            setGroupMessages(JSON.parse(savedGroupMessages));
           } catch {}
         }
       } catch {}
@@ -728,7 +751,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     description: string,
     emoji: string,
     currency: string,
-    coverImageUrl?: string | null
+    coverImageUrl?: string | null,
+    enableNotifications: boolean = true
   ): Promise<Group> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para crear un grupo.');
@@ -754,6 +778,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       group_id: newGroup.id,
       user_id: currentUser.id,
       role: 'admin',
+      notifications_enabled: enableNotifications,
       joined_at: new Date().toISOString(),
       profile: currentUser,
     };
@@ -777,6 +802,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           cover_image_url: newGroup.cover_image_url,
           base_currency: newGroup.base_currency,
           invite_code: newGroup.invite_code,
+          notifications_enabled: enableNotifications,
         }),
       });
     } catch (e) {
@@ -2156,6 +2182,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setExpenses({});
     setSettlements({});
     setComments({});
+    setGroupMessages({});
     setAvailableUsers(DEMO_USERS);
     _setCurrentUser(null);
   };
@@ -2335,6 +2362,159 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const getGroupMessages = (groupId: string): GroupMessage[] => groupMessages[groupId] || [];
+
+  const fetchGroupMessages = async (groupId: string): Promise<GroupMessage[]> => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.messages && Array.isArray(data.messages)) {
+          setGroupMessages((prev) => {
+            const localList = prev[groupId] || [];
+            if (data.messages.length === 0 && localList.length > 0) {
+              return prev;
+            }
+
+            const enriched = data.messages.map((sm: GroupMessage) => {
+              const localAuthor = availableUsers.find((u) => u.id === sm.user_id) || (currentUser?.id === sm.user_id ? currentUser : undefined);
+              return {
+                ...sm,
+                profile: (sm.profile?.full_name && sm.profile.full_name !== 'Amigo') ? sm.profile : (localAuthor || sm.profile),
+              };
+            });
+
+            const updated = { ...prev, [groupId]: enriched };
+            safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+            return updated;
+          });
+          return data.messages;
+        }
+      }
+    } catch (err) {
+      console.warn('Error fetching group messages:', err);
+    }
+    return groupMessages[groupId] || [];
+  };
+
+  const addGroupMessage = async (groupId: string, message: string, gifUrl?: string | null): Promise<GroupMessage> => {
+    if (!currentUser) throw new Error('Debes iniciar sesión para enviar mensajes.');
+
+    const newMessage: GroupMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      group_id: groupId,
+      user_id: currentUser.id,
+      message: message,
+      gif_url: gifUrl || null,
+      reactions: {},
+      created_at: new Date().toISOString(),
+      profile: currentUser,
+    };
+
+    // Optimistic local update
+    setGroupMessages((prev) => {
+      const currentList = prev[groupId] || [];
+      const updated = { ...prev, [groupId]: [...currentList, newMessage] };
+      safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+      return updated;
+    });
+
+    // Sync to backend
+    try {
+      const res = await fetch(`/api/groups/${groupId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: newMessage.id, message, gif_url: gifUrl }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.message) {
+          setGroupMessages((prev) => {
+            const currentList = prev[groupId] || [];
+            const replaced = currentList.map((m) => (m.id === newMessage.id ? { ...data.message, profile: currentUser } : m));
+            const updated = { ...prev, [groupId]: replaced };
+            safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Error syncing group message to backend:', err);
+    }
+
+    const targetGroup = getGroup(groupId);
+    const snippet = message.trim()
+      ? message.length > 50 ? message.slice(0, 47) + '...' : message
+      : 'ha enviado un GIF';
+
+    addNotification({
+      user_id: currentUser.id,
+      type: 'group_message_created',
+      title: `💬 Mensaje en ${targetGroup?.name || 'el grupo'}`,
+      message: `${currentUser.full_name?.split(' ')[0] || 'Un amigo'}: ${snippet}`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: `/groups/${groupId}?tab=members&chat=true`,
+      data: { messageId: newMessage.id, groupId },
+    });
+
+    return newMessage;
+  };
+
+  const deleteGroupMessage = async (messageId: string, groupId: string): Promise<void> => {
+    setGroupMessages((prev) => {
+      const currentList = prev[groupId] || [];
+      const updated = { ...prev, [groupId]: currentList.filter((m) => m.id !== messageId) };
+      safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      await fetch(`/api/groups/${groupId}/messages?messageId=${messageId}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.warn('Error deleting group message:', err);
+    }
+  };
+
+  const toggleGroupMessageReaction = async (messageId: string, groupId: string, emoji: string): Promise<void> => {
+    if (!currentUser) return;
+    const userId = currentUser.id;
+
+    setGroupMessages((prev) => {
+      const currentList = prev[groupId] || [];
+      const updated = currentList.map((msg) => {
+        if (msg.id !== messageId) return msg;
+        const reactions = { ...(msg.reactions || {}) };
+        const userList = reactions[emoji] || [];
+        if (userList.includes(userId)) {
+          reactions[emoji] = userList.filter((id) => id !== userId);
+          if (reactions[emoji].length === 0) {
+            delete reactions[emoji];
+          }
+        } else {
+          reactions[emoji] = [...userList, userId];
+        }
+        return { ...msg, reactions };
+      });
+
+      const nextState = { ...prev, [groupId]: updated };
+      safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(nextState));
+      return nextState;
+    });
+
+    try {
+      await fetch(`/api/groups/${groupId}/messages`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, emoji }),
+      });
+    } catch (err) {
+      console.warn('Error toggling group message reaction:', err);
+    }
+  };
+
   const markNotificationAsRead = (id: string) => {
     setNotifications((prev) => {
       const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
@@ -2440,6 +2620,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteExpenseComment,
         fetchExpenseComments,
         toggleCommentReaction,
+        groupMessages,
+        getGroupMessages,
+        addGroupMessage,
+        deleteGroupMessage,
+        fetchGroupMessages,
+        toggleGroupMessageReaction,
         notifications,
         unreadNotificationsCount,
         markNotificationAsRead,

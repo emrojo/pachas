@@ -56,12 +56,26 @@ export async function POST(request: NextRequest) {
       );
 
       const memberId = randomUUID();
-      await client.query(
-        `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
-         VALUES ($1, $2, $3, 'admin', NOW())
-         ON CONFLICT (group_id, user_id) DO NOTHING`,
-        [memberId, id, payload.sub]
-      );
+      const notificationsEnabled = body.notifications_enabled !== undefined ? Boolean(body.notifications_enabled) : true;
+      try {
+        await client.query(
+          `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
+           VALUES ($1, $2, $3, 'admin', $4, NOW())
+           ON CONFLICT (group_id, user_id) DO UPDATE SET notifications_enabled = EXCLUDED.notifications_enabled`,
+          [memberId, id, payload.sub, notificationsEnabled]
+        );
+      } catch (insertErr: any) {
+        if (insertErr.code === '42703' || String(insertErr.message).includes('notifications_enabled')) {
+          await client.query(
+            `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
+             VALUES ($1, $2, $3, 'admin', NOW())
+             ON CONFLICT (group_id, user_id) DO NOTHING`,
+            [memberId, id, payload.sub]
+          );
+        } else {
+          throw insertErr;
+        }
+      }
 
       await client.query('COMMIT');
 

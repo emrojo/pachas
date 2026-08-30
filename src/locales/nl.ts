@@ -672,6 +672,8 @@ export const nl: TranslationDictionary = {
     "groupTitle": "Groepsmeldingen",
     "enableOnJoin": "Meldingen inschakelen voor deze groep",
     "enableOnJoinHint": "Ontvang meldingen wanneer nieuwe uitgaven of afrekeningen worden toegevoegd.",
+    "enableOnCreate": "Meldingen inschakelen voor deze groep",
+    "enableOnCreateHint": "Ontvang meldingen wanneer vrienden uitgaven toevoegen of bewerken, reageren of schulden vereffenen.",
     "enabled": "Meldingen: Ingeschakeld",
     "disabled": "Meldingen: Uitgeschakeld",
     "receiving": "Meldingen actief",
@@ -700,5 +702,15 @@ export const nl: TranslationDictionary = {
     gifPickerSubtitle: 'Kies een geanimeerde GIF of plak je link',
     searchGifsPlaceholder: 'Zoek feest, geld, lachen, reizen...',
     addReaction: 'Reactie toevoegen',
+  },
+  "chat": {
+    "title": "Groepschat",
+    "subtitle": "Privégesprek voor alle leden van",
+    "tabMembers": "Vrienden",
+    "tabChat": "Groepschat",
+    "placeholder": "Schrijf een bericht naar de groep...",
+    "emptyTitle": "Nog geen berichten!",
+    "emptySubtitle": "Wees de eerste om vrienden te begroeten, plannen voor te stellen of notities te delen.",
+    "deleteConfirm": "Dit bericht uit de chat verwijderen?"
   },
 };
