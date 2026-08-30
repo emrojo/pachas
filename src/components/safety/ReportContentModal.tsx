@@ -10,9 +10,11 @@ import { ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
 export interface ReportContentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  targetType: 'expense' | 'receipt' | 'user' | 'group';
+  targetType: 'expense' | 'receipt' | 'user' | 'group' | 'comment';
   targetId: string;
   targetTitle?: string;
+  groupId?: string;
+  targetUrl?: string;
 }
 
 export const ReportContentModal: React.FC<ReportContentModalProps> = ({
@@ -21,6 +23,8 @@ export const ReportContentModal: React.FC<ReportContentModalProps> = ({
   targetType,
   targetId,
   targetTitle,
+  groupId,
+  targetUrl,
 }) => {
   const { t } = useTranslation();
   const { currentUser } = usePachas();
@@ -44,6 +48,14 @@ export const ReportContentModal: React.FC<ReportContentModalProps> = ({
     setIsSubmitting(true);
     setErrorMessage('');
 
+    const calculatedTargetUrl =
+      targetUrl ||
+      (groupId && (targetType === 'expense' || targetType === 'receipt')
+        ? `/groups/${groupId}?tab=expenses&expenseId=${targetId}`
+        : groupId && targetType === 'group'
+        ? `/groups/${groupId}`
+        : undefined);
+
     try {
       const res = await fetch('/api/reports', {
         method: 'POST',
@@ -52,6 +64,8 @@ export const ReportContentModal: React.FC<ReportContentModalProps> = ({
           targetType,
           targetId,
           targetTitle,
+          targetUrl: calculatedTargetUrl,
+          groupId: groupId || undefined,
           reason,
           details: details.trim() || undefined,
           reporterEmail: currentUser?.email || 'anon',

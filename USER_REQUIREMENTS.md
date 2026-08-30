@@ -508,6 +508,68 @@ This document serves as the official and permanent registry for all **user requi
   - `PATCH /api/reports`: Updates report status (`pending`, `reviewed`, `dismissed`, `action_taken`).
   - `POST /api/reports`: Persists safety reports with auto-healing table schema and triggers push notifications.
 
+### ❄️ FR-44: Group Freezing & Investigation Moderation Protocol
+- **FR-44.1**: **Superadmin Group Freeze Action**:
+  - The application superadmin (`role = 'admin'` / `isAppAdmin`) can freeze any group under investigation from `/admin?tab=groups`, `/admin?tab=reports`, or directly from the group interface.
+  - Freezing sets `is_frozen: true`, `frozen_at`, `frozen_by`, and `frozen_reason` on `public.groups`.
+- **FR-44.2**: **Total Regular User Lockout & Informational Status Screen**:
+  - Regular members, visitors, and group admins cannot enter the group, view balances, expenses, debts, chat, or make any changes while frozen.
+  - Accessing `/groups/[id]` renders a dedicated, secure screen: **"❄️ Grupo congelado por el administrador en espera de decisión"** with the investigation motive.
+  - Dashboard group cards prominently display the **"❄️ Congelado"** status badge.
+- **FR-44.3**: **Superadmin Investigation & Offending Expense Deletion**:
+  - The system administrator retains full access to inspect frozen groups with a top investigation banner.
+  - The administrator can delete reported/fraudulent expenses (`DELETE /api/expenses/[id]`) during the frozen state.
+- **FR-44.4**: **Instant Group Unfreezing**:
+  - Superadmin can unfreeze the group at any time (`is_frozen: false`) from `/admin` or the group view, immediately restoring full operational access to all members.
+- **FR-44.5**: **Backend Mutation Shielding**:
+  - Endpoints (`/api/expenses`, `/api/expenses/[id]`, `/api/settlements`, `/api/groups/[id]/messages`, `/api/expenses/[id]/comments`, `/api/groups/join`) strictly reject non-admin modifications with HTTP 403 when a group is frozen.
+
+### 🛡️ FR-45: Moderation Feedback Loop, Resolution Notes, Evidence Snapshots & Dual Freeze Mode
+- **FR-45.1**: **Reporter Feedback Loop**:
+  - When an administrator reviews a report (`status = 'action_taken'` or `'dismissed'`), a notification is automatically dispatched to the reporting user informing them of the resolution and administrative explanation.
+- **FR-45.2**: **Administrative Resolution Notes**:
+  - Superadmin can attach a formal resolution note via `ResolveReportModal` when transitioning report status (`public.content_reports.resolution_notes`), displayed directly in report cards for internal audit and judicial trace.
+- **FR-45.3**: **Evidence Snapshots on Deleted Content**:
+  - Deleting reported expenses preserves a complete JSON snapshot `{ expense, deleted_at, deleted_by }` inside `public.content_reports.evidence_snapshot`, ensuring compliance with judicial evidence requests (FR-38).
+- **FR-45.4**: **Dual Freeze Mode (Full Lockout vs Read-Only)**:
+  - Superadmin can choose between:
+    1. **🔒 Bloqueo Total (`freeze_type = 'full'`)**: Complete access lockout for members (disputes, harassment, active fraud).
+    2. **👁️ Solo Lectura (`freeze_type = 'read_only'`)**: Members can inspect balances and receipts without mutating expenses, debt settlements, or group chat.
+
+### 💬 FR-46: Official Support Chat & User-Admin Communication Channel
+- **FR-46.1**: **Dedicated User Support Chat ([`SupportChatModal.tsx`](file:///d:/Projects/pachas/src/components/support/SupportChatModal.tsx))**:
+  - Allows users to initiate private, real-time communication threads with system administrators.
+  - Multi-category routing:
+    - 💡 *Pregunta General (`general`)*
+    - 🐛 *Notificar un Bug / Error (`bug`)*
+    - ⚖️ *Aclaración sobre Reporte o Viaje (`report_clarification`)*
+    - 🛡️ *Apelación de Suspensión (`appeal`)*
+  - Visual distinction between User (emerald bubbles on right) and Official System Administrator (sky bubbles with 🛡️ badge on left).
+- **FR-46.2**: **Admin Support Hub & Chat Management ([`admin/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/admin/page.tsx))**:
+  - Dedicated **💬 Soporte / Chats** tab (`activeTab === 'support'`) in the Admin Backoffice.
+  - Split-pane interface:
+    - Left column: user conversation list with unread counter badges, last message previews, category tags, and ban status indicators.
+    - Right pane: active chat conversation thread, user context header, 1-click ban/unban shortcut actions, and real-time response composer.
+- **FR-46.3**: **Push Notification Dispatching**:
+  - Sending a support inquiry triggers immediate push notification alerts to all system administrators.
+  - Admin replies dispatch push notifications directly to the inquiring user (`/api/support/messages`).
+- **FR-46.4**: **Database Migration & Storage**:
+  - `deploy/init-scripts/10-support-chat-and-bans.sql` creating `public.support_messages` with timestamps, categories, and read tracking.
+
+### 🚫 FR-47: User Moderation, Account Bans & Suspension Protocol
+- **FR-47.1**: **Account Suspension Architecture**:
+  - Extension of `public.profiles` with `is_banned` (boolean), `banned_at` (timestamptz), `banned_by` (UUID), and `ban_reason` (text).
+- **FR-47.2**: **Suspension Lockout Screen ([`src/app/(dashboard)/layout.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/layout.tsx))**:
+  - Banned users attempting to navigate the dashboard are intercepted with an informative suspension lockout screen displaying the formal ban reason.
+  - Interactive **"💬 Contactar con el Administrador"** button opening `SupportChatModal` pre-configured in `'appeal'` category to preserve the user's right to clarification and appeal.
+- **FR-47.3**: **Superadmin Ban & Unban Controls**:
+  - **1-Click Ban Action with Reason Prompt**: Accessible in Users table, Support thread header, and Moderation reports cards.
+  - **1-Click Unban Action**: Instantly lifts restrictions, reactivates user account, and dispatches a `'user_unbanned'` notification to the user.
+  - Filter pills (*Todos*, *Activos*, **🚫 *Baneados***) in the Admin Users tab.
+- **FR-47.4**: **REST Endpoints & Security**:
+  - `POST /api/admin/users/[id]/ban`: Apply suspension with reason.
+  - `DELETE /api/admin/users/[id]/ban`: Revoke suspension and restore full access.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -614,3 +676,10 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 🛡️ Added | **FR-43** | **Centralized Content Moderation Backoffice & Real-time Administrator Dispatching**: Built dedicated moderation inbox in `/admin?tab=reports` for reviewing user safety reports with filters, motive tags, preview links, and 1-click status actions; automatic WebPush/mobile push notification alerts to all system administrators on report creation; and REST endpoints `/api/reports` (`GET`, `PATCH`, `POST`). |
 | **30/08/2026** | 👁️ Added | **FR-27.8** | **In-Audit Deep Expense Inspection**: Added interactive **"👁️ Ver gasto en detalle"** action banner in calculator balance audits (`/groups/[id]/audit`) allowing auditors to open the full read-only expense breakdown modal without losing their sequential audit position. |
 | **30/08/2026** | 🎨 Fixed | **Auth Layout Centering & Redirection Flow** | Standardized all authentication views (`/login`, `/register`, `/forgot-password`, `/reset-password`) with symmetrical `flex-col` layout, brand header, centered `main flex-1` card and bottom legal footer; sanitized `redirectTo` preventing loops to `/login`; resolved premature timeout in `DashboardLayout`; and added auto-redirect when `currentUser` is already authenticated. |
+| **30/08/2026** | 🔗 Added | **FR-43.2** | **Deep Navigation & In-Admin Inspection for Reported Expenses**: Associated `groupId` and calculated `targetUrl` (`/groups/[groupId]?tab=expenses&expenseId=[id]`) in `ReportContentModal`, `ExpenseCard`, and `ExpenseForm`; added database resolution in `POST /api/reports` and SQL JOINs in `GET /api/reports`; implemented `GET /api/expenses/[id]` REST endpoint; and integrated **"🔍 Inspeccionar"** in-admin modal and **"↗️ Ver gasto"** direct tab link in the Admin backoffice. |
+| **30/08/2026** | ❄️ Added | **FR-44** | **Group Freezing & Investigation Moderation Protocol**: Built complete group freezing architecture (`08-frozen-groups.sql`, `freezeGroup`, `unfreezeGroup`, `is_frozen`); total lockout screen for regular users with investigation status notice; admin investigation banner with unfreeze action; admin privilege to delete reported expenses during frozen state; backoffice filter and 1-click freeze/unfreeze modals; API mutation shielding (HTTP 403); and 20-language translation support. |
+| **30/08/2026** | 🛡️ Added | **FR-45** | **Moderation Feedback Loop, Resolution Notes, Evidence Snapshots & Dual Freeze Mode**: Added automated reporter feedback notifications upon resolution/dismissal; administrative resolution note input (`ResolveReportModal`) and persistence (`public.content_reports.resolution_notes`); evidence snapshots on expense deletion (`evidence_snapshot`); and dual freeze mode (🔒 *Full Lockout* vs 👁️ *Read-Only*) with 20-language translation support. |
+| **30/08/2026** | 💬 Added | **FR-46** | **Official Support Chat & User-Admin Communication Channel**: Created dedicated user support modal (`SupportChatModal.tsx`) with category selection (*General, Bug, Report Clarification, Appeal*); backoffice admin chat hub (`/admin?tab=support`) with real-time response capability; database migration `10-support-chat-and-bans.sql`; automated push notifications to admins on inquiry and to users on reply; and 20-language translation support. |
+| **30/08/2026** | 🚫 Added | **FR-47** | **User Moderation, Account Bans & Suspension Protocol**: Implemented user ban database columns (`is_banned`, `banned_at`, `banned_by`, `ban_reason`); dashboard suspension lockout screen with formal reason and direct appeal button; 1-click ban/unban controls in Users table, Support thread header, and Moderation reports cards; REST endpoints `/api/admin/users/[id]/ban` (`POST`, `DELETE`); and automated user notification upon sanction/reactivation. |
+
+

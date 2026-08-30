@@ -85,7 +85,10 @@ export default function GroupDetailPage() {
     lastImportBatch,
     undoLastImport,
     restoreGroup,
+    freezeGroup,
+    unfreezeGroup,
     isGroupAdmin,
+    isAppAdmin,
     getGroupMessages,
   } = usePachas();
   const { t } = useTranslation();
@@ -237,6 +240,51 @@ export default function GroupDetailPage() {
     );
   }
 
+  if (group.is_frozen && !isAppAdmin && group.freeze_type !== 'read_only') {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <Card className="text-center p-8 max-w-lg w-full bg-white dark:bg-slate-900 border-sky-200 dark:border-sky-900/60 shadow-xl rounded-3xl space-y-4">
+            <div className="w-16 h-16 rounded-3xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
+              ❄️
+            </div>
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1 bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-bold px-3 py-1 rounded-full text-xs">
+                {t('groups.frozenBadge') || '❄️ Grupo Congelado por Investigación'}
+              </span>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white pt-2">
+                {t('groups.frozenTitle') || 'Grupo congelado por el administrador'}
+              </h2>
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                {group.name}
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto pt-1">
+                {group.frozen_reason || t('groups.frozenSubtitle') || 'Este grupo se encuentra bajo investigación de moderación y sus operaciones y contenidos están temporalmente suspendidos en espera de decisión.'}
+              </p>
+            </div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs text-left space-y-1">
+              <span className="font-bold block text-slate-700 dark:text-slate-300">
+                🔒 {t('groups.frozenNoticeTitle') || 'Estado de Protección Activo'}
+              </span>
+              <span>
+                {t('groups.frozenNotice') || 'Ningún usuario puede consultar gastos, saldos ni realizar modificaciones en este grupo mientras permanezca congelado.'}
+              </span>
+            </div>
+            <div className="pt-2">
+              <Link href="/dashboard">
+                <Button variant="brand" className="w-full shadow-md">
+                  {t('groups.backToTrips')}
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   if (group.is_archived && !isAdmin) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
@@ -332,6 +380,53 @@ export default function GroupDetailPage() {
               <ArchiveRestore className="w-4 h-4" />
               <span>{t('groups.restoreGroup')}</span>
             </Button>
+          </div>
+        )}
+
+        {/* Admin Investigation Banner for Frozen Groups */}
+        {group.is_frozen && isAppAdmin && (
+          <div className="mb-4 p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-900/60 text-sky-600 dark:text-sky-400 flex items-center justify-center text-xl shrink-0">
+                ❄️
+              </div>
+              <div>
+                <span className="text-xs font-black text-sky-900 dark:text-sky-200 block">
+                  {t('groups.frozenAdminInvestigation') || 'Modo Investigación / Grupo Congelado'}
+                </span>
+                <span className="text-[11px] text-sky-800/80 dark:text-sky-300/90 block">
+                  {group.frozen_reason || t('groups.frozenSubtitle') || 'Grupo congelado bajo investigación. Los miembros regulares no tienen acceso.'}
+                </span>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="brand"
+              onClick={async () => {
+                await unfreezeGroup(group.id);
+              }}
+              className="text-xs font-bold gap-1.5 shrink-0 bg-sky-600 hover:bg-sky-700 text-white shadow-xs"
+            >
+              <span>🔥 {t('groups.unfreezeAction') || 'Descongelar Grupo'}</span>
+            </Button>
+          </div>
+        )}
+
+        {/* Read-Only Investigation Banner for Members */}
+        {group.is_frozen && !isAppAdmin && group.freeze_type === 'read_only' && (
+          <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center gap-3 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xl shrink-0">
+              👁️
+            </div>
+            <div>
+              <span className="text-xs font-black text-amber-900 dark:text-amber-200 block">
+                {t('groups.frozenReadOnlyTitle') || 'Modo Solo Lectura por Investigación'}
+              </span>
+              <span className="text-[11px] text-amber-800/80 dark:text-amber-300/90 block">
+                {group.frozen_reason || t('groups.frozenSubtitle') || 'Este grupo se encuentra en modo solo lectura en espera de decisión de moderación. Las modificaciones y el chat están suspendidos.'}
+              </span>
+            </div>
           </div>
         )}
 

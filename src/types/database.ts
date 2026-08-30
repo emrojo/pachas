@@ -22,6 +22,10 @@ export interface Profile {
   avatar_url?: string | null;
   bizum_phone?: string | null;
   role?: 'admin' | 'member';
+  is_banned?: boolean;
+  banned_at?: string | null;
+  banned_by?: string | null;
+  ban_reason?: string | null;
   created_at: string;
 }
 
@@ -38,6 +42,11 @@ export interface Group {
   updated_at: string;
   is_archived?: boolean;
   archived_at?: string | null;
+  is_frozen?: boolean;
+  frozen_at?: string | null;
+  frozen_by?: string | null;
+  frozen_reason?: string | null;
+  freeze_type?: 'full' | 'read_only' | null;
 }
 
 export interface GroupMember {
@@ -205,6 +214,30 @@ export interface PendingReceiptScan {
   scanned_data?: any; // ScannedReceiptData
 }
 
+export type SupportCategory =
+  | 'general'
+  | 'bug'
+  | 'report_clarification'
+  | 'appeal'
+  | 'other';
+
+export interface SupportMessage {
+  id: string;
+  user_id: string;
+  sender_id: string;
+  sender_role: 'user' | 'admin';
+  message: string;
+  category?: SupportCategory;
+  attachment_url?: string | null;
+  is_read_by_user: boolean;
+  is_read_by_admin: boolean;
+  created_at: string;
+  sender_name?: string;
+  sender_avatar?: string;
+  user_name?: string;
+  user_email?: string;
+}
+
 export type NotificationType =
   | 'receipt_pending'
   | 'expense_created'
@@ -221,7 +254,12 @@ export type NotificationType =
   | 'member_removed'
   | 'group_archived'
   | 'group_restored'
+  | 'group_frozen'
+  | 'group_unfrozen'
   | 'group_deleted'
+  | 'support_message_received'
+  | 'user_banned'
+  | 'user_unbanned'
   | 'system';
 
 export interface AppNotification {

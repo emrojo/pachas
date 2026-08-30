@@ -11,6 +11,7 @@ export const es = {
     tabAnalytics: 'Analítica de Uso',
     tabAnomalies: 'Incidencias',
     tabReports: 'Reportes y Moderación',
+    tabSupport: 'Soporte y Chats',
     reportsTitle: 'Moderación y Reportes de Contenido',
     systemHealth: 'Salud y Diagnóstico del Sistema',
     runDiagnostics: 'Ejecutar Diagnóstico en Vivo',
@@ -209,6 +210,18 @@ export const es = {
   },
 
   groups: {
+    archived: 'Archivado',
+    frozenStatus: 'Congelado',
+    frozenBadge: '❄️ Grupo Congelado por Investigación',
+    frozenTitle: 'Grupo congelado por el administrador',
+    frozenSubtitle: 'Este grupo se encuentra bajo investigación de moderación y sus operaciones y contenidos están temporalmente suspendidos en espera de decisión.',
+    frozenReadOnlyTitle: 'Modo Solo Lectura por Investigación',
+    frozenNoticeTitle: 'Estado de Protección Activo',
+    frozenNotice: 'Ningún usuario puede consultar gastos, saldos ni realizar modificaciones en este grupo mientras permanezca congelado.',
+    frozenAdminInvestigation: 'Modo Investigación / Grupo Congelado',
+    freezeAction: 'Congelar grupo',
+    unfreezeAction: 'Descongelar grupo',
+    freezeReasonPlaceholder: 'Motivo de congelación / investigación...',
     groupAdmin: 'Admin del grupo',
     makeAdmin: 'Hacer Admin',
     removeAdmin: 'Quitar Admin',
@@ -721,6 +734,13 @@ export const es = {
     expenseBadge: 'Gasto vinculado',
     viewExpense: 'Ver gasto',
     syncWithExpenseNotice: 'Se añadirá también como comentario en el gasto',
+  },
+  support: {
+    chatTitle: 'Soporte y Ayuda',
+    directChatWithAdmin: 'Chat Directo con el Administrador',
+    helpDesk: 'Canal de soporte y resolución de incidencias',
+    bannedNotice: 'Cuenta Suspendida',
+    contactAdmin: 'Contactar con el Administrador',
   },
 } as const;
 

@@ -17,6 +17,8 @@ import {
   GroupMessageReplySnippet,
   PendingReceiptScan,
   AppNotification,
+  SupportMessage,
+  SupportCategory,
 } from '@/types/database';
 import {
   DEMO_CURRENT_USER,
@@ -110,6 +112,9 @@ interface PachasContextType {
   deleteGroup: (groupId: string) => Promise<boolean>;
   archiveGroup: (groupId: string) => Promise<Group>;
   restoreGroup: (groupId: string) => Promise<Group>;
+  freezeGroup: (groupId: string, reason?: string, freezeType?: 'full' | 'read_only') => Promise<Group>;
+  unfreezeGroup: (groupId: string) => Promise<Group>;
+  isGroupFrozen: (groupId: string) => boolean;
   joinGroup: (inviteCode: string, enableNotifications?: boolean) => Promise<Group | null>;
   addMemberByEmail: (groupId: string, email: string) => Promise<boolean>;
   addMemberToGroup: (groupId: string, userId: string) => Promise<boolean>;
@@ -159,6 +164,21 @@ interface PachasContextType {
   clearAllNotifications: () => void;
   addNotification: (notif: Omit<AppNotification, 'id' | 'created_at' | 'read'>) => void;
   seedDemoNotifications: () => void;
+  supportMessages: SupportMessage[];
+  isSupportModalOpen: boolean;
+  supportInitialCategory?: SupportCategory;
+  openSupportModal: (category?: SupportCategory) => void;
+  closeSupportModal: () => void;
+  fetchSupportMessages: (targetUserId?: string) => Promise<SupportMessage[]>;
+  sendSupportMessage: (
+    message: string,
+    category?: SupportCategory,
+    targetUserId?: string,
+    attachmentUrl?: string
+  ) => Promise<SupportMessage | null>;
+  markSupportMessagesRead: (targetUserId?: string) => Promise<void>;
+  banUser: (userId: string, reason?: string) => Promise<boolean>;
+  unbanUser: (userId: string) => Promise<boolean>;
 }
 
 
@@ -174,6 +194,7 @@ const STORAGE_KEYS = {
   COMMENTS: 'pachas_expense_comments_v2',
   GROUP_MESSAGES: 'pachas_group_messages_v2',
   NOTIFICATIONS: 'pachas_notifications_v2',
+  SUPPORT_MESSAGES: 'pachas_support_messages_v2',
 };
 
 // Helper to strip heavy base64 strings from objects before saving to localStorage to prevent QuotaExceededError
@@ -306,6 +327,34 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
     }
   }, [notifications]);
+
+  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = safeGetLocalStorage(STORAGE_KEYS.SUPPORT_MESSAGES);
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return [];
+  });
+
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [supportInitialCategory, setSupportInitialCategory] = useState<SupportCategory | undefined>(undefined);
+
+  const openSupportModal = (category?: SupportCategory) => {
+    setSupportInitialCategory(category);
+    setIsSupportModalOpen(true);
+  };
+
+  const closeSupportModal = () => {
+    setIsSupportModalOpen(false);
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      safeSetLocalStorage(STORAGE_KEYS.SUPPORT_MESSAGES, JSON.stringify(supportMessages));
+    }
+  }, [supportMessages]);
 
   // Synchronize pending receipt scans into notifications
   useEffect(() => {
@@ -938,6 +987,57 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     return updated;
+  };
+
+  const freezeGroup = async (groupId: string, reason?: string, freezeType: 'full' | 'read_only' = 'full'): Promise<Group> => {
+    const targetGroup = getGroup(groupId);
+    const updated = await updateGroup(groupId, {
+      is_frozen: true,
+      frozen_at: new Date().toISOString(),
+      frozen_by: currentUser?.id || null,
+      frozen_reason: reason || 'Bajo investigación por moderación',
+      freeze_type: freezeType,
+    });
+
+    addNotification({
+      user_id: currentUser ? currentUser.id : 'system',
+      type: 'group_frozen',
+      title: '❄️ Grupo congelado por investigación',
+      message: `El grupo "${targetGroup?.name || 'Viaje'}" ha sido temporalmente congelado por el administrador en espera de decisión.`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: '/dashboard',
+    });
+
+    return updated;
+  };
+
+  const unfreezeGroup = async (groupId: string): Promise<Group> => {
+    const targetGroup = getGroup(groupId);
+    const updated = await updateGroup(groupId, {
+      is_frozen: false,
+      frozen_at: null,
+      frozen_by: null,
+      frozen_reason: null,
+      freeze_type: null,
+    });
+
+    addNotification({
+      user_id: currentUser ? currentUser.id : 'system',
+      type: 'group_unfrozen',
+      title: '🔥 Grupo descongelado',
+      message: `El grupo "${targetGroup?.name || 'Viaje'}" ha sido descongelado por el administrador y vuelve a estar disponible.`,
+      group_id: groupId,
+      group_name: targetGroup?.name,
+      action_url: `/groups/${groupId}`,
+    });
+
+    return updated;
+  };
+
+  const isGroupFrozen = (groupId: string): boolean => {
+    const g = getGroup(groupId);
+    return Boolean(g?.is_frozen);
   };
 
   const deleteGroup = async (groupId: string): Promise<boolean> => {
@@ -2644,6 +2744,146 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
+  const fetchSupportMessages = async (targetUserId?: string): Promise<SupportMessage[]> => {
+    try {
+      const url = targetUserId ? `/api/support/messages?userId=${targetUserId}` : '/api/support/messages';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.messages)) {
+          setSupportMessages(data.messages);
+          safeSetLocalStorage(STORAGE_KEYS.SUPPORT_MESSAGES, JSON.stringify(data.messages));
+          return data.messages;
+        }
+      }
+    } catch (err) {
+      console.warn('Error fetching support messages from API:', err);
+    }
+    return supportMessages;
+  };
+
+  const sendSupportMessage = async (
+    message: string,
+    category: SupportCategory = 'general',
+    targetUserId?: string,
+    attachmentUrl?: string
+  ): Promise<SupportMessage | null> => {
+    const isUserAdmin = isAppAdmin(currentUser);
+    const resolvedUserId = isUserAdmin && targetUserId ? targetUserId : (currentUser?.id || 'demo-user-1');
+    const senderRole: 'user' | 'admin' = isUserAdmin && targetUserId ? 'admin' : 'user';
+
+    const localMsg: SupportMessage = {
+      id: `sup-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      user_id: resolvedUserId,
+      sender_id: currentUser?.id || 'demo-user-1',
+      sender_role: senderRole,
+      message,
+      category,
+      attachment_url: attachmentUrl || undefined,
+      is_read_by_user: senderRole === 'user',
+      is_read_by_admin: senderRole === 'admin',
+      created_at: new Date().toISOString(),
+      sender_name: currentUser?.full_name,
+      sender_avatar: currentUser?.avatar_url || undefined,
+    };
+
+    setSupportMessages((prev) => {
+      const updated = [...prev, localMsg];
+      safeSetLocalStorage(STORAGE_KEYS.SUPPORT_MESSAGES, JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      const res = await fetch('/api/support/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          category,
+          targetUserId,
+          attachmentUrl,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.message) {
+          setSupportMessages((prev) =>
+            prev.map((m) => (m.id === localMsg.id ? { ...data.message, sender_name: currentUser?.full_name } : m))
+          );
+          return data.message;
+        }
+      }
+    } catch (err) {
+      console.warn('Error posting support message to API:', err);
+    }
+
+    return localMsg;
+  };
+
+  const markSupportMessagesRead = async (targetUserId?: string): Promise<void> => {
+    try {
+      await fetch('/api/support/messages', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: targetUserId }),
+      });
+    } catch {}
+  };
+
+  const banUser = async (userId: string, reason?: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/ban`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      if (res.ok) {
+        setAvailableUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId
+              ? { ...u, is_banned: true, ban_reason: reason || 'Infracción de moderación', banned_at: new Date().toISOString() }
+              : u
+          )
+        );
+        _setCurrentUser((prev) =>
+          prev && prev.id === userId
+            ? { ...prev, is_banned: true, ban_reason: reason || 'Infracción de moderación' }
+            : prev
+        );
+        return true;
+      }
+    } catch (err) {
+      console.error('Error banning user:', err);
+    }
+    return false;
+  };
+
+  const unbanUser = async (userId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/ban`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setAvailableUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId
+              ? { ...u, is_banned: false, ban_reason: null, banned_at: null, banned_by: null }
+              : u
+          )
+        );
+        _setCurrentUser((prev) =>
+          prev && prev.id === userId
+            ? { ...prev, is_banned: false, ban_reason: null, banned_at: null, banned_by: null }
+            : prev
+        );
+        return true;
+      }
+    } catch (err) {
+      console.error('Error unbanning user:', err);
+    }
+    return false;
+  };
+
   return (
     <PachasContext.Provider
       value={{
@@ -2681,6 +2921,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteGroup,
         archiveGroup,
         restoreGroup,
+        freezeGroup,
+        unfreezeGroup,
+        isGroupFrozen,
         joinGroup,
         addMemberByEmail,
         addMemberToGroup,
@@ -2713,6 +2956,16 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         clearAllNotifications,
         addNotification,
         seedDemoNotifications,
+        supportMessages,
+        isSupportModalOpen,
+        supportInitialCategory,
+        openSupportModal,
+        closeSupportModal,
+        fetchSupportMessages,
+        sendSupportMessage,
+        markSupportMessagesRead,
+        banUser,
+        unbanUser,
       }}
     >
 

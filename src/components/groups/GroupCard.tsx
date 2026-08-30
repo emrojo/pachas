@@ -45,7 +45,15 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
               </span>
             </div>
             <div className="absolute top-2.5 right-2.5">
-              {net > 0.01 ? (
+              {group.is_frozen ? (
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-sky-500/90 text-white shadow-sm backdrop-blur-md flex items-center gap-1">
+                  ❄️ {t('groups.frozenStatus') || 'Congelado'}
+                </span>
+              ) : group.is_archived ? (
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-amber-500/90 text-white shadow-sm backdrop-blur-md flex items-center gap-1">
+                  📦 {t('groups.archived') || 'Archivado'}
+                </span>
+              ) : net > 0.01 ? (
                 <Badge variant="emerald" className="shadow-sm backdrop-blur-md">
                   <TrendingUp className="w-3 h-3 text-emerald-600" />
                   {t('balances.youAreOwed')} {formatMoney(net, group.base_currency)}
@@ -75,7 +83,15 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
 
               {/* Status Badge */}
               <div>
-                {net > 0.01 ? (
+                {group.is_frozen ? (
+                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 flex items-center gap-1 shadow-xs">
+                    ❄️ {t('groups.frozenStatus') || 'Congelado'}
+                  </span>
+                ) : group.is_archived ? (
+                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1 shadow-xs">
+                    📦 {t('groups.archived') || 'Archivado'}
+                  </span>
+                ) : net > 0.01 ? (
                   <Badge variant="emerald">
                     <TrendingUp className="w-3 h-3 text-emerald-600" />
                     {t('balances.youAreOwed')} {formatMoney(net, group.base_currency)}

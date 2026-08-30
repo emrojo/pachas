@@ -38,6 +38,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
+    // Check if group is frozen
+    try {
+      const grpRes = await pool.query('SELECT is_frozen FROM public.groups WHERE id = $1', [groupId]);
+      if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
+        return NextResponse.json(
+          { error: 'El grupo se encuentra temporalmente congelado por moderación. No se pueden registrar pagos.' },
+          { status: 403 }
+        );
+      }
+    } catch {}
+
     await pool.query(
       `INSERT INTO public.settlements (
          id, group_id, from_user_id, to_user_id, amount, currency,

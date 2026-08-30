@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { verifyJwt } from '@/lib/auth/jwt';
+import { isServerAdmin } from '@/lib/auth/adminAuth';
 import { randomUUID } from 'crypto';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
 
@@ -46,6 +47,23 @@ export async function PUT(
     if (!pool) {
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
+
+    // Check if group is frozen
+    try {
+      const grpRes = await pool.query(
+        'SELECT g.is_frozen FROM public.expenses e JOIN public.groups g ON g.id = e.group_id WHERE e.id = $1',
+        [expenseId]
+      );
+      if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
+        const isAdmin = isServerAdmin(payload.email, payload.sub, payload.role);
+        if (!isAdmin) {
+          return NextResponse.json(
+            { error: 'El grupo se encuentra temporalmente congelado por moderación. No se pueden modificar gastos.' },
+            { status: 403 }
+          );
+        }
+      }
+    } catch {}
 
     // Auto-heal column outside transaction if database permissions allow
     try {
@@ -305,6 +323,23 @@ export async function DELETE(
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
+    // Check if group is frozen
+    try {
+      const grpRes = await pool.query(
+        'SELECT g.is_frozen FROM public.expenses e JOIN public.groups g ON g.id = e.group_id WHERE e.id = $1',
+        [expenseId]
+      );
+      if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
+        const isAdmin = isServerAdmin(payload.email, payload.sub, payload.role);
+        if (!isAdmin) {
+          return NextResponse.json(
+            { error: 'El grupo se encuentra temporalmente congelado por moderación. Solo el administrador puede eliminar gastos.' },
+            { status: 403 }
+          );
+        }
+      }
+    } catch {}
+
     // Query expense info before deletion to notify group
     let deletedExpenseInfo: { title: string; amount: string; currency: string; group_id: string; group_name: string; deleter_name: string } | null = null;
     try {
@@ -353,3 +388,70 @@ export async function DELETE(
     return NextResponse.json({ error: err.message || 'Error al eliminar gasto' }, { status: 500 });
   }
 }
+
+export async function GET(
+  request: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
+  try {
+    const params = await props.params;
+    const expenseId = params?.id;
+    if (!expenseId) {
+      return NextResponse.json({ error: 'ID de gasto no proporcionado' }, { status: 400 });
+    }
+
+    const pool = getDbPool();
+    if (!pool) {
+      return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
+    }
+
+    const expRes = await pool.query(
+      `SELECT e.*, p.full_name as created_by_name
+       FROM public.expenses e
+       LEFT JOIN public.profiles p ON p.id = e.created_by
+       WHERE e.id::text = $1`,
+      [expenseId]
+    );
+
+    if (expRes.rows.length === 0) {
+      return NextResponse.json({ error: 'Gasto no encontrado' }, { status: 404 });
+    }
+
+    const expense = expRes.rows[0];
+
+    // Fetch payers
+    const payersRes = await pool.query(
+      'SELECT * FROM public.expense_payers WHERE expense_id::text = $1',
+      [expenseId]
+    );
+
+    // Fetch splits
+    const splitsRes = await pool.query(
+      'SELECT * FROM public.expense_splits WHERE expense_id::text = $1',
+      [expenseId]
+    );
+
+    return NextResponse.json({
+      expense: {
+        ...expense,
+        amount: Number(expense.amount),
+        converted_amount: Number(expense.converted_amount || expense.amount),
+        exchange_rate: Number(expense.exchange_rate || 1),
+        latitude: expense.latitude ? Number(expense.latitude) : null,
+        longitude: expense.longitude ? Number(expense.longitude) : null,
+        payers: payersRes.rows.map((p) => ({
+          ...p,
+          amount_paid: Number(p.amount_paid),
+        })),
+        splits: splitsRes.rows.map((s) => ({
+          ...s,
+          amount_owed: Number(s.amount_owed),
+        })),
+      },
+    });
+  } catch (err: any) {
+    console.error('API get single expense error:', err);
+    return NextResponse.json({ error: err.message || 'Error al obtener gasto' }, { status: 500 });
+  }
+}
+

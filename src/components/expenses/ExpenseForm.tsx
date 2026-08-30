@@ -1768,6 +1768,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         targetType="expense"
         targetId={expenseToEdit?.id || ''}
         targetTitle={expenseToEdit?.title}
+        groupId={groupId || expenseToEdit?.group_id}
+        targetUrl={
+          (groupId || expenseToEdit?.group_id) && expenseToEdit?.id
+            ? `/groups/${groupId || expenseToEdit?.group_id}?tab=expenses&expenseId=${expenseToEdit.id}`
+            : undefined
+        }
       />
 
       <ReceiptModal
