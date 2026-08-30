@@ -85,6 +85,7 @@ interface PachasContextType {
   ) => Promise<Group>;
   updateGroup: (groupId: string, data: Partial<Group>) => Promise<Group>;
   getGroup: (id: string) => Group | undefined;
+  fetchGroup: (groupId: string) => Promise<Group | null>;
   getGroupMembers: (groupId: string) => GroupMember[];
   getGroupExpenses: (groupId: string) => Expense[];
   getGroupSettlements: (groupId: string) => Settlement[];
@@ -735,6 +736,47 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Revalidate user ban status on window focus or visibility change
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkBanStatus = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user) {
+            _setCurrentUser((prev) => {
+              if (!prev) return data.user;
+              if (prev.is_banned !== data.user.is_banned) {
+                if (data.user.is_banned && typeof window !== 'undefined') {
+                  window.location.href = '/suspended';
+                }
+                return { ...prev, ...data.user };
+              }
+              return prev;
+            });
+          }
+        }
+      } catch {}
+    };
+
+    const onFocus = () => checkBanStatus();
+    const onVisChange = () => {
+      if (document.visibilityState === 'visible') checkBanStatus();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisChange);
+    const interval = setInterval(checkBanStatus, 15000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisChange);
+      clearInterval(interval);
+    };
+  }, []);
+
   const clearPendingSyncQueue = () => {
     clearSyncQueue();
     setPendingSyncCount(0);
@@ -785,7 +827,96 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const handleApiBanOrAuthError = (res: Response, errData?: any): boolean => {
+    if (res.status === 403) {
+      const isBan = errData?.is_banned === true || String(errData?.error || '').toLowerCase().includes('suspendid');
+      if (isBan || errData?.suspended_redirect_url) {
+        _setCurrentUser((prev) => (prev ? { ...prev, is_banned: true, ban_reason: errData?.ban_reason || prev.ban_reason } : null));
+        if (typeof window !== 'undefined') {
+          window.location.href = '/suspended';
+        }
+        return true;
+      }
+    }
+    return false;
+  };
+
   const getGroup = (id: string) => groups.find((g) => g.id === id);
+
+  const fetchGroup = async (groupId: string): Promise<Group | null> => {
+    if (!groupId) return null;
+    try {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { cache: 'no-store' });
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        handleApiBanOrAuthError(res, errData);
+        return null;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.group) {
+          const grp: Group = data.group;
+          setGroups((prev) => {
+            const exists = prev.some((g) => g.id === grp.id);
+            return exists ? prev.map((g) => (g.id === grp.id ? grp : g)) : [grp, ...prev];
+          });
+
+          const rawMembers = (data.group as any).members;
+          if (rawMembers && Array.isArray(rawMembers)) {
+            setMembers((prev) => ({
+              ...prev,
+              [grp.id]: rawMembers,
+            }));
+          }
+
+          // Fetch expenses in parallel
+          fetch(`/api/expenses?groupId=${encodeURIComponent(groupId)}`, { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+              if (d?.expenses) {
+                setExpenses((prev) => ({
+                  ...prev,
+                  [grp.id]: d.expenses,
+                }));
+              }
+            })
+            .catch(() => {});
+
+          // Fetch settlements in parallel
+          fetch(`/api/settlements?groupId=${encodeURIComponent(groupId)}`, { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+              if (d?.settlements) {
+                setSettlements((prev) => ({
+                  ...prev,
+                  [grp.id]: d.settlements,
+                }));
+              }
+            })
+            .catch(() => {});
+
+          // Fetch group messages in parallel
+          fetch(`/api/groups/${encodeURIComponent(groupId)}/messages`, { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+              if (d?.messages) {
+                setGroupMessages((prev) => ({
+                  ...prev,
+                  [grp.id]: d.messages,
+                }));
+              }
+            })
+            .catch(() => {});
+
+          return grp;
+        }
+      }
+    } catch (e) {
+      console.warn('fetchGroup error:', e);
+    }
+    return null;
+  };
+
   const getGroupMembers = (groupId: string) => members[groupId] || [];
   const getGroupExpenses = (groupId: string) => expenses[groupId] || [];
   const getGroupSettlements = (groupId: string) => settlements[groupId] || [];
@@ -813,6 +944,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   ): Promise<Group> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para crear un grupo.');
+    }
+    if (currentUser.is_banned) {
+      if (typeof window !== 'undefined') window.location.href = '/suspended';
+      throw new Error('Tu cuenta se encuentra suspendida por moderación.');
     }
 
     const groupId = generateUUID();
@@ -848,7 +983,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveState(updatedGroups, updatedMembers, updatedExpenses, updatedSettlements);
 
     try {
-      await fetch('/api/groups', {
+      const res = await fetch('/api/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -862,30 +997,50 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           notifications_enabled: enableNotifications,
         }),
       });
-    } catch (e) {
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        handleApiBanOrAuthError(res, errData);
+        throw new Error(errData.error || 'Operación no permitida.');
+      }
+    } catch (e: any) {
+      if (e.message && e.message.includes('suspendid')) throw e;
       console.warn('API createGroup fallback to local storage:', e);
     }
 
     return newGroup;
   };
 
-
   const updateGroup = async (groupId: string, data: Partial<Group>): Promise<Group> => {
-    const existing = groups.find((g) => g.id === groupId);
+    if (currentUser?.is_banned) {
+      if (typeof window !== 'undefined') window.location.href = '/suspended';
+      throw new Error('Tu cuenta se encuentra suspendida por moderación.');
+    }
+
+    let existing = groups.find((g) => g.id === groupId);
     if (!existing) {
-      throw new Error('Grupo no encontrado');
+      try {
+        const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { cache: 'no-store' });
+        if (res.ok) {
+          const d = await res.json();
+          if (d?.group) existing = d.group;
+        }
+      } catch {}
     }
 
     const updatedGroup: Group = {
-      ...existing,
+      ...(existing || ({ id: groupId, name: 'Grupo', base_currency: 'EUR' } as any)),
       ...data,
       updated_at: new Date().toISOString(),
     };
 
-    const updatedGroups = groups.map((g) => (g.id === groupId ? updatedGroup : g));
+    const updatedGroups = groups.some((g) => g.id === groupId)
+      ? groups.map((g) => (g.id === groupId ? updatedGroup : g))
+      : [updatedGroup, ...groups];
+
     const groupExpenses = expenses[groupId] || [];
     const isBaseCurrencyChanged =
       Boolean(data.base_currency) &&
+      existing?.base_currency &&
       data.base_currency?.toUpperCase() !== existing.base_currency?.toUpperCase();
 
     if (isBaseCurrencyChanged && groupExpenses.length > 0) {
@@ -893,7 +1048,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const recalculatedExpenses = await recalculateAllExpensesForNewBaseCurrency(
           groupExpenses,
           data.base_currency!,
-          existing.base_currency
+          existing!.base_currency
         );
         const updatedExpensesMap = {
           ...expenses,
@@ -928,7 +1083,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     try {
-      await fetch(`/api/groups/${encodeURIComponent(groupId)}`, {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -939,8 +1094,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           base_currency: updatedGroup.base_currency,
           is_archived: updatedGroup.is_archived,
           archived_at: updatedGroup.archived_at,
+          is_frozen: updatedGroup.is_frozen,
+          frozen_at: updatedGroup.frozen_at,
+          frozen_by: updatedGroup.frozen_by,
+          frozen_reason: updatedGroup.frozen_reason,
+          freeze_type: updatedGroup.freeze_type,
         }),
       });
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        handleApiBanOrAuthError(res, errData);
+      }
     } catch (e) {
       console.warn('API updateGroup fallback:', e);
     }
@@ -1345,6 +1509,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para registrar un gasto.');
     }
+    if (currentUser.is_banned) {
+      if (typeof window !== 'undefined') window.location.href = '/suspended';
+      throw new Error('Tu cuenta se encuentra suspendida por moderación.');
+    }
 
     const grpMembers = getGroupMembers(input.groupId);
     const memberProfiles = new Map(grpMembers.map((m) => [m.user_id, m.profile]));
@@ -1450,11 +1618,23 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }),
         });
 
+        if (res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          handleApiBanOrAuthError(res, errData);
+          throw new Error(errData.error || 'Tu cuenta se encuentra suspendida.');
+        }
+
         if (res.ok) {
           isSynced = true;
           newExpense.is_pending_sync = false;
+        } else if (res.status >= 400 && res.status < 500) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Error al guardar el gasto.');
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.message && (e.message.includes('suspendid') || e.message.includes('permisos') || e.message.includes('Error al guardar'))) {
+          throw e;
+        }
         console.warn('API addExpense fallback to queue:', e);
       }
     }
@@ -1804,6 +1984,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para editar un gasto.');
     }
+    if (currentUser.is_banned) {
+      if (typeof window !== 'undefined') window.location.href = '/suspended';
+      throw new Error('Tu cuenta se encuentra suspendida por moderación.');
+    }
 
     const currentExpenses = expensesRef.current[groupId] || expenses[groupId] || [];
     let existing = currentExpenses.find((e) => e.id === expenseId);
@@ -1919,11 +2103,23 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }),
         });
 
+        if (res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          handleApiBanOrAuthError(res, errData);
+          throw new Error(errData.error || 'Tu cuenta se encuentra suspendida.');
+        }
+
         if (res.ok) {
           isSynced = true;
           updatedExpense.is_pending_sync = false;
+        } else if (res.status >= 400 && res.status < 500) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Error al actualizar el gasto.');
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.message && (e.message.includes('suspendid') || e.message.includes('permisos') || e.message.includes('Error al actualizar'))) {
+          throw e;
+        }
         console.warn('API updateExpense fallback to queue:', e);
       }
     }
@@ -1966,11 +2162,16 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return updatedExpense;
   };
 
-  const deleteExpense = async (groupId: string, expenseId: string) => {
+  const deleteExpense = async (groupId: string, expenseId: string): Promise<void> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para eliminar un gasto.');
     }
-    const currentExpenses = expenses[groupId] || [];
+    if (currentUser.is_banned) {
+      if (typeof window !== 'undefined') window.location.href = '/suspended';
+      throw new Error('Tu cuenta se encuentra suspendida por moderación.');
+    }
+
+    const currentExpenses = expensesRef.current[groupId] || expenses[groupId] || [];
     const existing = currentExpenses.find((e) => e.id === expenseId);
     if (existing && existing.created_by !== currentUser.id) {
       throw new Error('No puedes eliminar este gasto porque fue creado por otro amigo.');
@@ -1999,8 +2200,16 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const res = await fetch(`/api/expenses/${encodeURIComponent(expenseId)}`, {
           method: 'DELETE',
         });
+        if (res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          handleApiBanOrAuthError(res, errData);
+          throw new Error(errData.error || 'Tu cuenta se encuentra suspendida.');
+        }
         if (res.ok) isDeleted = true;
-      } catch (e) {
+      } catch (e: any) {
+        if (e.message && (e.message.includes('suspendid') || e.message.includes('permisos'))) {
+          throw e;
+        }
         console.warn('API deleteExpense fallback to queue:', e);
       }
     }
@@ -2026,6 +2235,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   ): Promise<Settlement> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para saldar cuentas.');
+    }
+    if (currentUser.is_banned) {
+      if (typeof window !== 'undefined') window.location.href = '/suspended';
+      throw new Error('Tu cuenta se encuentra suspendida por moderación.');
     }
 
     const grp = getGroup(groupId);
@@ -2069,11 +2282,23 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }),
         });
 
+        if (res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          handleApiBanOrAuthError(res, errData);
+          throw new Error(errData.error || 'Tu cuenta se encuentra suspendida.');
+        }
+
         if (res.ok) {
           isSynced = true;
           newSettlement.is_pending_sync = false;
+        } else if (res.status >= 400 && res.status < 500) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Error al guardar la liquidación.');
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.message && (e.message.includes('suspendid') || e.message.includes('permisos') || e.message.includes('Error al guardar'))) {
+          throw e;
+        }
         console.warn('API recordSettlement fallback to queue:', e);
       }
     }
@@ -2334,6 +2559,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const addExpenseComment = async (expenseId: string, text: string, gifUrl?: string | null): Promise<ExpenseComment> => {
     if (!currentUser) throw new Error('Debes iniciar sesión para comentar.');
+    if (currentUser.is_banned) {
+      if (typeof window !== 'undefined') window.location.href = '/suspended';
+      throw new Error('Tu cuenta se encuentra suspendida por moderación.');
+    }
 
     const newComment: ExpenseComment = {
       id: `cmt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -2346,7 +2575,42 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       profile: currentUser,
     };
 
-    // Optimistic local update in expense comments
+    const allExpenses = Object.values(expensesRef.current || {}).flat();
+    const targetExpense = allExpenses.find((e) => e.id === expenseId);
+    const targetGroup = targetExpense ? getGroup(targetExpense.group_id) : undefined;
+
+    // Sync to backend first if online to prevent banned users seeing optimistic messages
+    try {
+      const res = await fetch(`/api/expenses/${expenseId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: newComment.id, comment: text, gif_url: gifUrl }),
+      });
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        handleApiBanOrAuthError(res, errData);
+        throw new Error(errData.error || 'Tu cuenta se encuentra suspendida.');
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.comment) {
+          setComments((prev) => {
+            const currentList = prev[expenseId] || [];
+            const updated = { ...prev, [expenseId]: [...currentList.filter((c) => c.id !== newComment.id), { ...data.comment, profile: currentUser }] };
+            safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+            return updated;
+          });
+          return data.comment;
+        }
+      }
+    } catch (err: any) {
+      if (err.message && (err.message.includes('suspendid') || err.message.includes('permisos'))) {
+        throw err;
+      }
+      console.warn('Error syncing comment to backend:', err);
+    }
+
+    // Local fallback for offline mode only
     setComments((prev) => {
       const currentList = prev[expenseId] || [];
       const updated = { ...prev, [expenseId]: [...currentList, newComment] };
@@ -2354,11 +2618,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return updated;
     });
 
-    const allExpenses = Object.values(expensesRef.current || {}).flat();
-    const targetExpense = allExpenses.find((e) => e.id === expenseId);
-    const targetGroup = targetExpense ? getGroup(targetExpense.group_id) : undefined;
-
-    // Omnichannel integration: ALSO mirror into groupMessages stream with expense chip
     if (targetExpense?.group_id) {
       const mirroredMsg: GroupMessage = {
         id: newComment.id,
@@ -2382,29 +2641,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
         return updated;
       });
-    }
-
-    // Sync to backend
-    try {
-      const res = await fetch(`/api/expenses/${expenseId}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: newComment.id, comment: text, gif_url: gifUrl }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.comment) {
-          setComments((prev) => {
-            const currentList = prev[expenseId] || [];
-            const replaced = currentList.map((c) => (c.id === newComment.id ? { ...data.comment, profile: currentUser } : c));
-            const updated = { ...prev, [expenseId]: replaced };
-            safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
-            return updated;
-          });
-        }
-      }
-    } catch (err) {
-      console.warn('Error syncing comment to backend:', err);
     }
 
     addNotification({
@@ -2540,6 +2776,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     expenseId?: string | null
   ): Promise<GroupMessage> => {
     if (!currentUser) throw new Error('Debes iniciar sesión para enviar mensajes.');
+    if (currentUser.is_banned) {
+      if (typeof window !== 'undefined') window.location.href = '/suspended';
+      throw new Error('Tu cuenta se encuentra suspendida por moderación.');
+    }
 
     const effExpenseId = expenseId || replyToSnippet?.expense_id || null;
     const allExpenses = Object.values(expensesRef.current || {}).flat();
@@ -2562,7 +2802,45 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       profile: currentUser,
     };
 
-    // Optimistic local update in groupMessages
+    // Sync to backend first if online to prevent banned users seeing optimistic messages
+    try {
+      const res = await fetch(`/api/groups/${groupId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: newMessage.id,
+          message,
+          gif_url: gifUrl,
+          reply_to_id: replyToId,
+          reply_to_snippet: replyToSnippet,
+          expense_id: effExpenseId,
+        }),
+      });
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        handleApiBanOrAuthError(res, errData);
+        throw new Error(errData.error || 'Tu cuenta se encuentra suspendida.');
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.message) {
+          setGroupMessages((prev) => {
+            const currentList = prev[groupId] || [];
+            const updated = { ...prev, [groupId]: [...currentList.filter((m) => m.id !== newMessage.id), { ...data.message, profile: currentUser }] };
+            safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+            return updated;
+          });
+          return data.message;
+        }
+      }
+    } catch (err: any) {
+      if (err.message && (err.message.includes('suspendid') || err.message.includes('permisos'))) {
+        throw err;
+      }
+      console.warn('Error syncing group message to backend:', err);
+    }
+
+    // Local fallback for offline mode
     setGroupMessages((prev) => {
       const currentList = prev[groupId] || [];
       const updated = { ...prev, [groupId]: [...currentList, newMessage] };
@@ -2901,6 +3179,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         createGroup,
         updateGroup,
         getGroup,
+        fetchGroup,
         getGroupMembers,
         getGroupExpenses,
         getGroupSettlements,

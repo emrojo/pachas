@@ -104,4 +104,21 @@ describe('Role Separation: App Admin vs Group Admin', () => {
       process.env.NEXT_PUBLIC_ADMIN_EMAIL = originalEnv;
     }
   });
+
+  it('grants global isGroupAdmin privileges to Superadmins for any group', () => {
+    // Superadmin inspecting an unrelated third-party group
+    const foreignGroup: Group = {
+      id: 'group-stranger-trip',
+      name: 'Viaje Privado Ajenos',
+      icon_emoji: '🚗',
+      base_currency: 'USD',
+      invite_code: 'STRANGE1',
+      created_by: 'stranger-id',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    expect(isGroupAdmin('group-stranger-trip', superAdminUser, foreignGroup, [])).toBe(true);
+    expect(isGroupAdmin('any-other-random-id', superAdminUser)).toBe(true);
+  });
 });

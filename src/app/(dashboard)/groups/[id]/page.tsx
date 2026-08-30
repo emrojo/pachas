@@ -73,6 +73,7 @@ export default function GroupDetailPage() {
 
   const {
     getGroup,
+    fetchGroup,
     getGroupMembers,
     getGroupExpenses,
     getGroupSettlements,
@@ -93,12 +94,31 @@ export default function GroupDetailPage() {
   } = usePachas();
   const { t } = useTranslation();
 
+  const [isFetchingGroup, setIsFetchingGroup] = useState(false);
+
   const group = getGroup(groupId);
   const members = getGroupMembers(groupId);
   const expenses = getGroupExpenses(groupId);
   const settlements = getGroupSettlements(groupId);
   const balances = getGroupBalances(groupId);
   const debts = getGroupDebts(groupId);
+
+  // Fetch group on-demand if not already in local state (e.g. for superadmins or direct URLs)
+  useEffect(() => {
+    if (!group && groupId) {
+      setIsFetchingGroup(true);
+      fetchGroup(groupId)
+        .catch(() => {})
+        .finally(() => setIsFetchingGroup(false));
+    }
+  }, [groupId, group, fetchGroup]);
+
+  // Immediate redirect for banned users
+  useEffect(() => {
+    if (currentUser?.is_banned) {
+      router.replace('/suspended');
+    }
+  }, [currentUser?.is_banned, router]);
 
   const [activeTab, setActiveTab] = useState<TabType>('expenses');
   const [friendsSubTab, setFriendsSubTab] = useState<'list' | 'chat'>('list');
@@ -200,7 +220,7 @@ export default function GroupDetailPage() {
 
   const isAdmin = isGroupAdmin(groupId);
 
-  if (isLoading && !group) {
+  if ((isLoading || isFetchingGroup) && !group) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
@@ -352,6 +372,31 @@ export default function GroupDetailPage() {
       <Navbar />
 
       <main className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-5">
+        {/* Global Superadmin Inspection Banner */}
+        {isAppAdmin && !members.some((m) => m.user_id === currentUser?.id) && (
+          <div className="p-4 bg-indigo-500/10 border-2 border-indigo-500/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs text-lg">
+                🛡️
+              </div>
+              <div>
+                <span className="text-xs font-black text-indigo-900 dark:text-indigo-200 block">
+                  Modo Auditoría / Superadministrador
+                </span>
+                <span className="text-[11px] text-indigo-800/80 dark:text-indigo-300/90 block">
+                  Inspeccionando este grupo con privilegios globales de plataforma. Puedes auditar gastos, saldos, chat o moderar el grupo.
+                </span>
+              </div>
+            </div>
+
+            <Link href="/admin">
+              <Button size="sm" variant="outline" className="text-xs font-bold shrink-0">
+                Volver a Backoffice
+              </Button>
+            </Link>
+          </div>
+        )}
+
         {/* Archived Banner for Admin */}
         {group.is_archived && isAdmin && (
           <div className="p-4 bg-amber-500/15 border-2 border-amber-500/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
