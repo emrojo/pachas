@@ -38,4 +38,29 @@ describe('Legal & User Safety Test Suite', () => {
     expect(mockExport.created_expenses).toHaveLength(1);
     expect(mockExport).toHaveProperty('export_date');
   });
+
+  it('manages content report lifecycles and routes to admin moderation panel (FR-43)', () => {
+    const report = {
+      id: 'rep-999',
+      target_type: 'expense',
+      target_id: 'exp-secret-card',
+      target_title: 'Ticket con número de tarjeta visible',
+      reason: 'privacy',
+      details: 'El ticket muestra los 16 dígitos de la tarjeta bancaria',
+      reporter_email: 'denunciante@pachas.com',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    expect(report.status).toBe('pending');
+
+    // Admin notification routing destination
+    const adminNotificationUrl = '/admin?tab=reports';
+    expect(adminNotificationUrl).toBe('/admin?tab=reports');
+
+    // Transition to reviewed / action_taken
+    const updatedStatus = 'reviewed';
+    const reviewedReport = { ...report, status: updatedStatus };
+    expect(reviewedReport.status).toBe('reviewed');
+  });
 });

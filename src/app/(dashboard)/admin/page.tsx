@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
+import { formatDate } from '@/lib/utils';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -123,13 +124,35 @@ interface MetricsData {
   }>;
 }
 
+export interface ContentReport {
+  id: string;
+  target_type: string;
+  target_id: string;
+  target_title?: string;
+  target_url?: string;
+  group_id?: string;
+  reason: string;
+  details?: string;
+  reporter_id?: string;
+  reporter_email?: string;
+  reporter_name?: string;
+  reporter_avatar?: string;
+  status: 'pending' | 'reviewed' | 'dismissed' | 'action_taken';
+  created_at: string;
+}
+
 export default function AdminBackofficePage() {
   const router = useRouter();
   const { currentUser, isAppAdmin, groups, getGroupMembers, getGroupExpenses, getGroupSettlements, availableUsers } = usePachas();
   const { t } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<'health' | 'users' | 'groups' | 'analytics' | 'anomalies'>('health');
+  const [activeTab, setActiveTab] = useState<'health' | 'users' | 'groups' | 'analytics' | 'anomalies' | 'reports'>('health');
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const [reports, setReports] = useState<ContentReport[]>([]);
+  const [reportSearch, setReportSearch] = useState('');
+  const [reportStatusFilter, setReportStatusFilter] = useState<'all' | 'pending' | 'reviewed' | 'dismissed'>('all');
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [updatingReportId, setUpdatingReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
@@ -305,8 +328,56 @@ export default function AdminBackofficePage() {
     }
   };
 
+  const fetchReports = async () => {
+    try {
+      setIsLoadingReports(true);
+      const res = await fetch('/api/reports');
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.reports && Array.isArray(data.reports)) {
+          setReports(data.reports);
+        }
+      }
+    } catch (err) {
+      console.warn('Error fetching reports:', err);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
+
+  const handleUpdateReportStatus = async (reportId: string, newStatus: string) => {
+    try {
+      setUpdatingReportId(reportId);
+      const res = await fetch('/api/reports', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId, status: newStatus }),
+      });
+      if (res.ok) {
+        setReports((prev) =>
+          prev.map((r) => (r.id === reportId ? { ...r, status: newStatus as any } : r))
+        );
+      }
+    } catch (err) {
+      console.warn('Error updating report status:', err);
+    } finally {
+      setUpdatingReportId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam && ['health', 'users', 'groups', 'analytics', 'anomalies', 'reports'].includes(tabParam)) {
+        setActiveTab(tabParam as any);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     fetchMetrics();
+    fetchReports();
   }, [groups, availableUsers]);
 
   const handleRunDiagnostics = async () => {
@@ -607,6 +678,24 @@ export default function AdminBackofficePage() {
             {(metrics?.anomalies?.length ?? 0) > 0 && (
               <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] flex items-center justify-center">
                 {metrics?.anomalies.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('reports')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 ${
+              activeTab === 'reports'
+                ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4 text-rose-500" />
+            <span>{t('admin.tabReports') || 'Reportes y Moderación'}</span>
+            {reports.filter((r) => r.status === 'pending').length > 0 && (
+              <span className="w-5 h-5 rounded-full bg-rose-500 text-white font-black text-[10px] flex items-center justify-center animate-pulse">
+                {reports.filter((r) => r.status === 'pending').length}
               </span>
             )}
           </button>
@@ -1283,6 +1372,299 @@ export default function AdminBackofficePage() {
                     </div>
                   ))
                 )}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* TAB 6: CONTENT REPORTS & MODERATION */}
+        {activeTab === 'reports' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <Card className="p-6 space-y-5">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center shrink-0">
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>{t('admin.reportsTitle') || 'Moderación y Reportes de Contenido'}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold">
+                        {reports.length}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Bandeja centralizada de denuncias de usuarios sobre gastos, tickets, comentarios o perfiles.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchReports}
+                  isLoading={isLoadingReports}
+                  className="text-xs font-bold gap-1.5 self-start sm:self-auto"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Actualizar</span>
+                </Button>
+              </div>
+
+              {/* Filters & Search */}
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between pt-1">
+                {/* Status Tabs */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl overflow-x-auto">
+                  {(['all', 'pending', 'reviewed', 'dismissed'] as const).map((status) => {
+                    const count = status === 'all' ? reports.length : reports.filter((r) => r.status === status).length;
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setReportStatusFilter(status)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+                          reportStatusFilter === status
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <span className="capitalize">
+                          {status === 'all'
+                            ? 'Todos'
+                            : status === 'pending'
+                            ? 'Pendientes'
+                            : status === 'reviewed'
+                            ? 'Revisados'
+                            : 'Desestimados'}
+                        </span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          status === 'pending' && count > 0
+                            ? 'bg-rose-500 text-white'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative flex-1 sm:max-w-xs">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por motivo, título o email..."
+                    value={reportSearch}
+                    onChange={(e) => setReportSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                </div>
+              </div>
+
+              {/* Reports List */}
+              <div className="space-y-3 pt-2">
+                {(() => {
+                  const filtered = reports.filter((r) => {
+                    if (reportStatusFilter !== 'all' && r.status !== reportStatusFilter) {
+                      return false;
+                    }
+                    if (!reportSearch.trim()) return true;
+                    const query = reportSearch.toLowerCase();
+                    return (
+                      r.target_type?.toLowerCase().includes(query) ||
+                      r.target_title?.toLowerCase().includes(query) ||
+                      r.reason?.toLowerCase().includes(query) ||
+                      r.details?.toLowerCase().includes(query) ||
+                      r.reporter_email?.toLowerCase().includes(query)
+                    );
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          No hay reportes que coincidan con los filtros seleccionados
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Los nuevos reportes enviados por los usuarios aparecerán en esta bandeja automáticamente.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return filtered.map((report) => {
+                    const isPending = report.status === 'pending';
+                    const isUpdating = updatingReportId === report.id;
+
+                    const typeEmoji =
+                      report.target_type === 'expense'
+                        ? '💸'
+                        : report.target_type === 'receipt'
+                        ? '🧾'
+                        : report.target_type === 'group'
+                        ? '🏖️'
+                        : report.target_type === 'user'
+                        ? '👤'
+                        : report.target_type === 'comment'
+                        ? '💬'
+                        : '🛡️';
+
+                    return (
+                      <div
+                        key={report.id}
+                        className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                          isPending
+                            ? 'bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-900/60 shadow-xs'
+                            : 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          {/* Left: Info */}
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Target Type Badge */}
+                              <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1 border border-slate-200 dark:border-slate-700">
+                                <span>{typeEmoji}</span>
+                                <span className="capitalize">{report.target_type}</span>
+                              </span>
+
+                              {/* Reason Badge */}
+                              <span className="px-2.5 py-0.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 text-xs font-bold border border-rose-200 dark:border-rose-900/60">
+                                Motivo: {report.reason}
+                              </span>
+
+                              {/* Status Badge */}
+                              <span
+                                className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-md ${
+                                  report.status === 'pending'
+                                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                                    : report.status === 'reviewed'
+                                    ? 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300'
+                                    : report.status === 'action_taken'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400'
+                                }`}
+                              >
+                                {report.status === 'pending'
+                                  ? '🟡 Pendiente'
+                                  : report.status === 'reviewed'
+                                  ? '🔵 Revisado'
+                                  : report.status === 'action_taken'
+                                  ? '🟢 Medida Tomada'
+                                  : '⚪ Desestimado'}
+                              </span>
+
+                              {/* Date */}
+                              <span className="text-[11px] text-slate-400">
+                                {formatDate(report.created_at, 'dd/MM/yyyy HH:mm')}
+                              </span>
+                            </div>
+
+                            {/* Title / Target Content */}
+                            <div>
+                              <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                                {report.target_title || `Elemento ID: ${report.target_id}`}
+                              </h4>
+                              {report.details && (
+                                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 bg-slate-100 dark:bg-slate-800/80 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 leading-relaxed italic">
+                                  "{report.details}"
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Reporter Info */}
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                              <span>Reportado por:</span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                {report.reporter_name || report.reporter_email || 'Usuario anónimo'}
+                              </span>
+                              {report.reporter_email && (
+                                <span className="text-slate-400">({report.reporter_email})</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Right: Actions */}
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start flex-wrap">
+                            {/* View Item Link */}
+                            {report.target_url ? (
+                              <a
+                                href={report.target_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 shadow-2xs"
+                              >
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                                <span>Ver</span>
+                              </a>
+                            ) : report.target_type === 'group' ? (
+                              <Link
+                                href={`/groups/${report.target_id}`}
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 shadow-2xs"
+                              >
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                                <span>Ver grupo</span>
+                              </Link>
+                            ) : report.group_id ? (
+                              <Link
+                                href={`/groups/${report.group_id}?tab=expenses&expenseId=${report.target_id}`}
+                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 shadow-2xs"
+                              >
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                                <span>Ver gasto</span>
+                              </Link>
+                            ) : null}
+
+                            {/* Mark Reviewed */}
+                            {report.status !== 'reviewed' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUpdateReportStatus(report.id, 'reviewed')}
+                                isLoading={isUpdating}
+                                className="text-xs font-bold border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Revisado</span>
+                              </Button>
+                            )}
+
+                            {/* Mark Action Taken */}
+                            {report.status !== 'action_taken' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUpdateReportStatus(report.id, 'action_taken')}
+                                isLoading={isUpdating}
+                                className="text-xs font-bold border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Resuelto</span>
+                              </Button>
+                            )}
+
+                            {/* Dismiss */}
+                            {report.status !== 'dismissed' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdateReportStatus(report.id, 'dismissed')}
+                                isLoading={isUpdating}
+                                className="text-xs font-bold text-slate-500 hover:text-rose-600"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Desestimar</span>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </Card>
           </div>

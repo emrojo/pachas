@@ -219,7 +219,7 @@ pachas/
 │   │   └── db/                  # PostgreSQL connection pool & helpers
 │   ├── locales/                 # 20 full language dictionary definitions
 │   └── types/                   # Database & application TypeScript definitions
-├── USER_REQUIREMENTS.md         # Formal User Requirements Registry (FR-01 to FR-42)
+├── USER_REQUIREMENTS.md         # Formal User Requirements Registry (FR-01 to FR-43)
 └── README.md                    # Main project documentation
 ```
 
