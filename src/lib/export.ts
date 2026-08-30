@@ -98,12 +98,12 @@ export function exportGroupToCSV(group: Group, expenses: Expense[], balances: Me
   document.body.removeChild(link);
 }
 
-export function exportGroupToPDF(
+export async function exportGroupToPDF(
   group: Group,
   expenses: Expense[],
   balances: MemberBalance[],
   debts: SimplifiedDebt[]
-) {
+): Promise<void> {
   const doc = new jsPDF();
   const baseCurrency = group.base_currency || 'EUR';
 
@@ -637,8 +637,89 @@ export function exportGroupToPDF(
     memberCurrentY = (doc as any).lastAutoTable.finalY + 10;
   });
 
-  // Save the complete PDF
-  doc.save(`Pachas_${group.name.replace(/\s+/g, '_')}_informe_completo.pdf`);
+  // Save or share the complete PDF
+  const filename = `Pachas_${group.name.replace(/\s+/g, '_')}_informe_completo.pdf`;
+  const blob = doc.output('blob');
+  await sharePDF(blob, filename);
+}
+
+// =============================================================================
+// SHARE PDF — native share sheet / Web Share API / fallback download
+// =============================================================================
+
+/**
+ * Shares or downloads a PDF Blob.
+ * Priority:
+ *   1. Capacitor native (Android/iOS) — opens OS share sheet
+ *   2. Web Share API (Chrome Android, Safari iOS) — OS share sheet from browser
+ *   3. Fallback — classic <a download> for desktop browsers
+ */
+export async function sharePDF(blob: Blob, filename: string): Promise<void> {
+  // 1. Capacitor native share
+  if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
+    try {
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { Share } = await import('@capacitor/share');
+
+      const base64 = await blobToBase64(blob);
+      const savedFile = await Filesystem.writeFile({
+        path: filename,
+        data: base64,
+        directory: Directory.Cache,
+      });
+
+      await Share.share({
+        title: filename,
+        url: savedFile.uri,
+        dialogTitle: 'Compartir informe de Pachas',
+      });
+      return;
+    } catch (err) {
+      console.warn('[sharePDF] Capacitor share failed, falling back:', err);
+    }
+  }
+
+  // 2. Web Share API (Chrome Android, Samsung Browser, Safari iOS)
+  if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: filename,
+          files: [file],
+        });
+        return;
+      } catch (err: any) {
+        // AbortError means user dismissed — not a real error
+        if (err?.name === 'AbortError') return;
+        console.warn('[sharePDF] Web Share API failed, falling back:', err);
+      }
+    }
+  }
+
+  // 3. Fallback: classic download
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/** Converts a Blob to a base64 string (without the data URL prefix). */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Strip "data:application/pdf;base64," prefix
+      resolve(result.split(',')[1] ?? result);
+    };
+    reader.readAsDataURL(blob);
+  });
 }
 
 /**
