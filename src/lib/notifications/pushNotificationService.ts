@@ -165,10 +165,21 @@ export async function setGroupNotificationPreference(
   enabled: boolean
 ): Promise<NotificationPrefResult> {
   try {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`pachas_notif_${groupId}`, enabled ? 'true' : 'false');
+      } catch {}
+    }
+
     let subResult: NotificationPrefResult | null = null;
     if (enabled) {
       subResult = await subscribeDeviceToPush();
       if (subResult.permissionDenied) {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`pachas_notif_${groupId}`, 'false');
+          } catch {}
+        }
         return subResult;
       }
     }
@@ -203,12 +214,29 @@ export async function setGroupNotificationPreference(
 export async function getGroupNotificationPreference(
   groupId: string
 ): Promise<boolean> {
+  let localPref: boolean | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem(`pachas_notif_${groupId}`);
+      if (saved !== null) {
+        localPref = saved === 'true';
+      }
+    } catch {}
+  }
+
   try {
     const res = await fetch(`/api/notifications/preferences?groupId=${encodeURIComponent(groupId)}`);
     if (res.ok) {
       const data = await res.json();
-      return Boolean(data.enabled);
+      const serverEnabled = Boolean(data.enabled);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`pachas_notif_${groupId}`, serverEnabled ? 'true' : 'false');
+        } catch {}
+      }
+      return serverEnabled;
     }
   } catch {}
-  return false;
+
+  return localPref !== null ? localPref : false;
 }
