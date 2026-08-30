@@ -5,6 +5,7 @@ import {
   unsubscribeDeviceFromPush,
   setGroupNotificationPreference,
   getGroupNotificationPreference,
+  sendTestPushNotification,
 } from './pushNotificationService';
 
 describe('pushNotificationService', () => {
@@ -35,5 +36,11 @@ describe('pushNotificationService', () => {
 
     const result = await setGroupNotificationPreference('g-123', false);
     expect(result.success).toBe(false);
+  });
+
+  it('handles sendTestPushNotification in non-browser environment safely', async () => {
+    const result = await sendTestPushNotification('u-123');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('no compatible');
   });
 });

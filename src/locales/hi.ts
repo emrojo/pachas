@@ -581,6 +581,15 @@ export const hi: TranslationDictionary = {
     "banner": "ऑफ़लाइन मोड: परिवर्तनों को स्थानीय रूप से सहेजा जा रहा है"
   },
   notifications: {
+    testButton: 'Send test notification',
+    testSending: 'Sending notification...',
+    testSuccess: 'Test notification sent! Check your screen banner.',
+    deviceTitle: 'Device Notifications',
+    deviceSubtitle: 'Verify that this browser or mobile device can receive expense and comment alerts.',
+    permissionGranted: 'Permission granted on this device',
+    permissionDenied: 'Permission blocked in browser (click 🔒 to allow)',
+    permissionDefault: 'Permission pending authorization',
+
   
     "groupTitle": "समूह सूचनाएं",
     "enableOnJoin": "इस समूह के लिए सूचनाएं चालू करें",

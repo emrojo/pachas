@@ -581,6 +581,15 @@ export const zh: TranslationDictionary = {
     "banner": "离线模式：正在本地保存更改"
   },
   notifications: {
+    testButton: 'Send test notification',
+    testSending: 'Sending notification...',
+    testSuccess: 'Test notification sent! Check your screen banner.',
+    deviceTitle: 'Device Notifications',
+    deviceSubtitle: 'Verify that this browser or mobile device can receive expense and comment alerts.',
+    permissionGranted: 'Permission granted on this device',
+    permissionDenied: 'Permission blocked in browser (click 🔒 to allow)',
+    permissionDefault: 'Permission pending authorization',
+
   
     "groupTitle": "群组通知",
     "enableOnJoin": "为此群组开启通知",
