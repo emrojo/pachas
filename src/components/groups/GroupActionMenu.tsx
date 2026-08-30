@@ -17,6 +17,8 @@ import {
   Bell,
   BellOff,
   Camera,
+  Download,
+  Share2,
 } from 'lucide-react';
 import {
   getGroupNotificationPreference,
@@ -33,7 +35,9 @@ export interface GroupActionMenuProps {
   onOpenCharts: () => void;
   onOpenAudit?: () => void;
   onOpenImport: () => void;
-  onExportPDF: () => void;
+  onExportPDF?: (mode?: 'download' | 'share') => void;
+  onDownloadPDF?: () => void;
+  onSharePDF?: () => void;
   onExportCSV: () => void;
   className?: string;
 }
@@ -49,11 +53,14 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
   onOpenAudit,
   onOpenImport,
   onExportPDF,
+  onDownloadPDF,
+  onSharePDF,
   onExportCSV,
   className = '',
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const [isPdfSubmenuOpen, setIsPdfSubmenuOpen] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -255,19 +262,81 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
               </div>
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleAction(onExportPDF)}
-              className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 rounded-xl transition-colors text-left"
-            >
-              <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center shrink-0">
-                <FileDown className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <span className="block truncate">{t('groups.exportPDF')}</span>
-                <span className="block text-[10px] font-normal text-slate-400 truncate">PDF con gráficos</span>
-              </div>
-            </button>
+            {/* Contextual PDF Menu Item with Download & Share Options */}
+            <div className="rounded-xl border border-rose-100 dark:border-rose-950/60 bg-rose-50/40 dark:bg-rose-950/20 overflow-hidden transition-all">
+              <button
+                type="button"
+                onClick={() => setIsPdfSubmenuOpen((prev) => !prev)}
+                className="w-full flex items-center justify-between gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300 flex items-center justify-center shrink-0">
+                    <FileDown className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block truncate">
+                      {t('groups.pdfReport') || t('groups.exportPDF') || 'Informe de Gastos (PDF)'}
+                    </span>
+                    <span className="block text-[10px] font-normal text-rose-600/80 dark:text-rose-400/80 truncate">
+                      {t('groups.download') || 'Descargar'} / {t('groups.share') || 'Compartir'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-rose-400 transition-transform duration-200 shrink-0 ${
+                    isPdfSubmenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isPdfSubmenuOpen && (
+                <div className="px-2 pb-2 pt-1 space-y-1 border-t border-rose-100/80 dark:border-rose-900/40 bg-white/70 dark:bg-slate-900/70">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleAction(() =>
+                        onDownloadPDF ? onDownloadPDF() : onExportPDF?.('download')
+                      )
+                    }
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-950/60 hover:text-rose-700 dark:hover:text-rose-300 rounded-lg transition-colors text-left group"
+                  >
+                    <div className="w-6 h-6 rounded-md bg-rose-100/80 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Download className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-xs font-bold truncate">
+                        {t('groups.downloadPDF') || 'Descargar PDF'}
+                      </span>
+                      <span className="block text-[9.5px] font-normal text-slate-400 truncate">
+                        {t('groups.downloadPDFDesc') || 'Guardar archivo en este dispositivo'}
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleAction(() =>
+                        onSharePDF ? onSharePDF() : onExportPDF?.('share')
+                      )
+                    }
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 hover:text-emerald-700 dark:hover:text-emerald-300 rounded-lg transition-colors text-left group"
+                  >
+                    <div className="w-6 h-6 rounded-md bg-emerald-100/80 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Share2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-xs font-bold truncate">
+                        {t('groups.sharePDF') || 'Compartir PDF'}
+                      </span>
+                      <span className="block text-[9.5px] font-normal text-slate-400 truncate">
+                        {t('groups.sharePDFDesc') || 'Enviar por WhatsApp, email o apps'}
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
 
             <button
               type="button"

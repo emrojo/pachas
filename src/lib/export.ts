@@ -102,7 +102,8 @@ export async function exportGroupToPDF(
   group: Group,
   expenses: Expense[],
   balances: MemberBalance[],
-  debts: SimplifiedDebt[]
+  debts: SimplifiedDebt[],
+  mode: 'download' | 'share' = 'download'
 ): Promise<void> {
   const doc = new jsPDF();
   const baseCurrency = group.base_currency || 'EUR';
@@ -640,19 +641,34 @@ export async function exportGroupToPDF(
   // Save or share the complete PDF
   const filename = `Pachas_${group.name.replace(/\s+/g, '_')}_informe_completo.pdf`;
   const blob = doc.output('blob');
-  await sharePDF(blob, filename);
+
+  if (mode === 'share') {
+    await sharePDF(blob, filename);
+  } else {
+    downloadPDF(blob, filename);
+  }
 }
 
 // =============================================================================
-// SHARE PDF — native share sheet / Web Share API / fallback download
+// DOWNLOAD & SHARE PDF — direct download vs native OS share sheet
 // =============================================================================
 
 /**
- * Shares or downloads a PDF Blob.
- * Priority:
- *   1. Capacitor native (Android/iOS) — opens OS share sheet
- *   2. Web Share API (Chrome Android, Safari iOS) — OS share sheet from browser
- *   3. Fallback — classic <a download> for desktop browsers
+ * Downloads a PDF Blob directly to the device storage.
+ */
+export function downloadPDF(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Shares a PDF Blob via native OS share sheet (Capacitor/Web Share API) or fallback download.
  */
 export async function sharePDF(blob: Blob, filename: string): Promise<void> {
   // 1. Capacitor native share
@@ -698,14 +714,7 @@ export async function sharePDF(blob: Blob, filename: string): Promise<void> {
   }
 
   // 3. Fallback: classic download
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadPDF(blob, filename);
 }
 
 /** Converts a Blob to a base64 string (without the data URL prefix). */
