@@ -167,7 +167,7 @@ Reglas críticas de extracción:
       try {
         const cleanName = modelName.replace(/^models\//, '');
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const timeoutId = setTimeout(() => controller.abort(), 35000);
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanName}:generateContent?key=${apiKey}`;
 
         console.log(`[Gemini OCR] 📸 Probando modelo: ${cleanName}...`);
