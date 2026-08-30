@@ -224,6 +224,8 @@ export const tr: TranslationDictionary = {
     unfreezeAction: 'Grubun dondurmasını kaldır',
     freezeReasonPlaceholder: 'Dondurma / inceleme nedeni...',
     groupAdmin: 'Group Admin',
+    bannedMember: 'Yasaklı',
+    bannedMemberSubtitle: 'Hesap moderasyon nedeniyle askıya alındı',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',

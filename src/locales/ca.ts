@@ -224,6 +224,8 @@ export const ca: TranslationDictionary = {
     unfreezeAction: 'Descongelar grup',
     freezeReasonPlaceholder: 'Motiu de congelació / investigació...',
     groupAdmin: 'Admin del grup',
+    bannedMember: 'Banejat',
+    bannedMemberSubtitle: 'Compte suspès per moderació',
     makeAdmin: 'Fer Admin',
     removeAdmin: 'Treure Admin',
     makeAdminPrompt: 'Vols atorgar permisos d\'administrador del grup a {name}?',

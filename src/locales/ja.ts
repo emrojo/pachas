@@ -224,6 +224,8 @@ export const ja: TranslationDictionary = {
     unfreezeAction: 'グループの凍結解除',
     freezeReasonPlaceholder: '凍結・調査の理由...',
     groupAdmin: 'Group Admin',
+    bannedMember: '利用停止',
+    bannedMemberSubtitle: 'モデレーションのためアカウント停止中',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',

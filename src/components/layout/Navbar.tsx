@@ -197,8 +197,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                                 }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <Avatar profile={u} size="sm" className="w-6 h-6 text-[10px]" />
-                                  <span className="truncate">{u.full_name}</span>
+                                  <Avatar profile={u} size="sm" className={`w-6 h-6 text-[10px] ${u.is_banned ? 'opacity-75 ring-1 ring-rose-500' : ''}`} />
+                                  <span className={`truncate ${u.is_banned ? 'line-through text-rose-600 dark:text-rose-400' : ''}`}>{u.full_name}</span>
+                                  {u.is_banned && <span className="text-[10px]">🚫</span>}
                                 </div>
                                 {isCurrent && <Check className="w-3.5 h-3.5 text-emerald-600" />}
                               </button>

@@ -61,14 +61,43 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
           const canRemove = groupId && (isAdmin || isCurrentUser);
           const isCreator = group ? group.created_by === member.user_id : false;
           const canToggleAdmin = groupId && isAdmin && !isCurrentUser && !isCreator;
+          const isBanned = Boolean(member.profile?.is_banned);
 
           return (
-            <div key={member.id} className="py-3.5 flex items-center justify-between gap-3">
+            <div
+              key={member.id}
+              className={`py-3.5 flex items-center justify-between gap-3 transition-colors ${
+                isBanned
+                  ? 'bg-rose-50/60 dark:bg-rose-950/30 px-3.5 rounded-2xl border border-rose-200/70 dark:border-rose-900/50 my-1'
+                  : ''
+              }`}
+            >
               <div className="flex items-center gap-3 min-w-0">
-                <Avatar profile={member.profile} size="md" />
+                <div className="relative shrink-0">
+                  <Avatar
+                    profile={member.profile}
+                    size="md"
+                    className={isBanned ? 'opacity-75 ring-2 ring-rose-500/60 ring-offset-1' : ''}
+                  />
+                  {isBanned && (
+                    <div
+                      className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center text-[9px] font-bold shadow-xs"
+                      title={t('groups.bannedMember') || 'Baneado'}
+                    >
+                      🚫
+                    </div>
+                  )}
+                </div>
+
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                    <span
+                      className={`text-sm font-semibold truncate ${
+                        isBanned
+                          ? 'text-rose-900 dark:text-rose-200 line-through opacity-80'
+                          : 'text-slate-900 dark:text-white'
+                      }`}
+                    >
                       {member.profile?.full_name || t('common.friend')}
                     </span>
                     {isCurrentUser && (
@@ -76,7 +105,16 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
                         {t('common.you')}
                       </span>
                     )}
-                    {member.role === 'admin' ? (
+                    {isBanned ? (
+                      <Badge
+                        variant="rose"
+                        size="sm"
+                        className="bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 gap-1 font-bold"
+                      >
+                        <ShieldAlert className="w-2.5 h-2.5" />
+                        {t('groups.bannedMember') || 'Baneado'}
+                      </Badge>
+                    ) : member.role === 'admin' ? (
                       <Badge variant="amber" size="sm">
                         <Shield className="w-2.5 h-2.5" />
                         {t('groups.groupAdmin') || 'Admin del grupo'}
@@ -86,12 +124,20 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
                   <span className="text-xs text-slate-500 dark:text-slate-400 block truncate">
                     {member.profile?.email || ''}
                   </span>
+                  {isBanned && (
+                    <div className="text-[11px] font-medium text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-0.5">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      <span className="truncate">
+                        {member.profile?.ban_reason || t('groups.bannedMemberSubtitle') || 'Cuenta suspendida por moderación'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
                 {/* Bizum phone badge if available */}
-                {member.profile?.bizum_phone && (
+                {member.profile?.bizum_phone && !isBanned && (
                   <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-900/40">
                     <Phone className="w-3 h-3" />
                     <span>{member.profile.bizum_phone}</span>
@@ -99,7 +145,7 @@ export const MemberList: React.FC<MemberListProps> = ({ groupId, members, isAdmi
                 )}
 
                 {/* Group Admin Toggle Button */}
-                {canToggleAdmin && (
+                {canToggleAdmin && !isBanned && (
                   <button
                     type="button"
                     onClick={() => setMemberToToggleRole(member)}

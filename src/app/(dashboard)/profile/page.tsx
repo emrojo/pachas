@@ -642,11 +642,16 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Avatar profile={u} size="sm" />
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-xs font-bold block truncate ${u.is_banned ? 'text-rose-900 dark:text-rose-200 line-through opacity-80' : 'text-slate-900 dark:text-white'}`}>
                             {u.full_name}
                           </span>
-                          {isCustom && (
+                          {u.is_banned && (
+                            <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                              Baneado
+                            </span>
+                          )}
+                          {isCustom && !u.is_banned && (
                             <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                               Creado
                             </span>

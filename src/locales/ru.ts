@@ -224,6 +224,8 @@ export const ru: TranslationDictionary = {
     unfreezeAction: 'Разморозить группу',
     freezeReasonPlaceholder: 'Причина заморозки / расследования...',
     groupAdmin: 'Group Admin',
+    bannedMember: 'Заблокирован',
+    bannedMemberSubtitle: 'Аккаунт заблокирован модерацией',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',

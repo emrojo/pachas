@@ -224,6 +224,8 @@ export const ar: TranslationDictionary = {
     unfreezeAction: 'إلغاء تجميد المجموعة',
     freezeReasonPlaceholder: 'سبب التجميد / التحقيق...',
     groupAdmin: 'Group Admin',
+    bannedMember: 'محظور',
+    bannedMemberSubtitle: 'تم تعليق الحساب للإشراف',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',

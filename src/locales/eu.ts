@@ -224,6 +224,8 @@ export const eu: TranslationDictionary = {
     unfreezeAction: 'Desizoztu taldea',
     freezeReasonPlaceholder: 'Izozteko / ikertzeko arrazoia...',
     groupAdmin: 'Taldeko admina',
+    bannedMember: 'Debekatuta',
+    bannedMemberSubtitle: 'Kontua eten egin da moderazioagatik',
     makeAdmin: 'Admin egin',
     removeAdmin: 'Admin kendu',
     makeAdminPrompt: '{name} taldeko administratzaile izendatu nahi duzu?',

@@ -224,6 +224,8 @@ export const el: TranslationDictionary = {
     unfreezeAction: 'Επαναφορά ομάδας',
     freezeReasonPlaceholder: 'Αιτία αναστολής / έρευνας...',
     groupAdmin: 'Group Admin',
+    bannedMember: 'Αποκλεισμένος',
+    bannedMemberSubtitle: 'Ο λογαριασμός έχει τεθεί σε αναστολή',
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     makeAdminPrompt: 'Do you want to grant group admin permissions to {name}?',

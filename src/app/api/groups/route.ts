@@ -109,7 +109,9 @@ export async function GET(request: NextRequest) {
                      'full_name', p.full_name,
                      'avatar_url', p.avatar_url,
                      'email', p.email,
-                     'bizum_phone', p.bizum_phone
+                     'bizum_phone', p.bizum_phone,
+                     'is_banned', COALESCE(p.is_banned, false),
+                     'ban_reason', p.ban_reason
                    )
                  )
                ) FILTER (WHERE gm.id IS NOT NULL),
