@@ -16,6 +16,7 @@
     "secrets:generate": "node deploy/generate-secrets.mjs",
     "db:migrate": "node deploy/migrate.mjs",
     "db:status": "node deploy/migrate.mjs --status",
+    "db:heal": "node deploy/heal-schema.mjs",
     "db:init": "node deploy/migrate.mjs",
     "db:setup-user": "node deploy/setup-postgres-user.mjs",
     "db:reset": "node deploy/migrate.mjs --reset",

@@ -124,11 +124,9 @@ export function getDbPool(): Pool | null {
     connectionTimeoutMillis: 5000,
   });
 
-  // Run pending SQL migrations from deploy/init-scripts asynchronously
-  runPendingMigrations(pool).catch(() => {
-    // Fallback to basic safety schema ensure if directory access fails
-    if (pool) ensureGlobalSchema(pool).catch(() => {});
-  });
+  // Ensure physical columns and run pending SQL migrations asynchronously
+  ensureGlobalSchema(pool).catch(() => {});
+  runPendingMigrations(pool).catch(() => {});
 
   return pool;
 }
