@@ -80,6 +80,10 @@ This document serves as the official and permanent registry for all **user requi
   - *Page 3*: **Full Expense History Table**: Complete table of all trip expenses (date, concept, category, payer, original and converted currency amounts).
   - *Page 4 onwards*: **Individual Expense Breakdown per Person**: Dedicated section for each friend with a summary card (Total Paid, Total Consumed, Net Balance) and a detailed table of all expenses they participated in or paid for individual verification.
 - **FR-09.2**: Download in **European CSV / Excel** format with semicolon (`;`) column separators, comma (`,`) decimals, and dedicated columns for `Establecimiento / Ubicación` (establishment name), `Coordenadas` (latitude, longitude), and `Enlace Google Maps` (clickable direct link).
+- **FR-09.3**: **Dual PDF Action: Contextual Direct Download vs Native OS Sharing**:
+  - Contextual submenu under Trip Tools (`GroupActionMenu.tsx`) providing two explicit actions for the generated PDF:
+    - **Descargar PDF** 📥: Directly saves the `.pdf` report file onto the user's local device storage without opening OS dialogs.
+    - **Compartir PDF** 🔗: Invokes the native OS share sheet (Capacitor Share on Android/iOS, Web Share API on mobile browsers) to dispatch the document directly via WhatsApp, email, or third-party apps.
 
 ### 📍 FR-10: Geolocation & Expense Maps (Google Maps)
 - **FR-10.1**: **Physical Presence Detection**: Checkbox *"I am physically at the payment location"* capturing high-precision GPS coordinates from mobile/browser and autocompleting establishment/address name via reverse geocoding.
@@ -448,3 +452,4 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 🗄️ Fixed | **FR-33.6** | **Database NOT NULL and CHECK Constraint Fallbacks**: Added support for legacy schema `converted_amount` / `exchange_rate` NOT NULL columns and enforced minimum `0.01` storage value during placeholder creation (`ocr_status: 'processing'`) satisfying `CHECK (amount > 0)` and `CHECK (amount_paid > 0)`. |
 | **30/08/2026** | 💬 Fixed | **FR-32.4** | **PostgreSQL UUID Compatibility in Comments**: Updated `05-expense-comments.sql` and `/api/expenses/[id]/comments` to use `UUID` types matching `public.expenses(id)` and added silent fallback for missing table states (`42P01`). |
 | **30/08/2026** | 🤖 Changed | **FR-31.6** | **Strict Vision Model Filtering & Fault-Tolerant JSON Parsing**: Filtered out text-only models (`gemma`, `embedding`, `aqa`) from dynamic ListModels discovery, implemented multi-tier fault-tolerant JSON & regex parsing in `/api/ocr/scan`, added `cleanTitle` prompt artifact sanitization, increased timeouts to 45s, and enabled client-side `rawText` fallback extraction. |
+| **30/08/2026** | 📄 Added | **FR-09.3** | **Dual PDF Action: Contextual Direct Download vs Native OS Sharing**: Contextual submenu in `GroupActionMenu` separating PDF export into direct local download (`downloadPDF`) and native OS share sheet (`sharePDF` via Capacitor/Web Share API), fully synchronized across all 19 language dictionaries. |

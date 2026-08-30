@@ -367,7 +367,9 @@ export default function GroupDetailPage() {
                   onOpenCharts={() => setActiveTab('charts')}
                   onOpenAudit={() => router.push(`/groups/${group.id}/audit`)}
                   onOpenImport={() => setIsImportModalOpen(true)}
-                  onExportPDF={() => exportGroupToPDF(group, expenses, balances, debts)}
+                  onDownloadPDF={() => exportGroupToPDF(group, expenses, balances, debts, 'download')}
+                  onSharePDF={() => exportGroupToPDF(group, expenses, balances, debts, 'share')}
+                  onExportPDF={(mode = 'download') => exportGroupToPDF(group, expenses, balances, debts, mode)}
                   onExportCSV={() => exportGroupToCSV(group, expenses, balances)}
                 />
               </div>
