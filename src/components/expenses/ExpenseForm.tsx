@@ -58,6 +58,7 @@ import {
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { ExpenseCommentsSection } from '@/components/expenses/ExpenseCommentsSection';
+import { ReceiptRedactionModal } from '@/components/expenses/ReceiptRedactionModal';
 import { scanReceipt, ScannedReceiptData } from '@/lib/ocr/receiptScanner';
 
 // Helper to parse date string into { dateStr: "DD/MM/YYYY", timeStr: "HH:mm", isoDate: "YYYY-MM-DD" }
@@ -479,29 +480,36 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setSelectedParticipants(members.map((m) => m.user_id));
   };
 
-  // Handle Photo Receipt upload securely and trigger smart OCR scan
+  const [preCensorImage, setPreCensorImage] = useState<string | null>(null);
+
+  // Handle Photo Receipt upload securely and open pre-redaction canvas
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const compressed = await validateAndCompressImage(file, 800, 0.8);
-        setReceiptUrl(compressed);
-
-        // Run OCR scan in background
-        setIsScanningReceipt(true);
-        try {
-          const data = await scanReceipt(compressed);
-          if (data && (data.amount || data.title || data.date)) {
-            setScannedData(data);
-          }
-        } catch (ocrErr) {
-          console.warn('OCR scanning failed:', ocrErr);
-        } finally {
-          setIsScanningReceipt(false);
-        }
+        const compressed = await validateAndCompressImage(file, 1200, 0.85);
+        setPreCensorImage(compressed);
       } catch (err: any) {
         alert(err.message || 'Error al procesar el ticket');
       }
+    }
+  };
+
+  const handleConfirmPreCensored = async (censoredDataUrl: string) => {
+    setReceiptUrl(censoredDataUrl);
+    setPreCensorImage(null);
+
+    // Run OCR scan on censored image
+    setIsScanningReceipt(true);
+    try {
+      const data = await scanReceipt(censoredDataUrl);
+      if (data && (data.amount || data.title || data.date)) {
+        setScannedData(data);
+      }
+    } catch (ocrErr) {
+      console.warn('OCR scanning failed:', ocrErr);
+    } finally {
+      setIsScanningReceipt(false);
     }
   };
 
@@ -1767,6 +1775,15 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         receiptUrl={receiptUrl}
         title={title || expenseToEdit?.title || t('expenses.receiptPhoto')}
       />
+
+      {preCensorImage && (
+        <ReceiptRedactionModal
+          isOpen={!!preCensorImage}
+          onClose={() => setPreCensorImage(null)}
+          imageSrc={preCensorImage}
+          onConfirmRedaction={handleConfirmPreCensored}
+        />
+      )}
     </Modal>
   );
 };

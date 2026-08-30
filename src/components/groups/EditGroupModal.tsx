@@ -56,15 +56,10 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { updateGroup, archiveGroup, restoreGroup, currentUser, getGroupMembers } = usePachas();
+  const { updateGroup, archiveGroup, restoreGroup, isGroupAdmin } = usePachas();
   const { t } = useTranslation();
 
-  const members = getGroupMembers(group.id);
-  const isAdmin =
-    currentUser
-      ? group.created_by === currentUser.id ||
-        members.some((m) => m.user_id === currentUser.id && m.role === 'admin')
-      : false;
+  const isAdmin = isGroupAdmin(group.id);
 
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description || '');

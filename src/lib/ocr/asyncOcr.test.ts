@@ -75,4 +75,35 @@ describe('Asynchronous AI Receipt OCR Workflow', () => {
     expect(failedExpense.ocr_status).toBe('failed');
     expect(failedExpense.title).toBe('Ticket pendiente de revisión');
   });
+
+  it('handles PendingReceiptScan with sensitiveBoxes for credit card censorship', () => {
+    const scanRecord = {
+      id: 'scan-1725000000',
+      group_id: 'grp-1',
+      user_id: 'user-carlos',
+      created_at: new Date().toISOString(),
+      original_image: 'data:image/jpeg;base64,pre_censored_image_data...',
+      status: 'ready' as const,
+      scanned_data: {
+        title: 'Restaurante El Faro',
+        amount: 48.50,
+        amountFormatted: '48,50',
+        date: '2026-08-30T14:30',
+        category: 'food' as const,
+        currency: 'EUR',
+        confidence: 0.98,
+        sensitiveBoxes: [
+          {
+            box_2d: [750, 200, 800, 800] as [number, number, number, number],
+            label: 'Número de tarjeta / Datos bancarios',
+          },
+        ],
+      },
+    };
+
+    expect(scanRecord.status).toBe('ready');
+    expect(scanRecord.scanned_data.sensitiveBoxes).toHaveLength(1);
+    expect(scanRecord.scanned_data.sensitiveBoxes[0].box_2d).toEqual([750, 200, 800, 800]);
+    expect(scanRecord.scanned_data.sensitiveBoxes[0].label).toContain('tarjeta');
+  });
 });

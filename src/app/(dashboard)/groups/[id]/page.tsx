@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
@@ -18,6 +18,9 @@ import { ImportExpensesModal } from '@/components/expenses/ImportExpensesModal';
 import { TripRouteMapModal } from '@/components/expenses/TripRouteMapModal';
 import { ExpenseChartsModal } from '@/components/expenses/ExpenseChartsModal';
 import { ExpenseChartsView } from '@/components/expenses/ExpenseChartsView';
+import { ReceiptRedactionModal } from '@/components/expenses/ReceiptRedactionModal';
+import { ReceiptValidationModal } from '@/components/expenses/ReceiptValidationModal';
+import { PendingScansBanner } from '@/components/expenses/PendingScansBanner';
 import { InviteModal } from '@/components/groups/InviteModal';
 import { EditGroupModal } from '@/components/groups/EditGroupModal';
 import { GroupActionMenu } from '@/components/groups/GroupActionMenu';
@@ -29,7 +32,7 @@ import { formatMoney } from '@/lib/currencies';
 import { formatDate } from '@/lib/utils';
 import { exportGroupToPDF, exportGroupToCSV } from '@/lib/export';
 import { validateAndCompressImage } from '@/lib/security/sanitize';
-import { ExpenseCategory, Expense } from '@/types/database';
+import { ExpenseCategory, Expense, PendingReceiptScan } from '@/types/database';
 import {
   ArrowLeft,
   Plus,
@@ -62,6 +65,7 @@ type SortOrder = 'desc' | 'asc';
 export default function GroupDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const groupId = params?.id as string;
 
   const {
@@ -73,10 +77,12 @@ export default function GroupDetailPage() {
     getGroupDebts,
     currentUser,
     isLoading,
-    scanAndCreateExpenseAsync,
+    queueReceiptScan,
+    pendingReceiptScans,
     lastImportBatch,
     undoLastImport,
     restoreGroup,
+    isGroupAdmin,
   } = usePachas();
   const { t } = useTranslation();
 
@@ -98,6 +104,21 @@ export default function GroupDetailPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  // Redaction and Validation states
+  const [redactionImage, setRedactionImage] = useState<string | null>(null);
+  const [validatingScan, setValidatingScan] = useState<PendingReceiptScan | null>(null);
+
+  // Check URL search params to open validation directly from notification
+  useEffect(() => {
+    const validateScanId = searchParams?.get('validateScan');
+    if (validateScanId && pendingReceiptScans.length > 0) {
+      const match = pendingReceiptScans.find((s) => s.id === validateScanId);
+      if (match) {
+        setValidatingScan(match);
+      }
+    }
+  }, [searchParams, pendingReceiptScans]);
 
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -136,11 +157,7 @@ export default function GroupDetailPage() {
     }
   }, [activeTab]);
 
-  const isAdmin =
-    currentUser
-      ? group?.created_by === currentUser.id ||
-        members.some((m) => m.user_id === currentUser.id && m.role === 'admin')
-      : false;
+  const isAdmin = isGroupAdmin(groupId);
 
   if (isLoading && !group) {
     return (
@@ -233,8 +250,7 @@ export default function GroupDetailPage() {
   const handleFastScanReceipt = async (file: File) => {
     try {
       const compressedDataUrl = await validateAndCompressImage(file, 1200, 0.85);
-      await scanAndCreateExpenseAsync(group.id, compressedDataUrl);
-      setActiveTab('expenses');
+      setRedactionImage(compressedDataUrl);
     } catch (err: any) {
       console.warn('Error during fast receipt scan:', err);
     }
@@ -377,6 +393,11 @@ export default function GroupDetailPage() {
           </div>
         </div>
 
+        {/* Pending Scans in Queue Banner */}
+        <PendingScansBanner
+          groupId={group.id}
+          onSelectScanToValidate={(scan) => setValidatingScan(scan)}
+        />
 
         {/* Tab Navigation with Mobile Arrow Controls */}
         <div className="relative flex items-center gap-1.5 sm:gap-2">
@@ -759,6 +780,29 @@ export default function GroupDetailPage() {
         isOpen={isChartsModalOpen}
         onClose={() => setIsChartsModalOpen(false)}
       />
+
+      {/* Pre-OCR Manual Redaction Canvas Modal */}
+      {redactionImage && (
+        <ReceiptRedactionModal
+          isOpen={!!redactionImage}
+          onClose={() => setRedactionImage(null)}
+          imageSrc={redactionImage}
+          onConfirmRedaction={async (censoredDataUrl) => {
+            await queueReceiptScan(group.id, censoredDataUrl);
+            setRedactionImage(null);
+          }}
+        />
+      )}
+
+      {/* Post-OCR Validation & Approval Modal */}
+      {validatingScan && (
+        <ReceiptValidationModal
+          isOpen={!!validatingScan}
+          onClose={() => setValidatingScan(null)}
+          pendingScan={validatingScan}
+          groupId={group.id}
+        />
+      )}
     </div>
   );
 }

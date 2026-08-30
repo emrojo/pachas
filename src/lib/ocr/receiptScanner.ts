@@ -1,5 +1,10 @@
 import { ExpenseCategory } from '@/types/database';
 
+export interface SensitiveBox {
+  box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
+  label?: string;
+}
+
 export interface ScannedReceiptData {
   amount?: number;
   amountFormatted?: string;
@@ -12,6 +17,7 @@ export interface ScannedReceiptData {
   mapsUrl?: string;
   currency?: string;
   rawText?: string;
+  sensitiveBoxes?: SensitiveBox[];
   confidence: number;
   source?: string;
 }
@@ -257,6 +263,7 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
           longitude: d.longitude,
           mapsUrl: d.mapsUrl,
           currency: d.currency,
+          sensitiveBoxes: d.sensitiveBoxes || [],
           confidence: d.confidence || 0.98,
           source: d.source || 'gemini-1.5-flash',
         };

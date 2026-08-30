@@ -21,7 +21,7 @@ export interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, availableUsers, setCurrentUser, isCurrentUserAdmin, isDemoMode, logout } = usePachas();
+  const { currentUser, availableUsers, setCurrentUser, isAppAdmin, isDemoMode, logout } = usePachas();
   const { t } = useTranslation();
   const donationUrl = useDonationUrl();
 
@@ -88,6 +88,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
             >
               {t('nav.profile')}
             </Link>
+            {isAppAdmin && (
+              <Link
+                href="/admin"
+                className={`transition-colors flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border ${
+                  pathname === '/admin'
+                    ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700'
+                    : 'text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-900/50 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>{t('admin.backofficeTitle') || 'Backoffice'}</span>
+              </Link>
+            )}
           </nav>
 
           {/* Action Button & User Dropdown */}
@@ -132,9 +145,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                         <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
                           {currentUser.full_name}
                         </span>
-                        {isCurrentUserAdmin && (
+                        {isAppAdmin && (
                           <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-                            {t('common.admin')}
+                            Superadmin
                           </span>
                         )}
                       </div>
@@ -180,7 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
 
                     {/* Menu actions */}
                     <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1">
-                      {isDemoMode && isCurrentUserAdmin && (
+                      {isDemoMode && isAppAdmin && (
                         <button
                           type="button"
                           onClick={() => {
@@ -204,6 +217,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
                         <span className="text-sm">☕</span>
                         <span>{t('donations.buttonText')}</span>
                       </a>
+
+                      {isAppAdmin && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setIsDropdownOpen(false)}
+                          className="w-full flex items-center gap-2 p-2 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>{t('admin.backofficeTitle') || 'Panel de Administración'}</span>
+                        </Link>
+                      )}
 
                       <Link
                         href="/profile"
