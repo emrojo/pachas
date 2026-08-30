@@ -109,11 +109,17 @@ export async function notifyGroupMembers(
 
   try {
     const res = await pool.query(
-      `SELECT user_id
-       FROM public.group_members
-       WHERE group_id = $1
-         AND notifications_enabled = true
-         AND user_id != $2`,
+      `SELECT DISTINCT u.user_id
+       FROM (
+         SELECT user_id FROM public.group_members
+         WHERE group_id::text = $1::text
+           AND notifications_enabled = true
+         UNION
+         SELECT user_id FROM public.user_group_notifications
+         WHERE group_id::text = $1::text
+           AND enabled = true
+       ) u
+       WHERE u.user_id::text != $2::text`,
       [groupId, excludeUserId]
     );
 
@@ -122,19 +128,18 @@ export async function notifyGroupMembers(
       await sendPushToUsers(targetUserIds, payload);
     }
   } catch (err: any) {
-    if (err.code === '42703' || String(err.message).includes('notifications_enabled')) {
-      try {
-        const res = await pool.query(
-          `SELECT user_id FROM public.group_members WHERE group_id = $1 AND user_id != $2`,
-          [groupId, excludeUserId]
-        );
-        const targetUserIds = res.rows.map((r: { user_id: string }) => r.user_id);
-        if (targetUserIds.length > 0) {
-          await sendPushToUsers(targetUserIds, payload);
-        }
-      } catch {}
-    } else {
-      console.warn('Error notifying group members via push:', err);
+    try {
+      const res = await pool.query(
+        `SELECT user_id FROM public.user_group_notifications
+         WHERE group_id::text = $1::text AND enabled = true AND user_id::text != $2::text`,
+        [groupId, excludeUserId]
+      );
+      const targetUserIds = res.rows.map((r: { user_id: string }) => r.user_id);
+      if (targetUserIds.length > 0) {
+        await sendPushToUsers(targetUserIds, payload);
+      }
+    } catch (fallbackErr) {
+      console.warn('Error notifying group members via push:', fallbackErr);
     }
   }
 }
