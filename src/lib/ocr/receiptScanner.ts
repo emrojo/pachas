@@ -238,7 +238,7 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ image: imageDataUrl }),
-      signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(12000) : undefined,
+      signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(45000) : undefined,
     });
 
     if (res.ok) {
