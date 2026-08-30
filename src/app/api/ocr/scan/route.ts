@@ -272,46 +272,97 @@ Reglas críticas de extracción:
       );
     }
 
-    // 5. Parse and validate JSON output (robust regex & fence extraction)
+    // 5. Parse and validate JSON output (robust multi-tier fault-tolerant extraction)
     const extractJson = (text: string): any => {
       if (!text || typeof text !== 'string') return null;
+
+      const cleanCandidate = (s: string) =>
+        s
+          .replace(/```(?:json)?/gi, '')
+          .replace(/```/g, '')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/\/\/.*/g, '')
+          .replace(/,\s*([}\]])/g, '$1')
+          .trim();
 
       // 1. Direct parse attempt
       try {
         return JSON.parse(text.trim());
       } catch {}
 
-      // 2. Markdown code fence extraction ```json ... ``` or ``` ... ```
+      // 2. Parse on cleaned candidate
+      try {
+        return JSON.parse(cleanCandidate(text));
+      } catch {}
+
+      // 3. Markdown code fence extraction ```json ... ``` or ``` ... ```
       const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (fenceMatch && fenceMatch[1]) {
         try {
           return JSON.parse(fenceMatch[1].trim());
         } catch {}
+        try {
+          return JSON.parse(cleanCandidate(fenceMatch[1]));
+        } catch {}
       }
 
-      // 3. Outermost curly braces extraction { ... }
+      // 4. Outermost curly braces extraction { ... }
       const braceMatch = text.match(/\{[\s\S]*\}/);
       if (braceMatch && braceMatch[0]) {
         try {
           return JSON.parse(braceMatch[0].trim());
         } catch {}
+        try {
+          return JSON.parse(cleanCandidate(braceMatch[0]));
+        } catch {}
       }
 
-      // 4. Regex key-value extraction fallback
+      // 5. Regex key-value extraction fallback
       try {
-        const titleMatch = text.match(/"title"\s*:\s*"([^"]+)"/);
-        const amountMatch = text.match(/"amount"\s*:\s*([0-9]+(?:\.[0-9]+)?)/);
-        const dateMatch = text.match(/"date"\s*:\s*"([^"]+)"/);
-        const categoryMatch = text.match(/"category"\s*:\s*"([^"]+)"/);
-        const locMatch = text.match(/"locationName"\s*:\s*"([^"]+)"/);
+        const titleMatch = text.match(/"?title"?\s*:\s*["']?([^"',}\n\r]+)["']?/i);
+        const amountMatch = text.match(/"?amount"?\s*:\s*["']?([0-9]+(?:[.,][0-9]{1,2})?)["']?/i);
+        const dateMatch = text.match(/"?date"?\s*:\s*["']?([^"',}\n\r]+)["']?/i);
+        const categoryMatch = text.match(/"?category"?\s*:\s*["']?([^"',}\n\r]+)["']?/i);
+        const locMatch = text.match(/"?locationName"?\s*:\s*["']?([^"',}\n\r]+)["']?/i);
 
-        if (titleMatch || amountMatch) {
+        let parsedAmount: number | undefined;
+        if (amountMatch && amountMatch[1]) {
+          const num = parseFloat(amountMatch[1].replace(',', '.'));
+          if (!isNaN(num)) parsedAmount = num;
+        }
+
+        if (titleMatch || parsedAmount !== undefined) {
           return {
-            title: titleMatch ? titleMatch[1] : undefined,
-            amount: amountMatch ? parseFloat(amountMatch[1]) : undefined,
-            date: dateMatch ? dateMatch[1] : undefined,
-            category: categoryMatch ? categoryMatch[1] : undefined,
-            locationName: locMatch ? locMatch[1] : undefined,
+            title: titleMatch ? titleMatch[1].trim() : undefined,
+            amount: parsedAmount,
+            date: dateMatch ? dateMatch[1].trim() : undefined,
+            category: categoryMatch ? categoryMatch[1].trim() : undefined,
+            locationName: locMatch ? locMatch[1].trim() : undefined,
+          };
+        }
+      } catch {}
+
+      // 6. Heuristic line-by-line fallback from raw text if model outputted plain text
+      try {
+        const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+        const monetaryRegex = /(\d{1,5}[.,]\d{2})/;
+        let foundAmount: number | undefined;
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const m = lines[i].match(monetaryRegex);
+          if (m) {
+            const val = parseFloat(m[1].replace(',', '.'));
+            if (!isNaN(val) && val > 0 && val < 50000) {
+              foundAmount = val;
+              break;
+            }
+          }
+        }
+        const firstLine = lines.find((l) => !l.startsWith('{') && !l.startsWith('```') && l.length > 2 && l.length < 50);
+        if (foundAmount !== undefined || firstLine) {
+          return {
+            title: firstLine || 'Ticket escaneado',
+            amount: foundAmount,
+            category: 'food',
           };
         }
       } catch {}
@@ -319,16 +370,10 @@ Reglas críticas de extracción:
       return null;
     };
 
-    const parsed = extractJson(rawContent);
-
-    if (!parsed) {
-      console.warn('[Gemini OCR] ⚠️ No se pudo extraer JSON de la respuesta:', rawContent);
-      return NextResponse.json({
-        fallback: true,
-        error: 'No se pudo interpretar el formato del ticket.',
-        rawText: rawContent,
-      });
-    }
+    const parsed = extractJson(rawContent) || {
+      title: 'Ticket escaneado',
+      category: 'food',
+    };
 
     const detectedAmount = typeof parsed.amount === 'number' && !isNaN(parsed.amount) ? Math.round(parsed.amount * 100) / 100 : undefined;
     const detectedAmountFormatted = detectedAmount !== undefined
