@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       // Ignored if permissions are restricted
     }
 
-    const cleanDate = expenseDate.includes('T') ? expenseDate.split('T')[0] : expenseDate;
+    const cleanDate = expenseDate || new Date().toISOString();
     const safeExchangeRate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1.0;
     const rawAmount = Number(amount);
     // If amount is 0 (OCR processing placeholder), use 0.01 for PostgreSQL check (amount > 0) constraint

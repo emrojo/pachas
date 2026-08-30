@@ -451,11 +451,60 @@ Reglas críticas de extracción:
       return t || undefined;
     };
 
+    const normalizeOcrDateTime = (rawDate: string | undefined, text: string): string | undefined => {
+      if (!rawDate && !text) return undefined;
+      const combined = `${rawDate || ''} ${text}`;
+
+      // Search for time pattern: HH:mm or HH:mm:ss
+      let foundTime = '';
+      const timeMatch = combined.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?\b/);
+      if (timeMatch) {
+        foundTime = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
+      }
+
+      if (rawDate) {
+        const clean = String(rawDate).trim();
+        // Match ISO YYYY-MM-DD or YYYY-MM-DDTHH:mm
+        const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}))?/);
+        if (isoMatch) {
+          const y = isoMatch[1];
+          const m = isoMatch[2];
+          const d = isoMatch[3];
+          const time = isoMatch[4] ? `${isoMatch[4]}:${isoMatch[5]}` : foundTime || '12:00';
+          return `${y}-${m}-${d}T${time}`;
+        }
+
+        // Match European DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+        const euMatch = clean.match(/^(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})(?:[T\s](\d{2}):(\d{2}))?/);
+        if (euMatch) {
+          const d = euMatch[1].padStart(2, '0');
+          const m = euMatch[2].padStart(2, '0');
+          let y = euMatch[3];
+          if (y.length === 2) y = `20${y}`;
+          const time = euMatch[4] ? `${euMatch[4]}:${euMatch[5]}` : foundTime || '12:00';
+          return `${y}-${m}-${d}T${time}`;
+        }
+      }
+
+      // If rawDate wasn't provided or didn't parse, try finding date in full text
+      const dateMatchInText = text.match(/\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/);
+      if (dateMatchInText) {
+        const d = dateMatchInText[1].padStart(2, '0');
+        const m = dateMatchInText[2].padStart(2, '0');
+        let y = dateMatchInText[3];
+        if (y.length === 2) y = `20${y}`;
+        const time = foundTime || '12:00';
+        return `${y}-${m}-${d}T${time}`;
+      }
+
+      return rawDate ? String(rawDate).trim() : undefined;
+    };
+
     const result: VisionScanResult = {
       title: cleanTitle(parsed.title),
       amount: detectedAmount,
       amountFormatted: detectedAmountFormatted,
-      date: parsed.date ? String(parsed.date).trim() : undefined,
+      date: normalizeOcrDateTime(parsed.date, rawContent),
       category: detectedCategory,
       locationName: detectedLocationName,
       latitude: detectedLatitude,
