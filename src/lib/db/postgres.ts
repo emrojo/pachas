@@ -1,4 +1,5 @@
 import pg, { Pool, PoolConfig } from 'pg';
+import { runPendingMigrations } from './migrator';
 
 // Configure node-postgres type parsers to prevent timezone skew on dates and timestamps
 // OID 1082 = DATE: return raw string "YYYY-MM-DD"
@@ -123,7 +124,11 @@ export function getDbPool(): Pool | null {
     connectionTimeoutMillis: 5000,
   });
 
-  ensureGlobalSchema(pool).catch(() => {});
+  // Run pending SQL migrations from deploy/init-scripts asynchronously
+  runPendingMigrations(pool).catch(() => {
+    // Fallback to basic safety schema ensure if directory access fails
+    if (pool) ensureGlobalSchema(pool).catch(() => {});
+  });
 
   return pool;
 }
