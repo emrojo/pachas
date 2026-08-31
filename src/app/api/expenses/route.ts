@@ -184,8 +184,8 @@ export async function POST(request: NextRequest) {
       for (const payer of payers) {
         const payerId = payer.id && !payer.id.startsWith('payer-') ? payer.id : randomUUID();
         await client.query(
-          `INSERT INTO public.expense_payers (id, expense_id, user_id, amount_paid, created_at)
-           VALUES ($1, $2, $3, $4, NOW())`,
+          `INSERT INTO public.expense_payers (id, expense_id, user_id, amount_paid)
+           VALUES ($1, $2, $3, $4)`,
           [payerId, id, payer.user_id, payer.amount_paid]
         );
       }
@@ -195,8 +195,8 @@ export async function POST(request: NextRequest) {
       for (const part of participants) {
         const partId = part.id && !part.id.startsWith('part-') ? part.id : randomUUID();
         await client.query(
-          `INSERT INTO public.expense_participants (id, expense_id, user_id, amount_owed, percentage, shares, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          `INSERT INTO public.expense_participants (id, expense_id, user_id, amount_owed, percentage, shares)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
           [
             partId,
             id,
