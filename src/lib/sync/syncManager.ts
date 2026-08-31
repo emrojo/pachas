@@ -16,6 +16,11 @@ export interface SyncAction {
   payload: any;
   timestamp: number;
   retryCount: number;
+  title?: string;
+  groupName?: string;
+  lastError?: string;
+  errorStatus?: number;
+  lastAttemptTimestamp?: number;
 }
 
 const SYNC_QUEUE_STORAGE_KEY = 'pachas_sync_queue_v1';
@@ -47,11 +52,33 @@ export function saveSyncQueue(queue: SyncAction[]): void {
 
 export function enqueueSyncAction(action: Omit<SyncAction, 'id' | 'timestamp' | 'retryCount'>): SyncAction {
   const queue = getSyncQueue();
+
+  // Extract a user-friendly title and group name if available
+  let derivedTitle = action.title;
+  let derivedGroupName = action.groupName;
+
+  if (!derivedTitle && action.payload) {
+    if (action.type === 'CREATE_EXPENSE' || action.type === 'UPDATE_EXPENSE') {
+      derivedTitle = action.payload.title ? `Gasto: ${action.payload.title}` : 'Gasto';
+    } else if (action.type === 'DELETE_EXPENSE') {
+      derivedTitle = `Eliminar gasto (${action.entityId.slice(0, 8)})`;
+    } else if (action.type === 'CREATE_SETTLEMENT') {
+      derivedTitle = `Liquidación: ${action.payload.amount} ${action.payload.currency || 'EUR'}`;
+    } else if (action.type === 'CREATE_GROUP') {
+      derivedTitle = `Grupo: ${action.payload.name || 'Nuevo grupo'}`;
+    } else if (action.type === 'JOIN_GROUP') {
+      derivedTitle = `Unirse con código ${action.payload.inviteCode || ''}`;
+    }
+  }
+
   const newAction: SyncAction = {
     ...action,
     id: `sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     timestamp: Date.now(),
     retryCount: 0,
+    title: derivedTitle || 'Registro pendiente',
+    groupName: derivedGroupName,
+    lastError: typeof navigator !== 'undefined' && !navigator.onLine ? 'Guardado sin conexión' : undefined,
   };
 
   // Remove existing pending action for same entity if overwriting
@@ -79,12 +106,24 @@ export function clearSyncQueue(): void {
   }
 }
 
+export function getPendingSyncActions(): SyncAction[] {
+  return getSyncQueue();
+}
+
 export async function processSyncQueue(
   supabaseClient: any,
   onItemSynced?: (action: SyncAction) => void
 ): Promise<{ successCount: number; failureCount: number }> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return { successCount: 0, failureCount: 0 };
+    // Tag all items as offline
+    const q = getSyncQueue().map((item) => ({
+      ...item,
+      lastError: 'Dispositivo sin conexión a internet',
+      errorStatus: 0,
+      lastAttemptTimestamp: Date.now(),
+    }));
+    saveSyncQueue(q);
+    return { successCount: 0, failureCount: q.length };
   }
 
   const queue = getSyncQueue();
@@ -97,6 +136,9 @@ export async function processSyncQueue(
   const remainingQueue: SyncAction[] = [];
 
   for (const item of queue) {
+    let lastErrorMsg = 'Error desconocido al sincronizar';
+    let statusCode = 0;
+
     try {
       let isSuccess = false;
 
@@ -135,10 +177,16 @@ export async function processSyncQueue(
                 participants: expense.participants,
               }),
             });
+            statusCode = res.status;
             if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
               isSuccess = true;
+            } else {
+              const resJson = await res.json().catch(() => ({}));
+              lastErrorMsg = resJson.error || `Error en servidor HTTP ${res.status}: ${res.statusText}`;
             }
-          } catch {}
+          } catch (fetchErr: any) {
+            lastErrorMsg = fetchErr.message || 'Error de red o conexión al servidor';
+          }
 
           if (!isSuccess && supabaseClient?.from) {
             const { error: expError } = await supabaseClient.from('expenses').upsert({
@@ -160,7 +208,11 @@ export async function processSyncQueue(
               location_name: expense.location_name,
             });
 
-            if (!expError) isSuccess = true;
+            if (!expError) {
+              isSuccess = true;
+            } else {
+              lastErrorMsg = expError.message || lastErrorMsg;
+            }
           }
           break;
         }
@@ -189,10 +241,16 @@ export async function processSyncQueue(
                 participants: expense.participants,
               }),
             });
+            statusCode = res.status;
             if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
               isSuccess = true;
+            } else {
+              const resJson = await res.json().catch(() => ({}));
+              lastErrorMsg = resJson.error || `Error al actualizar gasto HTTP ${res.status}`;
             }
-          } catch {}
+          } catch (fetchErr: any) {
+            lastErrorMsg = fetchErr.message || 'Error de red o conexión al servidor';
+          }
 
           if (!isSuccess && supabaseClient?.from) {
             const { error } = await supabaseClient
@@ -215,7 +273,11 @@ export async function processSyncQueue(
               })
               .eq('id', expense.id);
 
-            if (!error) isSuccess = true;
+            if (!error) {
+              isSuccess = true;
+            } else {
+              lastErrorMsg = error.message || lastErrorMsg;
+            }
           }
           break;
         }
@@ -225,8 +287,15 @@ export async function processSyncQueue(
             const res = await fetch(`/api/expenses/${encodeURIComponent(item.entityId)}`, {
               method: 'DELETE',
             });
+            statusCode = res.status;
             if (res.ok || res.status === 404) isSuccess = true;
-          } catch {}
+            else {
+              const resJson = await res.json().catch(() => ({}));
+              lastErrorMsg = resJson.error || `Error al eliminar gasto HTTP ${res.status}`;
+            }
+          } catch (fetchErr: any) {
+            lastErrorMsg = fetchErr.message || 'Error de red al eliminar gasto';
+          }
 
           if (!isSuccess && supabaseClient?.from) {
             const { error } = await supabaseClient
@@ -234,6 +303,7 @@ export async function processSyncQueue(
               .delete()
               .eq('id', item.entityId);
             if (!error) isSuccess = true;
+            else lastErrorMsg = error.message || lastErrorMsg;
           }
           break;
         }
@@ -256,10 +326,16 @@ export async function processSyncQueue(
                 settledAt: settlement.settled_at,
               }),
             });
+            statusCode = res.status;
             if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
               isSuccess = true;
+            } else {
+              const resJson = await res.json().catch(() => ({}));
+              lastErrorMsg = resJson.error || `Error al guardar liquidación HTTP ${res.status}`;
             }
-          } catch {}
+          } catch (fetchErr: any) {
+            lastErrorMsg = fetchErr.message || 'Error de conexión al registrar liquidación';
+          }
 
           if (!isSuccess && supabaseClient?.from) {
             const { error } = await supabaseClient.from('settlements').upsert({
@@ -274,6 +350,7 @@ export async function processSyncQueue(
               settled_at: settlement.settled_at,
             });
             if (!error) isSuccess = true;
+            else lastErrorMsg = error.message || lastErrorMsg;
           }
           break;
         }
@@ -294,10 +371,16 @@ export async function processSyncQueue(
                 invite_code: group.invite_code,
               }),
             });
+            statusCode = res.status;
             if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
               isSuccess = true;
+            } else {
+              const resJson = await res.json().catch(() => ({}));
+              lastErrorMsg = resJson.error || `Error al crear grupo HTTP ${res.status}`;
             }
-          } catch {}
+          } catch (fetchErr: any) {
+            lastErrorMsg = fetchErr.message || 'Error de conexión al crear grupo';
+          }
 
           if (!isSuccess && supabaseClient?.from) {
             const { error } = await supabaseClient.from('groups').upsert({
@@ -311,6 +394,7 @@ export async function processSyncQueue(
               created_by: group.created_by,
             });
             if (!error) isSuccess = true;
+            else lastErrorMsg = error.message || lastErrorMsg;
           }
           break;
         }
@@ -323,10 +407,16 @@ export async function processSyncQueue(
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ inviteCode }),
             });
+            statusCode = res.status;
             if (res.ok || res.status === 400 || res.status === 404 || res.status === 409 || res.status === 422) {
               isSuccess = true;
+            } else {
+              const resJson = await res.json().catch(() => ({}));
+              lastErrorMsg = resJson.error || `Error al unirse al grupo HTTP ${res.status}`;
             }
-          } catch {}
+          } catch (fetchErr: any) {
+            lastErrorMsg = fetchErr.message || 'Error de conexión al unirse al grupo';
+          }
           break;
         }
       }
@@ -336,16 +426,49 @@ export async function processSyncQueue(
         if (onItemSynced) onItemSynced(item);
       } else {
         failureCount++;
-        remainingQueue.push({ ...item, retryCount: item.retryCount + 1 });
+        remainingQueue.push({
+          ...item,
+          retryCount: item.retryCount + 1,
+          lastError: lastErrorMsg,
+          errorStatus: statusCode,
+          lastAttemptTimestamp: Date.now(),
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Sync item failure:', item, err);
       failureCount++;
-      remainingQueue.push({ ...item, retryCount: item.retryCount + 1 });
+      remainingQueue.push({
+        ...item,
+        retryCount: item.retryCount + 1,
+        lastError: err?.message || lastErrorMsg,
+        errorStatus: statusCode,
+        lastAttemptTimestamp: Date.now(),
+      });
     }
   }
 
   saveSyncQueue(remainingQueue);
   return { successCount, failureCount };
+}
+
+export async function retrySingleSyncAction(
+  actionId: string,
+  supabaseClient: any,
+  onItemSynced?: (action: SyncAction) => void
+): Promise<boolean> {
+  const queue = getSyncQueue();
+  const target = queue.find((a) => a.id === actionId);
+  if (!target) return false;
+
+  // Process just this item by isolating it
+  saveSyncQueue([target]);
+  const { successCount } = await processSyncQueue(supabaseClient, onItemSynced);
+
+  // Re-merge with the rest of the queue
+  const updatedRemaining = getSyncQueue();
+  const rest = queue.filter((a) => a.id !== actionId);
+  saveSyncQueue([...rest, ...updatedRemaining]);
+
+  return successCount > 0;
 }
 

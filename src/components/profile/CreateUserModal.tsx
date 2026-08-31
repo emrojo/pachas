@@ -19,6 +19,8 @@ import {
   ShieldAlert,
   Upload,
 } from 'lucide-react';
+import { DiceBearAvatarPicker, CURATED_DICEBEAR_PRESETS } from '@/components/profile/DiceBearAvatarPicker';
+import { SUPPORTED_LANGUAGES, LanguageCode } from '@/locales';
 
 export interface CreateUserModalProps {
   isOpen: boolean;
@@ -26,29 +28,19 @@ export interface CreateUserModalProps {
   onSuccess?: (user: Profile) => void;
 }
 
-const AVATAR_PRESETS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop&q=80',
-];
-
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
 }) => {
   const { createLocalUser, groups, availableUsers, isCurrentUserAdmin } = usePachas();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [bizumPhone, setBizumPhone] = useState('');
-  const [selectedAvatar, setSelectedAvatar] = useState<string>(AVATAR_PRESETS[0]);
+  const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>(language);
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(CURATED_DICEBEAR_PRESETS[0]);
   const [addToAllGroups, setAddToAllGroups] = useState(true);
   const [autoSwitch, setAutoSwitch] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,6 +92,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         full_name: sanitizeText(fullName, 100),
         email: sanitizeText(email, 120).toLowerCase(),
         bizum_phone: sanitizeText(bizumPhone, 25) || undefined,
+        preferred_language: preferredLanguage,
         avatar_url: selectedAvatar,
         autoSwitch,
         addToGroupIds: groupIdsToAdd,
@@ -181,53 +174,12 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </div>
           </div>
 
-          {/* Avatar Preset Selector & Custom Upload */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                {t('profile.changeAvatar')}
-              </label>
-              <label className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer">
-                <Upload className="w-3.5 h-3.5" />
-                <span>{t('groups.uploadPhoto')}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        setSelectedAvatar(event.target?.result as string);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {AVATAR_PRESETS.map((url, idx) => {
-                const isSelected = selectedAvatar === url;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedAvatar(url)}
-                    className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all shrink-0 ${
-                      isSelected
-                        ? 'border-emerald-500 ring-2 ring-emerald-500/40 scale-105'
-                        : 'border-transparent opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={url} alt={`Avatar ${idx + 1}`} className="w-full h-full object-cover" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* DiceBear Avatar Picker */}
+          <DiceBearAvatarPicker
+            currentAvatarUrl={selectedAvatar}
+            onSelectAvatar={(url) => setSelectedAvatar(url || CURATED_DICEBEAR_PRESETS[0])}
+            userName={fullName}
+          />
 
           {/* Input Fields */}
           <div className="space-y-3">
@@ -257,6 +209,23 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
               onChange={(e) => setBizumPhone(e.target.value)}
               leftIcon={<Phone className="w-4 h-4" />}
             />
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                {t('auth.preferredLanguage')}
+              </label>
+              <select
+                value={preferredLanguage}
+                onChange={(e) => setPreferredLanguage(e.target.value as LanguageCode)}
+                className="w-full px-3.5 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer"
+              >
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.flag} {lang.nativeName} ({lang.name})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Group membership & session options */}
@@ -274,7 +243,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                     Añadir automáticamente a mis {groups.length} grupo(s) actuales
                   </span>
                   <span className="text-[11px] text-slate-400 block truncate">
-                    {groups.map((g) => `${g.icon_emoji} ${g.name}`).join(', ')}
+                    {groups.map((g) => g.name).join(', ')}
                   </span>
                 </div>
               </label>

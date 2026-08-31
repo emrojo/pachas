@@ -45,6 +45,8 @@ import { formatMoney } from '@/lib/currencies';
 import { scanReceipt } from '@/lib/ocr/receiptScanner';
 import { getCurrentDateTimeISOWithTimezone } from '@/lib/utils';
 import { generateUUID } from '@/lib/id';
+import { useTranslation } from '@/context/LanguageContext';
+import { LanguageCode, SUPPORTED_LANGUAGES } from '@/locales';
 
 export interface CreateExpenseInput {
   groupId: string;
@@ -126,6 +128,7 @@ interface PachasContextType {
     full_name: string;
     email: string;
     bizum_phone?: string;
+    preferred_language?: string;
     avatar_url?: string;
     autoSwitch?: boolean;
     addToGroupIds?: string[];
@@ -270,6 +273,7 @@ export function safeSetLocalStorage(key: string, value: string): void {
 }
 
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { setLanguage } = useTranslation();
   const [currentUser, _setCurrentUser] = useState<Profile | null>(null);
   const [availableUsers, setAvailableUsers] = useState<Profile[]>(DEMO_USERS);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -333,8 +337,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (typeof window !== 'undefined') {
       try {
         const saved = safeGetLocalStorage(STORAGE_KEYS.SUPPORT_MESSAGES);
-        if (saved) return JSON.parse(saved);
-      } catch {}
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
     }
     return [];
   });
@@ -399,6 +405,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Helper to change current user and persist immediately to localStorage and session cookie
   const setCurrentUser = (user: Profile | null) => {
     _setCurrentUser(user);
+    if (user?.preferred_language) {
+      const validCodes = new Set(SUPPORTED_LANGUAGES.map((l) => l.code));
+      if (validCodes.has(user.preferred_language as LanguageCode)) {
+        setLanguage(user.preferred_language as LanguageCode);
+      }
+    }
     try {
       if (user) {
         safeSetLocalStorage(STORAGE_KEYS.USER, JSON.stringify(user));
@@ -2173,7 +2185,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const currentExpenses = expensesRef.current[groupId] || expenses[groupId] || [];
     const existing = currentExpenses.find((e) => e.id === expenseId);
-    if (existing && existing.created_by !== currentUser.id) {
+    const isAppAdminUser = isAppAdmin(currentUser);
+    const isGroupAdminUser = isUserGroupAdmin(groupId, currentUser.id);
+    const isCreator = existing ? existing.created_by === currentUser.id : true;
+
+    if (existing && !isCreator && !isAppAdminUser && !isGroupAdminUser) {
       throw new Error('No puedes eliminar este gasto porque fue creado por otro amigo.');
     }
     const filtered = currentExpenses.filter((e) => e.id !== expenseId);
@@ -2346,6 +2362,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     full_name: string;
     email: string;
     bizum_phone?: string;
+    preferred_language?: string;
     avatar_url?: string;
     autoSwitch?: boolean;
     addToGroupIds?: string[];
@@ -2359,6 +2376,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       full_name: data.full_name.trim(),
       email: data.email.trim().toLowerCase(),
       bizum_phone: data.bizum_phone?.trim() || null,
+      preferred_language: data.preferred_language || 'es',
       avatar_url: data.avatar_url || null,
       role: 'member',
       created_at: new Date().toISOString(),
@@ -2450,6 +2468,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           full_name: updated.full_name,
           bizum_phone: updated.bizum_phone,
           avatar_url: updated.avatar_url,
+          preferred_language: updated.preferred_language,
         }),
       });
       clearTimeout(timeoutId);

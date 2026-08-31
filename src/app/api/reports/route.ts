@@ -71,10 +71,15 @@ export async function GET(request: NextRequest) {
         r.evidence_snapshot,
         r.created_at,
         p.full_name as reporter_name,
-        p.avatar_url as reporter_avatar
+        p.avatar_url as reporter_avatar,
+        e.created_by as expense_author_id,
+        exp_author.full_name as expense_author_name,
+        exp_author.email as expense_author_email,
+        exp_author.avatar_url as expense_author_avatar
       FROM public.content_reports r
       LEFT JOIN public.profiles p ON p.id = r.reporter_id
       LEFT JOIN public.expenses e ON (r.target_type IN ('expense', 'receipt') AND e.id::text = r.target_id)
+      LEFT JOIN public.profiles exp_author ON exp_author.id = e.created_by
       LEFT JOIN public.groups g ON (r.target_type = 'group' AND g.id::text = r.target_id)
       ORDER BY r.created_at DESC
     `);

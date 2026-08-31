@@ -185,7 +185,13 @@ export function ShareReceiveModal({ file, onClose }: Props) {
                           : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600',
                       ].join(' ')}
                     >
-                      <span className="text-xl leading-none">{g.icon_emoji}</span>
+                      {g.cover_image_url ? (
+                        <img src={g.cover_image_url} alt={g.name} className="w-6 h-6 rounded-lg object-cover shrink-0" />
+                      ) : (
+                        <span className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-xs font-black shrink-0">
+                          {g.name.slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
                       <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
                         {g.name}
                       </span>

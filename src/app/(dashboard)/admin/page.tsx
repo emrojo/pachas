@@ -149,6 +149,10 @@ export interface ContentReport {
   reporter_email?: string;
   reporter_name?: string;
   reporter_avatar?: string;
+  expense_author_id?: string;
+  expense_author_name?: string;
+  expense_author_email?: string;
+  expense_author_avatar?: string;
   status: 'pending' | 'reviewed' | 'dismissed' | 'action_taken';
   resolution_notes?: string | null;
   evidence_snapshot?: any;
@@ -575,6 +579,14 @@ export default function AdminBackofficePage() {
       }
     } catch (err) {
       console.warn('Error fetching support thread:', err);
+    }
+  };
+
+  const handleOpenChatWithUser = async (userId: string, initialContext?: string) => {
+    setActiveTab('support');
+    await fetchUserSupportThread(userId);
+    if (initialContext) {
+      setAdminReplyText(initialContext);
     }
   };
 
@@ -2093,6 +2105,52 @@ export default function AdminBackofficePage() {
                                       </Button>
                                     )
                                   )}
+
+                                  {/* Chat with reporter if available */}
+                                  {report.reporter_id && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleOpenChatWithUser(
+                                        report.reporter_id!,
+                                        `Hola ${report.reporter_name || ''}, te contacto desde el equipo de administración de Pachas respecto a tu reporte sobre "${report.target_title || report.target_type}" (Motivo: ${report.reason}).`
+                                      )}
+                                      className="text-xs font-bold border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shadow-2xs"
+                                      title="Abrir chat con el usuario que denunció este contenido"
+                                    >
+                                      <MessageSquare className="w-3.5 h-3.5 mr-1 text-indigo-500" />
+                                      <span>Chat denunciante</span>
+                                    </Button>
+                                  )}
+
+                                  {/* Chat with expense creator if available */}
+                                  {(() => {
+                                    const expAuthorId =
+                                      report.expense_author_id ||
+                                      (resolvedGroupId && (getGroupExpenses(resolvedGroupId) || []).find((e) => e.id === report.target_id)?.created_by);
+                                    const expAuthorName =
+                                      report.expense_author_name ||
+                                      (expAuthorId ? availableUsers.find((u) => u.id === expAuthorId)?.full_name : null);
+
+                                    if (isExpense && expAuthorId) {
+                                      return (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleOpenChatWithUser(
+                                            expAuthorId,
+                                            `Hola ${expAuthorName || ''}, te contacto desde la administración de Pachas respecto al gasto "${report.target_title}" que ha sido reportado (Motivo: ${report.reason}). Nos gustaría contrastar los datos contigo para solucionar la incidencia.`
+                                          )}
+                                          className="text-xs font-bold border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 shadow-2xs"
+                                          title="Abrir chat con el usuario que registró este gasto"
+                                        >
+                                          <MessageSquare className="w-3.5 h-3.5 mr-1 text-sky-500" />
+                                          <span>Chat autor gasto</span>
+                                        </Button>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
 
                                   {/* Delete Reported Expense */}
                                   {isExpense && (

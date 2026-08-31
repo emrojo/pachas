@@ -9,7 +9,7 @@ import { isDemoModeAllowed } from '@/lib/authConfig';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, fullName, phone, acceptedTerms } = body;
+    const { email, password, fullName, phone, preferredLanguage, acceptedTerms } = body;
 
     if (acceptedTerms === false) {
       return NextResponse.json({ error: 'Debes aceptar los Términos de Uso y la Política de Privacidad' }, { status: 400 });
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = sanitizeText(fullName, 100);
     const cleanPhone = phone ? sanitizeText(phone, 25) : null;
+    const cleanLang = preferredLanguage ? sanitizeText(preferredLanguage, 10) : 'es';
     const isHttps =
       request.headers.get('x-forwarded-proto') === 'https' ||
       request.url.startsWith('https://');
@@ -62,19 +63,20 @@ export async function POST(request: NextRequest) {
           userId,
           cleanEmail,
           hashedPassword,
-          JSON.stringify({ full_name: cleanName, bizum_phone: cleanPhone, role }),
+          JSON.stringify({ full_name: cleanName, bizum_phone: cleanPhone, preferred_language: cleanLang, role }),
         ]
       );
 
       // Insert or update public.profiles
       await pool.query(
-        `INSERT INTO public.profiles (id, email, full_name, bizum_phone, role)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO public.profiles (id, email, full_name, bizum_phone, preferred_language, role)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (id) DO UPDATE SET
            full_name = EXCLUDED.full_name,
            bizum_phone = EXCLUDED.bizum_phone,
+           preferred_language = EXCLUDED.preferred_language,
            role = EXCLUDED.role`,
-        [userId, cleanEmail, cleanName, cleanPhone, role]
+        [userId, cleanEmail, cleanName, cleanPhone, cleanLang, role]
       );
     }
 
@@ -83,6 +85,7 @@ export async function POST(request: NextRequest) {
       email: cleanEmail,
       full_name: cleanName,
       bizum_phone: cleanPhone,
+      preferred_language: cleanLang,
       avatar_url: null,
       role,
       created_at: new Date().toISOString(),

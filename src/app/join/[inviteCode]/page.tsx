@@ -126,8 +126,14 @@ export default function JoinGroupPage() {
             <>
               {/* Trip info */}
               <div className="space-y-2">
-                <div className="w-20 h-20 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center text-5xl mx-auto shadow-xs">
-                  {targetGroup.icon_emoji}
+                <div className="w-24 h-24 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center mx-auto shadow-xs overflow-hidden">
+                  {targetGroup.cover_image_url ? (
+                    <img src={targetGroup.cover_image_url} alt={targetGroup.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                      {targetGroup.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <span className="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 block">
                   {t('join.title')}

@@ -42,11 +42,94 @@ function interpolate(template: string, params?: Record<string, string | number>)
   return result;
 }
 
+export function detectRegionLanguage(): LanguageCode {
+  if (typeof navigator === 'undefined') return DEFAULT_LANGUAGE;
+
+  const validCodes = new Set(SUPPORTED_LANGUAGES.map((l) => l.code));
+
+  // 1. Direct and regional dialect matching from navigator.languages
+  const rawList = navigator.languages?.length ? navigator.languages : [navigator.language || ''];
+  for (const raw of rawList) {
+    if (!raw) continue;
+    const lower = raw.toLowerCase().trim();
+
+    // Check specific regional dialect codes
+    if (lower.startsWith('ca-valencia') || lower.startsWith('es-valencia') || lower === 'va') {
+      if (validCodes.has('va')) return 'va';
+    }
+    if (lower.startsWith('ca') || lower === 'cat') {
+      if (validCodes.has('ca')) return 'ca';
+    }
+    if (lower.startsWith('gl') || lower === 'glg') {
+      if (validCodes.has('gl')) return 'gl';
+    }
+    if (lower.startsWith('eu') || lower === 'eus' || lower === 'baq') {
+      if (validCodes.has('eu')) return 'eu';
+    }
+
+    // Standard 2-letter ISO prefix
+    const twoLetter = lower.slice(0, 2) as LanguageCode;
+    if (validCodes.has(twoLetter)) {
+      return twoLetter;
+    }
+  }
+
+  // 2. Timezone geographic region matching
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) {
+      const tzLower = tz.toLowerCase();
+      if (
+        tzLower.includes('madrid') ||
+        tzLower.includes('canary') ||
+        tzLower.includes('mexico') ||
+        tzLower.includes('bogota') ||
+        tzLower.includes('buenos_aires') ||
+        tzLower.includes('santiago') ||
+        tzLower.includes('lima')
+      ) {
+        return 'es';
+      }
+      if (tzLower.includes('paris')) return 'fr';
+      if (tzLower.includes('rome')) return 'it';
+      if (tzLower.includes('berlin') || tzLower.includes('vienna') || tzLower.includes('zurich')) return 'de';
+      if (tzLower.includes('lisbon') || tzLower.includes('sao_paulo')) return 'pt';
+      if (tzLower.includes('amsterdam') || tzLower.includes('brussels')) return 'nl';
+      if (tzLower.includes('athens')) return 'el';
+      if (tzLower.includes('istanbul')) return 'tr';
+      if (tzLower.includes('tokyo')) return 'ja';
+      if (tzLower.includes('shanghai') || tzLower.includes('hong_kong') || tzLower.includes('taipei')) return 'zh';
+      if (tzLower.includes('kolkata') || tzLower.includes('calcutta')) return 'hi';
+      if (tzLower.includes('moscow')) return 'ru';
+      if (
+        tzLower.includes('cairo') ||
+        tzLower.includes('riyadh') ||
+        tzLower.includes('dubai') ||
+        tzLower.includes('casablanca')
+      ) {
+        return 'ar';
+      }
+      if (tzLower.includes('johannesburg')) return 'af';
+      if (
+        tzLower.includes('london') ||
+        tzLower.includes('new_york') ||
+        tzLower.includes('chicago') ||
+        tzLower.includes('los_angeles') ||
+        tzLower.includes('sydney')
+      ) {
+        return 'en';
+      }
+    }
+  } catch {}
+
+  return DEFAULT_LANGUAGE;
+}
+
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<LanguageCode>(DEFAULT_LANGUAGE);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Initialize language from localStorage or navigator
+  // Initialize language from localStorage or regional connection detection
   useEffect(() => {
     setIsMounted(true);
     const validCodes = new Set(SUPPORTED_LANGUAGES.map((l) => l.code));
@@ -72,18 +155,10 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           return;
         }
 
-        // Detect browser language
-        if (typeof navigator !== 'undefined') {
-          const rawLanguages = navigator.languages || [navigator.language || ''];
-          for (const raw of rawLanguages) {
-            const code = raw.slice(0, 2).toLowerCase() as LanguageCode;
-            if (validCodes.has(code)) {
-              setLanguageState(code);
-              applyLanguageAttributes(code);
-              return;
-            }
-          }
-        }
+        // Detect regional language automatically for unauthenticated or first-time sessions
+        const detected = detectRegionLanguage();
+        setLanguageState(detected);
+        applyLanguageAttributes(detected);
       } catch (e) {
         console.warn('Could not read language preference:', e);
       }

@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/Input';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { Footer } from '@/components/layout/Footer';
 import { isDemoModeAllowed } from '@/lib/authConfig';
-import { User, Mail, Phone, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, Mail, Phone, Lock, ArrowRight, ShieldCheck, Globe } from 'lucide-react';
+import { SUPPORTED_LANGUAGES, LanguageCode } from '@/locales';
 
 function RegisterForm() {
   const router = useRouter();
@@ -22,12 +23,13 @@ function RegisterForm() {
       : rawRedirect;
 
   const { currentUser, setCurrentUser, createLocalUser } = usePachas();
-  const { t } = useTranslation();
+  const { t, language, setLanguage } = useTranslation();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>(language);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -66,6 +68,7 @@ function RegisterForm() {
           email: email.trim().toLowerCase(),
           phone: phone.trim() || undefined,
           password,
+          preferredLanguage,
           acceptedTerms: true,
         }),
       });
@@ -73,6 +76,7 @@ function RegisterForm() {
       const resData = await res.json();
 
       if (res.ok && resData.user) {
+        setLanguage(preferredLanguage);
         setCurrentUser(resData.user);
         router.replace(redirectTo);
         router.refresh();
@@ -85,7 +89,9 @@ function RegisterForm() {
           full_name: fullName.trim(),
           email: email.trim().toLowerCase(),
           bizum_phone: phone.trim() || undefined,
+          preferred_language: preferredLanguage,
         });
+        setLanguage(preferredLanguage);
         setCurrentUser(newLocal);
         router.replace(redirectTo);
         router.refresh();
@@ -100,7 +106,9 @@ function RegisterForm() {
             full_name: fullName.trim(),
             email: email.trim().toLowerCase(),
             bizum_phone: phone.trim() || undefined,
+            preferred_language: preferredLanguage,
           });
+          setLanguage(preferredLanguage);
           setCurrentUser(newLocal);
           router.replace(redirectTo);
           router.refresh();
@@ -179,6 +187,32 @@ function RegisterForm() {
               required
               minLength={6}
             />
+
+            {/* Preferred Default Language */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                <span>{t('auth.preferredLanguage')}</span>
+              </label>
+              <select
+                value={preferredLanguage}
+                onChange={(e) => {
+                  const val = e.target.value as LanguageCode;
+                  setPreferredLanguage(val);
+                  setLanguage(val);
+                }}
+                className="w-full px-3.5 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer"
+              >
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.flag} {lang.nativeName} ({lang.name})
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                {t('auth.preferredLanguageHelp')}
+              </span>
+            </div>
 
             {/* Legal Terms Acceptance Checkbox */}
             <div className="pt-1">

@@ -9,11 +9,13 @@ import { LanguageCode } from '@/locales';
 interface LanguageSelectorProps {
   variant?: 'compact' | 'full' | 'buttons' | 'grid';
   className?: string;
+  onSelectLanguage?: (code: LanguageCode) => void;
 }
 
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   variant = 'compact',
   className = '',
+  onSelectLanguage,
 }) => {
   const { language, setLanguage, languages, currentLanguageInfo } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -84,7 +86,10 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
               <button
                 key={l.code}
                 type="button"
-                onClick={() => setLanguage(l.code)}
+                onClick={() => {
+                  setLanguage(l.code);
+                  if (onSelectLanguage) onSelectLanguage(l.code);
+                }}
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all group ${
                   isSelected
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-950 dark:text-emerald-100 shadow-xs'
@@ -179,6 +184,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                   type="button"
                   onClick={() => {
                     setLanguage(l.code);
+                    if (onSelectLanguage) onSelectLanguage(l.code);
                     setIsOpen(false);
                     setSearchQuery('');
                   }}

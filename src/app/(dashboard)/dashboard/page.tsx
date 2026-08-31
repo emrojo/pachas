@@ -273,8 +273,12 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 flex items-center justify-center text-2xl shrink-0">
-                        {group.icon_emoji}
+                      <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 flex items-center justify-center shrink-0 overflow-hidden">
+                        {group.cover_image_url ? (
+                          <img src={group.cover_image_url} alt={group.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xl">📦</span>
+                        )}
                       </div>
                       <div className="min-w-0">
                         <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">

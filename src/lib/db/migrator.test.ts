@@ -11,12 +11,12 @@ import path from 'path';
 describe('Deterministic Database Migrator (Pachas Migrations Engine)', () => {
   it('discovers and sorts all SQL migration files in chronological sequence', () => {
     const files = getMigrationFiles();
-    expect(files.length).toBeGreaterThanOrEqual(10);
+    expect(files.length).toBeGreaterThanOrEqual(11);
     
     // Check ordering
     expect(files[0].id).toBe('01-schema');
     expect(files[1].id).toBe('02-migration-exchange-rates');
-    expect(files[files.length - 1].id).toBe('10-support-chat-and-bans');
+    expect(files[files.length - 1].id).toBe('11-user-preferred-language');
 
     // Ensure reset-db is excluded from regular migration sequence
     expect(files.some(f => f.file === 'reset-db.sql')).toBe(false);

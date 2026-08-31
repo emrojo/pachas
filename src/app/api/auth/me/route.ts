@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
                 full_name: matched?.full_name || parsed.email.split('@')[0],
                 avatar_url: matched?.avatar_url || null,
                 bizum_phone: matched?.bizum_phone || null,
+                preferred_language: (matched as any)?.preferred_language || parsed?.preferred_language || 'es',
                 role: effectiveRole,
                 is_banned: Boolean(parsed.is_banned),
                 ban_reason: parsed.ban_reason || null,
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
           {
             user: {
               ...user,
+              preferred_language: user.preferred_language || 'es',
               role: effectiveRole,
               is_banned: Boolean(user.is_banned),
               banned_at: user.banned_at || null,
@@ -90,6 +92,7 @@ export async function GET(request: NextRequest) {
           id: payload.sub,
           email: payload.email,
           full_name: payload.full_name || payload.email.split('@')[0],
+          preferred_language: (payload as any).preferred_language || 'es',
           role: effectiveRole,
           is_banned: false,
         },
@@ -123,7 +126,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { full_name, bizum_phone, avatar_url } = body;
+    const { full_name, bizum_phone, avatar_url, preferred_language } = body;
 
     const pool = getDbPool();
     if (!pool) {
@@ -132,12 +135,13 @@ export async function PUT(request: NextRequest) {
 
     // 1. Upsert public.profiles
     const res = await pool.query(
-      `INSERT INTO public.profiles (id, email, full_name, bizum_phone, avatar_url, updated_at, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      `INSERT INTO public.profiles (id, email, full_name, bizum_phone, avatar_url, preferred_language, updated_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
        ON CONFLICT (id) DO UPDATE SET
          full_name = COALESCE(EXCLUDED.full_name, public.profiles.full_name),
          bizum_phone = EXCLUDED.bizum_phone,
          avatar_url = EXCLUDED.avatar_url,
+         preferred_language = COALESCE(EXCLUDED.preferred_language, public.profiles.preferred_language),
          updated_at = NOW()
        RETURNING *`,
       [
@@ -146,6 +150,7 @@ export async function PUT(request: NextRequest) {
         full_name !== undefined && full_name !== null ? full_name : null,
         bizum_phone !== undefined ? bizum_phone : null,
         avatar_url !== undefined ? avatar_url : null,
+        preferred_language !== undefined ? preferred_language : null,
       ]
     );
 
@@ -154,17 +159,22 @@ export async function PUT(request: NextRequest) {
       `UPDATE auth.users
        SET raw_user_meta_data = jsonb_set(
          jsonb_set(
-           COALESCE(raw_user_meta_data, '{}'::jsonb),
-           '{avatar_url}',
-           to_jsonb($1::text)
+           jsonb_set(
+             COALESCE(raw_user_meta_data, '{}'::jsonb),
+             '{avatar_url}',
+             to_jsonb($1::text)
+           ),
+           '{full_name}',
+           to_jsonb($2::text)
          ),
-         '{full_name}',
-         to_jsonb($2::text)
+         '{preferred_language}',
+         to_jsonb($3::text)
        )
-       WHERE id = $3`,
+       WHERE id = $4`,
       [
         avatar_url || '',
         full_name || payload.full_name || '',
+        preferred_language || 'es',
         payload.sub,
       ]
     ).catch(() => {});
@@ -175,6 +185,7 @@ export async function PUT(request: NextRequest) {
       full_name,
       bizum_phone,
       avatar_url,
+      preferred_language,
       role: payload.role || 'member',
     };
 

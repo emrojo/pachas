@@ -509,26 +509,20 @@ export default function GroupDetailPage() {
             <div className="p-5 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 {/* Trip Identity */}
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditGroupOpen(true)}
-                    className="relative group shrink-0"
-                    title={t('groups.iconOrPhoto')}
-                  >
-                    <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center text-4xl shadow-xs group-hover:scale-105 transition-transform">
-                      {group.icon_emoji}
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-800 rounded-full p-1 border border-slate-200 dark:border-slate-700 text-slate-500 shadow-xs group-hover:text-emerald-600 transition-colors">
-                      <Pencil className="w-3 h-3" />
-                    </div>
-                  </button>
-
+                <div className="flex items-center gap-3">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                         {group.name}
                       </h1>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditGroupOpen(true)}
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        title={t('groups.settings')}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
                       <Badge variant="emerald" size="sm">
                         {group.base_currency}
                       </Badge>

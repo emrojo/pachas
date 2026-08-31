@@ -39,11 +39,6 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-            <div className="absolute bottom-2 left-3 flex items-center gap-1.5">
-              <span className="text-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs px-2 py-0.5 rounded-lg shadow-xs">
-                {group.icon_emoji}
-              </span>
-            </div>
             <div className="absolute top-2.5 right-2.5">
               {group.is_frozen ? (
                 <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-sky-500/90 text-white shadow-sm backdrop-blur-md flex items-center gap-1">
@@ -71,46 +66,41 @@ export const GroupCard: React.FC<{ group: Group }> = ({ group }) => {
               )}
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="relative h-20 w-full overflow-hidden bg-gradient-to-tr from-emerald-600 to-teal-700 p-3 flex items-end justify-between">
+            <span className="text-sm font-black text-white tracking-tight drop-shadow-xs">
+              {group.name}
+            </span>
+            <div className="absolute top-2.5 right-2.5">
+              {group.is_frozen ? (
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-sky-500/90 text-white shadow-sm backdrop-blur-md flex items-center gap-1">
+                  ❄️ {t('groups.frozenStatus') || 'Congelado'}
+                </span>
+              ) : group.is_archived ? (
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-amber-500/90 text-white shadow-sm backdrop-blur-md flex items-center gap-1">
+                  📦 {t('groups.archived') || 'Archivado'}
+                </span>
+              ) : net > 0.01 ? (
+                <Badge variant="emerald" className="shadow-sm backdrop-blur-md">
+                  <TrendingUp className="w-3 h-3 text-emerald-600" />
+                  {t('balances.youAreOwed')} {formatMoney(net, group.base_currency)}
+                </Badge>
+              ) : net < -0.01 ? (
+                <Badge variant="rose" className="shadow-sm backdrop-blur-md">
+                  <TrendingDown className="w-3 h-3 text-rose-600" />
+                  {t('balances.youOwe')} {formatMoney(Math.abs(net), group.base_currency)}
+                </Badge>
+              ) : (
+                <Badge variant="gray" className="shadow-sm backdrop-blur-md bg-white/90 dark:bg-slate-900/90">
+                  <CheckCircle2 className="w-3 h-3 text-slate-500" />
+                  {t('balances.allSettled')}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="p-5 flex flex-col justify-between flex-1">
-          {/* Header without cover image */}
-          {!group.cover_image_url && (
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center text-3xl shadow-xs group-hover:scale-110 transition-transform">
-                {group.icon_emoji}
-              </div>
-
-              {/* Status Badge */}
-              <div>
-                {group.is_frozen ? (
-                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 flex items-center gap-1 shadow-xs">
-                    ❄️ {t('groups.frozenStatus') || 'Congelado'}
-                  </span>
-                ) : group.is_archived ? (
-                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-black bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1 shadow-xs">
-                    📦 {t('groups.archived') || 'Archivado'}
-                  </span>
-                ) : net > 0.01 ? (
-                  <Badge variant="emerald">
-                    <TrendingUp className="w-3 h-3 text-emerald-600" />
-                    {t('balances.youAreOwed')} {formatMoney(net, group.base_currency)}
-                  </Badge>
-                ) : net < -0.01 ? (
-                  <Badge variant="rose">
-                    <TrendingDown className="w-3 h-3 text-rose-600" />
-                    {t('balances.youOwe')} {formatMoney(Math.abs(net), group.base_currency)}
-                  </Badge>
-                ) : (
-                  <Badge variant="gray">
-                    <CheckCircle2 className="w-3 h-3 text-slate-500" />
-                    {t('balances.allSettled')}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
-
           <div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
               {group.name}

@@ -27,6 +27,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Footer } from '@/components/layout/Footer';
 import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
+import { isProduction } from '@/lib/authConfig';
 
 type FilterTab = 'all' | 'unread' | 'payments' | 'comments' | 'groups';
 
@@ -40,8 +41,10 @@ export default function NotificationsPage() {
     deleteNotification,
     clearAllNotifications,
     seedDemoNotifications,
+    isDemoMode,
   } = usePachas();
   const { t } = useTranslation();
+  const showDemoSeeds = isDemoMode && !isProduction();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
@@ -220,16 +223,18 @@ export default function NotificationsPage() {
 
             {/* Global actions */}
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={seedDemoNotifications}
-                className="text-xs font-bold gap-1.5 shadow-xs"
-                title="Cargar notificaciones de ejemplo"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Cargar ejemplos</span>
-              </Button>
+              {showDemoSeeds && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={seedDemoNotifications}
+                  className="text-xs font-bold gap-1.5 shadow-xs"
+                  title="Cargar notificaciones de ejemplo"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Cargar ejemplos</span>
+                </Button>
+              )}
 
               {unreadNotificationsCount > 0 && (
                 <Button
@@ -438,17 +443,19 @@ export default function NotificationsPage() {
                   : 'Cuando haya tickets pendientes de validación, nuevos comentarios o pagos, aparecerán aquí.'}
               </p>
             </div>
-            <div className="pt-2">
-              <Button
-                variant="brand"
-                size="sm"
-                onClick={seedDemoNotifications}
-                className="text-xs font-bold gap-2 shadow-xs"
-              >
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>Cargar notificaciones de ejemplo</span>
-              </Button>
-            </div>
+            {showDemoSeeds && (
+              <div className="pt-2">
+                <Button
+                  variant="brand"
+                  size="sm"
+                  onClick={seedDemoNotifications}
+                  className="text-xs font-bold gap-2 shadow-xs"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>Cargar notificaciones de ejemplo</span>
+                </Button>
+              </div>
+            )}
           </div>
         )}
         </div>

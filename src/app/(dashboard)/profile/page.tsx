@@ -44,17 +44,7 @@ import {
   Send,
   AlertCircle,
 } from 'lucide-react';
-
-const AVATAR_PRESETS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&auto=format&fit=crop&q=80',
-];
+import { DiceBearAvatarPicker } from '@/components/profile/DiceBearAvatarPicker';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -317,55 +307,13 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Photo Selection Tools */}
-          <div className="py-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                {t('profile.changeAvatar')}
-              </label>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1.5 cursor-pointer"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                {t('groups.uploadPhoto')}
-              </button>
-            </div>
-
-            {/* Presets Row */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-              <button
-                type="button"
-                onClick={() => setAvatarUrl(null)}
-                className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center text-xs font-bold transition-all shrink-0 ${
-                  !avatarUrl
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 ring-2 ring-emerald-500/30'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                }`}
-                title="Sin foto"
-              >
-                ABC
-              </button>
-
-              {AVATAR_PRESETS.map((url, idx) => {
-                const isSelected = avatarUrl === url;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setAvatarUrl(url)}
-                    className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all shrink-0 ${
-                      isSelected
-                        ? 'border-emerald-500 ring-2 ring-emerald-500/40 scale-105'
-                        : 'border-transparent opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={url} alt={`Avatar ${idx + 1}`} className="w-full h-full object-cover" />
-                  </button>
-                );
-              })}
-            </div>
+          {/* DiceBear Avatar Picker & Customization */}
+          <div className="py-2 border-b border-slate-100 dark:border-slate-800">
+            <DiceBearAvatarPicker
+              currentAvatarUrl={avatarUrl}
+              onSelectAvatar={(url) => setAvatarUrl(url)}
+              userName={fullName || currentUser.full_name}
+            />
           </div>
 
           {/* Edit Form */}
@@ -494,21 +442,37 @@ export default function ProfilePage() {
 
         {/* Language Preference Card */}
         <Card className="p-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center shrink-0">
-              <Globe className="w-5 h-5" />
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {t('profile.languagePreference')}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('profile.defaultLanguageHelp')}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {t('profile.languagePreference')}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t('profile.languagePreferenceSubtitle')}
-              </p>
-            </div>
+            {currentUser?.preferred_language && (
+              <Badge variant="emerald" size="sm" className="hidden sm:inline-flex font-mono">
+                {t('profile.defaultLanguage')}: {currentUser.preferred_language.toUpperCase()}
+              </Badge>
+            )}
           </div>
 
-          <LanguageSelector variant="grid" />
+          <LanguageSelector
+            variant="grid"
+            onSelectLanguage={async (code) => {
+              try {
+                await updateProfile({ preferred_language: code });
+              } catch (e) {
+                console.warn('Could not persist preferred language to profile:', e);
+              }
+            }}
+          />
         </Card>
 
         {/* Privacy & GDPR Data Management */}

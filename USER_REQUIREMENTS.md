@@ -7,9 +7,9 @@ This document serves as the official and permanent registry for all **user requi
 ## 📌 1. Functional Requirements (FR)
 
 ### 👥 FR-01: Vacation & Themed Group Management
-- **FR-01.1**: Users can create dedicated groups for each trip or getaway, specifying: name, description, thematic emoji icon picker (🏖️, 🏔️, 🍕, ✈️, etc.) or custom cover image upload, and group base currency.
+- **FR-01.1**: Users can create dedicated groups for each trip or getaway, specifying: name, description, dynamic landscape cover photo (via Pexels API / curated HD travel library / custom photo upload), and group base currency. Group emoji pickers are deprecated and removed in favor of clean full-bleed cover imagery.
 - **FR-01.2**: Dashboard with an active trip list, total trip expenditure, and individual net balance status.
-- **FR-01.3**: **Edit Trip Icon, Cover, and Settings**: Ability to edit the group emoji/icon, name, description, and base currency at any time, as well as **upload a custom photo from the device** or pick from curated gallery themes to use as the trip header cover photo.
+- **FR-01.3**: **Edit Trip Cover and Settings**: Ability to edit the group cover photo, name, description, and base currency at any time, as well as **upload a custom photo from the device** or search photos in real-time with Pexels API (`GroupCoverPicker.tsx`).
 
 ### 🔗 FR-02: Invitations & Group Onboarding
 - **FR-02.1**: Generation of a unique invitation link per group (`/join/[inviteCode]`).
@@ -209,6 +209,12 @@ This document serves as the official and permanent registry for all **user requi
   - 100% coverage across all navigation menus, modals, forms, buttons, tooltips, analytics charts, and legal notices.
 - **FR-23.5**: **Automated Dictionary Verification**:
   - Automated test suite ([`src/locales/locales.test.ts`](file:///d:/Projects/pachas/src/locales/locales.test.ts)) guaranteeing key parity across all 19 language dictionaries and detecting untranslated UI tokens.
+- **FR-23.6**: **Automatic Region & Connection Language Detection for Unauthenticated Sessions**:
+  - Automatic detection in [`src/context/LanguageContext.tsx`](file:///d:/Projects/pachas/src/context/LanguageContext.tsx) (`detectRegionLanguage()`) resolving regional dialects (`ca-ES`, `gl-ES`, `eu-ES`, `va`, `pt-BR`, `es-MX`, `fr-FR`, `de-DE`, etc.) and timezone geographical regions when no prior manual preference is stored, setting the local language instantly without requiring login.
+- **FR-23.7**: **Account Default Language, Session Sync & Profile Management**:
+  - Ability to choose the account's default language during registration ([`/register`](file:///d:/Projects/pachas/src/app/%28auth%29/register/page.tsx)), saved in `public.profiles.preferred_language` (`11-user-preferred-language.sql`).
+  - Automatically loads and applies the user's preferred language upon login across any device or browser, while allowing temporary or manual language changes via the top navbar language selector at any time.
+  - Ability to modify and persist the account's default language anytime from the User Profile settings ([`/profile`](file:///d:/Projects/pachas/src/app/%28dashboard%29/profile/page.tsx)).
 
 ### ☕ FR-24: Voluntary Support & Donations System (Buy Me a Coffee)
 - **FR-24.1**: **Configurable Support Button & Cards**:
@@ -583,6 +589,58 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-48.4**: **Production Boot Synchronization**:
   - Integrates migration execution into Node.js startup ([`deploy/start-node-prod.mjs`](file:///d:/Projects/pachas/deploy/start-node-prod.mjs)) and runtime connection pool ([`src/lib/db/postgres.ts`](file:///d:/Projects/pachas/src/lib/db/postgres.ts)), ensuring the backend always operates against an up-to-date schema.
 
+### 🔄 FR-49: Offline Sync Diagnostics, Reason Inspection & Granular Queue Management
+- **FR-49.1**: **Error & Cause Capture**:
+  - The synchronization engine ([`src/lib/sync/syncManager.ts`](file:///d:/Projects/pachas/src/lib/sync/syncManager.ts)) automatically captures and persists specific diagnostic metadata on failed sync attempts: `lastError` (detailed error message / server response), `errorStatus` (HTTP status code or network failure classification), `lastAttemptTimestamp`, and readable transaction titles (e.g. *"Gasto: Cena en restaurante"* or *"Pago: Bizum 45,00 €"*).
+- **FR-49.2**: **Pending Sync Inspection Modal ([`PendingSyncModal.tsx`](file:///d:/Projects/pachas/src/components/sync/PendingSyncModal.tsx))**:
+  - Accessible via a dedicated **"Ver causas (N)"** button in the offline and pending sync banner ([`OfflineBanner.tsx`](file:///d:/Projects/pachas/src/components/pwa/OfflineBanner.tsx)).
+  - Renders an interactive list of all pending items with color-coded status badges, attempt counters, and exact diagnostic reasons (e.g. *Sin conexión de red*, *HTTP 403: Cuenta suspendida*, *HTTP 400: Parámetros inválidos*).
+- **FR-49.3**: **Individual & Batch Queue Controls**:
+  - Users can retry single actions ([`retrySingleSyncAction`](file:///d:/Projects/pachas/src/lib/sync/syncManager.ts)), discard individual stalled actions ([`removeSyncAction`](file:///d:/Projects/pachas/src/lib/sync/syncManager.ts)), or execute batch operations (*"Reintentar todo ahora"* / *"Descartar todos"*).
+
+### 🚀 FR-50: Authenticated User Auto-Redirection to Groups Dashboard
+- **FR-50.1**: **Instant Route Replacement on Root Access (`/` -> `/dashboard`)**:
+  - When an authenticated user (`currentUser` present in session or cached `pachas_user` / `pachas_demo_user` in `localStorage`) visits the root landing page ([`src/app/page.tsx`](file:///d:/Projects/pachas/src/app/page.tsx)), the application automatically replaces the route and navigates directly to the groups dashboard (`/dashboard`) without flashing the marketing landing page.
+- **FR-50.2**: **Optimistic Pre-Hydration Navigation**:
+  - Fast client-side check on component mount immediately triggers `router.replace('/dashboard')` accompanied by a sleek loading transition to avoid visual jumpiness.
+
+### 🛡️ FR-51: Superadmin & Group Admin Expense Deletion Override
+- **FR-51.1**: **Moderation Privilege Overriding "Created by Another Friend" Restriction**:
+  - In [`src/context/PachasContext.tsx`](file:///d:/Projects/pachas/src/context/PachasContext.tsx) ([`deleteExpense`](file:///d:/Projects/pachas/src/context/PachasContext.tsx)), Application Superadmins (`isAppAdmin(currentUser)`) and Group Administrators (`isUserGroupAdmin(groupId, currentUser.id)`) are granted full authorization to delete any expense, eliminating the restriction *"No puedes eliminar este gasto porque fue creado por otro amigo"*.
+- **FR-51.2**: **Backoffice In-Report Deletion**:
+  - Superadmins reviewing reported content in `/admin?tab=reports` can execute one-click expense deletion while automatically archiving the associated evidence snapshot in `public.content_reports.evidence_snapshot`.
+
+### 💬 FR-52: Direct Moderation Support Chat Channeling with Reporters & Creators
+- **FR-52.1**: **Direct Chat with Content Reporter**:
+  - In each report card in `/admin?tab=reports`, a prominent **"💬 Chat denunciante"** action button switches the admin view to the official Support Chat tab ([`/admin?tab=support`](file:///d:/Projects/pachas/src/app/(dashboard)/admin/page.tsx)), opens the active user thread, and pre-populates contextual information (report motive and target title) to clarify facts with the reporting user.
+- **FR-52.2**: **Direct Chat with Reported Expense Creator**:
+  - For reported expenses and receipts, the API ([`src/app/api/reports/route.ts`](file:///d:/Projects/pachas/src/app/api/reports/route.ts)) joins the expense creator's profile (`expense_author_id`, `expense_author_name`, `expense_author_email`), providing a **"💬 Chat autor gasto"** button that allows superadmins to communicate directly with the creator before taking disciplinary or deletion actions.
+
+### 🔕 FR-53: Production Notification Center Cleanliness & Demo Toggle Isolation
+- **FR-53.1**: **Suppression of "Cargar ejemplos" in Production**:
+  - In [`src/app/(dashboard)/notifications/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/notifications/page.tsx), the demo seeding buttons (*"Cargar ejemplos"*) in both the top header and the empty state tray are strictly hidden when running in production mode (`isProduction()`), preserving a clean environment for real users while remaining active for local development and demo testing.
+
+### 🎨 FR-54: Customizable DiceBear Vector Avatar System & Interactive Studio
+- **FR-54.1**: **Replacement of Realistic Stock Photos**:
+  - Realistic/AI-generated profile photos have been removed across the entire application and replaced with modern, privacy-respecting vector avatars from the **DiceBear API (v9.x)** ([`src/components/profile/DiceBearAvatarPicker.tsx`](file:///d:/Projects/pachas/src/components/profile/DiceBearAvatarPicker.tsx)).
+- **FR-54.2**: **8 Curated Illustration Styles**:
+  - Support for 8 styles: *Ilustración (`lorelei`)*, *Robots (`bottts`)*, *Personajes (`avataaars`)*, *Aventura (`adventurer`)*, *Emojis (`fun-emoji`)*, *Notionist (`notionists`)*, *Pixel Art (`pixel-art`)*, and *Artístico (`micah`)*.
+- **FR-54.3**: **Interactive Customization Studio**:
+  - Dynamic seed input with **"🎲 Aleatorio"** randomizer button.
+  - Background color palette (Transparente, Cielo `#b6e3f4`, Lavanda `#c0aede`, Índigo `#d1d4f9`, Rosa `#ffd5dc`, Melocotón `#ffdfbf`, Esmeralda `#10b981`, Pizarra `#334155`).
+  - Curated quick-select presets for instant 1-tap choice.
+  - Integrated into Profile Settings ([`src/app/(dashboard)/profile/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/profile/page.tsx)) and User Provisioning ([`src/components/profile/CreateUserModal.tsx`](file:///d:/Projects/pachas/src/components/profile/CreateUserModal.tsx)).
+
+### 🖼️ FR-55: Dynamic Contextual Group Cover Photos via Pexels API & Thematic Search
+- **FR-55.1**: **Dynamic Photo Search Endpoint ([`src/app/api/photos/search/route.ts`](file:///d:/Projects/pachas/src/app/api/photos/search/route.ts))**:
+  - REST endpoint querying the Pexels API (`https://api.pexels.com/v1/search`) based on group titles and travel queries, returning landscape-oriented high-definition photos with author attributions.
+- **FR-55.2**: **Smart Travel Thematic Fallback Engine**:
+  - Intelligent keyword and token matching fallback catalog covering destinations and activities (Playa/Beach, Montaña/Mountain, Cena/Tapas, Ciudad/City, Fiesta/Nightlife, Camping/Roadtrip, Nieve/Ski, Casa Rural).
+- **FR-55.3**: **Interactive Cover Picker Component ([`src/components/groups/GroupCoverPicker.tsx`](file:///d:/Projects/pachas/src/components/groups/GroupCoverPicker.tsx))**:
+  - Replaces hardcoded presets in Group Creation ([`CreateGroupModal.tsx`](file:///d:/Projects/pachas/src/components/groups/CreateGroupModal.tsx)) and Group Settings ([`EditGroupModal.tsx`](file:///d:/Projects/pachas/src/components/groups/EditGroupModal.tsx)).
+  - Auto-searches contextual photos when the group title is typed (debounced).
+  - Provides a search bar for custom locations/destinations, quick topic chips, thumbnail selection with photographer badges, and custom file upload support.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -695,5 +753,18 @@ This document serves as the official and permanent registry for all **user requi
 | **30/08/2026** | 💬 Added | **FR-46** | **Official Support Chat & User-Admin Communication Channel**: Created dedicated user support modal (`SupportChatModal.tsx`) with category selection (*General, Bug, Report Clarification, Appeal*); backoffice admin chat hub (`/admin?tab=support`) with real-time response capability; database migration `10-support-chat-and-bans.sql`; automated push notifications to admins on inquiry and to users on reply; and 20-language translation support. |
 | **30/08/2026** | 🚫 Added | **FR-47** | **User Moderation, Account Bans & Suspension Protocol**: Implemented user ban database columns (`is_banned`, `banned_at`, `banned_by`, `ban_reason`); dashboard suspension lockout screen with formal reason and direct appeal button; 1-click ban/unban controls in Users table, Support thread header, and Moderation reports cards; REST endpoints `/api/admin/users/[id]/ban` (`POST`, `DELETE`); and automated user notification upon sanction/reactivation. |
 | **30/08/2026** | 🐘 Added | **FR-48** | **Deterministic Database Migration Engine & Transactional Ledger**: Built automatic migration runner (`deploy/migrate.mjs`, `src/lib/db/migrator.ts`) with `public._migrations` tracking table; scans and executes `01` to `10` `.sql` scripts sequentially inside atomic transactions; adds `npm run db:migrate`, `npm run db:status`, `npm run db:reset` CLI commands; and synchronizes on server boot and connection pool initialization. |
+| **31/08/2026** | 🔄 Added | **FR-49** | **Pending Sync Diagnostics & Causes Inspection**: Added reason/error capture (`lastError`, `errorStatus`, `lastAttemptTimestamp`) in `syncManager.ts`, created `PendingSyncModal.tsx` displaying exact diagnostic failure causes, attempt counters and retry/discard controls, and integrated trigger button in `OfflineBanner.tsx`. |
+| **31/08/2026** | 🚀 Added | **FR-50** | **Root Landing Page Auto-Redirect for Logged-In Users**: Authenticated users visiting `/` are now automatically and seamlessly redirected directly to `/dashboard` with optimistic pre-hydration checks and loading animation. |
+| **31/08/2026** | 🛡️ Fixed | **FR-51** | **Superadmin Expense Deletion Permission in Moderation**: Removed creator restriction block for Application Superadmins and Group Admins in `deleteExpense`, allowing administrators to delete any reported or infringing expense without permission errors. |
+| **31/08/2026** | 💬 Added | **FR-52** | **Direct Support Chat Channeling with Reporter & Expense Creator**: Added 1-click **"💬 Chat denunciante"** and **"💬 Chat autor gasto"** buttons in `/admin?tab=reports`, auto-switching to `/admin?tab=support` and pre-filling inquiry context before taking disciplinary actions. |
+| **31/08/2026** | 🔕 Fixed | **FR-53** | **Hide "Cargar ejemplos" in Production Notification Center**: Wrapped example demo seed buttons in `notifications/page.tsx` with `isDemoMode && !isProduction()` to keep production notification centers clean and professional. |
+| **31/08/2026** | 🎨 Added | **FR-54** | **Customizable DiceBear Vector Avatar System**: Replaced realistic AI stock photos with DiceBear vector avatars (`DiceBearAvatarPicker.tsx`) supporting 8 styles (Lorelei, Bottts, Avataaars, Adventurer, Emojis, Notionist, Pixel Art, Micah), color palette, seed randomizer, and integrated in Profile and User Creation. |
+| **31/08/2026** | 🖼️ Added | **FR-55** | **Dynamic Contextual Group Cover Photos via Pexels API**: Implemented `/api/photos/search` with Pexels API and smart travel theme fallback catalog, created `GroupCoverPicker.tsx` with dynamic title-based auto-search, quick destination chips, photographer credits, and replaced static cover presets in `EditGroupModal.tsx` and `CreateGroupModal.tsx`. |
+| **31/08/2026** | 🎨 Updated | **FR-01.3 & FR-55** | **Group Emoji Deprecation & Full Cover Photo Experience**: Removed group emojis across group creation, editing, cards, and header banners in favor of full cover imagery. Fixed form bubbling bug in `GroupCoverPicker.tsx` by isolating search inputs into dedicated non-form elements and preventing event bubbling. |
+| **31/08/2026** | 🌐 Added | **FR-23.6** | **Automatic Region/Connection Language Auto-Detection for Unauthenticated Sessions**: Added `detectRegionLanguage()` in `LanguageContext.tsx` resolving regional dialects (`ca-ES`, `gl-ES`, `eu-ES`, `va`, `pt-BR`, `es-MX`, `fr-FR`, `de-DE`, etc.) and geographical timezone mappings automatically on initial visits. |
+| **31/08/2026** | 🌐 Added | **FR-23.7** | **Persistent Account Default Language & Profile Management**: Added default language selection in registration form (`/register`), PostgreSQL migration `11-user-preferred-language.sql`, auto-application of user's preferred language upon login, and real-time modification and persistence from User Profile (`/profile`). |
+
+
+
 
 

@@ -22,6 +22,7 @@ export interface Profile {
   avatar_url?: string | null;
   bizum_phone?: string | null;
   role?: 'admin' | 'member';
+  preferred_language?: string | null;
   is_banned?: boolean;
   banned_at?: string | null;
   banned_by?: string | null;

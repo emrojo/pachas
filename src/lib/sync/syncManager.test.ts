@@ -80,4 +80,29 @@ describe('Offline Sync Manager', () => {
     expect(syncedItems[0].entityId).toBe('exp-to-del');
     expect(getSyncQueue().length).toBe(0);
   });
+
+  it('records failure diagnosis when server or database returns error', async () => {
+    enqueueSyncAction({
+      type: 'CREATE_EXPENSE',
+      entityId: 'exp-fail-1',
+      groupId: 'grp-fail',
+      payload: { id: 'exp-fail-1', title: 'Gasto fallido', amount: 100 },
+    });
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        upsert: vi.fn().mockResolvedValue({ error: { message: 'Database connection failed' } }),
+      }),
+    };
+
+    const res = await processSyncQueue(mockSupabase);
+    expect(res.failureCount).toBe(1);
+
+    const queue = getSyncQueue();
+    expect(queue.length).toBe(1);
+    expect(queue[0].retryCount).toBe(1);
+    expect(queue[0].lastError).toBeDefined();
+    expect(queue[0].title).toBe('Gasto: Gasto fallido');
+    expect(queue[0].lastAttemptTimestamp).toBeDefined();
+  });
 });

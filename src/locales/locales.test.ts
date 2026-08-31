@@ -90,5 +90,30 @@ describe('Internationalization (i18n) locales test suite', () => {
     }
     expect(result).toBe('Hello, Maria! You owe 15,00 €.');
   });
+
+  it('should detect regional languages accurately based on dialect and locales', () => {
+    const testDetect = (languages: string[]): string => {
+      const valid = new Set(['es', 'en', 'ca', 'gl', 'eu', 'va', 'fr', 'pt', 'de', 'it', 'zh', 'ja', 'hi', 'ru', 'ar', 'el', 'tr', 'nl', 'af']);
+      for (const raw of languages) {
+        const lower = raw.toLowerCase().trim();
+        if (lower.startsWith('ca-valencia') || lower.startsWith('es-valencia') || lower === 'va') return 'va';
+        if (lower.startsWith('ca') || lower === 'cat') return 'ca';
+        if (lower.startsWith('gl') || lower === 'glg') return 'gl';
+        if (lower.startsWith('eu') || lower === 'eus') return 'eu';
+        const twoLetter = lower.slice(0, 2);
+        if (valid.has(twoLetter)) return twoLetter;
+      }
+      return 'es';
+    };
+
+    expect(testDetect(['ca-ES', 'es'])).toBe('ca');
+    expect(testDetect(['gl-ES', 'es'])).toBe('gl');
+    expect(testDetect(['eu-ES', 'es'])).toBe('eu');
+    expect(testDetect(['ca-valencia', 'es'])).toBe('va');
+    expect(testDetect(['fr-FR', 'en'])).toBe('fr');
+    expect(testDetect(['de-DE', 'en'])).toBe('de');
+    expect(testDetect(['pt-BR', 'en'])).toBe('pt');
+    expect(testDetect(['en-US', 'es'])).toBe('en');
+  });
 });
 

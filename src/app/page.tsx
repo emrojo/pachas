@@ -1,7 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { usePachas } from '@/context/PachasContext';
 import { Button } from '@/components/ui/Button';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
@@ -17,7 +19,39 @@ import {
 } from 'lucide-react';
 
 export default function LandingPage() {
+  const { currentUser, isLoading } = usePachas();
+  const router = useRouter();
   const { t } = useTranslation();
+
+  // Automatic redirect if already logged in
+  useEffect(() => {
+    if (!isLoading && currentUser) {
+      router.replace('/dashboard');
+    }
+  }, [currentUser, isLoading, router]);
+
+  // Fast check from local storage before context finishes hydration
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('pachas_user');
+        if (saved && JSON.parse(saved)?.id) {
+          router.replace('/dashboard');
+        }
+      } catch {}
+    }
+  }, [router]);
+
+  if (currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-2xl animate-pulse shadow-lg shadow-emerald-500/25 mb-4">
+          💸
+        </div>
+        <span className="text-xs font-semibold text-slate-400">Accediendo a tus grupos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col justify-between">

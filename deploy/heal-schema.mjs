@@ -117,6 +117,10 @@ async function healSchema() {
         sql: 'ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;',
       },
       {
+        name: 'public.profiles -> preferred_language',
+        sql: "ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) DEFAULT 'es';",
+      },
+      {
         name: 'public.groups -> is_frozen',
         sql: 'ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS is_frozen BOOLEAN DEFAULT FALSE NOT NULL;',
       },
