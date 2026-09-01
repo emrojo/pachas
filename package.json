@@ -22,6 +22,8 @@
     "db:reset": "node deploy/migrate.mjs --reset",
     "db:clean-keep-users": "node deploy/clean-db-keep-users.mjs",
     "db:clean-keep-users:prod": "node deploy/clean-db-keep-users.mjs --prod",
+    "db:users": "node deploy/set-user-password.mjs --list",
+    "db:set-password": "node deploy/set-user-password.mjs",
     "build:native": "next build",
     "cap:sync": "cap sync",
     "cap:sync:prod": "cap sync",

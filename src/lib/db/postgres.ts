@@ -55,11 +55,13 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
   schemaInitialized = true;
 
   try {
-    // 1. Profiles ban columns
+    // 1. Profiles ban and language columns
+    await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'es';`).catch(() => {});
     await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;`).catch(() => {});
     await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_at TIMESTAMP WITH TIME ZONE;`).catch(() => {});
     await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS banned_by UUID;`).catch(() => {});
     await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;`).catch(() => {});
+    await p.query(`ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS encrypted_password TEXT;`).catch(() => {});
 
     // 2. Groups freeze columns
     await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS is_frozen BOOLEAN DEFAULT FALSE;`).catch(() => {});

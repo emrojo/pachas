@@ -45,18 +45,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
-    // Check if target group is frozen
+    // Check if target group exists and whether it is frozen
     try {
-      const grpCheck = await pool.query('SELECT is_frozen FROM public.groups WHERE id = $1', [groupId]);
-      if (grpCheck.rows.length > 0 && grpCheck.rows[0].is_frozen) {
-        if (!user.isAdmin) {
-          return NextResponse.json(
-            { error: 'El grupo se encuentra temporalmente congelado por moderación. No se pueden añadir nuevos gastos.' },
-            { status: 403 }
-          );
-        }
+      const grpCheck = await pool.query('SELECT id, is_frozen FROM public.groups WHERE id = $1', [groupId]);
+      if (grpCheck.rows.length === 0) {
+        return NextResponse.json(
+          { error: `El grupo indicado no existe en la base de datos. Si acabas de resetear la base de datos, por favor crea un nuevo grupo en la aplicación.` },
+          { status: 404 }
+        );
       }
-    } catch {}
+      if (grpCheck.rows[0].is_frozen && !user.isAdmin) {
+        return NextResponse.json(
+          { error: 'El grupo se encuentra temporalmente congelado por moderación. No se pueden añadir nuevos gastos.' },
+          { status: 403 }
+        );
+      }
+    } catch (grpErr: any) {
+      if (grpErr.status === 404 || grpErr.status === 403) throw grpErr;
+    }
 
     // Auto-heal ocr_status column and upgrade expense_date to timestamptz outside transaction if database permissions allow
     try {
@@ -83,6 +89,18 @@ export async function POST(request: NextRequest) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Ensure creator profile exists in public.profiles to satisfy created_by foreign key
+      try {
+        await client.query(
+          `INSERT INTO public.profiles (id, email, full_name, role, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NOW(), NOW())
+           ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
+          [user.userId, user.email || `${user.userId}@pachas.local`, user.email?.split('@')[0] || 'Usuario', user.role || 'member']
+        );
+      } catch (profErr) {
+        console.warn('Profile ensure non-fatal warning in /api/expenses:', profErr);
+      }
 
       // 1. Insert or update expense
       const insertQuery = `

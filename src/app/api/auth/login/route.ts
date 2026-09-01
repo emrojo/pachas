@@ -57,14 +57,35 @@ export async function POST(request: NextRequest) {
     // 2. Query PostgreSQL database if pool is configured
     if (pool) {
       try {
-        const userRes = await pool.query(
-          `SELECT u.id, u.email, u.encrypted_password, u.raw_user_meta_data, 
-                  p.full_name, p.avatar_url, p.bizum_phone, p.preferred_language, p.role, p.is_banned, p.ban_reason
-           FROM auth.users u
-           LEFT JOIN public.profiles p ON p.id = u.id
-           WHERE LOWER(u.email) = LOWER($1)`,
-          [cleanEmail]
-        );
+        // Auto-heal profiles and users columns if missing
+        try {
+          await pool.query("ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'es';").catch(() => {});
+          await pool.query("ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;").catch(() => {});
+          await pool.query("ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ban_reason TEXT;").catch(() => {});
+          await pool.query("ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS encrypted_password TEXT;").catch(() => {});
+        } catch {}
+
+        let userRes;
+        try {
+          userRes = await pool.query(
+            `SELECT u.id, u.email, u.encrypted_password, u.raw_user_meta_data, 
+                    p.full_name, p.avatar_url, p.bizum_phone, p.preferred_language, p.role, p.is_banned, p.ban_reason
+             FROM auth.users u
+             LEFT JOIN public.profiles p ON p.id = u.id
+             WHERE LOWER(u.email) = LOWER($1)`,
+            [cleanEmail]
+          );
+        } catch (queryErr) {
+          // Resilient fallback query if database is still missing certain profile columns
+          userRes = await pool.query(
+            `SELECT u.id, u.email, u.encrypted_password, u.raw_user_meta_data, 
+                    p.full_name, p.avatar_url, p.bizum_phone, p.role
+             FROM auth.users u
+             LEFT JOIN public.profiles p ON p.id = u.id
+             WHERE LOWER(u.email) = LOWER($1)`,
+            [cleanEmail]
+          );
+        }
 
         if (userRes.rows.length > 0) {
           const row = userRes.rows[0];

@@ -35,6 +35,18 @@ export async function POST(request: NextRequest) {
     try {
       await client.query('BEGIN');
 
+      // Ensure creator profile exists in public.profiles to satisfy foreign keys
+      try {
+        await client.query(
+          `INSERT INTO public.profiles (id, email, full_name, role, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NOW(), NOW())
+           ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
+          [user.userId, user.email || `${user.userId}@pachas.local`, user.email?.split('@')[0] || 'Usuario', user.role || 'member']
+        );
+      } catch (profErr) {
+        console.warn('Profile ensure non-fatal warning in /api/groups:', profErr);
+      }
+
       const groupRes = await client.query(
         `INSERT INTO public.groups (
            id, name, description, icon_emoji, cover_image_url, base_currency,
