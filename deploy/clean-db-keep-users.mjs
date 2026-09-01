@@ -50,6 +50,7 @@ let cliUser = null;
 let cliPassword = null;
 let cliPort = null;
 let cliSsl = null;
+let shouldDropSchema = false;
 
 for (const arg of args) {
   if (arg.startsWith('--url=')) {
@@ -78,6 +79,8 @@ for (const arg of args) {
     cliPort = parseInt(arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, ''), 10);
   } else if (arg === '--ssl') {
     cliSsl = true;
+  } else if (arg === '--drop-schema' || arg === '--reset-schema') {
+    shouldDropSchema = true;
   }
 }
 
@@ -299,14 +302,43 @@ async function main() {
   let extractedProfiles = [];
 
   // STEP 1: Extract and Backup Users (or load from file)
-  if (backupFilePathInput && fs.existsSync(backupFilePathInput)) {
+  let resolvedBackupPath = null;
+  if (backupFilePathInput) {
+    if (fs.existsSync(backupFilePathInput)) {
+      resolvedBackupPath = backupFilePathInput;
+    } else if (fs.existsSync(path.resolve(process.cwd(), backupFilePathInput))) {
+      resolvedBackupPath = path.resolve(process.cwd(), backupFilePathInput);
+    } else if (fs.existsSync(path.join(backupsDir, backupFilePathInput))) {
+      resolvedBackupPath = path.join(backupsDir, backupFilePathInput);
+    } else if (fs.existsSync(path.join(backupsDir, `${backupFilePathInput}.json`))) {
+      resolvedBackupPath = path.join(backupsDir, `${backupFilePathInput}.json`);
+    } else {
+      console.error(`❌ No se encontró el archivo de backup especificado: ${backupFilePathInput}`);
+      process.exit(1);
+    }
+  }
+
+  if (resolvedBackupPath) {
     console.log(`📂 [Paso 1/4] Cargando usuarios desde archivo de copia de seguridad:`);
-    console.log(`   ${backupFilePathInput}`);
+    console.log(`   ${resolvedBackupPath}`);
     try {
-      const parsed = JSON.parse(fs.readFileSync(backupFilePathInput, 'utf8'));
+      const parsed = JSON.parse(fs.readFileSync(resolvedBackupPath, 'utf8'));
       extractedAuthUsers = parsed.authUsers || [];
       extractedProfiles = parsed.profiles || [];
       console.log(`   ✅ Cargados ${extractedAuthUsers.length} usuario(s) y ${extractedProfiles.length} perfil(es).\n`);
+
+      if (extractedProfiles.length > 0 || extractedAuthUsers.length > 0) {
+        console.log('   📋 Usuarios en el backup que se restaurarán:');
+        const displayList = extractedProfiles.length > 0 ? extractedProfiles : extractedAuthUsers;
+        displayList.forEach((u, idx) => {
+          const name = (u.full_name || u.email || 'Sin nombre').padEnd(25, ' ').substring(0, 25);
+          const email = (u.email || '').padEnd(30, ' ').substring(0, 30);
+          const role = (u.role || 'member').padEnd(8, ' ');
+          const lang = u.preferred_language || 'es';
+          console.log(`      ${idx + 1}. [${role}] ${name} <${email}> (Idioma: ${lang})`);
+        });
+        console.log('');
+      }
     } catch (readErr) {
       console.error(`❌ Error leyendo archivo de backup: ${formatError(readErr)}`);
       process.exit(1);
@@ -407,29 +439,57 @@ async function main() {
     console.log('🧹 [Paso 2/4] Limpiando tablas operacionales y re-creando esquema limpio...');
     await targetClient.connect();
 
-    // Drop all application tables and migrations ledger
-    const resetSql = `
-      DROP TABLE IF EXISTS public.expense_comments CASCADE;
-      DROP TABLE IF EXISTS public.group_messages CASCADE;
-      DROP TABLE IF EXISTS public.content_reports CASCADE;
-      DROP TABLE IF EXISTS public.support_messages CASCADE;
-      DROP TABLE IF EXISTS public.settlements CASCADE;
-      DROP TABLE IF EXISTS public.expense_participants CASCADE;
-      DROP TABLE IF EXISTS public.expense_payers CASCADE;
-      DROP TABLE IF EXISTS public.expenses CASCADE;
-      DROP TABLE IF EXISTS public.group_members CASCADE;
-      DROP TABLE IF EXISTS public.groups CASCADE;
-      DROP TABLE IF EXISTS public.exchange_rates CASCADE;
-      DROP TABLE IF EXISTS public.push_subscriptions CASCADE;
-      DROP TABLE IF EXISTS public.user_notification_preferences CASCADE;
-      DROP TABLE IF EXISTS public.profiles CASCADE;
-      DROP TABLE IF EXISTS auth.password_reset_tokens CASCADE;
-      DROP TABLE IF EXISTS auth.users CASCADE;
-      DROP TABLE IF EXISTS public._migrations CASCADE;
-    `;
+    if (shouldDropSchema) {
+      console.log('   💣 Eliminando esquemas public y auth por completo (DROP SCHEMA CASCADE)...');
+      try {
+        await targetClient.query('DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;');
+        await targetClient.query('DROP SCHEMA IF EXISTS auth CASCADE; CREATE SCHEMA auth;');
+        console.log('   ✅ Esquemas public y auth eliminados y recreados de cero.');
+      } catch (dropErr) {
+        console.warn(`   ⚠️ DROP SCHEMA requiere superusuario (${formatError(dropErr)}). Aplicando limpieza por tablas...`);
+      }
+    }
 
-    await targetClient.query(resetSql);
-    console.log('   ✅ Tablas y datos operacionales eliminados.');
+    // Tables to wipe completely (expenses, groups, settlements, comments, messages, etc.)
+    const tablesToClean = [
+      'public.expense_comments',
+      'public.group_messages',
+      'public.content_reports',
+      'public.support_messages',
+      'public.settlements',
+      'public.expense_participants',
+      'public.expense_payers',
+      'public.expenses',
+      'public.group_members',
+      'public.groups',
+      'public.exchange_rates',
+      'public.push_subscriptions',
+      'public.user_notification_preferences',
+      'auth.password_reset_tokens',
+    ];
+
+    // Try TRUNCATE CASCADE on operational tables
+    try {
+      await targetClient.query(`TRUNCATE TABLE ${tablesToClean.join(', ')} CASCADE;`);
+      console.log('   ✅ Tablas operacionales vaciadas con TRUNCATE CASCADE.');
+    } catch (truncErr) {
+      // Fallback: table by table
+      for (const table of tablesToClean) {
+        try {
+          await targetClient.query(`TRUNCATE TABLE ${table} CASCADE;`);
+        } catch {
+          try {
+            await targetClient.query(`DELETE FROM ${table};`);
+          } catch {}
+        }
+      }
+      console.log('   ✅ Tablas operacionales limpiadas con éxito.');
+    }
+
+    // Reset migrations ledger to re-run all migrations idempotently
+    try {
+      await targetClient.query('DELETE FROM public._migrations;');
+    } catch {}
 
     // Discover migration files
     const files = fs.readdirSync(scriptsDir)
