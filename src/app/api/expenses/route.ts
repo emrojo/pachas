@@ -14,9 +14,12 @@ export async function POST(request: NextRequest) {
     const user = authResult.user!;
 
     const body = await request.json();
+    const rawGroupId = body.groupId || body.group_id;
+    const cleanGroupId = typeof rawGroupId === 'string' ? rawGroupId.trim() : rawGroupId;
+    const groupId = cleanGroupId;
+
     const {
       id = randomUUID(),
-      groupId,
       title,
       amount = 0,
       currency = 'EUR',
@@ -36,7 +39,7 @@ export async function POST(request: NextRequest) {
       participants = [],
     } = body;
 
-    if (!groupId || !title || amount === undefined || amount === null) {
+    if (!cleanGroupId || !title || amount === undefined || amount === null) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
     }
 
@@ -47,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Check if target group exists and whether it is frozen
     try {
-      const grpCheck = await pool.query('SELECT id, is_frozen FROM public.groups WHERE id = $1', [groupId]);
+      const grpCheck = await pool.query('SELECT id, is_frozen FROM public.groups WHERE id = $1', [cleanGroupId]);
       if (grpCheck.rows.length === 0) {
         return NextResponse.json(
           { error: `El grupo indicado no existe en la base de datos. Si acabas de resetear la base de datos, por favor crea un nuevo grupo en la aplicación.` },
