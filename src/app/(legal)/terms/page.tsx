@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/context/LanguageContext';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { Footer } from '@/components/layout/Footer';
-import { FileText, ArrowLeft, Shield, AlertTriangle, Scale, Lock, CheckCircle2 } from 'lucide-react';
+import { FileText, ArrowLeft, Shield, AlertTriangle, Scale, Lock, CheckCircle2, Code2 } from 'lucide-react';
 
 export default function TermsPage() {
   const { t } = useTranslation();
@@ -163,6 +163,16 @@ export default function TermsPage() {
             </p>
             <p>
               Las presentes Condiciones se rigen por la legislación española y comunitaria europea. Para la resolución de cualquier litigio derivado del uso de la Plataforma, las partes se someten a los juzgados y tribunales del domicilio del usuario cuando ostente la condición de consumidor.
+            </p>
+          </section>
+
+          <section className="space-y-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Code2 className="w-4 h-4 text-emerald-600" />
+              9. Componentes de Terceros y Licencias de Código Abierto
+            </h2>
+            <p>
+              Pachas utiliza y distribuye diversos componentes y bibliotecas de software de código abierto licenciados bajo licencias públicas (como MIT, Apache 2.0, BSD-2-Clause, ISC, CC0 y ODbL). El uso de dichos componentes se rige por sus respectivas licencias, cuyos términos, avisos de copyright y descargos de responsabilidad pueden consultarse íntegramente en la sección de <Link href="/licenses" className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">Licencias y Librerías de Terceros</Link>.
             </p>
           </section>
         </div>

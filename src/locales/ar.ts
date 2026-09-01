@@ -127,6 +127,7 @@ export const ar: TranslationDictionary = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     legalNotice: 'Legal Notice',
+    licenses: "التراخيص والشكر والتقدير",
     friends: 'الأصدقاء',
   },
   auth: {

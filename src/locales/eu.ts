@@ -127,6 +127,7 @@ export const eu: TranslationDictionary = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     legalNotice: 'Legal Notice',
+    licenses: "Lizentziak eta Kredituak",
     friends: 'Lagunak',
   },
   auth: {

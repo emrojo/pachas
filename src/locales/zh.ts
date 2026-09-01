@@ -127,6 +127,7 @@ export const zh: TranslationDictionary = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     legalNotice: 'Legal Notice',
+    licenses: "开源许可与鸣谢",
     friends: '朋友',
   },
   auth: {

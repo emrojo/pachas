@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useTranslation } from '@/context/LanguageContext';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
-import { Shield, FileText, Cookie, Scale, Lock, HeartHandshake } from 'lucide-react';
+import { Shield, FileText, Cookie, Scale, Lock, HeartHandshake, Code2 } from 'lucide-react';
 
 export interface FooterProps {
   className?: string;
@@ -63,6 +63,14 @@ export const Footer: React.FC<FooterProps> = ({ className = '', showDonations = 
             >
               <Scale className="w-3.5 h-3.5 text-sky-500" />
               <span>{t('nav.legalNotice')}</span>
+            </Link>
+
+            <Link
+              href="/licenses"
+              className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5"
+            >
+              <Code2 className="w-3.5 h-3.5 text-purple-500" />
+              <span>{t('nav.licenses')}</span>
             </Link>
           </div>
 

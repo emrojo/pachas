@@ -127,6 +127,7 @@ export const el: TranslationDictionary = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     legalNotice: 'Legal Notice',
+    licenses: "Άδειες & Συντελεστές",
     friends: 'Φίλοι',
   },
   auth: {

@@ -127,6 +127,7 @@ export const tr: TranslationDictionary = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     legalNotice: 'Legal Notice',
+    licenses: "Lisanslar ve Katkıda Bulunanlar",
     friends: 'Arkadaşlar',
   },
   auth: {

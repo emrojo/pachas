@@ -258,7 +258,10 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-26.9**: **Cookie Consent Banner ([`CookieConsentBanner.tsx`](file:///d:/Projects/pachas/src/components/legal/CookieConsentBanner.tsx))**:
   - Informative banner on first visit explaining technical storage and linking to cookie policies.
 - **FR-26.10**: **Unified Global Footer ([`Footer.tsx`](file:///d:/Projects/pachas/src/components/layout/Footer.tsx))**:
-  - Consistent footer with direct links to `/terms`, `/privacy`, `/cookies`, and `/legal` across landing, registration, profile, and legal pages.
+  - Consistent footer with direct links to `/terms`, `/privacy`, `/cookies`, `/legal`, and `/licenses` across landing, registration, profile, and legal pages.
+- **FR-26.11**: **Third-Party Libraries, Open-Source Licenses & Legal Attribution Compliance ([`licenses/page.tsx`](file:///d:/Projects/pachas/src/app/%28legal%29/licenses/page.tsx))**:
+  - Comprehensive interactive catalog ([`ThirdPartyLicenses.tsx`](file:///d:/Projects/pachas/src/components/legal/ThirdPartyLicenses.tsx)) categorizing all open-source packages (MIT, Apache-2.0, BSD-2-Clause, ISC, CC0 1.0, ODbL, MIT-0) and third-party APIs (OpenStreetMap, Pexels, DiceBear, Google Gemini, Open Exchange Rates).
+  - Includes real-time search, license type filters, category selectors, direct links to official repositories, and the mandatory open-source warranty disclaimer clause.
 
 ### 🧮 FR-27: Step-by-Step Mathematical Balance Audit with Virtual Calculator
 - **FR-27.1**: **Dedicated Audit Page (`/groups/[id]/audit`)**:
@@ -763,6 +766,8 @@ This document serves as the official and permanent registry for all **user requi
 | **31/08/2026** | 🎨 Updated | **FR-01.3 & FR-55** | **Group Emoji Deprecation & Full Cover Photo Experience**: Removed group emojis across group creation, editing, cards, and header banners in favor of full cover imagery. Fixed form bubbling bug in `GroupCoverPicker.tsx` by isolating search inputs into dedicated non-form elements and preventing event bubbling. |
 | **31/08/2026** | 🌐 Added | **FR-23.6** | **Automatic Region/Connection Language Auto-Detection for Unauthenticated Sessions**: Added `detectRegionLanguage()` in `LanguageContext.tsx` resolving regional dialects (`ca-ES`, `gl-ES`, `eu-ES`, `va`, `pt-BR`, `es-MX`, `fr-FR`, `de-DE`, etc.) and geographical timezone mappings automatically on initial visits. |
 | **31/08/2026** | 🌐 Added | **FR-23.7** | **Persistent Account Default Language & Profile Management**: Added default language selection in registration form (`/register`), PostgreSQL migration `11-user-preferred-language.sql`, auto-application of user's preferred language upon login, and real-time modification and persistence from User Profile (`/profile`). |
+| **01/09/2026** | 📜 Added | **FR-56** | **Third-Party Libraries, Open-Source Licenses & Legal Attribution Compliance**: Created dedicated interactive open-source attribution catalog (`ThirdPartyLicenses.tsx`, `/licenses`), updated Legal Notice (`/legal`), updated Terms of Service (`/terms`), added `/licenses` to global footer (`Footer.tsx`), and registered mandatory warranty disclaimers across all 19 supported languages. |
+
 
 
 

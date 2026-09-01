@@ -60,6 +60,7 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
 
 type TabType = 'expenses' | 'balances' | 'charts' | 'members' | 'history';
@@ -503,6 +504,33 @@ export default function GroupDetailPage() {
                   <Camera className="w-3.5 h-3.5" />
                   <span>{t('groups.changePhoto')}</span>
                 </button>
+
+                {/* Discreet Pexels / Unsplash Attribution Badge */}
+                {group.cover_image_url.includes('pexels.com') ? (
+                  <a
+                    href="https://www.pexels.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-2.5 right-3 text-[10px] font-medium text-white/75 hover:text-white bg-black/45 hover:bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-md flex items-center gap-1 transition-all z-10 shadow-xs"
+                    title="Foto proporcionada por Pexels"
+                  >
+                    <span>Foto: Pexels</span>
+                    <ExternalLink className="w-2.5 h-2.5 opacity-80" />
+                  </a>
+                ) : group.cover_image_url.includes('unsplash.com') ? (
+                  <a
+                    href="https://unsplash.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-2.5 right-3 text-[10px] font-medium text-white/75 hover:text-white bg-black/45 hover:bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-md flex items-center gap-1 transition-all z-10 shadow-xs"
+                    title="Foto de Unsplash"
+                  >
+                    <span>Foto: Unsplash</span>
+                    <ExternalLink className="w-2.5 h-2.5 opacity-80" />
+                  </a>
+                ) : null}
               </div>
             )}
 

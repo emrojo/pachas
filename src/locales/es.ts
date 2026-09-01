@@ -125,6 +125,7 @@ export const es = {
     privacy: 'Política de Privacidad',
     cookies: 'Política de Cookies',
     legalNotice: 'Aviso Legal',
+    licenses: "Licencias y Créditos",
     friends: 'Amigos',
   },
   auth: {

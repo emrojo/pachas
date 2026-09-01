@@ -127,6 +127,7 @@ export const ru: TranslationDictionary = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     legalNotice: 'Legal Notice',
+    licenses: "Лицензии и благодарности",
     friends: 'Друзья',
   },
   auth: {

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/context/LanguageContext';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { Footer } from '@/components/layout/Footer';
-import { Scale, ArrowLeft, Building, ShieldAlert, Cpu } from 'lucide-react';
+import { Scale, ArrowLeft, Building, ShieldAlert, Cpu, Code2, ArrowRight } from 'lucide-react';
 
 export default function LegalNoticePage() {
   const { t } = useTranslation();
@@ -94,6 +94,25 @@ export default function LegalNoticePage() {
             <p>
               Las relaciones entre el titular de Pachas y los usuarios se regirán por la normativa vigente en España y la Unión Europea. Para la resolución de cualesquiera controversias que pudieran suscitarse, ambas partes se someten a los juzgados y tribunales competentes conforme a derecho.
             </p>
+          </section>
+
+          <section className="space-y-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Code2 className="w-4 h-4 text-emerald-600" />
+              5. Librerías de Terceros, Software Libre y Atribuciones Legales
+            </h2>
+            <p>
+              Pachas integra software de código abierto y utiliza servicios de terceros bajo sus respectivas licencias públicas (MIT, Apache 2.0, BSD-2-Clause, ISC, CC0 1.0, ODbL, entre otras). En estricto cumplimiento de los términos de propiedad intelectual y avisos de copyright exigidos por cada titular, se encuentra disponible un registro completo de todas las librerías, dependencias, autores y términos de licenciamiento.
+            </p>
+            <div className="pt-1">
+              <Link
+                href="/licenses"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 transition-colors"
+              >
+                <span>Consultar Catálogo Oficial de Licencias y Librerías de Terceros</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </section>
         </div>
       </main>

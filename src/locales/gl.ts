@@ -127,6 +127,7 @@ export const gl: TranslationDictionary = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     legalNotice: 'Legal Notice',
+    licenses: "Licenzas e Créditos",
     friends: 'Amigos',
   },
   auth: {

@@ -127,6 +127,7 @@ export const ja: TranslationDictionary = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     legalNotice: 'Legal Notice',
+    licenses: "ライセンスと謝辞",
     friends: '友達',
   },
   auth: {

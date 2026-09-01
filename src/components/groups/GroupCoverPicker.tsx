@@ -290,10 +290,24 @@ export const GroupCoverPicker: React.FC<GroupCoverPickerProps> = ({
                     alt={photo.alt}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-1">
-                    <span className="text-[9px] text-white/90 font-medium truncate">
-                      {photo.photographer}
-                    </span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent flex flex-col justify-end p-1">
+                    {photo.photographer_url ? (
+                      <a
+                        href={photo.photographer_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[9px] text-white/90 hover:text-white hover:underline font-medium truncate flex items-center gap-0.5 z-10 w-fit max-w-full"
+                        title={`Ver perfil de ${photo.photographer} en Pexels`}
+                      >
+                        <span className="truncate">{photo.photographer}</span>
+                        <ExternalLink className="w-2 h-2 shrink-0 opacity-80" />
+                      </a>
+                    ) : (
+                      <span className="text-[9px] text-white/90 font-medium truncate">
+                        {photo.photographer}
+                      </span>
+                    )}
                   </div>
                   {isSelected && (
                     <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-xs">
