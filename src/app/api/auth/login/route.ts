@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
     if (pool) {
       try {
         const userRes = await pool.query(
-          `SELECT u.id, u.email, u.encrypted_password, u.raw_user_meta_data, p.full_name, p.avatar_url, p.bizum_phone, p.role
+          `SELECT u.id, u.email, u.encrypted_password, u.raw_user_meta_data, 
+                  p.full_name, p.avatar_url, p.bizum_phone, p.preferred_language, p.role, p.is_banned, p.ban_reason
            FROM auth.users u
            LEFT JOIN public.profiles p ON p.id = u.id
            WHERE LOWER(u.email) = LOWER($1)`,
@@ -67,6 +68,18 @@ export async function POST(request: NextRequest) {
 
         if (userRes.rows.length > 0) {
           const row = userRes.rows[0];
+
+          if (row.is_banned) {
+            return NextResponse.json(
+              {
+                error: row.ban_reason ? `Cuenta suspendida: ${row.ban_reason}` : 'Tu cuenta ha sido suspendida por los administradores.',
+                is_banned: true,
+                ban_reason: row.ban_reason || null,
+              },
+              { status: 403 }
+            );
+          }
+
           const isPasswordValid = verifyPassword(password, row.encrypted_password);
 
           if (isPasswordValid) {
@@ -80,6 +93,7 @@ export async function POST(request: NextRequest) {
               full_name: fullName,
               avatar_url: row.avatar_url || row.raw_user_meta_data?.avatar_url || null,
               bizum_phone: row.bizum_phone || row.raw_user_meta_data?.bizum_phone || null,
+              preferred_language: row.preferred_language || row.raw_user_meta_data?.preferred_language || 'es',
               role,
               created_at: new Date().toISOString(),
             };

@@ -767,6 +767,8 @@ This document serves as the official and permanent registry for all **user requi
 | **31/08/2026** | 🌐 Added | **FR-23.6** | **Automatic Region/Connection Language Auto-Detection for Unauthenticated Sessions**: Added `detectRegionLanguage()` in `LanguageContext.tsx` resolving regional dialects (`ca-ES`, `gl-ES`, `eu-ES`, `va`, `pt-BR`, `es-MX`, `fr-FR`, `de-DE`, etc.) and geographical timezone mappings automatically on initial visits. |
 | **31/08/2026** | 🌐 Added | **FR-23.7** | **Persistent Account Default Language & Profile Management**: Added default language selection in registration form (`/register`), PostgreSQL migration `11-user-preferred-language.sql`, auto-application of user's preferred language upon login, and real-time modification and persistence from User Profile (`/profile`). |
 | **01/09/2026** | 📜 Added | **FR-56** | **Third-Party Libraries, Open-Source Licenses & Legal Attribution Compliance**: Created dedicated interactive open-source attribution catalog (`ThirdPartyLicenses.tsx`, `/licenses`), updated Legal Notice (`/legal`), updated Terms of Service (`/terms`), added `/licenses` to global footer (`Footer.tsx`), and registered mandatory warranty disclaimers across all 19 supported languages. |
+| **01/09/2026** | 🔄 Added | **FR-57** | **Deterministic Clean Database Reset Preserving Users & Passwords**: Built automated backup and migration runner (`clean-db-keep-users.mjs`, `npm run db:clean-keep-users`), extracting all accounts from `auth.users` and `public.profiles` (passwords, UUIDs, metadata, roles, avatars, languages), creating timestamped JSON backups, wiping tables and re-applying migrations 01-11 sequentially, and restoring users for immediate login. |
+
 
 
 
