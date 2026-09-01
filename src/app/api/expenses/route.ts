@@ -142,6 +142,10 @@ export async function POST(request: NextRequest) {
         RETURNING *;
       `;
 
+      // Insert expense — uses SAVEPOINT so that if the primary INSERT fails due to a
+      // missing column (e.g. ocr_status not yet migrated, code 42703), the transaction
+      // is rolled back to a clean state and the fallback query can run safely.
+      await client.query('SAVEPOINT insert_expense');
       try {
         await client.query(insertQuery, [
           id,
@@ -162,8 +166,11 @@ export async function POST(request: NextRequest) {
           locationName,
           ocr_status || 'completed',
         ]);
+        await client.query('RELEASE SAVEPOINT insert_expense');
       } catch (insertErr: any) {
+        await client.query('ROLLBACK TO SAVEPOINT insert_expense');
         if (insertErr.code === '42703' || String(insertErr.message).includes('ocr_status')) {
+          // Fallback: insert without ocr_status (older schema)
           await client.query(
             `INSERT INTO public.expenses (
               id, group_id, created_by, title, amount, currency,
@@ -234,7 +241,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 4. Record/Upsert the exchange rate in `exchange_rates` if different from base currency
+      // 4. Record/Upsert the exchange rate in `exchange_rates` if different from base currency.
+      // Uses SAVEPOINT so a DDL/DML failure (e.g. permissions, table lock) does NOT abort
+      // the expense COMMIT — saving exchange rates is best-effort.
+      await client.query('SAVEPOINT exchange_rate');
       try {
         const grpRes = await client.query('SELECT base_currency FROM public.groups WHERE id = $1', [groupId]);
         const baseCurrency = grpRes.rows[0]?.base_currency || 'EUR';
@@ -265,8 +275,10 @@ export async function POST(request: NextRequest) {
             [expCurrency, baseCurrency, cleanDate, exchangeRate, 'ECB / Expense Recorded']
           );
         }
+        await client.query('RELEASE SAVEPOINT exchange_rate');
       } catch (rateErr) {
         console.warn('Failed to upsert exchange rate in POST /api/expenses:', rateErr);
+        await client.query('ROLLBACK TO SAVEPOINT exchange_rate');
       }
 
       await client.query('COMMIT');

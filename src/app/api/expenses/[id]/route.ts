@@ -80,6 +80,10 @@ export async function PUT(
     try {
       await client.query('BEGIN');
 
+      // Update expense — uses SAVEPOINT so that if the primary UPDATE fails due to a
+      // missing column (e.g. ocr_status, exchange_rate not yet migrated, code 42703),
+      // the transaction is rolled back to a clean state and the fallback can run safely.
+      await client.query('SAVEPOINT update_expense');
       try {
         await client.query(
           `UPDATE public.expenses SET
@@ -109,8 +113,12 @@ export async function PUT(
             expenseId,
           ]
         );
+        await client.query('RELEASE SAVEPOINT update_expense');
       } catch (updateErr: any) {
+        await client.query('ROLLBACK TO SAVEPOINT update_expense');
         if (updateErr.code === '42703' || String(updateErr.message).includes('ocr_status')) {
+          // Fallback 1: without ocr_status
+          await client.query('SAVEPOINT update_expense_f1');
           try {
             await client.query(
               `UPDATE public.expenses SET
@@ -138,8 +146,11 @@ export async function PUT(
                 expenseId,
               ]
             );
-          } catch (thirdErr: any) {
-            if (thirdErr.code === '42703') {
+            await client.query('RELEASE SAVEPOINT update_expense_f1');
+          } catch (f1Err: any) {
+            await client.query('ROLLBACK TO SAVEPOINT update_expense_f1');
+            if (f1Err.code === '42703') {
+              // Fallback 2: without exchange_rate/converted_amount either
               await client.query(
                 `UPDATE public.expenses SET
                    title = $1, amount = $2, currency = $3,
@@ -164,7 +175,7 @@ export async function PUT(
                 ]
               );
             } else {
-              throw thirdErr;
+              throw f1Err;
             }
           }
         } else {
@@ -205,7 +216,9 @@ export async function PUT(
         );
       }
 
-      // Save exchange rate into public.exchange_rates if foreign currency
+      // Save exchange rate into public.exchange_rates if foreign currency.
+      // Uses SAVEPOINT so a DDL/DML failure here does NOT abort the expense COMMIT.
+      await client.query('SAVEPOINT exchange_rate');
       try {
         const expGroupRes = await client.query('SELECT group_id FROM public.expenses WHERE id = $1', [expenseId]);
         const gId = expGroupRes.rows[0]?.group_id;
@@ -240,8 +253,10 @@ export async function PUT(
             );
           }
         }
+        await client.query('RELEASE SAVEPOINT exchange_rate');
       } catch (rateErr) {
         console.warn('Failed to upsert exchange rate in PUT /api/expenses/[id]:', rateErr);
+        await client.query('ROLLBACK TO SAVEPOINT exchange_rate');
       }
 
       await client.query('COMMIT');
