@@ -93,7 +93,10 @@ export async function POST(request: NextRequest) {
     try {
       await client.query('BEGIN');
 
-      // Ensure creator profile exists in public.profiles to satisfy created_by foreign key
+      // Ensure creator profile exists in public.profiles to satisfy created_by foreign key.
+      // Uses a SAVEPOINT so that if the INSERT fails (e.g. FK violation to auth.users),
+      // the outer transaction is NOT left in an aborted state.
+      await client.query('SAVEPOINT ensure_profile');
       try {
         await client.query(
           `INSERT INTO public.profiles (id, email, full_name, role, created_at, updated_at)
@@ -101,8 +104,10 @@ export async function POST(request: NextRequest) {
            ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
           [user.userId, user.email || `${user.userId}@pachas.local`, user.email?.split('@')[0] || 'Usuario', user.role || 'member']
         );
+        await client.query('RELEASE SAVEPOINT ensure_profile');
       } catch (profErr) {
         console.warn('Profile ensure non-fatal warning in /api/expenses:', profErr);
+        await client.query('ROLLBACK TO SAVEPOINT ensure_profile');
       }
 
       // 1. Insert or update expense

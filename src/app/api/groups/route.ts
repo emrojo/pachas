@@ -35,7 +35,10 @@ export async function POST(request: NextRequest) {
     try {
       await client.query('BEGIN');
 
-      // Ensure creator profile exists in public.profiles to satisfy foreign keys
+      // Ensure creator profile exists in public.profiles to satisfy foreign keys.
+      // Uses a SAVEPOINT so that if the INSERT fails (e.g. FK violation to auth.users),
+      // the outer transaction is NOT left in an aborted state.
+      await client.query('SAVEPOINT ensure_profile');
       try {
         await client.query(
           `INSERT INTO public.profiles (id, email, full_name, role, created_at, updated_at)
@@ -43,8 +46,10 @@ export async function POST(request: NextRequest) {
            ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
           [user.userId, user.email || `${user.userId}@pachas.local`, user.email?.split('@')[0] || 'Usuario', user.role || 'member']
         );
+        await client.query('RELEASE SAVEPOINT ensure_profile');
       } catch (profErr) {
         console.warn('Profile ensure non-fatal warning in /api/groups:', profErr);
+        await client.query('ROLLBACK TO SAVEPOINT ensure_profile');
       }
 
       const groupRes = await client.query(
@@ -65,6 +70,7 @@ export async function POST(request: NextRequest) {
 
       const memberId = randomUUID();
       const notificationsEnabled = body.notifications_enabled !== undefined ? Boolean(body.notifications_enabled) : true;
+      await client.query('SAVEPOINT ensure_member');
       try {
         await client.query(
           `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, joined_at)
@@ -72,8 +78,10 @@ export async function POST(request: NextRequest) {
            ON CONFLICT (group_id, user_id) DO NOTHING`,
           [memberId, id, user.userId, notificationsEnabled]
         );
+        await client.query('RELEASE SAVEPOINT ensure_member');
       } catch (memErr) {
         console.warn('Group member auto-join non-fatal warning:', memErr);
+        await client.query('ROLLBACK TO SAVEPOINT ensure_member');
       }
 
       await client.query('COMMIT');
