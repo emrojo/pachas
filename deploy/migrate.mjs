@@ -57,32 +57,35 @@ loadEnvFiles();
 
 // 2. Resolve database connection config
 function getDatabaseConfig() {
+  const dbUrl = process.env.DATABASE_URL;
+  if (dbUrl) {
+    try {
+      const parsed = new URL(dbUrl);
+      const dbName = parsed.pathname.replace(/^\//, '') || 'pachas';
+      const needsSsl = parsed.searchParams.get('sslmode') === 'require' ||
+                        (parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1');
+
+      return {
+        connectionString: dbUrl,
+        host: parsed.hostname,
+        port: parseInt(parsed.port || '5432', 10),
+        database: dbName,
+        user: decodeURIComponent(parsed.username || 'postgres'),
+        ssl: needsSsl ? { rejectUnauthorized: false } : false,
+      };
+    } catch {
+      return { connectionString: dbUrl };
+    }
+  }
+
   if (process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD) {
     return {
       user: process.env.POSTGRES_USER,
       password: process.env.POSTGRES_PASSWORD,
       host: process.env.POSTGRES_HOST || 'localhost',
       port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-      database: process.env.POSTGRES_DB || 'pachas',
+      database: process.env.POSTGRES_DB || process.env.PGDATABASE || 'pachas',
     };
-  }
-
-  const dbUrl = process.env.DATABASE_URL;
-  if (dbUrl) {
-    try {
-      const match = dbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):(.*)@([^@\/:?]+)(?::(\d+))?\/([^?]+)/);
-      if (match) {
-        const [, user, password, host, portStr, database] = match;
-        return {
-          user: decodeURIComponent(user),
-          password: decodeURIComponent(password),
-          host,
-          port: portStr ? parseInt(portStr, 10) : 5432,
-          database: database.split('?')[0],
-        };
-      }
-    } catch {}
-    return { connectionString: dbUrl };
   }
 
   // Fallback defaults
@@ -91,7 +94,7 @@ function getDatabaseConfig() {
     password: 'pachas_secure_password_123!',
     host: 'localhost',
     port: 5432,
-    database: 'pachas',
+    database: process.env.POSTGRES_DB || 'pachas',
   };
 }
 

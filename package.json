@@ -21,6 +21,7 @@
     "db:setup-user": "node deploy/setup-postgres-user.mjs",
     "db:reset": "node deploy/migrate.mjs --reset",
     "db:clean-keep-users": "node deploy/clean-db-keep-users.mjs",
+    "db:clean-keep-users:prod": "node deploy/clean-db-keep-users.mjs --prod",
     "build:native": "next build",
     "cap:sync": "cap sync",
     "cap:sync:prod": "cap sync",

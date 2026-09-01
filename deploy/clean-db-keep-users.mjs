@@ -11,9 +11,15 @@
  * 5. Verifies data integrity and reports results.
  *
  * Usage:
- *   node deploy/clean-db-keep-users.mjs
- *   node deploy/clean-db-keep-users.mjs --source="postgresql://..." --target="postgresql://..."
- *   node deploy/clean-db-keep-users.mjs --from-backup="deploy/backups/users-backup-2026-09-01.json"
+ *   # Specify database name directly:
+ *   node deploy/clean-db-keep-users.mjs --db="mi_base_prod" --host="localhost" --user="postgres" --password="mypassword"
+ *   
+ *   # With connection URL:
+ *   node deploy/clean-db-keep-users.mjs --url="postgresql://user:pass@host:5432/mi_base_prod"
+ *   
+ *   # Production env file:
+ *   node deploy/clean-db-keep-users.mjs --env=".env.production"
+ *   node deploy/clean-db-keep-users.mjs --prod
  * ==============================================================================
  */
 
@@ -30,92 +36,151 @@ const rootDir = path.resolve(__dirname, '..');
 const scriptsDir = path.join(__dirname, 'init-scripts');
 const backupsDir = path.join(__dirname, 'backups');
 
-// 1. Helper to load environment variables from files
-function loadEnvFiles() {
-  const envFiles = [
-    path.join(rootDir, '.env.production'),
-    path.join(rootDir, '.env.local'),
-    path.join(rootDir, '.env'),
-  ];
-
-  for (const envFile of envFiles) {
-    if (fs.existsSync(envFile)) {
-      try {
-        const content = fs.readFileSync(envFile, 'utf8');
-        const lines = content.split('\n');
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-          const [key, ...rest] = trimmed.split('=');
-          const value = rest.join('=').trim().replace(/^["']|["']$/g, '');
-          if (key && !process.env[key.trim()]) {
-            process.env[key.trim()] = value;
-          }
-        }
-      } catch {}
-    }
-  }
-}
-
-loadEnvFiles();
-
-// 2. Parse CLI arguments
+// 1. Parse CLI arguments first
 const args = process.argv.slice(2);
 let sourceUrl = null;
 let targetUrl = null;
 let backupFilePathInput = null;
+let customEnvFile = null;
+let isProdFlag = false;
+
+let cliDbName = null;
+let cliHost = null;
+let cliUser = null;
+let cliPassword = null;
+let cliPort = null;
+let cliSsl = null;
 
 for (const arg of args) {
-  if (arg.startsWith('--source=')) {
-    sourceUrl = arg.split('=')[1].replace(/^["']|["']$/g, '');
+  if (arg.startsWith('--url=')) {
+    const val = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
+    sourceUrl = val;
+    targetUrl = val;
+  } else if (arg.startsWith('--source=')) {
+    sourceUrl = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
   } else if (arg.startsWith('--target=')) {
-    targetUrl = arg.split('=')[1].replace(/^["']|["']$/g, '');
+    targetUrl = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
   } else if (arg.startsWith('--from-backup=')) {
-    backupFilePathInput = arg.split('=')[1].replace(/^["']|["']$/g, '');
+    backupFilePathInput = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
+  } else if (arg.startsWith('--env=')) {
+    customEnvFile = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
+  } else if (arg === '--prod' || arg === '--production') {
+    isProdFlag = true;
+  } else if (arg.startsWith('--db=') || arg.startsWith('--database=')) {
+    cliDbName = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
+  } else if (arg.startsWith('--host=')) {
+    cliHost = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
+  } else if (arg.startsWith('--user=')) {
+    cliUser = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
+  } else if (arg.startsWith('--password=')) {
+    cliPassword = arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, '');
+  } else if (arg.startsWith('--port=')) {
+    cliPort = parseInt(arg.split('=').slice(1).join('=').replace(/^["']|["']$/g, ''), 10);
+  } else if (arg === '--ssl') {
+    cliSsl = true;
   }
 }
 
-// 3. Resolve database connection config
+// 2. Helper to load environment variables from file
+function loadEnvFromFile(filePath, override = false) {
+  if (!fs.existsSync(filePath)) return false;
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+      const [key, ...rest] = trimmed.split('=');
+      const cleanKey = key.trim();
+      const value = rest.join('=').trim().replace(/^["']|["']$/g, '');
+      if (cleanKey && (override || !process.env[cleanKey])) {
+        process.env[cleanKey] = value;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Load env files according to flags
+if (customEnvFile) {
+  const resolved = path.isAbsolute(customEnvFile) ? customEnvFile : path.resolve(process.cwd(), customEnvFile);
+  if (!loadEnvFromFile(resolved, true)) {
+    console.warn(`⚠️ Archivo de variables especificado no encontrado: ${resolved}`);
+  } else {
+    console.log(`📄 Variables cargadas desde: ${resolved}`);
+  }
+} else if (isProdFlag) {
+  const prodCandidates = [
+    path.join(rootDir, '.env.production'),
+    path.join(rootDir, '.env.production.local'),
+    path.join(__dirname, '.env.production'),
+    path.join(rootDir, '.env'),
+  ];
+  let loadedAny = false;
+  for (const f of prodCandidates) {
+    if (loadEnvFromFile(f, true)) {
+      console.log(`📄 Modo producción: variables cargadas desde ${f}`);
+      loadedAny = true;
+      break;
+    }
+  }
+  if (!loadedAny) {
+    console.warn('⚠️ Bandera --prod especificada pero no se encontró archivo .env.production. Usando variables de entorno activas.');
+  }
+} else {
+  // Default development search order
+  const defaultFiles = [
+    path.join(rootDir, '.env.local'),
+    path.join(rootDir, '.env'),
+    path.join(rootDir, '.env.production'),
+    path.join(__dirname, '.env.production'),
+  ];
+  for (const f of defaultFiles) {
+    loadEnvFromFile(f, false);
+  }
+}
+
+// 3. Resolve database connection config with exact parameters
 function getDatabaseConfig(customUrl = null) {
-  if (customUrl) {
-    return { connectionString: customUrl };
-  }
+  const dbUrl = customUrl || (!cliDbName && !cliHost ? process.env.DATABASE_URL : null);
 
-  if (process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD) {
-    return {
-      user: process.env.POSTGRES_USER,
-      password: process.env.POSTGRES_PASSWORD,
-      host: process.env.POSTGRES_HOST || 'localhost',
-      port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-      database: process.env.POSTGRES_DB || 'pachas',
-    };
-  }
-
-  const dbUrl = process.env.DATABASE_URL;
   if (dbUrl) {
     try {
-      const match = dbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):(.*)@([^@\/:?]+)(?::(\d+))?\/([^?]+)/);
-      if (match) {
-        const [, user, password, host, portStr, database] = match;
-        return {
-          user: decodeURIComponent(user),
-          password: decodeURIComponent(password),
-          host,
-          port: portStr ? parseInt(portStr, 10) : 5432,
-          database: database.split('?')[0],
-        };
-      }
-    } catch {}
-    return { connectionString: dbUrl };
+      const parsed = new URL(dbUrl);
+      const dbName = parsed.pathname.replace(/^\//, '') || 'pachas';
+      const needsSsl = parsed.searchParams.get('sslmode') === 'require' || 
+                        (parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1');
+
+      return {
+        connectionString: dbUrl,
+        host: parsed.hostname,
+        port: parseInt(parsed.port || '5432', 10),
+        database: dbName,
+        user: decodeURIComponent(parsed.username || 'postgres'),
+        ssl: needsSsl ? { rejectUnauthorized: false } : false,
+      };
+    } catch {
+      return { connectionString: dbUrl };
+    }
   }
 
-  // Fallback default
+  // Discrete parameters (CLI flags take first priority, then process.env)
+  const host = cliHost || process.env.POSTGRES_HOST || 'localhost';
+  const port = cliPort || parseInt(process.env.POSTGRES_PORT || '5432', 10);
+  const database = cliDbName || process.env.POSTGRES_DB || process.env.PGDATABASE || 'pachas';
+  const user = cliUser || process.env.POSTGRES_USER || process.env.PGUSER || 'pachas_admin';
+  const password = cliPassword || process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD || 'pachas_secure_password_123!';
+  const ssl = cliSsl !== null ? cliSsl : (process.env.POSTGRES_SSL === 'true' || (host !== 'localhost' && host !== '127.0.0.1'));
+
   return {
-    user: 'pachas_admin',
-    password: 'pachas_secure_password_123!',
-    host: 'localhost',
-    port: 5432,
-    database: 'pachas',
+    user,
+    password,
+    host,
+    port,
+    database,
+    ssl: ssl ? { rejectUnauthorized: false } : false,
   };
 }
 
@@ -235,7 +300,7 @@ async function main() {
 
   // STEP 1: Extract and Backup Users (or load from file)
   if (backupFilePathInput && fs.existsSync(backupFilePathInput)) {
-    console.log(`📂 [Paso 1/4] Cargando usuarios desde archivo de copia de seguridad existente:`);
+    console.log(`📂 [Paso 1/4] Cargando usuarios desde archivo de copia de seguridad:`);
     console.log(`   ${backupFilePathInput}`);
     try {
       const parsed = JSON.parse(fs.readFileSync(backupFilePathInput, 'utf8'));
@@ -250,7 +315,12 @@ async function main() {
     const sourceClient = new Client(sourceConfig);
     try {
       console.log('📡 [Paso 1/4] Conectando a la base de datos para extraer usuarios...');
-      console.log(`   Destino: ${sourceConfig.host || 'localhost'}:${sourceConfig.port || 5432} (BD: ${sourceConfig.database || 'pachas'})`);
+      console.log(`   • Host:     ${sourceConfig.host || 'remoto'}`);
+      console.log(`   • Puerto:   ${sourceConfig.port || 5432}`);
+      console.log(`   • Base BD:  ${sourceConfig.database || 'pachas'}`);
+      console.log(`   • Usuario:  ${sourceConfig.user || 'postgres'}`);
+      console.log(`   • SSL:      ${sourceConfig.ssl ? 'Activado (TLS)' : 'Desactivado'}\n`);
+
       await sourceClient.connect();
 
       // Query auth.users
@@ -318,10 +388,13 @@ async function main() {
 
     } catch (err) {
       console.error(`\n❌ Error conectando a la base de datos: ${formatError(err)}`);
-      console.log('\n💡 Opciones para conectar:');
-      console.log('   1. Si tienes PostgreSQL en Docker: ejecuta `docker compose -f deploy/docker-compose.yml up -d`');
-      console.log('   2. Si usas Supabase/Neon/Railway: pasa la URL con `--source="postgresql://..."`');
-      console.log('   3. Si tienes una copia previa: usa `--from-backup="deploy/backups/archivo.json"`\n');
+      console.log('\n💡 Ejemplos para conectar a tu base de datos de producción:');
+      console.log('   1. Pasando la URL completa (con el nombre de tu BD al final):');
+      console.log('      node deploy/clean-db-keep-users.mjs --url="postgresql://usuario:pass@host:5432/nombre_de_tu_bd"');
+      console.log('   2. Pasando el nombre de tu base de datos directamente con --db:');
+      console.log('      node deploy/clean-db-keep-users.mjs --db="nombre_de_tu_bd" --host="tu_host" --user="tu_usuario" --password="tu_password"');
+      console.log('   3. Cargando tu archivo .env de producción:');
+      console.log('      node deploy/clean-db-keep-users.mjs --env=".env.production"\n');
       process.exit(1);
     } finally {
       await sourceClient.end().catch(() => {});
@@ -363,7 +436,7 @@ async function main() {
       .filter((f) => f.endsWith('.sql') && f !== 'reset-db.sql')
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-    console.log(`\n🚀 [Paso 3/4] Ejecutando las ${files.length} migraciones en orden determinista...`);
+    console.log(`\n🚀 [Paso 3/4] Ejecutando las ${files.length} migraciones en orden determinista en "${targetConfig.database || 'pachas'}"...`);
 
     // Ensure _migrations ledger exists
     await targetClient.query(`
@@ -463,6 +536,7 @@ async function main() {
     console.log('\n=============================================================');
     console.log('🎉 ¡MIGRACIÓN Y REINICIO COMPLETADOS CON ÉXITO!');
     console.log('=============================================================');
+    console.log(`📊 Base de datos:        ${targetConfig.database || 'pachas'}`);
     console.log(`📊 Usuarios restaurados:  ${restoredProfileCount}`);
     console.log(`📊 Grupos en el sistema:  ${grpCountRes.rows[0].count} (completamente limpio)`);
     console.log(`📊 Gastos en el sistema:  ${expCountRes.rows[0].count} (completamente limpio)`);
