@@ -52,7 +52,7 @@ export default function CookiesPage() {
             <span>Compromiso de Privacidad en Cookies:</span>
           </div>
           <p className="text-xs">
-            En <strong>Pachas</strong> solo utilizamos <strong>cookies técnicas estrictamente necesarias</strong> y almacenamiento local (<code>localStorage</code>) para permitir el inicio de sesión seguro, recordar tus preferencias de idioma y posibilitar el registro de gastos sin conexión a internet (modo offline).
+            En <strong>Pachas</strong> solo utilizamos <strong>cookies técnicas estrictamente necesarias</strong> y almacenamiento local (<code>sessionStorage</code>) para permitir el inicio de sesión seguro, recordar tus preferencias de idioma y posibilitar el registro de gastos sin conexión a internet (modo offline).
           </p>
           <p className="text-xs font-bold">
             🚫 No utilizamos cookies de seguimiento publicitario, analítica invasiva de terceros ni rastreadores comerciales.
@@ -66,7 +66,7 @@ export default function CookiesPage() {
               1. ¿Qué son las Cookies y el Almacenamiento Local?
             </h2>
             <p>
-              Una cookie es un pequeño archivo de texto que un sitio web almacena en tu navegador para recordar información sobre tu visita. El almacenamiento local (<code>localStorage</code>) es una tecnología estándar que permite a las aplicaciones web guardar datos de forma segura en tu propio dispositivo sin enviarlos continuamente a la red, mejorando la velocidad y permitiendo el funcionamiento sin cobertura (offline).
+              Una cookie es un pequeño archivo de texto que un sitio web almacena en tu navegador para recordar información sobre tu visita. El almacenamiento local (<code>sessionStorage</code>) es una tecnología estándar que permite a las aplicaciones web guardar datos de forma segura en tu propio dispositivo sin enviarlos continuamente a la red, mejorando la velocidad y permitiendo el funcionamiento sin cobertura (offline).
             </p>
           </section>
 

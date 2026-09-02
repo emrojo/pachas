@@ -26,12 +26,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!isLoading && !currentUser) {
-      const validPath =
-        pathname && !pathname.startsWith('/login') && !pathname.startsWith('/register')
-          ? pathname
-          : '/dashboard';
-      const returnUrl = encodeURIComponent(validPath);
-      router.replace(`/login?redirectTo=${returnUrl}`);
+      const justLoggedOut = sessionStorage.getItem('justLoggedOut') === 'true';
+      if (justLoggedOut) {
+        sessionStorage.removeItem('justLoggedOut');
+        router.replace('/');
+      } else {
+        if (pathname !== '/' && pathname !== '') {
+          const validPath =
+            pathname && !pathname.startsWith('/login') && !pathname.startsWith('/register')
+              ? pathname
+              : '/dashboard';
+          const returnUrl = encodeURIComponent(validPath);
+          router.replace(`/login?redirectTo=${returnUrl}`);
+        } else {
+          router.replace('/');
+        }
+      }
     }
   }, [currentUser, isLoading, router, pathname]);
 

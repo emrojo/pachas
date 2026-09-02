@@ -44,7 +44,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
 
       await logout();
       onClose();
-      router.push('/login');
+      router.replace('/')
     } catch (err: any) {
       setError(err.message || 'Error al eliminar la cuenta');
     } finally {

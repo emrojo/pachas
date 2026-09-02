@@ -27,12 +27,12 @@ const SYNC_QUEUE_STORAGE_KEY = 'pachas_sync_queue_v1';
 let memoryQueueStore: SyncAction[] = [];
 
 export function getSyncQueue(): SyncAction[] {
-  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+  if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
     try {
-      const raw = localStorage.getItem(SYNC_QUEUE_STORAGE_KEY);
+      const raw = sessionStorage.getItem(SYNC_QUEUE_STORAGE_KEY);
       return raw ? JSON.parse(raw) : [];
     } catch (e) {
-      console.error('Error reading sync queue from localStorage:', e);
+      console.error('Error reading sync queue from sessionStorage:', e);
       return memoryQueueStore;
     }
   }
@@ -41,11 +41,11 @@ export function getSyncQueue(): SyncAction[] {
 
 export function saveSyncQueue(queue: SyncAction[]): void {
   memoryQueueStore = [...queue];
-  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+  if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
     try {
-      localStorage.setItem(SYNC_QUEUE_STORAGE_KEY, JSON.stringify(queue));
+      sessionStorage.setItem(SYNC_QUEUE_STORAGE_KEY, JSON.stringify(queue));
     } catch (e) {
-      console.error('Error saving sync queue to localStorage:', e);
+      console.error('Error saving sync queue to sessionStorage:', e);
     }
   }
 }
@@ -99,9 +99,9 @@ export function removeSyncAction(id: string): void {
 
 export function clearSyncQueue(): void {
   memoryQueueStore = [];
-  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+  if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
     try {
-      localStorage.removeItem(SYNC_QUEUE_STORAGE_KEY);
+      sessionStorage.removeItem(SYNC_QUEUE_STORAGE_KEY);
     } catch (e) {}
   }
 }

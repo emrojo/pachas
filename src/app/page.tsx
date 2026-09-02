@@ -30,11 +30,17 @@ export default function LandingPage() {
     }
   }, [currentUser, isLoading, router]);
 
-  // Fast check from local storage before context finishes hydration
+  // Fast check from session storage before context finishes hydration
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const justLoggedOut = sessionStorage.getItem('justLoggedOut');
+      if (justLoggedOut) {
+        sessionStorage.removeItem('justLoggedOut');
+        sessionStorage.removeItem('pachas_user');
+        return;
+      }
       try {
-        const saved = localStorage.getItem('pachas_user');
+        const saved = sessionStorage.getItem('pachas_user');
         if (saved && JSON.parse(saved)?.id) {
           router.replace('/dashboard');
         }

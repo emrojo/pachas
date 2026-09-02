@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateGroupClick }) => {
   const handleLogout = async () => {
     setIsDropdownOpen(false);
     await logout();
-    router.push('/login');
+    router.replace('/');
   };
 
   return (

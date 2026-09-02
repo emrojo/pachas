@@ -129,7 +129,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [language, setLanguageState] = useState<LanguageCode>(DEFAULT_LANGUAGE);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Initialize language from localStorage or regional connection detection
+  // Initialize language from sessionStorage or regional connection detection
   useEffect(() => {
     setIsMounted(true);
     const validCodes = new Set(SUPPORTED_LANGUAGES.map((l) => l.code));
@@ -148,7 +148,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const readInitialLanguage = () => {
       try {
-        const saved = localStorage.getItem(STORAGE_KEY) as LanguageCode | null;
+        const saved = sessionStorage.getItem(STORAGE_KEY) as LanguageCode | null;
         if (saved && validCodes.has(saved)) {
           setLanguageState(saved);
           applyLanguageAttributes(saved);
@@ -181,7 +181,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const setLanguage = useCallback((code: LanguageCode) => {
     setLanguageState(code);
     try {
-      localStorage.setItem(STORAGE_KEY, code);
+      sessionStorage.setItem(STORAGE_KEY, code);
       if (typeof document !== 'undefined') {
         document.documentElement.lang = code;
         const info = SUPPORTED_LANGUAGES.find((l) => l.code === code);

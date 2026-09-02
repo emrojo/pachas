@@ -18,7 +18,7 @@ export function clearExchangeRateCache() {
   memoryRateCache = {};
   if (typeof window !== 'undefined') {
     try {
-      localStorage.clear();
+      sessionStorage.clear();
     } catch {
       // ignore
     }
@@ -115,7 +115,7 @@ export async function getHistoricalExchangeRate(
 
   if (typeof window !== 'undefined') {
     try {
-      const cachedStr = localStorage.getItem(cacheKey);
+      const cachedStr = sessionStorage.getItem(cacheKey);
       if (cachedStr) {
         const parsed = JSON.parse(cachedStr) as ExchangeRateResult;
         if (parsed && typeof parsed.rate === 'number' && parsed.rate > 0) {
@@ -262,7 +262,7 @@ function saveToCache(key: string, result: ExchangeRateResult) {
   memoryRateCache[key] = result;
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(key, JSON.stringify(result));
+      sessionStorage.setItem(key, JSON.stringify(result));
     } catch {
       // ignore quota errors
     }

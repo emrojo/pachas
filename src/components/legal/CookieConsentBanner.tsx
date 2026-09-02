@@ -12,7 +12,7 @@ export const CookieConsentBanner: React.FC = () => {
 
   useEffect(() => {
     try {
-      const consent = localStorage.getItem('pachas_cookie_consent');
+      const consent = sessionStorage.getItem('pachas_cookie_consent');
       if (!consent) {
         // Small timeout for smooth entry
         const timer = setTimeout(() => setIsVisible(true), 800);
@@ -23,7 +23,7 @@ export const CookieConsentBanner: React.FC = () => {
 
   const handleAccept = () => {
     try {
-      localStorage.setItem('pachas_cookie_consent', 'true');
+      sessionStorage.setItem('pachas_cookie_consent', 'true');
     } catch {}
     setIsVisible(false);
   };

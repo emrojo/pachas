@@ -45,7 +45,7 @@ export default function SuspendedPage() {
   useEffect(() => {
     if (!isLoading) {
       if (!currentUser) {
-        router.replace('/login');
+        router.replace('/')
       } else if (!currentUser.is_banned) {
         router.replace('/dashboard');
       }

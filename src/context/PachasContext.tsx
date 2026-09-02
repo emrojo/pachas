@@ -32,6 +32,7 @@ import {
 import { calculateBalances, simplifyDebts } from '@/lib/algorithms/simplifyDebts';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
+
 import { isAppAdmin, isGroupAdmin as checkIsGroupAdmin, isDemoModeAllowed } from '@/lib/authConfig';
 import {
   getSyncQueue,
@@ -201,12 +202,12 @@ const STORAGE_KEYS = {
   SUPPORT_MESSAGES: 'pachas_support_messages_v2',
 };
 
-// Helper to strip heavy base64 strings from objects before saving to localStorage to prevent QuotaExceededError
+// Helper to strip heavy base64 strings from objects before saving to sessionStorage to prevent QuotaExceededError
 function sanitizeExpensesForLocalStorage(data: Record<string, Expense[]>): Record<string, Expense[]> {
   const sanitized: Record<string, Expense[]> = {};
   for (const [groupId, list] of Object.entries(data)) {
     sanitized[groupId] = list.map((exp) => {
-      // If receipt_url is a massive base64 image (> 2048 chars), omit in localStorage cache
+      // If receipt_url is a massive base64 image (> 2048 chars), omit in sessionStorage cache
       if (exp.receipt_url && exp.receipt_url.startsWith('data:') && exp.receipt_url.length > 2048) {
         return { ...exp, receipt_url: null };
       }
@@ -219,11 +220,12 @@ function sanitizeExpensesForLocalStorage(data: Record<string, Expense[]>): Recor
 export function safeGetLocalStorage(key: string): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return localStorage.getItem(key);
+    return sessionStorage.getItem(key);
   } catch {
     return null;
   }
 }
+
 
 export function safeSetLocalStorage(key: string, value: string): void {
   if (typeof window === 'undefined') return;
@@ -233,11 +235,11 @@ export function safeSetLocalStorage(key: string, value: string): void {
       try {
         const parsed = JSON.parse(value);
         const sanitized = sanitizeExpensesForLocalStorage(parsed);
-        localStorage.setItem(key, JSON.stringify(sanitized));
+        sessionStorage.setItem(key, JSON.stringify(sanitized));
         return;
       } catch {}
     }
-    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
   } catch (err: any) {
     if (
       err?.name === 'QuotaExceededError' ||
@@ -245,32 +247,34 @@ export function safeSetLocalStorage(key: string, value: string): void {
       String(err?.message).includes('quota') ||
       String(err?.message).includes('Quota')
     ) {
-      console.warn(`[Pachas] localStorage quota exceeded for key "${key}". Cleaning up heavy caches...`);
+      console.warn(`[Pachas] sessionStorage quota exceeded for key "${key}". Cleaning up heavy caches...`);
       try {
         if (key === STORAGE_KEYS.EXPENSES) {
           try {
             const parsed = JSON.parse(value);
             const sanitized = sanitizeExpensesForLocalStorage(parsed);
-            localStorage.setItem(key, JSON.stringify(sanitized));
+            sessionStorage.setItem(key, JSON.stringify(sanitized));
             return;
           } catch {}
         }
         // Emergency cleanup of non-essential keys
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const k = sessionStorage.key(i);
           if (k && !Object.values(STORAGE_KEYS).includes(k)) {
-            localStorage.removeItem(k);
+            sessionStorage.removeItem(k);
           }
         }
-        localStorage.setItem(key, value);
+        sessionStorage.setItem(key, value);
       } catch (retryErr) {
-        console.warn(`[Pachas] Could not persist key "${key}" to localStorage:`, retryErr);
+        console.warn(`[Pachas] Could not persist key "${key}" to sessionStorage:`, retryErr);
       }
     } else {
-      console.warn(`[Pachas] localStorage.setItem error for key "${key}":`, err);
+      console.warn(`[Pachas] sessionStorage.setItem error for key "${key}":`, err);
     }
   }
 }
+
+
 
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { setLanguage } = useTranslation();
@@ -293,7 +297,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [pendingReceiptScans, setPendingReceiptScans] = useState<PendingReceiptScan[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('pachas_pending_scans_v1');
+        const saved = sessionStorage.getItem('pachas_pending_scans_v1');
         return saved ? JSON.parse(saved) : [];
       } catch {
         return [];
@@ -402,7 +406,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   expensesRef.current = expenses;
   settlementsRef.current = settlements;
 
-  // Helper to change current user and persist immediately to localStorage and session cookie
+  // Helper to change current user and persist immediately to sessionStorage and session cookie
   const setCurrentUser = (user: Profile | null) => {
     _setCurrentUser(user);
     if (user?.preferred_language) {
@@ -433,7 +437,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           })
           .catch(() => {});
       } else {
-        localStorage.removeItem(STORAGE_KEYS.USER);
+        sessionStorage.removeItem(STORAGE_KEYS.USER);
         if (typeof document !== 'undefined') {
           document.cookie = 'pachas_demo_user=; path=/; max-age=0; SameSite=Lax';
           document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax';
@@ -441,25 +445,36 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
       }
     } catch (e) {
-      console.error('Failed to persist current user to localStorage:', e);
+      console.error('Failed to persist current user to sessionStorage:', e);
     }
   };
 
-  // Initialize data from Supabase or localStorage or demo defaults
+  // Initialize data from Supabase or sessionStorage or demo defaults
   useEffect(() => {
     let isMounted = true;
 
     async function loadData() {
       const demoAllowed = isDemoModeAllowed();
 
-      // Initial fast hydrate from localStorage to prevent UI flashing
+      // If the user just logged out, skip re-authentication entirely
+      if (typeof window !== 'undefined') {
+        const justLoggedOut = sessionStorage.getItem('justLoggedOut');
+        if (justLoggedOut) {
+          sessionStorage.removeItem('justLoggedOut');
+          Object.values(STORAGE_KEYS).forEach((k) => sessionStorage.removeItem(k));
+          if (isMounted) setIsLoading(false);
+          return;
+        }
+      }
+
+      // Initial fast hydrate from sessionStorage to prevent UI flashing
       try {
-        const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
-        const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
-        const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
-        const savedMembers = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-        const savedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-        const savedSettlements = localStorage.getItem(STORAGE_KEYS.SETTLEMENTS);
+        const savedUser = sessionStorage.getItem(STORAGE_KEYS.USER);
+        const savedUsers = sessionStorage.getItem(STORAGE_KEYS.USERS);
+        const savedGroups = sessionStorage.getItem(STORAGE_KEYS.GROUPS);
+        const savedMembers = sessionStorage.getItem(STORAGE_KEYS.MEMBERS);
+        const savedExpenses = sessionStorage.getItem(STORAGE_KEYS.EXPENSES);
+        const savedSettlements = sessionStorage.getItem(STORAGE_KEYS.SETTLEMENTS);
 
         if (savedUsers && isMounted) {
           try {
@@ -507,14 +522,14 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setSettlements(DEMO_SETTLEMENTS);
         }
 
-        const savedComments = localStorage.getItem(STORAGE_KEYS.COMMENTS);
+        const savedComments = sessionStorage.getItem(STORAGE_KEYS.COMMENTS);
         if (savedComments && isMounted) {
           try {
             setComments(JSON.parse(savedComments));
           } catch {}
         }
 
-        const savedGroupMessages = localStorage.getItem(STORAGE_KEYS.GROUP_MESSAGES);
+        const savedGroupMessages = sessionStorage.getItem(STORAGE_KEYS.GROUP_MESSAGES);
         if (savedGroupMessages && isMounted) {
           try {
             setGroupMessages(JSON.parse(savedGroupMessages));
@@ -810,7 +825,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  // Save changes to localStorage
+  // Save changes to sessionStorage
   const saveState = (
     newGroups?: Group[],
     newMembers?: Record<string, GroupMember[]>,
@@ -1492,7 +1507,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Register in availableUsers so they are recognized everywhere
       const updatedUsers = [...availableUsers, targetUser];
       setAvailableUsers(updatedUsers);
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+      sessionStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
     }
 
     if (grpMembers.some((m) => m.user_id === targetUser?.id || m.profile?.email?.toLowerCase() === targetUser?.email.toLowerCase())) {
@@ -2511,23 +2526,25 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     try {
-      localStorage.removeItem(STORAGE_KEYS.USER);
+      sessionStorage.removeItem(STORAGE_KEYS.USER);
       document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = 'sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'pachas_demo_user=; path=/; max-age=0; SameSite=Lax';
     } catch (e) {}
+    sessionStorage.setItem('justLoggedOut', 'true');
     _setCurrentUser(null);
   };
 
 
   const resetLocalDatabase = async () => {
     try {
-      Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
-      localStorage.removeItem('pachas_user_v1');
-      localStorage.removeItem('pachas_groups_v1');
-      localStorage.removeItem('pachas_expenses_v1');
-      localStorage.removeItem('pachas_members_v1');
-      localStorage.removeItem('pachas_settlements_v1');
-      localStorage.removeItem('pachas_available_users_v1');
+      Object.values(STORAGE_KEYS).forEach((k) => sessionStorage.removeItem(k));
+      sessionStorage.removeItem('pachas_user_v1');
+      sessionStorage.removeItem('pachas_groups_v1');
+      sessionStorage.removeItem('pachas_expenses_v1');
+      sessionStorage.removeItem('pachas_members_v1');
+      sessionStorage.removeItem('pachas_settlements_v1');
+      sessionStorage.removeItem('pachas_available_users_v1');
     } catch (e) {}
     setGroups([]);
     setMembers({});

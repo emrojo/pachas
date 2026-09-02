@@ -167,7 +167,7 @@ export async function setGroupNotificationPreference(
   try {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(`pachas_notif_${groupId}`, enabled ? 'true' : 'false');
+        sessionStorage.setItem(`pachas_notif_${groupId}`, enabled ? 'true' : 'false');
       } catch {}
     }
 
@@ -177,7 +177,7 @@ export async function setGroupNotificationPreference(
       if (subResult.permissionDenied) {
         if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem(`pachas_notif_${groupId}`, 'false');
+            sessionStorage.setItem(`pachas_notif_${groupId}`, 'false');
           } catch {}
         }
         return subResult;
@@ -217,7 +217,7 @@ export async function getGroupNotificationPreference(
   let localPref: boolean | null = null;
   if (typeof window !== 'undefined') {
     try {
-      const saved = localStorage.getItem(`pachas_notif_${groupId}`);
+      const saved = sessionStorage.getItem(`pachas_notif_${groupId}`);
       if (saved !== null) {
         localPref = saved === 'true';
       }
@@ -231,7 +231,7 @@ export async function getGroupNotificationPreference(
       const serverEnabled = Boolean(data.enabled);
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem(`pachas_notif_${groupId}`, serverEnabled ? 'true' : 'false');
+          sessionStorage.setItem(`pachas_notif_${groupId}`, serverEnabled ? 'true' : 'false');
         } catch {}
       }
       return serverEnabled;
