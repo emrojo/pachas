@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { usePachas } from '@/context/PachasContext';
+import { usePachas, safeGetLocalStorage } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -186,8 +186,17 @@ export default function GroupDetailPage() {
     }
 
     const validateScanId = searchParams.get('validateScan');
-    if (validateScanId && pendingReceiptScans.length > 0) {
-      const match = pendingReceiptScans.find((s) => s.id === validateScanId);
+    if (validateScanId) {
+      let match = pendingReceiptScans.find((s) => s.id === validateScanId);
+      if (!match && typeof window !== 'undefined') {
+        try {
+          const raw = safeGetLocalStorage('pachas_pending_scans_v1') || sessionStorage.getItem('pachas_pending_scans_v1');
+          if (raw) {
+            const list = JSON.parse(raw);
+            match = list.find((s: any) => s.id === validateScanId);
+          }
+        } catch {}
+      }
       if (match) {
         setValidatingScan(match);
       }

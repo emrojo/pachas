@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateSplits } from './splitCalculations';
+import { parseEuropeanAmount } from '../currencies';
 
 describe('splitCalculations', () => {
   it('splits 100 EUR equally among 3 friends and accounts for 1 cent remainder', () => {
@@ -61,5 +62,19 @@ describe('splitCalculations', () => {
     expect(isValid).toBe(true);
     expect(results.find((r) => r.userId === 'u1')?.amountOwed).toBe(60.0);
     expect(results.find((r) => r.userId === 'u2')?.amountOwed).toBe(30.0);
+  });
+
+  it('supports decimal amounts parsed from comma and dot notation in exact splits', () => {
+    const inputU1 = '60,75';
+    const inputU2 = '39.25';
+    const custom = {
+      u1: { exact: parseEuropeanAmount(inputU1) },
+      u2: { exact: parseEuropeanAmount(inputU2) },
+    };
+    const { results, isValid } = calculateSplits(100.0, 'EXACT', ['u1', 'u2'], custom);
+
+    expect(isValid).toBe(true);
+    expect(results.find((r) => r.userId === 'u1')?.amountOwed).toBe(60.75);
+    expect(results.find((r) => r.userId === 'u2')?.amountOwed).toBe(39.25);
   });
 });

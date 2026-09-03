@@ -298,7 +298,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [pendingReceiptScans, setPendingReceiptScans] = useState<PendingReceiptScan[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = sessionStorage.getItem('pachas_pending_scans_v1');
+        const saved = safeGetLocalStorage('pachas_pending_scans_v1') || sessionStorage.getItem('pachas_pending_scans_v1');
         return saved ? JSON.parse(saved) : [];
       } catch {
         return [];
@@ -1815,106 +1815,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newExpense;
   };
 
-  const scanAndCreateExpenseAsync = async (groupId: string, receiptDataUrl: string): Promise<Expense> => {
-    if (!currentUser) {
-      throw new Error('Debes iniciar sesión para escanear un gasto.');
-    }
-
-    const targetGroup = getGroup(groupId);
-    const groupCurrency = targetGroup?.base_currency || 'EUR';
-    const grpMembers = getGroupMembers(groupId);
-    const allMemberIds = grpMembers.map((m) => m.user_id);
-
-    // 1. Create immediate placeholder expense in 'processing' state
-    const initialExpense = await addExpense({
-      groupId,
-      title: 'Analizando ticket con IA...',
-      amount: 0,
-      currency: groupCurrency,
-      category: 'other',
-      expenseDate: getCurrentDateTimeISOWithTimezone(),
-      receiptUrl: receiptDataUrl,
-      splitType: 'EQUAL',
-      payers: [{ userId: currentUser.id, amountPaid: 0 }],
-      selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
-      ocr_status: 'processing',
-    });
-
-    // 2. Launch background asynchronous OCR analysis (non-blocking)
-    (async () => {
-      try {
-        console.log('[AsyncOCR] 🚀 Starting vision receipt scan for expense:', initialExpense.id);
-        const scannedData = await scanReceipt(receiptDataUrl);
-        console.log('[AsyncOCR] 📥 Vision receipt result:', scannedData);
-
-        const hasValidData =
-          scannedData &&
-          (scannedData.amount !== undefined ||
-            (scannedData.title && scannedData.title.trim().length > 0 && scannedData.title !== 'Ticket'));
-
-        if (hasValidData) {
-          const finalAmount =
-            typeof scannedData.amount === 'number' && !isNaN(scannedData.amount) ? scannedData.amount : 0;
-          const finalTitle = scannedData.title || 'Ticket escaneado';
-          const finalCategory = scannedData.category || 'food';
-          const finalDate = scannedData.date || initialExpense.expense_date;
-
-          await updateExpense(groupId, initialExpense.id, {
-            groupId,
-            title: finalTitle,
-            amount: finalAmount,
-            currency: scannedData.currency || groupCurrency,
-            category: finalCategory,
-            expenseDate: finalDate,
-            receiptUrl: receiptDataUrl,
-            splitType: 'EQUAL',
-            locationName: scannedData.locationName || null,
-            latitude: scannedData.latitude !== undefined ? scannedData.latitude : null,
-            longitude: scannedData.longitude !== undefined ? scannedData.longitude : null,
-            payers: [{ userId: currentUser.id, amountPaid: finalAmount }],
-            selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
-            ocr_status: 'completed',
-          });
-          console.log('[AsyncOCR] ✅ Expense auto-completed successfully:', initialExpense.id);
-        } else {
-          console.warn('[AsyncOCR] ⚠️ Scan produced no definitive data, marking as failed for review:', initialExpense.id);
-          await updateExpense(groupId, initialExpense.id, {
-            groupId,
-            title: 'Ticket pendiente de revisión',
-            amount: 0,
-            currency: groupCurrency,
-            category: 'other',
-            expenseDate: initialExpense.expense_date,
-            receiptUrl: receiptDataUrl,
-            splitType: 'EQUAL',
-            payers: [{ userId: currentUser.id, amountPaid: 0 }],
-            selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
-            ocr_status: 'failed',
-          });
-        }
-      } catch (err: any) {
-        console.warn('[PachasContext] Async OCR background error:', err);
-        try {
-          await updateExpense(groupId, initialExpense.id, {
-            groupId,
-            title: 'Ticket pendiente de revisión',
-            amount: 0,
-            currency: groupCurrency,
-            category: 'other',
-            expenseDate: initialExpense.expense_date,
-            receiptUrl: receiptDataUrl,
-            splitType: 'EQUAL',
-            payers: [{ userId: currentUser.id, amountPaid: 0 }],
-            selectedParticipantIds: allMemberIds.length > 0 ? allMemberIds : [currentUser.id],
-            ocr_status: 'failed',
-          });
-        } catch {}
-      }
-    })();
-
-    return initialExpense;
-  };
-
   const queueReceiptScan = async (groupId: string, censoredImageDataUrl: string): Promise<PendingReceiptScan> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para escanear un ticket.');
@@ -1930,7 +1830,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       status: 'processing',
     };
 
-    setPendingReceiptScans((prev) => [newScan, ...prev.filter((s) => s.id !== scanId)]);
+    setPendingReceiptScans((prev) => {
+      const updated = [newScan, ...prev.filter((s) => s.id !== scanId)];
+      safeSetLocalStorage('pachas_pending_scans_v1', JSON.stringify(updated));
+      return updated;
+    });
 
     // Non-blocking background OCR processing
     (async () => {
@@ -1939,59 +1843,112 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const scannedData = await scanReceipt(censoredImageDataUrl);
         console.log('[QueueScan] 📥 Resultado de IA para scanId:', scanId, scannedData);
 
-        setPendingReceiptScans((prev) =>
-          prev.map((s) =>
-            s.id === scanId
-              ? {
-                  ...s,
-                  status: 'ready',
-                  scanned_data: scannedData,
-                }
-              : s
-          )
+        const hasDefinitiveData = Boolean(
+          scannedData &&
+          (scannedData.amount !== undefined || (scannedData.title && scannedData.title.trim().length > 0))
         );
 
-        // Show push / in-app notification when ready
-        if (typeof window !== 'undefined' && 'Notification' in window) {
-          if (Notification.permission === 'granted') {
-            try {
-              const notifTitle = `🧾 Ticket listo para validar: ${scannedData?.title || 'Nuevo gasto'}`;
-              const notifBody = `Importe: ${scannedData?.amountFormatted || (typeof scannedData?.amount === 'number' ? `${scannedData.amount} €` : '')}. Pulsa para revisar las censuras y confirmar el gasto.`;
-              
-              if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-                const reg = await navigator.serviceWorker.ready;
-                reg.showNotification(notifTitle, {
-                  body: notifBody,
-                  icon: '/icon-192.png',
-                  badge: '/badge-72.png',
-                  tag: `scan-${scanId}`,
-                  data: { scanId, groupId, url: `/groups/${groupId}?validateScan=${scanId}` },
-                });
-              } else {
-                new Notification(notifTitle, { body: notifBody, icon: '/icon-192.png' });
-              }
-            } catch (notifErr) {
-              console.warn('Error showing scan notification:', notifErr);
+        const updatedScan: PendingReceiptScan = {
+          ...newScan,
+          status: 'ready',
+          scanned_data: scannedData || undefined,
+        };
+
+        setPendingReceiptScans((prev) => {
+          const updated = prev.map((s) => (s.id === scanId ? updatedScan : s));
+          safeSetLocalStorage('pachas_pending_scans_v1', JSON.stringify(updated));
+          return updated;
+        });
+
+        // 1. Emit in-app notification for user to validate and approve the result
+        const notifTitle = hasDefinitiveData
+          ? `🧾 Factura lista para validar: ${scannedData?.title || 'Nuevo gasto'}`
+          : '🧾 Factura lista para validar';
+        const notifBody = hasDefinitiveData
+          ? `Importe: ${scannedData?.amountFormatted || (typeof scannedData?.amount === 'number' ? `${scannedData.amount} €` : '')}. Pulsa aquí para revisar los datos y confirmar el gasto en el grupo.`
+          : 'La IA ha procesado tu factura. Pulsa aquí para revisar los datos y confirmar el gasto.';
+
+        addNotification({
+          user_id: currentUser.id,
+          type: 'receipt_pending',
+          title: notifTitle,
+          message: notifBody,
+          group_id: groupId,
+          action_url: `/groups/${groupId}?validateScan=${scanId}`,
+          data: { scanId, groupId },
+        });
+
+        // 2. Also show native browser / push notification if permitted
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          try {
+            if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+              const reg = await navigator.serviceWorker.ready;
+              reg.showNotification(notifTitle, {
+                body: notifBody,
+                icon: '/icon-192.png',
+                badge: '/badge-72.png',
+                tag: `scan-${scanId}`,
+                data: { scanId, groupId, url: `/groups/${groupId}?validateScan=${scanId}` },
+              });
+            } else {
+              new Notification(notifTitle, { body: notifBody, icon: '/icon-192.png' });
             }
+          } catch (notifErr) {
+            console.warn('Error showing scan notification:', notifErr);
           }
         }
       } catch (err: any) {
         console.warn('[QueueScan] Error analizando ticket:', err);
-        setPendingReceiptScans((prev) =>
-          prev.map((s) =>
-            s.id === scanId
-              ? {
-                  ...s,
-                  status: 'error',
-                  error_message: err.message || 'Error al analizar el ticket',
-                }
-              : s
-          )
-        );
+        const fallbackScan: PendingReceiptScan = {
+          ...newScan,
+          status: 'ready',
+          error_message: err.message || 'Error al analizar el ticket',
+        };
+        setPendingReceiptScans((prev) => {
+          const updated = prev.map((s) => (s.id === scanId ? fallbackScan : s));
+          safeSetLocalStorage('pachas_pending_scans_v1', JSON.stringify(updated));
+          return updated;
+        });
+
+        addNotification({
+          user_id: currentUser.id,
+          type: 'receipt_pending',
+          title: '⚠️ Revisión manual requerida',
+          message: 'No se pudieron reconocer todos los campos de la factura. Pulsa para revisar los datos y guardarla.',
+          group_id: groupId,
+          action_url: `/groups/${groupId}?validateScan=${scanId}`,
+          data: { scanId, groupId },
+        });
       }
     })();
 
     return newScan;
+  };
+
+  const scanAndCreateExpenseAsync = async (groupId: string, receiptDataUrl: string): Promise<Expense> => {
+    if (!currentUser) {
+      throw new Error('Debes iniciar sesión para escanear un gasto.');
+    }
+
+    const pendingScan = await queueReceiptScan(groupId, receiptDataUrl);
+    const targetGroup = getGroup(groupId);
+    return {
+      id: pendingScan.id,
+      group_id: groupId,
+      created_by: currentUser.id,
+      title: 'Factura en proceso de validación',
+      amount: 0,
+      currency: targetGroup?.base_currency || 'EUR',
+      category: 'other',
+      expense_date: new Date().toISOString(),
+      receipt_url: receiptDataUrl,
+      split_type: 'EQUAL',
+      ocr_status: 'processing',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      payers: [{ id: generateUUID(), expense_id: pendingScan.id, user_id: currentUser.id, amount_paid: 0 }],
+      participants: [],
+    };
   };
 
   const confirmPendingScan = async (scanId: string, input: CreateExpenseInput): Promise<Expense> => {

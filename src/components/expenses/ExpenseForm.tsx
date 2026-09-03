@@ -144,7 +144,17 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   expenseToEdit,
   isReadOnly: explicitReadOnly,
 }) => {
-  const { getGroup, getGroupMembers, currentUser, addExpense, scanAndCreateExpenseAsync, updateExpense, deleteExpense } = usePachas();
+  const {
+    getGroup,
+    getGroupMembers,
+    currentUser,
+    addExpense,
+    scanAndCreateExpenseAsync,
+    updateExpense,
+    deleteExpense,
+    queueReceiptScan,
+    addNotification,
+  } = usePachas();
   const { t, language } = useTranslation();
 
   const group = getGroup(groupId);
@@ -221,6 +231,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [customSplits, setCustomSplits] = useState<
     Record<string, { exact?: number; percentage?: number; shares?: number }>
   >({});
+  const [customSplitInputs, setCustomSplitInputs] = useState<Record<string, string>>({});
 
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -346,14 +357,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       if (expenseToEdit.participants && expenseToEdit.participants.length > 0) {
         setSelectedParticipants(expenseToEdit.participants.map((p) => p.user_id));
         const customMap: Record<string, { exact?: number; percentage?: number; shares?: number }> = {};
+        const stringInputs: Record<string, string> = {};
         expenseToEdit.participants.forEach((p) => {
           customMap[p.user_id] = {
             exact: p.amount_owed !== undefined && p.amount_owed !== null ? Number(p.amount_owed) : undefined,
             percentage: p.percentage !== undefined && p.percentage !== null ? Number(p.percentage) : undefined,
             shares: p.shares !== undefined && p.shares !== null ? Number(p.shares) : undefined,
           };
+          if (expenseToEdit.split_type === 'EXACT' && p.amount_owed !== undefined && p.amount_owed !== null) {
+            stringInputs[p.user_id] = String(p.amount_owed).replace('.', ',');
+          } else if (expenseToEdit.split_type === 'PERCENTAGE' && p.percentage !== undefined && p.percentage !== null) {
+            stringInputs[p.user_id] = String(p.percentage).replace('.', ',');
+          } else if (expenseToEdit.split_type === 'SHARES' && p.shares !== undefined && p.shares !== null) {
+            stringInputs[p.user_id] = String(p.shares);
+          }
         });
         setCustomSplits(customMap);
+        setCustomSplitInputs(stringInputs);
       }
     } else {
 
@@ -380,6 +400,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setSelectedParticipants(members.map((m) => m.user_id));
       setSplitType('EQUAL');
       setCustomSplits({});
+      setCustomSplitInputs({});
       setIsWhoPaidOpen(false);
       setIsSplitOpen(false);
       setRateSourceInfo(null);
@@ -551,7 +572,16 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     if (!receiptUrl) return;
     try {
       setIsLoading(true);
-      await scanAndCreateExpenseAsync(groupId, receiptUrl);
+      await queueReceiptScan(groupId, receiptUrl);
+      if (currentUser) {
+        addNotification({
+          user_id: currentUser.id,
+          type: 'receipt_pending',
+          title: '⏳ Procesando factura con IA...',
+          message: 'Analizando conceptos e importes en segundo plano. Te avisaremos en cuanto esté lista para validar.',
+          group_id: groupId,
+        });
+      }
       onClose();
       if (onSuccess) onSuccess();
     } catch (err: any) {
@@ -1350,7 +1380,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <div className="grid grid-cols-4 gap-1 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                   <button
                     type="button"
-                    onClick={() => !isReadOnly && setSplitType('EQUAL')}
+                    onClick={() => {
+                      if (!isReadOnly) {
+                        setSplitType('EQUAL');
+                        setCustomSplitInputs({});
+                      }
+                    }}
                     disabled={isReadOnly}
                     className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       splitType === 'EQUAL'
@@ -1363,7 +1398,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => !isReadOnly && setSplitType('EXACT')}
+                    onClick={() => {
+                      if (!isReadOnly) {
+                        setSplitType('EXACT');
+                        setCustomSplitInputs({});
+                      }
+                    }}
                     disabled={isReadOnly}
                     className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       splitType === 'EXACT'
@@ -1376,7 +1416,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => !isReadOnly && setSplitType('PERCENTAGE')}
+                    onClick={() => {
+                      if (!isReadOnly) {
+                        setSplitType('PERCENTAGE');
+                        setCustomSplitInputs({});
+                      }
+                    }}
                     disabled={isReadOnly}
                     className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       splitType === 'PERCENTAGE'
@@ -1389,7 +1434,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => !isReadOnly && setSplitType('SHARES')}
+                    onClick={() => {
+                      if (!isReadOnly) {
+                        setSplitType('SHARES');
+                        setCustomSplitInputs({});
+                      }
+                    }}
                     disabled={isReadOnly}
                     className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       splitType === 'SHARES'
@@ -1431,7 +1481,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                                   : '1'
                               }
                               value={
-                                splitType === 'EXACT'
+                                customSplitInputs[userId] !== undefined
+                                  ? customSplitInputs[userId]
+                                  : splitType === 'EXACT'
                                   ? customSplits[userId]?.exact !== undefined
                                     ? String(customSplits[userId]?.exact).replace('.', ',')
                                     : ''
@@ -1445,16 +1497,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                               }
                               onChange={(e) => {
                                 if (isReadOnly) return;
-                                const val = parseEuropeanAmount(e.target.value);
-                                setCustomSplits({
-                                  ...customSplits,
+                                const raw = e.target.value;
+                                const sanitized = raw.replace(/[^0-9.,]/g, '');
+                                setCustomSplitInputs((prev) => ({
+                                  ...prev,
+                                  [userId]: sanitized,
+                                }));
+                                const val = parseEuropeanAmount(sanitized);
+                                setCustomSplits((prev) => ({
+                                  ...prev,
                                   [userId]: {
-                                    ...customSplits[userId],
+                                    ...prev[userId],
                                     ...(splitType === 'EXACT' ? { exact: val } : {}),
                                     ...(splitType === 'PERCENTAGE' ? { percentage: val } : {}),
                                     ...(splitType === 'SHARES' ? { shares: val } : {}),
                                   },
-                                });
+                                }));
                               }}
                               readOnly={isReadOnly}
                               className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
