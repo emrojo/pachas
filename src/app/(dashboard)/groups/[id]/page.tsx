@@ -128,18 +128,6 @@ export default function GroupDetailPage() {
 
   const [activeTab, setActiveTab] = useState<TabType>('expenses');
   const [friendsSubTab, setFriendsSubTab] = useState<'list' | 'chat'>('list');
-
-  // Close chat dialog on Escape key
-  useEffect(() => {
-    if (friendsSubTab !== 'chat') return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setFriendsSubTab('list');
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [friendsSubTab]);
   const [isExpenseFormOpen, setIsExpenseFormOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isEditGroupOpen, setIsEditGroupOpen] = useState(false);
@@ -932,9 +920,19 @@ export default function GroupDetailPage() {
               )}
             </div>
 
-            <Card>
-              <MemberList groupId={group.id} members={members} isAdmin={isAdmin} />
-            </Card>
+            {friendsSubTab === 'list' ? (
+              <Card>
+                <MemberList groupId={group.id} members={members} isAdmin={isAdmin} />
+              </Card>
+            ) : (
+              <GroupChatSection
+                groupId={group.id}
+                groupName={group.name}
+                members={members}
+                isAdmin={isAdmin}
+                targetMessageId={searchParams?.get('messageId') || undefined}
+              />
+            )}
           </div>
         )}
 
@@ -1061,29 +1059,6 @@ export default function GroupDetailPage() {
           pendingScan={validatingScan}
           groupId={group.id}
         />
-      )}
-
-      {/* Floating Fixed Dialog Chat Modal */}
-      {friendsSubTab === 'chat' && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setFriendsSubTab('list');
-            }
-          }}
-        >
-          <div className="w-full max-w-2xl h-[90vh] max-h-[720px] rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            <GroupChatSection
-              groupId={group.id}
-              groupName={group.name}
-              members={members}
-              isAdmin={isAdmin}
-              targetMessageId={searchParams?.get('messageId') || undefined}
-              onClose={() => setFriendsSubTab('list')}
-            />
-          </div>
-        </div>
       )}
     </div>
   );

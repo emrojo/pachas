@@ -116,8 +116,17 @@ export function generateUserAuditTrail(
   baseCurrency: string,
   members: GroupMember[],
   expenses: Expense[],
-  settlements: Settlement[] = []
+  settlements: Settlement[] = [],
+  t?: (key: string, params?: Record<string, any>) => string
 ): AuditStep[] {
+  const tr = (key: string, params?: Record<string, any>, fallback = ''): string => {
+    if (t) {
+      const res = t(key, params);
+      if (res && res !== key) return res;
+    }
+    return fallback;
+  };
+
   const steps: AuditStep[] = [];
   const targetMember = members.find((m) => m.user_id === userId);
   const targetName = targetMember?.profile?.full_name || 'Usuario';
@@ -140,11 +149,11 @@ export function generateUserAuditTrail(
     id: 'intro',
     stepIndex: stepCounter++,
     type: 'intro',
-    title: `Auditoría de Cuentas: ${targetName}`,
-    subtitle: `Moneda principal del viaje: ${baseCurrency}`,
+    title: tr('audit.stepIntroTitle', { name: targetName }, `Auditoría de Cuentas: ${targetName}`),
+    subtitle: tr('audit.stepIntroSubtitle', { currency: baseCurrency }, `Moneda principal del viaje: ${baseCurrency}`),
     phase: 1,
     phaseTitleKey: 'audit.phaseIntro',
-    formulaDisplay: `Saldo final a verificar: ${formatMoney(finalNet, baseCurrency)}`,
+    formulaDisplay: tr('audit.stepIntroFormula', { amount: formatMoney(finalNet, baseCurrency) }, `Saldo final a verificar: ${formatMoney(finalNet, baseCurrency)}`),
     calculatorExpression: `${finalNet}`,
     stepAmount: finalNet,
     runningPaid: 0,
@@ -152,10 +161,10 @@ export function generateUserAuditTrail(
     runningNet: 0,
     explanation:
       finalNet > 0.009
-        ? `Al finalizar el cálculo, te corresponde COBRAR ${formatMoney(finalNet, baseCurrency)} del grupo.`
+        ? tr('audit.introCollect', { amount: formatMoney(finalNet, baseCurrency) }, `Al finalizar el cálculo, te corresponde COBRAR ${formatMoney(finalNet, baseCurrency)} del grupo.`)
         : finalNet < -0.009
-        ? `Al finalizar el cálculo, te corresponde PAGAR ${formatMoney(Math.abs(finalNet), baseCurrency)} al grupo.`
-        : `Tus cuentas están perfectamente cuadradas (saldo de 0,00 ${baseCurrency}).`,
+        ? tr('audit.introPay', { amount: formatMoney(Math.abs(finalNet), baseCurrency) }, `Al finalizar el cálculo, te corresponde PAGAR ${formatMoney(Math.abs(finalNet), baseCurrency)} al grupo.`)
+        : tr('audit.introBalanced', { currency: baseCurrency }, `Tus cuentas están perfectamente cuadradas (saldo de 0,00 ${baseCurrency}).`),
   });
 
   // Sort expenses chronologically
@@ -207,63 +216,106 @@ export function generateUserAuditTrail(
     let explanation = '';
     if (conversion) {
       if (isMultiPayer) {
-        explanation = `Este gasto (${exp.title}) se pagó originalmente en divisa extranjera con un ticket total de ${formatMoney(
-          conversion.originalAmount,
-          conversion.originalCurrency
-        )}. Aplicando el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
-          conversion.originalAmount,
-          conversion.originalCurrency
-        )} × ${conversion.exchangeRate} = ${formatMoney(
-          conversion.convertedAmount,
-          baseCurrency
-        )}), tu aportación compartida equivale a ${formatMoney(
-          userPaidInThisExpense,
-          baseCurrency
-        )}. Al sumarse a tus pagos anteriores (${formatMoney(
-          prevPaid,
-          baseCurrency
-        )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`;
+        explanation = tr(
+          'audit.paymentMultiForeign',
+          {
+            title: exp.title,
+            origAmount: formatMoney(conversion.originalAmount, conversion.originalCurrency),
+            rate: conversion.exchangeRate,
+            convAmount: formatMoney(conversion.convertedAmount, baseCurrency),
+            userPortion: formatMoney(userPaidInThisExpense, baseCurrency),
+            prevPaid: formatMoney(prevPaid, baseCurrency),
+            runningPaid: formatMoney(runningPaid, baseCurrency),
+          },
+          `Este gasto (${exp.title}) se pagó originalmente en divisa extranjera con un ticket total de ${formatMoney(
+            conversion.originalAmount,
+            conversion.originalCurrency
+          )}. Aplicando el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
+            conversion.originalAmount,
+            conversion.originalCurrency
+          )} × ${conversion.exchangeRate} = ${formatMoney(
+            conversion.convertedAmount,
+            baseCurrency
+          )}), tu aportación compartida equivale a ${formatMoney(
+            userPaidInThisExpense,
+            baseCurrency
+          )}. Al sumarse a tus pagos anteriores (${formatMoney(
+            prevPaid,
+            baseCurrency
+          )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`
+        );
       } else {
-        explanation = `Pagaste la totalidad de este gasto (${exp.title}) en divisa extranjera por un ticket original de ${formatMoney(
-          conversion.originalAmount,
-          conversion.originalCurrency
-        )}. Con el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
-          conversion.originalAmount,
-          conversion.originalCurrency
-        )} × ${conversion.exchangeRate} = ${formatMoney(
-          conversion.convertedAmount,
-          baseCurrency
-        )}), tu aportación convertida es de ${formatMoney(
-          userPaidInThisExpense,
-          baseCurrency
-        )}. Al sumarse a tus pagos anteriores (${formatMoney(
-          prevPaid,
-          baseCurrency
-        )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`;
+        explanation = tr(
+          'audit.paymentSingleForeign',
+          {
+            title: exp.title,
+            origAmount: formatMoney(conversion.originalAmount, conversion.originalCurrency),
+            rate: conversion.exchangeRate,
+            convAmount: formatMoney(conversion.convertedAmount, baseCurrency),
+            userPortion: formatMoney(userPaidInThisExpense, baseCurrency),
+            prevPaid: formatMoney(prevPaid, baseCurrency),
+            runningPaid: formatMoney(runningPaid, baseCurrency),
+          },
+          `Pagaste la totalidad de este gasto (${exp.title}) en divisa extranjera por un ticket original de ${formatMoney(
+            conversion.originalAmount,
+            conversion.originalCurrency
+          )}. Con el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
+            conversion.originalAmount,
+            conversion.originalCurrency
+          )} × ${conversion.exchangeRate} = ${formatMoney(
+            conversion.convertedAmount,
+            baseCurrency
+          )}), tu aportación convertida es de ${formatMoney(
+            userPaidInThisExpense,
+            baseCurrency
+          )}. Al sumarse a tus pagos anteriores (${formatMoney(
+            prevPaid,
+            baseCurrency
+          )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`
+        );
       }
     } else {
       if (isMultiPayer) {
-        explanation = `En este gasto (${exp.title}) el ticket original pagado fue de ${formatMoney(
-          expenseBaseAmount,
-          baseCurrency
-        )}. Adelantaste ${formatMoney(
-          userPaidInThisExpense,
-          baseCurrency
-        )} en pago compartido. Al sumarse a tus pagos previos (${formatMoney(
-          prevPaid,
-          baseCurrency
-        )}), tu total adelantado para el grupo asciende a ${formatMoney(
-          runningPaid,
-          baseCurrency
-        )}.`;
+        explanation = tr(
+          'audit.paymentMultiBase',
+          {
+            title: exp.title,
+            origAmount: formatMoney(expenseBaseAmount, baseCurrency),
+            userPortion: formatMoney(userPaidInThisExpense, baseCurrency),
+            prevPaid: formatMoney(prevPaid, baseCurrency),
+            runningPaid: formatMoney(runningPaid, baseCurrency),
+          },
+          `En este gasto (${exp.title}) el ticket original pagado fue de ${formatMoney(
+            expenseBaseAmount,
+            baseCurrency
+          )}. Adelantaste ${formatMoney(
+            userPaidInThisExpense,
+            baseCurrency
+          )} en pago compartido. Al sumarse a tus pagos previos (${formatMoney(
+            prevPaid,
+            baseCurrency
+          )}), tu total adelantado para el grupo asciende a ${formatMoney(
+            runningPaid,
+            baseCurrency
+          )}.`
+        );
       } else {
-        explanation = `En este gasto (${exp.title}) el ticket original pagado fue de ${formatMoney(
-          expenseBaseAmount,
-          baseCurrency
-        )}. Pagaste la totalidad del importe. Al sumarse a tus pagos anteriores (${formatMoney(
-          prevPaid,
-          baseCurrency
-        )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`;
+        explanation = tr(
+          'audit.paymentSingleBase',
+          {
+            title: exp.title,
+            origAmount: formatMoney(expenseBaseAmount, baseCurrency),
+            prevPaid: formatMoney(prevPaid, baseCurrency),
+            runningPaid: formatMoney(runningPaid, baseCurrency),
+          },
+          `En este gasto (${exp.title}) el ticket original pagado fue de ${formatMoney(
+            expenseBaseAmount,
+            baseCurrency
+          )}. Pagaste la totalidad del importe. Al sumarse a tus pagos anteriores (${formatMoney(
+            prevPaid,
+            baseCurrency
+          )}), tu total adelantado asciende a ${formatMoney(runningPaid, baseCurrency)}.`
+        );
       }
     }
 
@@ -272,8 +324,10 @@ export function generateUserAuditTrail(
       stepIndex: stepCounter++,
       type: 'payment',
       title: exp.title,
-      subtitle: `Adelantaste: ${formatMoney(userPaidInThisExpense, baseCurrency)} ${
-        isMultiPayer ? '(Pago compartido)' : '(Pago único)'
+      subtitle: `${tr('audit.youAdvanced', {}, 'Adelantaste')}: ${formatMoney(userPaidInThisExpense, baseCurrency)} ${
+        isMultiPayer
+          ? `(${tr('audit.sharedPayment', {}, 'Pago compartido')})`
+          : `(${tr('audit.singlePayment', {}, 'Pago único')})`
       }`,
       phase: 2,
       phaseTitleKey: 'audit.phasePayments',
@@ -305,8 +359,8 @@ export function generateUserAuditTrail(
       id: 'payments-summary',
       stepIndex: stepCounter++,
       type: 'payments_summary',
-      title: 'Suma Total de Pagos Realizados',
-      subtitle: `Total acumulado que adelantaste para el grupo: ${formatMoney(
+      title: tr('audit.totalPaymentsSummary', {}, 'Suma Total de Pagos Realizados'),
+      subtitle: `${tr('audit.totalAccumulatedAdvanced', {}, 'Total acumulado que adelantaste para el grupo')}: ${formatMoney(
         runningPaid,
         baseCurrency
       )}`,
@@ -318,10 +372,14 @@ export function generateUserAuditTrail(
       runningPaid,
       runningConsumed,
       runningNet: Math.round((runningPaid - runningConsumed) * 100) / 100,
-      explanation: `Has completado el registro de todos tus pagos adelantados (${paidAmountsList.length} asientos). La suma total que has puesto para el grupo asciende a ${formatMoney(
-        runningPaid,
-        baseCurrency
-      )}.`,
+      explanation: tr(
+        'audit.paymentsSummaryExplanation',
+        { count: paidAmountsList.length, total: formatMoney(runningPaid, baseCurrency) },
+        `Has completado el registro de todos tus pagos adelantados (${paidAmountsList.length} asientos). La suma total que has puesto para el grupo asciende a ${formatMoney(
+          runningPaid,
+          baseCurrency
+        )}.`
+      ),
     });
   }
 
@@ -387,48 +445,72 @@ export function generateUserAuditTrail(
 
     const splitLabel =
       splitType === 'EQUAL' || (splitType as string).toLowerCase() === 'equal'
-        ? `a partes iguales entre ${totalParticipants} amigos`
-        : `según reparto ${splitType}`;
+        ? tr('audit.splitEqual', { count: totalParticipants }, `a partes iguales entre ${totalParticipants} amigos`)
+        : tr('audit.splitCustom', { mode: splitType }, `según reparto ${splitType}`);
 
     // Natural Language explanation with original ticket value and conversion
     let explanation = '';
     if (conversion) {
-      explanation = `En este gasto (${exp.title}) el valor original del ticket pagado fue de ${formatMoney(
-        conversion.originalAmount,
-        conversion.originalCurrency
-      )}. Con el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
-        conversion.originalAmount,
-        conversion.originalCurrency
-      )} × ${conversion.exchangeRate} = ${formatMoney(
-        conversion.convertedAmount,
-        baseCurrency
-      )}), el importe en la moneda del viaje es ${formatMoney(
-        conversion.convertedAmount,
-        baseCurrency
-      )}. Al repartirse ${splitLabel}, te corresponde una cuota de consumo de ${formatMoney(
-        userPortion,
-        baseCurrency
-      )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
-        prevConsumed,
-        baseCurrency
-      )}), tu consumo total acumulado asciende a ${formatMoney(
-        runningConsumed,
-        baseCurrency
-      )}.`;
+      explanation = tr(
+        'audit.consumptionForeign',
+        {
+          title: exp.title,
+          origAmount: formatMoney(conversion.originalAmount, conversion.originalCurrency),
+          rate: conversion.exchangeRate,
+          convAmount: formatMoney(conversion.convertedAmount, baseCurrency),
+          splitLabel,
+          userPortion: formatMoney(userPortion, baseCurrency),
+          prevConsumed: formatMoney(prevConsumed, baseCurrency),
+          runningConsumed: formatMoney(runningConsumed, baseCurrency),
+        },
+        `En este gasto (${exp.title}) el valor original del ticket pagado fue de ${formatMoney(
+          conversion.originalAmount,
+          conversion.originalCurrency
+        )}. Con el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
+          conversion.originalAmount,
+          conversion.originalCurrency
+        )} × ${conversion.exchangeRate} = ${formatMoney(
+          conversion.convertedAmount,
+          baseCurrency
+        )}), el importe en la moneda del viaje es ${formatMoney(
+          conversion.convertedAmount,
+          baseCurrency
+        )}. Al repartirse ${splitLabel}, te corresponde una cuota de consumo de ${formatMoney(
+          userPortion,
+          baseCurrency
+        )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
+          prevConsumed,
+          baseCurrency
+        )}), tu consumo total acumulado asciende a ${formatMoney(
+          runningConsumed,
+          baseCurrency
+        )}.`
+      );
     } else {
-      explanation = `En este gasto (${exp.title}) el valor original total pagado fue de ${formatMoney(
-        expenseBaseAmount,
-        baseCurrency
-      )}, repartido ${splitLabel}. Te corresponde una cuota de consumo de ${formatMoney(
-        userPortion,
-        baseCurrency
-      )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
-        prevConsumed,
-        baseCurrency
-      )}), tu consumo total acumulado asciende a ${formatMoney(
-        runningConsumed,
-        baseCurrency
-      )}.`;
+      explanation = tr(
+        'audit.consumptionBase',
+        {
+          title: exp.title,
+          origAmount: formatMoney(expenseBaseAmount, baseCurrency),
+          splitLabel,
+          userPortion: formatMoney(userPortion, baseCurrency),
+          prevConsumed: formatMoney(prevConsumed, baseCurrency),
+          runningConsumed: formatMoney(runningConsumed, baseCurrency),
+        },
+        `En este gasto (${exp.title}) el valor original total pagado fue de ${formatMoney(
+          expenseBaseAmount,
+          baseCurrency
+        )}, repartido ${splitLabel}. Te corresponde una cuota de consumo de ${formatMoney(
+          userPortion,
+          baseCurrency
+        )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
+          prevConsumed,
+          baseCurrency
+        )}), tu consumo total acumulado asciende a ${formatMoney(
+          runningConsumed,
+          baseCurrency
+        )}.`
+      );
     }
 
     steps.push({
@@ -436,7 +518,7 @@ export function generateUserAuditTrail(
       stepIndex: stepCounter++,
       type: 'consumption',
       title: exp.title,
-      subtitle: `Cuota de este gasto: ${formatMoney(userPortion, baseCurrency)}`,
+      subtitle: `${tr('audit.shareOfThisExpense', {}, 'Cuota de este gasto')}: ${formatMoney(userPortion, baseCurrency)}`,
       phase: 3,
       phaseTitleKey: 'audit.phaseConsumptions',
       date: formattedDate,
@@ -474,8 +556,8 @@ export function generateUserAuditTrail(
       id: 'consumptions-summary',
       stepIndex: stepCounter++,
       type: 'consumptions_summary',
-      title: 'Suma Total de Consumos Acumulados',
-      subtitle: `Total acumulado que te corresponde asumir: ${formatMoney(
+      title: tr('audit.totalConsumptionsSummary', {}, 'Suma Total de Consumos Acumulados'),
+      subtitle: `${tr('audit.totalAccumulatedAssumed', {}, 'Total acumulado que te corresponde asumir')}: ${formatMoney(
         runningConsumed,
         baseCurrency
       )}`,
@@ -487,10 +569,14 @@ export function generateUserAuditTrail(
       runningPaid,
       runningConsumed,
       runningNet: Math.round((runningPaid - runningConsumed) * 100) / 100,
-      explanation: `Has completado el desglose de todas tus cuotas de participación (${consumedAmountsList.length} gastos). La suma total de tu consumo individual asciende a ${formatMoney(
-        runningConsumed,
-        baseCurrency
-      )}.`,
+      explanation: tr(
+        'audit.consumptionsSummaryExplanation',
+        { count: consumedAmountsList.length, total: formatMoney(runningConsumed, baseCurrency) },
+        `Has completado el desglose de todas tus cuotas de participación (${consumedAmountsList.length} gastos). La suma total de tu consumo individual asciende a ${formatMoney(
+          runningConsumed,
+          baseCurrency
+        )}.`
+      ),
     });
   }
 
@@ -500,8 +586,8 @@ export function generateUserAuditTrail(
     id: 'gross_balance',
     stepIndex: stepCounter++,
     type: 'gross_balance',
-    title: 'Cálculo del Balance Bruto',
-    subtitle: 'Resta directa: Total Pagado - Total Consumido',
+    title: tr('audit.grossBalanceTitle', {}, 'Cálculo del Balance Bruto'),
+    subtitle: tr('audit.grossBalanceSubtitle', {}, 'Resta directa: Total Pagado - Total Consumido'),
     phase: 4,
     phaseTitleKey: 'audit.phaseGrossBalance',
     formulaDisplay: `${formatMoney(runningPaid, baseCurrency)} - ${formatMoney(
@@ -515,16 +601,36 @@ export function generateUserAuditTrail(
     runningNet: grossBalance,
     explanation:
       grossBalance > 0
-        ? `Has adelantado ${formatMoney(runningPaid, baseCurrency)} y consumido ${formatMoney(
-            runningConsumed,
-            baseCurrency
-          )}. Tu saldo bruto a favor es de +${formatMoney(grossBalance, baseCurrency)}.`
+        ? tr(
+            'audit.grossBalancePositive',
+            {
+              paid: formatMoney(runningPaid, baseCurrency),
+              consumed: formatMoney(runningConsumed, baseCurrency),
+              net: formatMoney(grossBalance, baseCurrency),
+            },
+            `Has adelantado ${formatMoney(runningPaid, baseCurrency)} y consumido ${formatMoney(
+              runningConsumed,
+              baseCurrency
+            )}. Tu saldo bruto a favor es de +${formatMoney(grossBalance, baseCurrency)}.`
+          )
         : grossBalance < 0
-        ? `Has adelantado ${formatMoney(runningPaid, baseCurrency)} pero tu consumo total es de ${formatMoney(
-            runningConsumed,
-            baseCurrency
-          )}. Tu saldo bruto deudor es de ${formatMoney(grossBalance, baseCurrency)}.`
-        : `Tus pagos coinciden exactamente con tu consumo (${formatMoney(runningPaid, baseCurrency)}).`,
+        ? tr(
+            'audit.grossBalanceNegative',
+            {
+              paid: formatMoney(runningPaid, baseCurrency),
+              consumed: formatMoney(runningConsumed, baseCurrency),
+              net: formatMoney(grossBalance, baseCurrency),
+            },
+            `Has adelantado ${formatMoney(runningPaid, baseCurrency)} pero tu consumo total es de ${formatMoney(
+              runningConsumed,
+              baseCurrency
+            )}. Tu saldo bruto deudor es de ${formatMoney(grossBalance, baseCurrency)}.`
+          )
+        : tr(
+            'audit.grossBalanceZero',
+            { paid: formatMoney(runningPaid, baseCurrency) },
+            `Tus pagos coinciden exactamente con tu consumo (${formatMoney(runningPaid, baseCurrency)}).`
+          ),
   });
 
   // 5. PHASE: SETTLEMENTS (Direct Bizums / transfers)
@@ -547,15 +653,17 @@ export function generateUserAuditTrail(
     const otherProfile = isSent ? s.to_profile : s.from_profile;
     const otherName = otherProfile?.full_name || 'Compañero';
     const actionText = isSent
-      ? `Pagaste a ${otherName} vía ${s.payment_method}`
-      : `Recibiste de ${otherName} vía ${s.payment_method}`;
+      ? tr('audit.settlementSentTitle', { name: otherName, method: s.payment_method }, `Pagaste a ${otherName} vía ${s.payment_method}`)
+      : tr('audit.settlementReceivedTitle', { name: otherName, method: s.payment_method }, `Recibiste de ${otherName} vía ${s.payment_method}`);
+
+    const badgeLabel = isSent ? `+ ${tr('audit.paidBadge', {}, 'Pagado')}` : `- ${tr('audit.collectedBadge', {}, 'Cobrado')}`;
 
     steps.push({
       id: `settlement-${s.id}`,
       stepIndex: stepCounter++,
       type: 'settlement',
       title: actionText,
-      subtitle: `${isSent ? '+ Pagado' : '- Cobrado'}: ${formatMoney(amount, baseCurrency)}`,
+      subtitle: `${badgeLabel}: ${formatMoney(amount, baseCurrency)}`,
       phase: 5,
       phaseTitleKey: 'audit.phaseSettlements',
       date: formatDate(s.settled_at, 'dd/MM/yyyy HH:mm'),
@@ -570,13 +678,22 @@ export function generateUserAuditTrail(
       runningConsumed,
       runningNet,
       explanation: isSent
-        ? `Enviaste un Bizum/pago directo de ${formatMoney(amount, baseCurrency)}, reduciendo tu deuda pendiente.`
-        : `Recibiste un Bizum/pago de ${formatMoney(amount, baseCurrency)}, ajustando el saldo pendiente a tu favor.`,
+        ? tr(
+            'audit.settlementSentExplanation',
+            { amount: formatMoney(amount, baseCurrency) },
+            `Enviaste un Bizum/pago directo de ${formatMoney(amount, baseCurrency)}, reduciendo tu deuda pendiente.`
+          )
+        : tr(
+            'audit.settlementReceivedExplanation',
+            { amount: formatMoney(amount, baseCurrency) },
+            `Recibiste un Bizum/pago de ${formatMoney(amount, baseCurrency)}, ajustando el saldo pendiente a tu favor.`
+          ),
     });
   }
 
   // 6. PHASE: FINAL NET BALANCE & SIMPLIFIED DEBT SETTLEMENT PLAN
   let finalProof: FinalSettlementProof | undefined = undefined;
+  const allSettledBadge = tr('audit.allSettledBadge', {}, 'Cuentas 100% Cuadradas');
 
   if (Math.abs(runningNet) > 0.009 && userDebts.length > 0) {
     const isCreditor = runningNet > 0.009;
@@ -613,7 +730,7 @@ export function generateUserAuditTrail(
       )} - ${formatMoney(sumTotal, baseCurrency)} = ${formatMoney(
         0,
         baseCurrency
-      )} (Cuentas 100% Cuadradas)`;
+      )} (${allSettledBadge})`;
       zeroingCalcExpr = `${runningNet} - ${sumTotal}`;
     } else {
       zeroingFormulaDisplay = `-${formatMoney(
@@ -622,7 +739,7 @@ export function generateUserAuditTrail(
       )} + ${formatMoney(sumTotal, baseCurrency)} = ${formatMoney(
         0,
         baseCurrency
-      )} (Cuentas 100% Cuadradas)`;
+      )} (${allSettledBadge})`;
       zeroingCalcExpr = `-${absNet} + ${sumTotal}`;
     }
 
@@ -651,7 +768,7 @@ export function generateUserAuditTrail(
       zeroingFormulaDisplay: `${formatMoney(
         0,
         baseCurrency
-      )} = ${formatMoney(0, baseCurrency)} (Cuentas 100% Cuadradas)`,
+      )} = ${formatMoney(0, baseCurrency)} (${allSettledBadge})`,
       zeroingCalcExpr: '0',
       items: [],
     };
@@ -662,49 +779,71 @@ export function generateUserAuditTrail(
   if (runningNet < -0.009) {
     const listStr =
       finalProof?.items
-        .map((i) => `pagar ${formatMoney(i.amount, baseCurrency)} a ${i.otherName}`)
+        .map((i) => tr('audit.toPayAction', { amount: formatMoney(i.amount, baseCurrency), name: i.otherName }, `pagar ${formatMoney(i.amount, baseCurrency)} a ${i.otherName}`))
         .join(', ') || '';
-    finalExplanation = `Tu saldo neto deudor es de ${formatMoney(
-      Math.abs(runningNet),
-      baseCurrency
-    )}. Para saldar tus cuentas debes ${listStr} (suma total de pagos: ${formatMoney(
-      finalProof.totalSettlementAmount,
-      baseCurrency
-    )}). Al realizar estos pagos (-${formatMoney(
-      Math.abs(runningNet),
-      baseCurrency
-    )} + ${formatMoney(
-      finalProof.totalSettlementAmount,
-      baseCurrency
-    )}), tu saldo resultante pasa a ser exactamente de 0,00 ${baseCurrency}.`;
+    finalExplanation = tr(
+      'audit.finalNetDebtor',
+      {
+        net: formatMoney(Math.abs(runningNet), baseCurrency),
+        list: listStr,
+        total: formatMoney(finalProof.totalSettlementAmount, baseCurrency),
+        currency: baseCurrency,
+      },
+      `Tu saldo neto deudor es de ${formatMoney(
+        Math.abs(runningNet),
+        baseCurrency
+      )}. Para saldar tus cuentas debes ${listStr} (suma total de pagos: ${formatMoney(
+        finalProof.totalSettlementAmount,
+        baseCurrency
+      )}). Al realizar estos pagos (-${formatMoney(
+        Math.abs(runningNet),
+        baseCurrency
+      )} + ${formatMoney(
+        finalProof.totalSettlementAmount,
+        baseCurrency
+      )}), tu saldo resultante pasa a ser exactamente de 0,00 ${baseCurrency}.`
+    );
   } else if (runningNet > 0.009) {
     const listStr =
       finalProof?.items
-        .map((i) => `recibir ${formatMoney(i.amount, baseCurrency)} de ${i.otherName}`)
+        .map((i) => tr('audit.toReceiveAction', { amount: formatMoney(i.amount, baseCurrency), name: i.otherName }, `recibir ${formatMoney(i.amount, baseCurrency)} de ${i.otherName}`))
         .join(', ') || '';
-    finalExplanation = `Tu saldo neto a favor es de +${formatMoney(
-      runningNet,
-      baseCurrency
-    )}. Para saldar tus cuentas te corresponde ${listStr} (suma total de cobros: ${formatMoney(
-      finalProof.totalSettlementAmount,
-      baseCurrency
-    )}). Al recibir estos cobros (+${formatMoney(
-      runningNet,
-      baseCurrency
-    )} - ${formatMoney(
-      finalProof.totalSettlementAmount,
-      baseCurrency
-    )}), tus cuentas quedan exactamente a 0,00 ${baseCurrency}.`;
+    finalExplanation = tr(
+      'audit.finalNetCreditor',
+      {
+        net: formatMoney(runningNet, baseCurrency),
+        list: listStr,
+        total: formatMoney(finalProof.totalSettlementAmount, baseCurrency),
+        currency: baseCurrency,
+      },
+      `Tu saldo neto a favor es de +${formatMoney(
+        runningNet,
+        baseCurrency
+      )}. Para saldar tus cuentas te corresponde ${listStr} (suma total de cobros: ${formatMoney(
+        finalProof.totalSettlementAmount,
+        baseCurrency
+      )}). Al recibir estos cobros (+${formatMoney(
+        runningNet,
+        baseCurrency
+      )} - ${formatMoney(
+        finalProof.totalSettlementAmount,
+        baseCurrency
+      )}), tus cuentas quedan exactamente a 0,00 ${baseCurrency}.`
+    );
   } else {
-    finalExplanation = `Tus cuentas en el grupo están 100% saldadas (saldo de 0,00 ${baseCurrency}) sin transferencias pendientes.`;
+    finalExplanation = tr(
+      'audit.finalNetZero',
+      { currency: baseCurrency },
+      `Tus cuentas en el grupo están 100% saldadas (saldo de 0,00 ${baseCurrency}) sin transferencias pendientes.`
+    );
   }
 
   steps.push({
     id: 'final_net',
     stepIndex: stepCounter++,
     type: 'final_net',
-    title: 'Resultado Final y Plan de Liquidación',
-    subtitle: `Saldo Neto Definitivo: ${formatMoney(runningNet, baseCurrency)}`,
+    title: tr('audit.finalNetTitle', {}, 'Resultado Final y Plan de Liquidación'),
+    subtitle: tr('audit.finalNetSubtitle', { net: formatMoney(runningNet, baseCurrency) }, `Saldo Neto Definitivo: ${formatMoney(runningNet, baseCurrency)}`),
     phase: 6,
     phaseTitleKey: 'audit.phaseFinalDebts',
     finalSettlementProof: finalProof,

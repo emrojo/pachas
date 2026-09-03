@@ -98,9 +98,10 @@ export default function GroupAuditPage() {
       group.base_currency,
       members,
       expenses,
-      settlements
+      settlements,
+      t
     );
-  }, [group, activeUserId, members, expenses, settlements]);
+  }, [group, activeUserId, members, expenses, settlements, t]);
 
   const currentStep = auditSteps[currentStepIndex] || auditSteps[0];
   const totalSteps = auditSteps.length;
@@ -305,57 +306,59 @@ export default function GroupAuditPage() {
                 className="scroll-mt-20 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-200"
               >
                 {/* PRIMARY CONTROL: Wizard Navigation Buttons Above Description */}
-                <div className="bg-slate-50/90 dark:bg-slate-800/80 p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex items-center justify-between gap-2.5 flex-wrap sm:flex-nowrap">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handlePrevStep}
-                    disabled={currentStepIndex === 0}
-                    className="gap-1.5 h-11 px-4 min-w-[110px] sm:min-w-[130px] font-bold"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>{t('audit.prevStep')}</span>
-                  </Button>
+                <div className="bg-slate-50/90 dark:bg-slate-800/80 p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex items-center justify-between gap-3">
+                  {/* Both Previous and Next buttons side-by-side */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePrevStep}
+                      disabled={currentStepIndex === 0}
+                      className="gap-1.5 h-10 sm:h-11 px-3 sm:px-4 font-bold"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>{t('audit.prevStep')}</span>
+                    </Button>
 
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 px-2.5 py-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shadow-2xs">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{currentStepIndex + 1}</span>
-                    <span className="opacity-40">/</span>
-                    <span>{totalSteps}</span>
+                    <Button
+                      type="button"
+                      variant="brand"
+                      onClick={handleNextStep}
+                      disabled={currentStepIndex === totalSteps - 1}
+                      className="gap-1.5 h-10 sm:h-11 px-3 sm:px-4 font-bold shadow-md shadow-emerald-600/25"
+                    >
+                      <span>{t('audit.nextStep')}</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
                   </div>
 
+                  {/* Step counter & jump to end / restart */}
                   <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 px-2.5 py-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shadow-2xs">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{currentStepIndex + 1}</span>
+                      <span className="opacity-40">/</span>
+                      <span>{totalSteps}</span>
+                    </div>
+
                     {currentStepIndex === totalSteps - 1 ? (
                       <Button
                         type="button"
                         variant="outline"
                         onClick={handleRestart}
-                        className="gap-1.5 h-11 px-4 min-w-[110px] sm:min-w-[130px] font-bold"
+                        className="gap-1.5 h-10 sm:h-11 px-3 sm:px-4 font-bold"
                       >
                         <RotateCcw className="w-4 h-4" />
                         <span>{t('audit.restart')}</span>
                       </Button>
                     ) : (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={handleJumpToEnd}
-                          className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hidden md:inline-flex"
-                        >
-                          {t('audit.jumpToEnd')}
-                        </Button>
-
-                        <Button
-                          type="button"
-                          variant="brand"
-                          onClick={handleNextStep}
-                          disabled={currentStepIndex === totalSteps - 1}
-                          className="gap-1.5 h-11 px-5 min-w-[110px] sm:min-w-[130px] font-bold shadow-md shadow-emerald-600/25"
-                        >
-                          <span>{t('audit.nextStep')}</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleJumpToEnd}
+                        className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hidden sm:inline-flex"
+                      >
+                        {t('audit.jumpToEnd')}
+                      </Button>
                     )}
                   </div>
                 </div>
