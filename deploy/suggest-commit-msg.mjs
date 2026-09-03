@@ -101,10 +101,11 @@ Rules:
 `.trim();
 
 const MODELS = [
+  'gemini-2.5-flash-lite',
+  'gemini-flash-latest',
   'gemini-3.6-flash',
+  'gemini-3.5-flash-lite',
   'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-flash-latest'
 ];
 
 async function queryGemini() {
@@ -119,8 +120,8 @@ async function queryGemini() {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 60,
+            temperature: 0.2,
+            maxOutputTokens: 1000,
           }
         }),
       });
@@ -131,15 +132,34 @@ async function queryGemini() {
         continue;
       }
 
-      let candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const candidate = data.candidates?.[0];
+      if (!candidate) continue;
+
+      // If cut off by max tokens, skip to another model
+      if (candidate.finishReason === 'MAX_TOKENS') {
+        lastError = `Model ${model} hit MAX_TOKENS limit`;
+        continue;
+      }
+
+      let candidateText = candidate.content?.parts?.[0]?.text || '';
       candidateText = candidateText.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
       const lines = candidateText
         .split('\n')
-        .map(l => l.trim().replace(/^["'`]+|["'`]+$/g, '').trim())
+        .map(l => l.trim().replace(/^["'`*#]+|["'`*#]+$/g, '').trim())
         .filter(Boolean);
 
       if (lines.length > 0) {
-        return lines[0];
+        const msg = lines[0];
+        // Ensure message is not incomplete / truncated (e.g. "feat(api")
+        if (msg.includes('(') && !msg.includes(')')) {
+          lastError = `Incomplete message produced by ${model}: ${msg}`;
+          continue;
+        }
+        if (!msg.includes(':')) {
+          lastError = `Malformed commit message produced by ${model}: ${msg}`;
+          continue;
+        }
+        return msg;
       }
     } catch (err) {
       lastError = err.message;

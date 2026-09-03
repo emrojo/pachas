@@ -138,16 +138,16 @@ export async function GET(request: NextRequest) {
                '[]'::json
              ) as members
       FROM public.groups g
-      LEFT JOIN public.group_members gm ON gm.group_id = g.id
+      LEFT JOIN public.group_members gm ON gm.group_id::text = g.id::text
       LEFT JOIN public.profiles p ON p.id::text = gm.user_id::text
     `;
 
     const params: any[] = [];
     if (!fetchAll) {
       query += `
-        WHERE g.id IN (
-          SELECT gm2.group_id FROM public.group_members gm2 WHERE gm2.user_id = $1
-        ) OR g.created_by = $1
+        WHERE g.id::text IN (
+          SELECT gm2.group_id::text FROM public.group_members gm2 WHERE gm2.user_id::text = $1
+        ) OR g.created_by::text = $1
       `;
       params.push(user.userId);
     }

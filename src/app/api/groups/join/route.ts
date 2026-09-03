@@ -57,6 +57,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ensure joining user has a profile in public.profiles to satisfy FK
+    await pool.query(
+      `INSERT INTO public.profiles (id, email, full_name, role, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
+      [user.userId, user.email || `${user.userId}@pachas.local`, user.email?.split('@')[0] || 'Amigo', user.role || 'member']
+    );
+
     // 2. Insert member into group_members if not already joined
     const memberId = randomUUID();
     try {

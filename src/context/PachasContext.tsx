@@ -892,7 +892,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return updated;
           });
 
-          const rawMembers = (data.group as any).members;
+          let rawMembers = (data.group as any)?.members || (data as any)?.members;
+          if (typeof rawMembers === 'string') {
+            try {
+              rawMembers = JSON.parse(rawMembers);
+            } catch {}
+          }
+
           if (rawMembers && Array.isArray(rawMembers)) {
             setMembers((prev) => {
               const updated = {
@@ -924,6 +930,42 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               return enrichedUsers;
             });
           }
+
+          // Fetch fresh members in parallel directly from dedicated members API
+          fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+              if (d?.members && Array.isArray(d.members) && d.members.length > 0) {
+                setMembers((prev) => {
+                  const updated = {
+                    ...prev,
+                    [grp.id]: d.members,
+                  };
+                  membersRef.current = updated;
+                  safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(updated));
+                  return updated;
+                });
+                setAvailableUsers((prev) => {
+                  const userMap = new Map(prev.map((u) => [u.id, u]));
+                  d.members.forEach((m: any) => {
+                    if (m.profile && m.profile.id) {
+                      userMap.set(m.profile.id, {
+                        id: m.profile.id,
+                        email: m.profile.email || '',
+                        full_name: m.profile.full_name || 'Amigo',
+                        avatar_url: m.profile.avatar_url || null,
+                        bizum_phone: m.profile.bizum_phone || null,
+                        created_at: m.profile.created_at || m.joined_at || new Date().toISOString(),
+                      });
+                    }
+                  });
+                  const enriched = Array.from(userMap.values());
+                  safeSetLocalStorage(STORAGE_KEYS.USERS, JSON.stringify(enriched));
+                  return enriched;
+                });
+              }
+            })
+            .catch(() => {});
 
           // Fetch expenses in parallel
           fetch(`/api/expenses?groupId=${encodeURIComponent(groupId)}`, { cache: 'no-store' })
@@ -1421,6 +1463,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     saveState(undefined, updatedMembers);
 
+    // Sync to PostgreSQL backend
+    fetch(`/api/groups/${encodeURIComponent(groupId)}/members?userId=${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+    }).catch((e) => console.warn('API removeMemberFromGroup warning:', e));
+
     addNotification({
       user_id: currentUser ? currentUser.id : userId,
       type: 'member_removed',
@@ -1499,6 +1546,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     saveState(undefined, updatedMembers);
 
+    // Sync to PostgreSQL backend
+    fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: targetUser.id, role: 'member' }),
+    }).catch((e) => console.warn('API addMemberToGroup warning:', e));
+
     const targetGroup = getGroup(groupId);
     addNotification({
       user_id: currentUser ? currentUser.id : userId,
@@ -1557,6 +1611,19 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       [groupId]: [...grpMembers, newMember],
     };
     saveState(undefined, updatedMembers);
+
+    // Sync to PostgreSQL backend
+    fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: targetUser.id,
+        email: targetUser.email,
+        fullName: targetUser.full_name,
+        role: 'member',
+      }),
+    }).catch((e) => console.warn('API addMemberByEmail warning:', e));
+
     return true;
   };
 
@@ -1609,7 +1676,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         amount_owed: participantBaseAmount,
         percentage: r.percentage,
         shares: r.shares,
-        profile: memberProfiles.get(r.userId),
+        profile:
+          memberProfiles.get(r.userId) ||
+          availableUsers.find((u) => u.id === r.userId) ||
+          (currentUser && r.userId === currentUser.id ? currentUser : undefined),
       };
     });
 
@@ -1639,7 +1709,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         expense_id: expenseId,
         user_id: p.userId,
         amount_paid: p.amountPaid,
-        profile: memberProfiles.get(p.userId),
+        profile:
+          memberProfiles.get(p.userId) ||
+          availableUsers.find((u) => u.id === p.userId) ||
+          (currentUser && p.userId === currentUser.id ? currentUser : undefined),
       })),
       participants: convertedParticipants,
       is_pending_sync: false,
@@ -1683,6 +1756,18 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (res.ok) {
           isSynced = true;
           newExpense.is_pending_sync = false;
+          const resData = await res.json().catch(() => ({}));
+          if (resData?.expense) {
+            if (resData.expense.payers && resData.expense.payers.length > 0) {
+              newExpense.payers = resData.expense.payers;
+            }
+            if (resData.expense.creator) {
+              newExpense.creator = resData.expense.creator;
+            }
+            if (resData.expense.participants && resData.expense.participants.length > 0) {
+              newExpense.participants = resData.expense.participants;
+            }
+          }
         } else if (res.status >= 400 && res.status < 500) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || 'Error al guardar el gasto.');
@@ -3178,16 +3263,31 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               if (exp && exp.group_id) {
                 setExpenses((prev) => {
                   const currentList = prev[exp.group_id] || [];
-                  if (currentList.some((e) => e.id === exp.id)) {
+                  const existing = currentList.find((e) => e.id === exp.id);
+                  const enrichedExp: Expense = {
+                    ...existing,
+                    ...exp,
+                    creator: exp.creator || existing?.creator || (currentUser && exp.created_by === currentUser.id ? currentUser : undefined),
+                    payers: (exp.payers && exp.payers.length > 0 ? exp.payers : existing?.payers || []).map((p: any) => ({
+                      ...p,
+                      profile: p.profile || existing?.payers?.find((ep) => ep.user_id === p.user_id)?.profile,
+                    })),
+                    participants: (exp.participants && exp.participants.length > 0 ? exp.participants : existing?.participants || []).map((pt: any) => ({
+                      ...pt,
+                      profile: pt.profile || existing?.participants?.find((ep) => ep.user_id === pt.user_id)?.profile,
+                    })),
+                  };
+
+                  if (existing) {
                     // Update if already in list (e.g. from local optimistic add)
                     return {
                       ...prev,
-                      [exp.group_id]: currentList.map((e) => (e.id === exp.id ? { ...e, ...exp } : e)),
+                      [exp.group_id]: currentList.map((e) => (e.id === exp.id ? enrichedExp : e)),
                     };
                   }
                   const updated = {
                     ...prev,
-                    [exp.group_id]: [exp, ...currentList],
+                    [exp.group_id]: [enrichedExp, ...currentList],
                   };
                   safeSetLocalStorage(STORAGE_KEYS.EXPENSES, JSON.stringify(sanitizeExpensesForLocalStorage(updated)));
                   return updated;
@@ -3211,7 +3311,22 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               if (exp && exp.group_id) {
                 setExpenses((prev) => {
                   const currentList = prev[exp.group_id] || [];
-                  const updatedList = currentList.map((e) => (e.id === exp.id ? { ...e, ...exp } : e));
+                  const existing = currentList.find((e) => e.id === exp.id);
+                  const enrichedExp: Expense = {
+                    ...existing,
+                    ...exp,
+                    creator: exp.creator || existing?.creator || (currentUser && exp.created_by === currentUser.id ? currentUser : undefined),
+                    payers: (exp.payers && exp.payers.length > 0 ? exp.payers : existing?.payers || []).map((p: any) => ({
+                      ...p,
+                      profile: p.profile || existing?.payers?.find((ep) => ep.user_id === p.user_id)?.profile,
+                    })),
+                    participants: (exp.participants && exp.participants.length > 0 ? exp.participants : existing?.participants || []).map((pt: any) => ({
+                      ...pt,
+                      profile: pt.profile || existing?.participants?.find((ep) => ep.user_id === pt.user_id)?.profile,
+                    })),
+                  };
+
+                  const updatedList = currentList.map((e) => (e.id === exp.id ? enrichedExp : e));
                   const updated = {
                     ...prev,
                     [exp.group_id]: updatedList,

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Expense } from '@/types/database';
+import { Expense, Profile } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { getCategoryInfo } from '@/lib/categories';
@@ -36,7 +36,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   baseCurrency = 'EUR',
   onEdit,
 }) => {
-  const { currentUser, getExpenseComments } = usePachas();
+  const { currentUser, getExpenseComments, getGroupMembers, availableUsers } = usePachas();
   const { t } = useTranslation();
   const [showReceipt, setShowReceipt] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
@@ -50,9 +50,24 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const category = getCategoryInfo(expense.category);
   const commentCount = getExpenseComments ? (getExpenseComments(expense.id)?.length || 0) : 0;
 
-  // Payers info
-  const payerProfiles = expense.payers?.map((p) => p.profile).filter(Boolean) || [expense.creator];
-  const firstPayer = payerProfiles[0];
+  // Payers info with resilient multi-level profile resolution
+  const directPayerProfiles = (expense.payers?.map((p) => p.profile).filter(Boolean) as Profile[]) || [];
+  let firstPayer: Profile | undefined = directPayerProfiles[0] || expense.creator;
+
+  if (!firstPayer && expense.payers && expense.payers.length > 0) {
+    const pUserId = expense.payers[0].user_id;
+    if (currentUser && currentUser.id === pUserId) {
+      firstPayer = currentUser;
+    } else {
+      const grpMembers = getGroupMembers ? getGroupMembers(expense.group_id) : [];
+      const match = grpMembers.find((m) => m.user_id === pUserId);
+      firstPayer = match?.profile || availableUsers?.find((u) => u.id === pUserId);
+    }
+  }
+  if (!firstPayer && currentUser && expense.created_by === currentUser.id) {
+    firstPayer = currentUser;
+  }
+
   const isMultiPayer = (expense.payers?.length || 0) > 1;
 
   // Calculate user share in the original expense currency

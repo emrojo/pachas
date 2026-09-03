@@ -34,42 +34,86 @@ export async function GET(
 
     await autoHealGroupFrozenColumns(pool);
 
-    const query = `
-      SELECT g.*,
-             COALESCE(
-               json_agg(
-                 jsonb_build_object(
-                   'id', gm.id,
-                   'group_id', gm.group_id,
-                   'user_id', gm.user_id,
-                   'role', gm.role,
-                   'joined_at', gm.joined_at,
-                   'profile', jsonb_build_object(
-                     'id', COALESCE(p.id, gm.user_id),
-                     'full_name', COALESCE(p.full_name, 'Amigo'),
-                     'avatar_url', p.avatar_url,
-                     'email', COALESCE(p.email, ''),
-                     'bizum_phone', p.bizum_phone,
-                     'is_banned', COALESCE(p.is_banned, false),
-                     'ban_reason', p.ban_reason
-                   )
-                 )
-               ) FILTER (WHERE gm.id IS NOT NULL),
-               '[]'::json
-             ) as members
-      FROM public.groups g
-      LEFT JOIN public.group_members gm ON gm.group_id = g.id
-      LEFT JOIN public.profiles p ON p.id::text = gm.user_id::text
-      WHERE g.id = $1
-      GROUP BY g.id
-    `;
-
-    const res = await pool.query(query, [groupId]);
-    if (res.rows.length === 0) {
+    const groupRes = await pool.query('SELECT * FROM public.groups WHERE id::text = $1', [groupId]);
+    if (groupRes.rows.length === 0) {
       return NextResponse.json({ error: 'Grupo no encontrado' }, { status: 404 });
     }
+    const group = groupRes.rows[0];
 
-    return NextResponse.json({ success: true, group: res.rows[0] });
+    const membersRes = await pool.query(
+      `SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at,
+              COALESCE(p.id, gm.user_id) as profile_id,
+              COALESCE(p.full_name, 'Amigo') as full_name,
+              p.avatar_url, p.bizum_phone, p.email,
+              COALESCE(p.is_banned, false) as is_banned, p.ban_reason
+       FROM public.group_members gm
+       LEFT JOIN public.profiles p ON p.id::text = gm.user_id::text
+       WHERE gm.group_id::text = $1
+       ORDER BY gm.joined_at ASC`,
+      [groupId]
+    );
+
+    let members = membersRes.rows.map((m) => ({
+      id: m.id,
+      group_id: m.group_id,
+      user_id: m.user_id,
+      role: m.role || 'member',
+      joined_at: m.joined_at,
+      profile: {
+        id: m.profile_id,
+        email: m.email || '',
+        full_name: m.full_name,
+        avatar_url: m.avatar_url || null,
+        bizum_phone: m.bizum_phone || null,
+        role: m.role,
+        is_banned: Boolean(m.is_banned),
+        ban_reason: m.ban_reason || null,
+      },
+    }));
+
+    // If creator is not in group_members, auto-add to table and array
+    if (group.created_by && !members.some((m) => String(m.user_id) === String(group.created_by))) {
+      try {
+        const creatorProfRes = await pool.query(
+          'SELECT id, email, full_name, avatar_url, bizum_phone, is_banned, ban_reason FROM public.profiles WHERE id::text = $1',
+          [group.created_by]
+        );
+        const cp = creatorProfRes.rows[0];
+        const newMemberId = (await import('crypto')).randomUUID();
+        const now = new Date().toISOString();
+
+        await pool.query(
+          `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
+           VALUES ($1, $2, $3, 'admin', NOW())
+           ON CONFLICT (group_id, user_id) DO NOTHING`,
+          [newMemberId, group.id, group.created_by]
+        );
+
+        members.unshift({
+          id: newMemberId,
+          group_id: group.id,
+          user_id: group.created_by,
+          role: 'admin',
+          joined_at: now,
+          profile: {
+            id: group.created_by,
+            email: cp?.email || '',
+            full_name: cp?.full_name || 'Creador',
+            avatar_url: cp?.avatar_url || null,
+            bizum_phone: cp?.bizum_phone || null,
+            role: 'admin',
+            is_banned: Boolean(cp?.is_banned),
+            ban_reason: cp?.ban_reason || null,
+          },
+        });
+      } catch (err) {
+        console.warn('Could not auto-insert creator into group_members:', err);
+      }
+    }
+
+    group.members = members;
+
+    return NextResponse.json({ success: true, group, members });
   } catch (err: any) {
     console.error('API get single group error:', err);
     return NextResponse.json({ error: err.message || 'Error al obtener grupo' }, { status: 500 });

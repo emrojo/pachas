@@ -293,12 +293,78 @@ export async function POST(request: NextRequest) {
         data: { groupId, expenseId: id },
       }).catch(() => {});
 
-      // 6. Broadcast real-time expense creation to all connected clients
-      realtimeHub.broadcast({
-        type: 'expense_created',
-        groupId,
-        userId: user.userId,
-        payload: {
+      // 6. Fetch fully populated expense with profiles
+      const fullExpRes = await pool.query(
+        `SELECT e.*,
+                json_agg(DISTINCT jsonb_build_object(
+                  'id', ep.id,
+                  'expense_id', ep.expense_id,
+                  'user_id', ep.user_id,
+                  'amount_paid', ep.amount_paid,
+                  'profile', jsonb_build_object(
+                    'id', pp.id,
+                    'full_name', pp.full_name,
+                    'avatar_url', pp.avatar_url,
+                    'email', pp.email
+                  )
+                )) FILTER (WHERE ep.id IS NOT NULL) as payers,
+                json_agg(DISTINCT jsonb_build_object(
+                  'id', epart.id,
+                  'expense_id', epart.expense_id,
+                  'user_id', epart.user_id,
+                  'amount_owed', epart.amount_owed,
+                  'percentage', epart.percentage,
+                  'shares', epart.shares,
+                  'profile', jsonb_build_object(
+                    'id', ppart.id,
+                    'full_name', ppart.full_name,
+                    'avatar_url', ppart.avatar_url,
+                    'email', ppart.email
+                  )
+                )) FILTER (WHERE epart.id IS NOT NULL) as participants,
+                jsonb_build_object(
+                  'id', pcreator.id,
+                  'full_name', pcreator.full_name,
+                  'avatar_url', pcreator.avatar_url,
+                  'email', pcreator.email
+                ) as creator
+         FROM public.expenses e
+         LEFT JOIN public.profiles pcreator ON pcreator.id::text = e.created_by::text
+         LEFT JOIN public.expense_payers ep ON ep.expense_id::text = e.id::text
+         LEFT JOIN public.profiles pp ON pp.id::text = ep.user_id::text
+         LEFT JOIN public.expense_participants epart ON epart.expense_id::text = e.id::text
+         LEFT JOIN public.profiles ppart ON ppart.id::text = epart.user_id::text
+         WHERE e.id::text = $1
+         GROUP BY e.id, pcreator.id`,
+        [id]
+      );
+
+      let createdExpense: any;
+      if (fullExpRes.rows.length > 0) {
+        const row = fullExpRes.rows[0];
+        createdExpense = {
+          ...row,
+          amount: parseFloat(row.amount) || 0,
+          exchange_rate: row.exchange_rate ? parseFloat(row.exchange_rate) : 1.0,
+          converted_amount: row.converted_amount ? parseFloat(row.converted_amount) : (parseFloat(row.amount) || 0),
+          latitude: row.latitude !== null && row.latitude !== undefined ? parseFloat(row.latitude) : null,
+          longitude: row.longitude !== null && row.longitude !== undefined ? parseFloat(row.longitude) : null,
+          creator: row.creator && row.creator.id ? row.creator : undefined,
+          payers: (row.payers || []).map((p: any) => ({
+            ...p,
+            amount_paid: parseFloat(p.amount_paid) || 0,
+            profile: p.profile && p.profile.id ? p.profile : undefined,
+          })),
+          participants: (row.participants || []).map((pt: any) => ({
+            ...pt,
+            amount_owed: parseFloat(pt.amount_owed) || 0,
+            percentage: pt.percentage !== null && pt.percentage !== undefined ? parseFloat(pt.percentage) : null,
+            shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
+            profile: pt.profile && pt.profile.id ? pt.profile : undefined,
+          })),
+        };
+      } else {
+        createdExpense = {
           id,
           group_id: groupId,
           created_by: user.userId,
@@ -319,29 +385,20 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
           payers,
           participants,
-        },
+        };
+      }
+
+      // 7. Broadcast real-time expense creation to all connected clients
+      realtimeHub.broadcast({
+        type: 'expense_created',
+        groupId,
+        userId: user.userId,
+        payload: createdExpense,
       });
 
       return NextResponse.json({
         success: true,
-        expense: {
-          id,
-          group_id: groupId,
-          created_by: user.userId,
-          title,
-          amount,
-          currency,
-          exchange_rate: exchangeRate,
-          converted_amount: convertedAmount,
-          category,
-          expense_date: expenseDate,
-          receipt_url: receiptUrl,
-          notes,
-          split_type: splitType,
-          latitude,
-          longitude,
-          location_name: locationName,
-        },
+        expense: createdExpense,
       });
     } catch (err) {
       await client.query('ROLLBACK');

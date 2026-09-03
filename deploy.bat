@@ -34,12 +34,15 @@ if exist "%MSG_FILE%" (
 
 echo.
 echo ---------------------------------------------------
+if defined SUGGESTED_MSG (
+    echo Sugerencia: !SUGGESTED_MSG!
+)
 echo Opciones:
-echo   [Enter]   Usar la sugerencia y continuar despliegue
+echo   [Enter]   Usar la sugerencia anterior y desplegar
 echo   [Escribe] Escribir tu propio mensaje
 echo   [Ctrl+C]  Cancelar
 echo ---------------------------------------------------
-set /p USER_CHOICE="Tu mensaje [Enter para aceptar sugerencia]: "
+set /p USER_CHOICE="Tu mensaje [Enter para usar sugerencia]: "
 
 if defined USER_CHOICE (
     set "COMMIT_MSG=!USER_CHOICE!"

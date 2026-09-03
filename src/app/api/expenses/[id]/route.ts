@@ -295,11 +295,77 @@ export async function PUT(
             }
 
             // Broadcast real-time expense update to all connected clients
-            realtimeHub.broadcast({
-              type: 'expense_updated',
-              groupId: g.group_id,
-              userId: user.userId,
-              payload: {
+            const updatedExpRes = await pool.query(
+              `SELECT e.*,
+                      json_agg(DISTINCT jsonb_build_object(
+                        'id', ep.id,
+                        'expense_id', ep.expense_id,
+                        'user_id', ep.user_id,
+                        'amount_paid', ep.amount_paid,
+                        'profile', jsonb_build_object(
+                          'id', pp.id,
+                          'full_name', pp.full_name,
+                          'avatar_url', pp.avatar_url,
+                          'email', pp.email
+                        )
+                      )) FILTER (WHERE ep.id IS NOT NULL) as payers,
+                      json_agg(DISTINCT jsonb_build_object(
+                        'id', epart.id,
+                        'expense_id', epart.expense_id,
+                        'user_id', epart.user_id,
+                        'amount_owed', epart.amount_owed,
+                        'percentage', epart.percentage,
+                        'shares', epart.shares,
+                        'profile', jsonb_build_object(
+                          'id', ppart.id,
+                          'full_name', ppart.full_name,
+                          'avatar_url', ppart.avatar_url,
+                          'email', ppart.email
+                        )
+                      )) FILTER (WHERE epart.id IS NOT NULL) as participants,
+                      jsonb_build_object(
+                        'id', pcreator.id,
+                        'full_name', pcreator.full_name,
+                        'avatar_url', pcreator.avatar_url,
+                        'email', pcreator.email
+                      ) as creator
+               FROM public.expenses e
+               LEFT JOIN public.profiles pcreator ON pcreator.id::text = e.created_by::text
+               LEFT JOIN public.expense_payers ep ON ep.expense_id::text = e.id::text
+               LEFT JOIN public.profiles pp ON pp.id::text = ep.user_id::text
+               LEFT JOIN public.expense_participants epart ON epart.expense_id::text = e.id::text
+               LEFT JOIN public.profiles ppart ON ppart.id::text = epart.user_id::text
+               WHERE e.id::text = $1
+               GROUP BY e.id, pcreator.id`,
+              [expenseId]
+            );
+
+            let updatedExpensePayload: any;
+            if (updatedExpRes.rows.length > 0) {
+              const row = updatedExpRes.rows[0];
+              updatedExpensePayload = {
+                ...row,
+                amount: parseFloat(row.amount) || 0,
+                exchange_rate: row.exchange_rate ? parseFloat(row.exchange_rate) : 1.0,
+                converted_amount: row.converted_amount ? parseFloat(row.converted_amount) : (parseFloat(row.amount) || 0),
+                latitude: row.latitude !== null && row.latitude !== undefined ? parseFloat(row.latitude) : null,
+                longitude: row.longitude !== null && row.longitude !== undefined ? parseFloat(row.longitude) : null,
+                creator: row.creator && row.creator.id ? row.creator : undefined,
+                payers: (row.payers || []).map((p: any) => ({
+                  ...p,
+                  amount_paid: parseFloat(p.amount_paid) || 0,
+                  profile: p.profile && p.profile.id ? p.profile : undefined,
+                })),
+                participants: (row.participants || []).map((pt: any) => ({
+                  ...pt,
+                  amount_owed: parseFloat(pt.amount_owed) || 0,
+                  percentage: pt.percentage !== null && pt.percentage !== undefined ? parseFloat(pt.percentage) : null,
+                  shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
+                  profile: pt.profile && pt.profile.id ? pt.profile : undefined,
+                })),
+              };
+            } else {
+              updatedExpensePayload = {
                 id: expenseId,
                 group_id: g.group_id,
                 title,
@@ -317,21 +383,16 @@ export async function PUT(
                 location_name: locationName,
                 ocr_status: body.ocr_status || 'completed',
                 updated_at: new Date().toISOString(),
-                payers: payers.map((p: any) => ({
-                  id: p.id,
-                  expense_id: expenseId,
-                  user_id: p.userId || p.user_id,
-                  amount_paid: Number(p.amount || p.amount_paid) || 0,
-                })),
-                participants: participants.map((pt: any) => ({
-                  id: pt.id,
-                  expense_id: expenseId,
-                  user_id: pt.userId || pt.user_id,
-                  amount_owed: Number(pt.amount || pt.amount_owed) || 0,
-                  percentage: pt.percentage || null,
-                  shares: pt.shares || null,
-                })),
-              },
+                payers,
+                participants,
+              };
+            }
+
+            realtimeHub.broadcast({
+              type: 'expense_updated',
+              groupId: g.group_id,
+              userId: user.userId,
+              payload: updatedExpensePayload,
             });
           }
         }
