@@ -520,6 +520,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     }));
   };
 
+  const handleAssignPercentageRemainder = (userId: string, remainder: number) => {
+    if (isReadOnly) return;
+    const roundedRemainder = Math.max(0, Math.round(remainder * 100) / 100);
+    const formatted = roundedRemainder % 1 === 0 ? String(roundedRemainder) : roundedRemainder.toFixed(2).replace('.', ',');
+    setCustomSplitInputs((prev) => ({
+      ...prev,
+      [userId]: formatted,
+    }));
+    setCustomSplits((prev) => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId],
+        percentage: roundedRemainder,
+      },
+    }));
+  };
+
   const [preCensorImage, setPreCensorImage] = useState<string | null>(null);
 
   // Handle Photo Receipt upload securely and open pre-redaction canvas
@@ -655,15 +672,19 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     }
 
     // Filtramos los participantes que efectivamente participan:
-    // En reparto EXACTO, si un amigo tiene 0 o vacío, no participa en el reparto.
+    // En reparto EXACTO y PERCENTAGE, si un amigo tiene 0 o vacío, no participa en el reparto.
     const activeParticipants = splitType === 'EXACT'
       ? selectedParticipants.filter((id) => (customSplits[id]?.exact || 0) > 0)
+      : splitType === 'PERCENTAGE'
+      ? selectedParticipants.filter((id) => (customSplits[id]?.percentage || 0) > 0)
       : selectedParticipants;
 
     if (activeParticipants.length === 0) {
       setErrorMessage(
         splitType === 'EXACT'
           ? 'Debes asignar un importe mayor a 0 a al menos un participante'
+          : splitType === 'PERCENTAGE'
+          ? 'Debes asignar un porcentaje mayor a 0% a al menos un participante'
           : 'Selecciona al menos un amigo para compartir el gasto'
       );
       return;
@@ -1497,6 +1518,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       const currentExact = customSplits[userId]?.exact;
                       const isZeroExact = splitType === 'EXACT' && (currentExact === 0 || currentExact === undefined);
 
+                      const sumOtherPercentage = selectedParticipants
+                        .filter((id) => id !== userId)
+                        .reduce((acc, id) => acc + (customSplits[id]?.percentage || 0), 0);
+                      const remainingPercentageForUser = Math.max(0, Math.round((100 - sumOtherPercentage) * 100) / 100);
+                      const currentPercentage = customSplits[userId]?.percentage;
+                      const isZeroPercentage = splitType === 'PERCENTAGE' && (currentPercentage === 0 || currentPercentage === undefined);
+
                       return (
                         <div
                           key={userId}
@@ -1513,6 +1541,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                                   {t('expenses.notParticipating')}
                                 </span>
                               )}
+                              {isZeroPercentage && (
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium block">
+                                  {t('expenses.notParticipatingPercent') || 'No participa (0%)'}
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -1523,6 +1556,18 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                                 onClick={() => handleAssignRemainder(userId, remainingForUser)}
                                 className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 transition-colors flex items-center gap-1 shrink-0 shadow-2xs cursor-pointer"
                                 title={t('expenses.assignRemainderTitle', { amount: formatMoney(remainingForUser, currency) })}
+                              >
+                                <Plus className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>{t('expenses.assignRemainder')}</span>
+                              </button>
+                            )}
+
+                            {splitType === 'PERCENTAGE' && !isReadOnly && remainingPercentageForUser > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleAssignPercentageRemainder(userId, remainingPercentageForUser)}
+                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 transition-colors flex items-center gap-1 shrink-0 shadow-2xs cursor-pointer"
+                                title={t('expenses.assignPercentageRemainderTitle', { percent: `${remainingPercentageForUser}` }) || `Asignar el resto (${remainingPercentageForUser}%) a este amigo`}
                               >
                                 <Plus className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                 <span>{t('expenses.assignRemainder')}</span>

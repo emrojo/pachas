@@ -409,6 +409,30 @@ export default function GroupAuditPage() {
                       </div>
                     )}
 
+                    {currentStep.splitDetails?.splitMode === 'SHARES' && currentStep.splitDetails.userShares !== undefined && currentStep.splitDetails.totalShares !== undefined && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[10px] font-black tracking-wider border border-amber-300/60 dark:border-amber-800">
+                        <span>🍕</span>
+                        <span>
+                          {t('audit.sharesBadge', {
+                            userShares: currentStep.splitDetails.userShares,
+                            totalShares: currentStep.splitDetails.totalShares,
+                            percent: currentStep.splitDetails.userPercentage?.toFixed(1) || '0'
+                          }) || `${currentStep.splitDetails.userShares} de ${currentStep.splitDetails.totalShares} raciones (~${currentStep.splitDetails.userPercentage?.toFixed(1)}%)`}
+                        </span>
+                      </div>
+                    )}
+
+                    {currentStep.splitDetails?.splitMode === 'PERCENTAGE' && currentStep.splitDetails.userPercentage !== undefined && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 text-[10px] font-black tracking-wider border border-sky-300/60 dark:border-sky-800">
+                        <span>📊</span>
+                        <span>
+                          {t('audit.percentageBadge', {
+                            percent: currentStep.splitDetails.userPercentage
+                          }) || `${currentStep.splitDetails.userPercentage}% del gasto`}
+                        </span>
+                      </div>
+                    )}
+
                     {currentStep.stepAmount !== 0 && (
                       <Badge
                         variant={

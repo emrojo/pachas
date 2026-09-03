@@ -113,4 +113,41 @@ describe('splitCalculations', () => {
     expect(results.length).toBe(3);
     expect(results.find((r) => r.userId === 'u3')?.amountOwed).toBe(50.20);
   });
+
+  it('excludes participants with 0% or undefined percentage in PERCENTAGE split from results', () => {
+    const custom = {
+      u1: { percentage: 70 },
+      u2: { percentage: 30 },
+      u3: { percentage: 0 },
+    };
+    const { results, isValid } = calculateSplits(100.0, 'PERCENTAGE', ['u1', 'u2', 'u3'], custom);
+
+    expect(isValid).toBe(true);
+    expect(results.length).toBe(2);
+    expect(results.find((r) => r.userId === 'u1')?.amountOwed).toBe(70.0);
+    expect(results.find((r) => r.userId === 'u2')?.amountOwed).toBe(30.0);
+    expect(results.find((r) => r.userId === 'u3')).toBeUndefined();
+  });
+
+  it('correctly calculates remainder percentage when assigning remainder to one friend', () => {
+    const custom = {
+      u1: { percentage: 35.5 },
+      u2: { percentage: 0 },
+    };
+    const sumOthers = custom.u1.percentage || 0;
+    const remainder = Math.round((100 - sumOthers) * 100) / 100;
+    expect(remainder).toBe(64.5);
+
+    const fullCustom = {
+      ...custom,
+      u3: { percentage: remainder },
+    };
+    const { results, isValid } = calculateSplits(200.0, 'PERCENTAGE', ['u1', 'u2', 'u3'], fullCustom);
+
+    expect(isValid).toBe(true);
+    expect(results.length).toBe(2);
+    expect(results.find((r) => r.userId === 'u1')?.amountOwed).toBe(71.0);
+    expect(results.find((r) => r.userId === 'u3')?.amountOwed).toBe(129.0);
+    expect(results.find((r) => r.userId === 'u2')).toBeUndefined();
+  });
 });

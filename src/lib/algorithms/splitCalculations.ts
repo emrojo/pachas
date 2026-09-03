@@ -119,14 +119,27 @@ export function calculateSplits(
       };
     }
 
+    // Filter participants with strictly positive percentage (> 0)
+    const activeUserIds = selectedUserIds.filter(
+      (userId) => Number(customInputs[userId]?.percentage || 0) > 0
+    );
+
+    if (activeUserIds.length === 0) {
+      return {
+        results: [],
+        isValid: false,
+        errorMessage: 'Debes asignar un porcentaje mayor a 0% a al menos un participante',
+      };
+    }
+
     const totalCents = Math.round(totalAmount * 100);
     let distributedCents = 0;
     const results: CalculatedSplitResult[] = [];
 
-    selectedUserIds.forEach((userId, idx) => {
+    activeUserIds.forEach((userId, idx) => {
       const pct = Number(customInputs[userId]?.percentage || 0);
-      if (idx === selectedUserIds.length - 1) {
-        // Last person absorbs rounding discrepancy
+      if (idx === activeUserIds.length - 1) {
+        // Last active person absorbs rounding discrepancy
         const cents = totalCents - distributedCents;
         results.push({
           userId,

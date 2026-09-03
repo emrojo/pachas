@@ -72,6 +72,9 @@ export interface AuditStep {
     originalTotalAmount?: number;
     originalCurrency?: string;
     userPortion: number;
+    userShares?: number;
+    totalShares?: number;
+    userPercentage?: number;
   };
   debtPlan?: SimplifiedDebt[];
 }
@@ -410,16 +413,69 @@ export function generateUserAuditTrail(
     const splitType = exp.split_type || 'EQUAL';
     const conversion = getConversionInfo(exp, baseCurrency);
 
+    const isShares = splitType === 'SHARES' || (splitType as string).toLowerCase() === 'shares';
+    const isPercentage = splitType === 'PERCENTAGE' || (splitType as string).toLowerCase() === 'percentage';
+    const isEqual = splitType === 'EQUAL' || (splitType as string).toLowerCase() === 'equal';
+    const isExact = splitType === 'EXACT' || (splitType as string).toLowerCase() === 'exact';
+
+    let userShares = 1;
+    let totalShares = totalParticipants;
+    const customInputs = (exp as Record<string, any>).split_custom_inputs as
+      | Record<string, { shares?: number; percentage?: number; exact_amount?: number }>
+      | undefined;
+
+    if (isShares) {
+      userShares = Number(partEntry?.shares ?? customInputs?.[userId]?.shares ?? 1);
+      if (userShares <= 0) userShares = 1;
+
+      if (exp.participants && exp.participants.length > 0) {
+        totalShares = exp.participants.reduce((acc, p) => {
+          const s = Number(p.shares ?? customInputs?.[p.user_id]?.shares ?? 1);
+          return acc + (s > 0 ? s : 1);
+        }, 0);
+      } else if (customInputs) {
+        totalShares = Object.values(customInputs).reduce((acc: number, inp) => {
+          const s = Number(inp?.shares ?? 1);
+          return acc + (s > 0 ? s : 1);
+        }, 0);
+      }
+      if (totalShares <= 0) totalShares = Math.max(1, totalParticipants);
+    }
+
+    let userPercentage = 0;
+    if (isPercentage) {
+      userPercentage = Number(partEntry?.percentage ?? customInputs?.[userId]?.percentage ?? 0);
+      if (userPercentage <= 0 && expenseBaseAmount > 0) {
+        userPercentage = Math.round((userPortion / expenseBaseAmount) * 1000) / 10;
+      }
+    }
+
     // Step A: Division / Portion Calculation
     let splitFormula = '';
     let splitCalcExpr = '';
 
-    if (splitType === 'EQUAL' || (splitType as string).toLowerCase() === 'equal') {
+    if (isEqual) {
       splitFormula = `${formatMoney(
         expenseBaseAmount,
         baseCurrency
       )} ÷ ${totalParticipants} = ${formatMoney(userPortion, baseCurrency)}`;
       splitCalcExpr = `${expenseBaseAmount} / ${totalParticipants}`;
+    } else if (isShares) {
+      const shareUnit = userShares === 1 ? 'parte' : 'partes';
+      splitFormula = `(${formatMoney(
+        expenseBaseAmount,
+        baseCurrency
+      )} ÷ ${totalShares} partes) × ${userShares} ${shareUnit} = ${formatMoney(userPortion, baseCurrency)}`;
+      splitCalcExpr = `(${expenseBaseAmount} / ${totalShares}) * ${userShares}`;
+    } else if (isPercentage) {
+      splitFormula = `(${formatMoney(
+        expenseBaseAmount,
+        baseCurrency
+      )} × ${userPercentage}%) ÷ 100 = ${formatMoney(userPortion, baseCurrency)}`;
+      splitCalcExpr = `(${expenseBaseAmount} * ${userPercentage}) / 100`;
+    } else if (isExact) {
+      splitFormula = `Cuota exacta acordada: ${formatMoney(userPortion, baseCurrency)}`;
+      splitCalcExpr = `${userPortion}`;
     } else {
       splitFormula = `Cuota según reparto (${splitType}): ${formatMoney(
         userPortion,
@@ -443,14 +499,179 @@ export function generateUserAuditTrail(
       'dd/MM/yyyy'
     );
 
-    const splitLabel =
-      splitType === 'EQUAL' || (splitType as string).toLowerCase() === 'equal'
-        ? tr('audit.splitEqual', { count: totalParticipants }, `a partes iguales entre ${totalParticipants} amigos`)
-        : tr('audit.splitCustom', { mode: splitType }, `según reparto ${splitType}`);
+    let splitLabel = '';
+    if (isEqual) {
+      splitLabel = tr('audit.splitEqual', { count: totalParticipants }, `a partes iguales entre ${totalParticipants} amigos`);
+    } else if (isShares) {
+      const pct = Math.round((userShares / totalShares) * 1000) / 10;
+      splitLabel = tr('audit.splitShares', { userShares, totalShares, percent: pct }, `por raciones (${userShares} de ${totalShares} partes en total, ~${pct}%)`);
+    } else if (isPercentage) {
+      splitLabel = tr('audit.splitPercentage', { percent: userPercentage }, `por porcentaje (${userPercentage}%)`);
+    } else if (isExact) {
+      splitLabel = tr('audit.splitExact', {}, `por importe exacto asignado`);
+    } else {
+      splitLabel = tr('audit.splitCustom', { mode: splitType }, `según reparto ${splitType}`);
+    }
 
     // Natural Language explanation with original ticket value and conversion
     let explanation = '';
-    if (conversion) {
+    if (isShares) {
+      const pricePerShare = Math.round((expenseBaseAmount / totalShares) * 100) / 100;
+      const portionsWord = userShares === 1 ? 'ración/parte' : 'raciones/partes';
+      if (conversion) {
+        const convPricePerShare = Math.round((conversion.convertedAmount / totalShares) * 100) / 100;
+        explanation = tr(
+          'audit.consumptionSharesForeign',
+          {
+            title: exp.title,
+            origAmount: formatMoney(conversion.originalAmount, conversion.originalCurrency),
+            rate: conversion.exchangeRate,
+            convAmount: formatMoney(conversion.convertedAmount, baseCurrency),
+            userShares,
+            totalShares,
+            portionsWord,
+            pricePerShare: formatMoney(convPricePerShare, baseCurrency),
+            userPortion: formatMoney(userPortion, baseCurrency),
+            prevConsumed: formatMoney(prevConsumed, baseCurrency),
+            runningConsumed: formatMoney(runningConsumed, baseCurrency),
+          },
+          `En este gasto (${exp.title}) el valor original del ticket fue de ${formatMoney(
+            conversion.originalAmount,
+            conversion.originalCurrency
+          )}. Aplicando el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
+            conversion.originalAmount,
+            conversion.originalCurrency
+          )} × ${conversion.exchangeRate} = ${formatMoney(
+            conversion.convertedAmount,
+            baseCurrency
+          )}), el importe en la moneda del viaje es ${formatMoney(
+            conversion.convertedAmount,
+            baseCurrency
+          )}. Este gasto se reparte por raciones entre los participantes (${totalShares} partes en total, valoradas en ${formatMoney(
+            convPricePerShare,
+            baseCurrency
+          )} por ración). A ti te corresponden ${userShares} ${portionsWord}, calculándose como (${formatMoney(
+            conversion.convertedAmount,
+            baseCurrency
+          )} ÷ ${totalShares}) × ${userShares} = ${formatMoney(
+            userPortion,
+            baseCurrency
+          )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
+            prevConsumed,
+            baseCurrency
+          )}), tu consumo total acumulado asciende a ${formatMoney(
+            runningConsumed,
+            baseCurrency
+          )}.`
+        );
+      } else {
+        explanation = tr(
+          'audit.consumptionSharesBase',
+          {
+            title: exp.title,
+            origAmount: formatMoney(expenseBaseAmount, baseCurrency),
+            userShares,
+            totalShares,
+            portionsWord,
+            pricePerShare: formatMoney(pricePerShare, baseCurrency),
+            userPortion: formatMoney(userPortion, baseCurrency),
+            prevConsumed: formatMoney(prevConsumed, baseCurrency),
+            runningConsumed: formatMoney(runningConsumed, baseCurrency),
+          },
+          `En este gasto (${exp.title}) el importe total fue de ${formatMoney(
+            expenseBaseAmount,
+            baseCurrency
+          )}, repartido por raciones entre los amigos (${totalShares} partes en total). Cada ración equivale a ${formatMoney(
+            expenseBaseAmount,
+            baseCurrency
+          )} ÷ ${totalShares} = ${formatMoney(
+            pricePerShare,
+            baseCurrency
+          )}. Al corresponderte ${userShares} ${portionsWord}, tu cuota de consumo se calcula exactamente como (${formatMoney(
+            expenseBaseAmount,
+            baseCurrency
+          )} ÷ ${totalShares}) × ${userShares} = ${formatMoney(
+            userPortion,
+            baseCurrency
+          )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
+            prevConsumed,
+            baseCurrency
+          )}), tu consumo total acumulado asciende a ${formatMoney(
+            runningConsumed,
+            baseCurrency
+          )}.`
+        );
+      }
+    } else if (isPercentage) {
+      if (conversion) {
+        explanation = tr(
+          'audit.consumptionPercentageForeign',
+          {
+            title: exp.title,
+            origAmount: formatMoney(conversion.originalAmount, conversion.originalCurrency),
+            rate: conversion.exchangeRate,
+            convAmount: formatMoney(conversion.convertedAmount, baseCurrency),
+            percent: userPercentage,
+            userPortion: formatMoney(userPortion, baseCurrency),
+            prevConsumed: formatMoney(prevConsumed, baseCurrency),
+            runningConsumed: formatMoney(runningConsumed, baseCurrency),
+          },
+          `En este gasto (${exp.title}) el valor original del ticket fue de ${formatMoney(
+            conversion.originalAmount,
+            conversion.originalCurrency
+          )}. Aplicando el tipo de cambio acordado de ${conversion.exchangeRate} (${formatMoney(
+            conversion.originalAmount,
+            conversion.originalCurrency
+          )} × ${conversion.exchangeRate} = ${formatMoney(
+            conversion.convertedAmount,
+            baseCurrency
+          )}), el importe en la moneda del viaje es ${formatMoney(
+            conversion.convertedAmount,
+            baseCurrency
+          )}. Al corresponderte un ${userPercentage}% de este gasto, tu cuota de consumo se calcula como (${formatMoney(
+            conversion.convertedAmount,
+            baseCurrency
+          )} × ${userPercentage}%) ÷ 100 = ${formatMoney(
+            userPortion,
+            baseCurrency
+          )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
+            prevConsumed,
+            baseCurrency
+          )}), tu consumo total acumulado asciende a ${formatMoney(
+            runningConsumed,
+            baseCurrency
+          )}.`
+        );
+      } else {
+        explanation = tr(
+          'audit.consumptionPercentageBase',
+          {
+            title: exp.title,
+            origAmount: formatMoney(expenseBaseAmount, baseCurrency),
+            percent: userPercentage,
+            userPortion: formatMoney(userPortion, baseCurrency),
+            prevConsumed: formatMoney(prevConsumed, baseCurrency),
+            runningConsumed: formatMoney(runningConsumed, baseCurrency),
+          },
+          `En este gasto (${exp.title}) el importe total fue de ${formatMoney(
+            expenseBaseAmount,
+            baseCurrency
+          )}, repartido por porcentaje (${userPercentage}% para ti). Tu cuota de consumo se calcula exactamente aplicando tu porcentaje: (${formatMoney(
+            expenseBaseAmount,
+            baseCurrency
+          )} × ${userPercentage}%) ÷ 100 = ${formatMoney(
+            userPortion,
+            baseCurrency
+          )}. Al añadir esta cuota a tu consumo previo (${formatMoney(
+            prevConsumed,
+            baseCurrency
+          )}), tu consumo total acumulado asciende a ${formatMoney(
+            runningConsumed,
+            baseCurrency
+          )}.`
+        );
+      }
+    } else if (conversion) {
       explanation = tr(
         'audit.consumptionForeign',
         {
@@ -541,6 +762,13 @@ export function generateUserAuditTrail(
         originalTotalAmount: conversion ? conversion.originalAmount : expenseBaseAmount,
         originalCurrency: conversion ? conversion.originalCurrency : baseCurrency,
         userPortion,
+        userShares: isShares ? userShares : undefined,
+        totalShares: isShares ? totalShares : undefined,
+        userPercentage: isPercentage
+          ? userPercentage
+          : isShares && totalShares > 0
+          ? Math.round((userShares / totalShares) * 1000) / 10
+          : undefined,
       },
     });
   }

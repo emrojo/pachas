@@ -182,4 +182,96 @@ describe('Audit Calculator Algorithm', () => {
     expect(consumptionStep?.explanation).toContain('15.000');
     expect(consumptionStep?.explanation).toContain('31');
   });
+
+  it('correctly calculates and displays SHARES split details, formula and explanation', () => {
+    const sharesExpense: Expense = {
+      id: 'e-shares-1',
+      group_id: 'g-1',
+      created_by: 'u-1',
+      title: 'Barbacoa',
+      amount: 90,
+      currency: 'EUR',
+      exchange_rate: 1,
+      converted_amount: 90,
+      category: 'food',
+      split_type: 'SHARES',
+      expense_date: '2026-08-20',
+      created_at: '2026-08-20T14:00:00Z',
+      updated_at: '2026-08-20T14:00:00Z',
+      payers: [{ id: 'p-s-1', expense_id: 'e-shares-1', user_id: 'u-1', amount_paid: 90 }],
+      participants: [
+        { id: 'pt-s-1', expense_id: 'e-shares-1', user_id: 'u-1', amount_owed: 60, shares: 2 },
+        { id: 'pt-s-2', expense_id: 'e-shares-1', user_id: 'u-2', amount_owed: 30, shares: 1 },
+      ],
+    };
+
+    const steps = generateUserAuditTrail('u-1', 'EUR', members, [sharesExpense], []);
+    const consumptionStep = steps.find((s) => s.type === 'consumption');
+
+    expect(consumptionStep).toBeDefined();
+    expect(consumptionStep?.splitDetails).toBeDefined();
+    expect(consumptionStep?.splitDetails?.splitMode).toBe('SHARES');
+    expect(consumptionStep?.splitDetails?.userShares).toBe(2);
+    expect(consumptionStep?.splitDetails?.totalShares).toBe(3);
+    expect(consumptionStep?.splitDetails?.userPercentage).toBeCloseTo(66.67, 1);
+
+    // Virtual calculator expression must be executable math with parentheses: (90 / 3) * 2
+    expect(consumptionStep?.calculatorExpression).toBe('(90 / 3) * 2');
+
+    // Formula display must show the shares breakdown
+    expect(consumptionStep?.formulaDisplay).toContain('÷ 3 partes');
+    expect(consumptionStep?.formulaDisplay).toContain('× 2 partes');
+    expect(consumptionStep?.formulaDisplay).toContain('60,00');
+
+    // Explanation must describe unit share cost and multiplication
+    expect(consumptionStep?.explanation).toContain('repartido por raciones');
+    expect(consumptionStep?.explanation).toContain('3 partes en total');
+    expect(consumptionStep?.explanation).toContain('30,00');
+    expect(consumptionStep?.explanation).toContain('2 raciones');
+  });
+
+  it('correctly calculates and displays PERCENTAGE split details, formula and explanation', () => {
+    const percentageExpense: Expense = {
+      id: 'e-pct-1',
+      group_id: 'g-1',
+      created_by: 'u-1',
+      title: 'Alojamiento Villa',
+      amount: 200,
+      currency: 'EUR',
+      exchange_rate: 1,
+      converted_amount: 200,
+      category: 'accommodation',
+      split_type: 'PERCENTAGE',
+      expense_date: '2026-08-22',
+      created_at: '2026-08-22T12:00:00Z',
+      updated_at: '2026-08-22T12:00:00Z',
+      payers: [{ id: 'p-p-1', expense_id: 'e-pct-1', user_id: 'u-1', amount_paid: 200 }],
+      participants: [
+        { id: 'pt-p-1', expense_id: 'e-pct-1', user_id: 'u-1', amount_owed: 140, percentage: 70 },
+        { id: 'pt-p-2', expense_id: 'e-pct-1', user_id: 'u-2', amount_owed: 60, percentage: 30 },
+      ],
+    };
+
+    const steps = generateUserAuditTrail('u-1', 'EUR', members, [percentageExpense], []);
+    const consumptionStep = steps.find((s) => s.type === 'consumption');
+
+    expect(consumptionStep).toBeDefined();
+    expect(consumptionStep?.splitDetails).toBeDefined();
+    expect(consumptionStep?.splitDetails?.splitMode).toBe('PERCENTAGE');
+    expect(consumptionStep?.splitDetails?.userPercentage).toBe(70);
+
+    // Virtual calculator expression must be executable math: (200 * 70) / 100
+    expect(consumptionStep?.calculatorExpression).toBe('(200 * 70) / 100');
+
+    // Formula display must show the percentage breakdown
+    expect(consumptionStep?.formulaDisplay).toContain('200,00');
+    expect(consumptionStep?.formulaDisplay).toContain('70%');
+    expect(consumptionStep?.formulaDisplay).toContain('÷ 100');
+    expect(consumptionStep?.formulaDisplay).toContain('140,00');
+
+    // Explanation must describe total amount and percentage multiplication
+    expect(consumptionStep?.explanation).toContain('repartido por porcentaje');
+    expect(consumptionStep?.explanation).toContain('70% para ti');
+    expect(consumptionStep?.explanation).toContain('140,00');
+  });
 });
