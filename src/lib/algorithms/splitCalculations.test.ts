@@ -77,4 +77,40 @@ describe('splitCalculations', () => {
     expect(results.find((r) => r.userId === 'u1')?.amountOwed).toBe(60.75);
     expect(results.find((r) => r.userId === 'u2')?.amountOwed).toBe(39.25);
   });
+
+  it('excludes participants with 0 or undefined amount in exact split from results', () => {
+    const custom = {
+      u1: { exact: 60.0 },
+      u2: { exact: 40.0 },
+      u3: { exact: 0 },
+    };
+    const { results, isValid } = calculateSplits(100.0, 'EXACT', ['u1', 'u2', 'u3'], custom);
+
+    expect(isValid).toBe(true);
+    expect(results.length).toBe(2);
+    expect(results.find((r) => r.userId === 'u1')?.amountOwed).toBe(60.0);
+    expect(results.find((r) => r.userId === 'u2')?.amountOwed).toBe(40.0);
+    expect(results.find((r) => r.userId === 'u3')).toBeUndefined();
+  });
+
+  it('correctly calculates remainder when one participant gets the remainder amount', () => {
+    const totalAmount = 125.50;
+    const custom = {
+      u1: { exact: 45.20 },
+      u2: { exact: 30.10 },
+    };
+    const sumOthers = (custom.u1.exact || 0) + (custom.u2.exact || 0);
+    const remainder = Math.round((totalAmount - sumOthers) * 100) / 100;
+    expect(remainder).toBe(50.20);
+
+    const fullCustom = {
+      ...custom,
+      u3: { exact: remainder },
+    };
+    const { results, isValid } = calculateSplits(totalAmount, 'EXACT', ['u1', 'u2', 'u3'], fullCustom);
+
+    expect(isValid).toBe(true);
+    expect(results.length).toBe(3);
+    expect(results.find((r) => r.userId === 'u3')?.amountOwed).toBe(50.20);
+  });
 });

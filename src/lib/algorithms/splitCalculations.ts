@@ -72,10 +72,12 @@ export function calculateSplits(
     for (const userId of selectedUserIds) {
       const amt = Number(customInputs[userId]?.exact || 0);
       sumExact += amt;
-      results.push({
-        userId,
-        amountOwed: Math.round(amt * 100) / 100,
-      });
+      if (amt > 0) {
+        results.push({
+          userId,
+          amountOwed: Math.round(amt * 100) / 100,
+        });
+      }
     }
 
     const diff = Math.round((totalAmount - sumExact) * 100) / 100;
@@ -87,6 +89,14 @@ export function calculateSplits(
         results,
         isValid: false,
         errorMessage: `La suma de importes (${sumFormatted}) no coincide con el total (${totalFormatted}). Diferencia: ${diff > 0 ? '+' : '-'}${diffFormatted}`,
+      };
+    }
+
+    if (results.length === 0) {
+      return {
+        results: [],
+        isValid: false,
+        errorMessage: 'Debes asignar un importe a al menos un participante',
       };
     }
 

@@ -54,6 +54,7 @@ import {
   Eye,
   ScanLine,
   Camera,
+  Plus,
 } from 'lucide-react';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
@@ -502,6 +503,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setSelectedParticipants(members.map((m) => m.user_id));
   };
 
+  const handleAssignRemainder = (userId: string, remainder: number) => {
+    if (isReadOnly) return;
+    const roundedRemainder = Math.max(0, Math.round(remainder * 100) / 100);
+    const formatted = roundedRemainder.toFixed(2).replace('.', ',');
+    setCustomSplitInputs((prev) => ({
+      ...prev,
+      [userId]: formatted,
+    }));
+    setCustomSplits((prev) => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId],
+        exact: roundedRemainder,
+      },
+    }));
+  };
+
   const [preCensorImage, setPreCensorImage] = useState<string | null>(null);
 
   // Handle Photo Receipt upload securely and open pre-redaction canvas
@@ -636,11 +654,26 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       payersList = [{ userId: singlePayerId, amountPaid: totalAmount }];
     }
 
+    // Filtramos los participantes que efectivamente participan:
+    // En reparto EXACTO, si un amigo tiene 0 o vacío, no participa en el reparto.
+    const activeParticipants = splitType === 'EXACT'
+      ? selectedParticipants.filter((id) => (customSplits[id]?.exact || 0) > 0)
+      : selectedParticipants;
+
+    if (activeParticipants.length === 0) {
+      setErrorMessage(
+        splitType === 'EXACT'
+          ? 'Debes asignar un importe mayor a 0 a al menos un participante'
+          : 'Selecciona al menos un amigo para compartir el gasto'
+      );
+      return;
+    }
+
     // Validate Splits in the transaction currency
     const splitValidation = calculateSplits(
       totalAmount,
       splitType,
-      selectedParticipants,
+      activeParticipants,
       customSplits,
       currency
     );
@@ -670,7 +703,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           notes: sanitizeText(notes, 500) || undefined,
           splitType,
           payers: payersList,
-          selectedParticipantIds: selectedParticipants,
+          selectedParticipantIds: activeParticipants,
           splitCustomInputs: customSplits,
         });
       } else {
@@ -689,7 +722,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           notes: sanitizeText(notes, 500) || undefined,
           splitType,
           payers: payersList,
-          selectedParticipantIds: selectedParticipants,
+          selectedParticipantIds: activeParticipants,
           splitCustomInputs: customSplits,
         });
       }
@@ -1457,69 +1490,97 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
                     {selectedParticipants.map((userId) => {
                       const m = members.find((mem) => mem.user_id === userId);
+                      const sumOtherExact = selectedParticipants
+                        .filter((id) => id !== userId)
+                        .reduce((acc, id) => acc + (customSplits[id]?.exact || 0), 0);
+                      const remainingForUser = Math.max(0, Math.round((totalAmount - sumOtherExact) * 100) / 100);
+                      const currentExact = customSplits[userId]?.exact;
+                      const isZeroExact = splitType === 'EXACT' && (currentExact === 0 || currentExact === undefined);
+
                       return (
                         <div
                           key={userId}
-                          className="flex items-center justify-between gap-3 p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"
+                          className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
                             <Avatar profile={m?.profile} size="sm" />
-                            <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                              {m?.profile?.full_name || expenseToEdit?.participants?.find((p) => p.user_id === userId)?.profile?.full_name || t('common.friend')}
-                            </span>
+                            <div className="min-w-0">
+                              <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate block">
+                                {m?.profile?.full_name || expenseToEdit?.participants?.find((p) => p.user_id === userId)?.profile?.full_name || t('common.friend')}
+                              </span>
+                              {isZeroExact && (
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium block">
+                                  {t('expenses.notParticipating')}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-1 w-28">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder={
-                                splitType === 'EXACT'
-                                  ? '0,00'
-                                  : splitType === 'PERCENTAGE'
-                                  ? '50'
-                                  : '1'
-                              }
-                              value={
-                                customSplitInputs[userId] !== undefined
-                                  ? customSplitInputs[userId]
-                                  : splitType === 'EXACT'
-                                  ? customSplits[userId]?.exact !== undefined
-                                    ? String(customSplits[userId]?.exact).replace('.', ',')
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {splitType === 'EXACT' && !isReadOnly && remainingForUser > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleAssignRemainder(userId, remainingForUser)}
+                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 transition-colors flex items-center gap-1 shrink-0 shadow-2xs cursor-pointer"
+                                title={t('expenses.assignRemainderTitle', { amount: formatMoney(remainingForUser, currency) })}
+                              >
+                                <Plus className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>{t('expenses.assignRemainder')}</span>
+                              </button>
+                            )}
+
+                            <div className="flex items-center gap-1 w-24 sm:w-28">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder={
+                                  splitType === 'EXACT'
+                                    ? '0,00'
+                                    : splitType === 'PERCENTAGE'
+                                    ? '50'
+                                    : '1'
+                                }
+                                value={
+                                  customSplitInputs[userId] !== undefined
+                                    ? customSplitInputs[userId]
+                                    : splitType === 'EXACT'
+                                    ? customSplits[userId]?.exact !== undefined
+                                      ? String(customSplits[userId]?.exact).replace('.', ',')
+                                      : ''
+                                    : splitType === 'PERCENTAGE'
+                                    ? customSplits[userId]?.percentage !== undefined
+                                      ? String(customSplits[userId]?.percentage).replace('.', ',')
+                                      : ''
+                                    : customSplits[userId]?.shares !== undefined
+                                    ? String(customSplits[userId]?.shares)
                                     : ''
-                                  : splitType === 'PERCENTAGE'
-                                  ? customSplits[userId]?.percentage !== undefined
-                                    ? String(customSplits[userId]?.percentage).replace('.', ',')
-                                    : ''
-                                  : customSplits[userId]?.shares !== undefined
-                                  ? String(customSplits[userId]?.shares)
-                                  : ''
-                              }
-                              onChange={(e) => {
-                                if (isReadOnly) return;
-                                const raw = e.target.value;
-                                const sanitized = raw.replace(/[^0-9.,]/g, '');
-                                setCustomSplitInputs((prev) => ({
-                                  ...prev,
-                                  [userId]: sanitized,
-                                }));
-                                const val = parseEuropeanAmount(sanitized);
-                                setCustomSplits((prev) => ({
-                                  ...prev,
-                                  [userId]: {
-                                    ...prev[userId],
-                                    ...(splitType === 'EXACT' ? { exact: val } : {}),
-                                    ...(splitType === 'PERCENTAGE' ? { percentage: val } : {}),
-                                    ...(splitType === 'SHARES' ? { shares: val } : {}),
-                                  },
-                                }));
-                              }}
-                              readOnly={isReadOnly}
-                              className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
-                            />
-                            <span className="text-xs text-slate-500 font-semibold">
-                              {splitType === 'EXACT' ? currencyObj.symbol : splitType === 'PERCENTAGE' ? '%' : t('expenses.splitModes.shares')}
-                            </span>
+                                }
+                                onChange={(e) => {
+                                  if (isReadOnly) return;
+                                  const raw = e.target.value;
+                                  const sanitized = raw.replace(/[^0-9.,]/g, '');
+                                  setCustomSplitInputs((prev) => ({
+                                    ...prev,
+                                    [userId]: sanitized,
+                                  }));
+                                  const val = parseEuropeanAmount(sanitized);
+                                  setCustomSplits((prev) => ({
+                                    ...prev,
+                                    [userId]: {
+                                      ...prev[userId],
+                                      ...(splitType === 'EXACT' ? { exact: val } : {}),
+                                      ...(splitType === 'PERCENTAGE' ? { percentage: val } : {}),
+                                      ...(splitType === 'SHARES' ? { shares: val } : {}),
+                                    },
+                                  }));
+                                }}
+                                readOnly={isReadOnly}
+                                className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
+                              />
+                              <span className="text-xs text-slate-500 font-semibold">
+                                {splitType === 'EXACT' ? currencyObj.symbol : splitType === 'PERCENTAGE' ? '%' : t('expenses.splitModes.shares')}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );
