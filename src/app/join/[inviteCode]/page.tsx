@@ -100,23 +100,24 @@ export default function JoinGroupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative">
-      <div className="absolute top-4 right-4">
-        <LanguageSelector />
-      </div>
-
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-emerald-500/25 mx-auto mb-2">
+    <div className="min-h-screen flex flex-col justify-between bg-slate-50 dark:bg-slate-950">
+      {/* Top Header with Brand and Language Selector */}
+      <header className="w-full max-w-7xl mx-auto p-4 sm:p-6 flex items-center justify-between">
+        <Link href="/" className="inline-flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl shadow-md shadow-emerald-500/20">
             💸
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+          <span className="font-black text-2xl tracking-tight text-slate-900 dark:text-white">
             Pachas
-          </h2>
-        </div>
+          </span>
+        </Link>
+        <LanguageSelector />
+      </header>
 
-        <Card className="p-6 sm:p-8 text-center space-y-6">
+      {/* Main Centered Invitation Card */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-md">
+          <Card className="p-6 sm:p-8 text-center space-y-6">
           {isFetchingGroup && !targetGroup ? (
             <div className="py-12 space-y-3">
               <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -244,8 +245,9 @@ export default function JoinGroupPage() {
           )}
         </Card>
       </div>
+    </main>
 
-      <Footer showDonations={false} className="mt-12" />
+      <Footer showDonations={false} />
     </div>
   );
 }
