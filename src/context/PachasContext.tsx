@@ -17,6 +17,7 @@ import {
   GroupMessageReplySnippet,
   PendingReceiptScan,
   AppNotification,
+  NotificationType,
   SupportMessage,
   SupportCategory,
 } from '@/types/database';
@@ -3057,6 +3058,128 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
+  // Real-time EventSource listener for instant messages, reactions, and notifications
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let isDisposed = false;
+
+    const connectSSE = () => {
+      if (isDisposed) return;
+
+      try {
+        eventSource = new EventSource('/api/realtime');
+
+        eventSource.onmessage = (event) => {
+          if (!event.data) return;
+          try {
+            const parsed = JSON.parse(event.data);
+            if (!parsed?.type) return;
+
+            if (parsed.type === 'group_message_created') {
+              const msg = parsed.payload;
+              if (msg && msg.group_id) {
+                setGroupMessages((prev) => {
+                  const currentList = prev[msg.group_id] || [];
+                  // Prevent duplicate if already in state
+                  if (currentList.some((m) => m.id === msg.id)) {
+                    return prev;
+                  }
+                  const updated = {
+                    ...prev,
+                    [msg.group_id]: [...currentList, msg],
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+                  return updated;
+                });
+
+                // In-app notification if message was sent by another user
+                if (currentUser && msg.user_id !== currentUser.id) {
+                  const authorName = msg.profile?.full_name || 'Alguien';
+                  addNotification({
+                    user_id: currentUser.id,
+                    type: 'group_message_created',
+                    group_id: msg.group_id,
+                    title: `Mensaje de ${authorName}`,
+                    message: msg.message || 'Ha enviado un mensaje en el grupo',
+                    action_url: `/groups/${msg.group_id}?tab=chat`,
+                  });
+                }
+              }
+            } else if (parsed.type === 'group_message_reaction') {
+              const { messageId, reactions } = parsed.payload || {};
+              const targetGroupId = parsed.groupId;
+              if (targetGroupId && messageId) {
+                setGroupMessages((prev) => {
+                  const currentList = prev[targetGroupId] || [];
+                  const updatedList = currentList.map((m) =>
+                    m.id === messageId ? { ...m, reactions: reactions || {} } : m
+                  );
+                  const updated = { ...prev, [targetGroupId]: updatedList };
+                  safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'group_message_deleted') {
+              const { messageId } = parsed.payload || {};
+              const targetGroupId = parsed.groupId;
+              if (targetGroupId && messageId) {
+                setGroupMessages((prev) => {
+                  const currentList = prev[targetGroupId] || [];
+                  const updatedList = currentList.filter((m) => m.id !== messageId);
+                  const updated = { ...prev, [targetGroupId]: updatedList };
+                  safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'notification_created') {
+              const notifData = parsed.payload;
+              if (currentUser && notifData && (!notifData.userId || notifData.userId === currentUser.id)) {
+                addNotification({
+                  user_id: currentUser.id,
+                  type: (notifData.type as NotificationType) || 'expense_created',
+                  group_id: notifData.groupId,
+                  title: notifData.title || 'Nueva notificación',
+                  message: notifData.body || notifData.message || '',
+                  action_url: notifData.url || (notifData.groupId ? `/groups/${notifData.groupId}` : '/dashboard'),
+                });
+              }
+            }
+          } catch {
+            // Heartbeat or malformed data, ignore
+          }
+        };
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          if (!isDisposed && !reconnectTimeout) {
+            reconnectTimeout = setTimeout(() => {
+              reconnectTimeout = null;
+              connectSSE();
+            }, 5000);
+          }
+        };
+      } catch (err) {
+        console.warn('Realtime SSE connection could not be established:', err);
+      }
+    };
+
+    connectSSE();
+
+    return () => {
+      isDisposed = true;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [currentUser?.id]);
 
   const fetchSupportMessages = async (targetUserId?: string): Promise<SupportMessage[]> => {
     try {

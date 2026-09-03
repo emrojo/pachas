@@ -188,9 +188,18 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
           />
         </button>
 
+        {/* Mobile Backdrop to click-away easily */}
+        {isOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/20 sm:hidden backdrop-blur-2xs"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
         {/* Dropdown Menu Panel */}
         {isOpen && (
-          <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-50 p-2 space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-md">
+          <div className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 bottom-4 sm:bottom-auto sm:top-full mt-2 w-auto sm:w-72 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-50 p-2 space-y-1.5 animate-in fade-in slide-in-from-bottom-2 sm:slide-in-from-top-2 duration-150 backdrop-blur-md max-h-[80vh] overflow-y-auto">
             {/* Section 1: Rutas y Análisis */}
             <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {t('groups.sectionViews')}

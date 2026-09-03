@@ -4,6 +4,7 @@ import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 import { sanitizeText } from '@/lib/security/sanitize';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
+import { realtimeHub } from '@/lib/realtime/sse';
 
 async function autoHealGroupMessagesTable(pool: any) {
   try {
@@ -257,22 +258,32 @@ export async function POST(
       console.warn('Could not dispatch group message notification:', notifErr);
     }
 
+    const createdMessage = {
+      id: messageId,
+      group_id: groupId,
+      user_id: user.userId,
+      message: cleanMessage,
+      gif_url: gifUrl,
+      reactions: {},
+      expense_id: expenseId,
+      expense_title: replyToSnippet?.expense_title || null,
+      reply_to_id: replyToId,
+      reply_to_snippet: replyToSnippet,
+      created_at: new Date().toISOString(),
+      profile: authorProfile,
+    };
+
+    // Broadcast instantaneously in real-time via SSE
+    realtimeHub.broadcast({
+      type: 'group_message_created',
+      groupId,
+      userId: user.userId,
+      payload: createdMessage,
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
-      message: {
-        id: messageId,
-        group_id: groupId,
-        user_id: user.userId,
-        message: cleanMessage,
-        gif_url: gifUrl,
-        reactions: {},
-        expense_id: expenseId,
-        expense_title: replyToSnippet?.expense_title || null,
-        reply_to_id: replyToId,
-        reply_to_snippet: replyToSnippet,
-        created_at: new Date().toISOString(),
-        profile: authorProfile,
-      },
+      message: createdMessage,
     });
   } catch (err: any) {
     console.error('API create group message error:', err);
@@ -332,6 +343,13 @@ export async function DELETE(
       );
     }
 
+    // Broadcast deletion via SSE
+    realtimeHub.broadcast({
+      type: 'group_message_deleted',
+      groupId,
+      payload: { messageId },
+    }).catch(() => {});
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Error in DELETE /api/groups/[id]/messages:', err);
@@ -390,6 +408,13 @@ export async function PATCH(
       `UPDATE public.group_messages SET reactions = $1 WHERE id = $2 AND group_id = $3`,
       [JSON.stringify(reactions), messageId, groupId]
     );
+
+    // Broadcast reaction change via SSE
+    realtimeHub.broadcast({
+      type: 'group_message_reaction',
+      groupId,
+      payload: { messageId, emoji, reactions },
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, reactions });
   } catch (err: any) {

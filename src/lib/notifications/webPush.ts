@@ -6,6 +6,7 @@
 import { getDbPool } from '@/lib/db/postgres';
 import { PushNotificationPayload } from '@/types/database';
 import { getAdminEmails } from '@/lib/auth/adminAuth';
+import { realtimeHub } from '@/lib/realtime/sse';
 
 export const DEFAULT_VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
@@ -128,6 +129,17 @@ export async function notifyGroupMembers(
     if (targetUserIds.length > 0) {
       await sendPushToUsers(targetUserIds, payload);
     }
+
+    // Broadcast in-app real-time notification to active SSE listeners
+    realtimeHub.broadcast({
+      type: 'notification_created',
+      groupId,
+      payload: {
+        ...payload,
+        groupId,
+        created_at: new Date().toISOString(),
+      },
+    }).catch(() => {});
   } catch (err: any) {
     console.warn('Error notifying group members via push:', err);
   }
