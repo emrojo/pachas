@@ -43,3 +43,5 @@ deploy/nginx/certbot-www/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+api_key.txt
