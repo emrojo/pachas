@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import {
   Group,
   GroupMember,
@@ -871,7 +871,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const getGroup = (id: string) => groups.find((g) => g.id === id);
 
-  const fetchGroup = async (groupId: string): Promise<Group | null> => {
+  const fetchGroup = useCallback(async (groupId: string): Promise<Group | null> => {
     if (!groupId) return null;
     try {
       const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`, { cache: 'no-store' });
@@ -943,7 +943,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('fetchGroup error:', e);
     }
     return null;
-  };
+  }, []);
 
   const getGroupMembers = (groupId: string) => members[groupId] || [];
   const getGroupExpenses = (groupId: string) => expenses[groupId] || [];

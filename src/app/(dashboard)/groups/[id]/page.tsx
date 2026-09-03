@@ -96,6 +96,7 @@ export default function GroupDetailPage() {
   const { t } = useTranslation();
 
   const [isFetchingGroup, setIsFetchingGroup] = useState(false);
+  const lastFetchedGroupIdRef = useRef<string | null>(null);
 
   const group = getGroup(groupId);
   const members = getGroupMembers(groupId);
@@ -107,13 +108,16 @@ export default function GroupDetailPage() {
   // Fetch and reconcile group data (including all members and latest changes) from server
   useEffect(() => {
     if (!groupId) return;
+    if (lastFetchedGroupIdRef.current === groupId) return;
+    lastFetchedGroupIdRef.current = groupId;
+
     if (!group) {
       setIsFetchingGroup(true);
     }
     fetchGroup(groupId)
       .catch(() => {})
       .finally(() => setIsFetchingGroup(false));
-  }, [groupId, fetchGroup]);
+  }, [groupId, fetchGroup, group]);
 
   // Immediate redirect for banned users
   useEffect(() => {
