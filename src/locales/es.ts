@@ -422,6 +422,7 @@ export const es = {
     scanTicketPrompt: '¿Tienes el ticket o factura?',
     scanTicketDesc: 'Haz una foto o sube una imagen para autocompletar el gasto con IA',
     scanWithCamera: 'Hacer foto al ticket',
+    scanOrUpload: 'Escanear o subir',
     receiptAttached: 'Ticket adjunto',
     receiptAttachedDesc: 'Imagen capturada correctamente',
     uploadFromGallery: 'Subir archivo',

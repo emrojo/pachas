@@ -424,6 +424,7 @@ export const en: TranslationDictionary = {
     scanTicketPrompt: 'Do you have the receipt or invoice?',
     scanTicketDesc: 'Take a photo or upload an image to auto-fill the expense with AI',
     scanWithCamera: 'Take photo of receipt',
+    scanOrUpload: 'Scan or upload',
     receiptAttached: 'Receipt attached',
     receiptAttachedDesc: 'Image captured successfully',
     uploadFromGallery: 'Upload file',
