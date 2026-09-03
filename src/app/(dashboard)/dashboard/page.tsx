@@ -9,13 +9,14 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { Footer } from '@/components/layout/Footer';
 import { GroupCard } from '@/components/groups/GroupCard';
 import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
+import { JoinGroupModal } from '@/components/groups/JoinGroupModal';
+import { SearchGroupModal } from '@/components/groups/SearchGroupModal';
 import { BuyMeACoffeeButton } from '@/components/donations/BuyMeACoffeeButton';
 import { PendingScansBanner } from '@/components/expenses/PendingScansBanner';
 import { ReceiptValidationModal } from '@/components/expenses/ReceiptValidationModal';
 import { PendingReceiptScan } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 
-import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/currencies';
@@ -28,20 +29,15 @@ import {
   Archive,
   ArchiveRestore,
   ArrowUpRight,
-  Bell,
 } from 'lucide-react';
-import { subscribeDeviceToPush } from '@/lib/notifications/pushNotificationService';
 
 export default function DashboardPage() {
-  const { groups, currentUser, joinGroup, getGroupBalances, getGroupMembers, restoreGroup } = usePachas();
+  const { groups, currentUser, getGroupBalances, getGroupMembers, restoreGroup } = usePachas();
   const { t } = useTranslation();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [joinCode, setJoinCode] = useState('');
-  const [joinNotificationsEnabled, setJoinNotificationsEnabled] = useState(true);
-  const [joinError, setJoinError] = useState('');
-  const [isJoining, setIsJoining] = useState(false);
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [validatingScan, setValidatingScan] = useState<PendingReceiptScan | null>(null);
 
   if (!currentUser) return null;
@@ -68,40 +64,6 @@ export default function DashboardPage() {
     if (net > 0) totalNetOwedToUser += net;
     if (net < 0) totalNetUserOwes += Math.abs(net);
   });
-
-  const filteredGroups = activeGroups.filter((g) =>
-    g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (g.description || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!joinCode.trim()) return;
-
-    try {
-      setIsJoining(true);
-      setJoinError('');
-
-      if (joinNotificationsEnabled) {
-        try {
-          await subscribeDeviceToPush();
-        } catch (e) {
-          console.warn('Push subscription during join:', e);
-        }
-      }
-
-      const group = await joinGroup(joinCode.trim(), joinNotificationsEnabled);
-      if (!group) {
-        setJoinError(t('dashboard.joinGroupError'));
-      } else {
-        setJoinCode('');
-      }
-    } catch (err: any) {
-      setJoinError(t('dashboard.joinGroupError'));
-    } finally {
-      setIsJoining(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 md:pb-12">
@@ -150,53 +112,8 @@ export default function DashboardPage() {
           onSelectScanToValidate={(scan) => setValidatingScan(scan)}
         />
 
-        {/* Search Bar & Join with Code Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="sm:col-span-2">
-            <Input
-              placeholder={t('dashboard.searchGroups')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              leftIcon={<Search className="w-4 h-4" />}
-            />
-          </div>
-
-          <form onSubmit={handleJoin} className="space-y-1.5">
-            <div className="flex gap-2">
-              <Input
-                placeholder={t('dashboard.joinByCodePlaceholder')}
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value)}
-                leftIcon={<KeyRound className="w-4 h-4" />}
-                error={joinError}
-              />
-              <Button
-                type="submit"
-                variant="secondary"
-                size="md"
-                isLoading={isJoining}
-                className="shrink-0 font-bold"
-              >
-                {t('dashboard.joinGroupBtn')}
-              </Button>
-            </div>
-            {joinCode.trim().length > 0 && (
-              <label className="flex items-center gap-1.5 px-1 cursor-pointer select-none text-[11px] text-slate-600 dark:text-slate-400 animate-in fade-in duration-150">
-                <input
-                  type="checkbox"
-                  checked={joinNotificationsEnabled}
-                  onChange={(e) => setJoinNotificationsEnabled(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600"
-                />
-                <Bell className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                <span>{t('notifications.enableOnJoin') || 'Activar notificaciones al unirme'}</span>
-              </label>
-            )}
-          </form>
-        </div>
-
-        {/* Groups Grid Header */}
-        <div className="flex items-center justify-between pt-2">
+        {/* Groups Grid Header with Action Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
           <div>
             <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Layers className="w-5 h-5 text-emerald-600" />
@@ -207,19 +124,48 @@ export default function DashboardPage() {
             </h2>
           </div>
 
-          <Button
-            size="sm"
-            variant="brand"
-            onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            {t('nav.newGroup')}
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Search Group Button */}
+            {activeGroups.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsSearchOpen(true)}
+                className="flex items-center gap-1.5 font-bold"
+                title={t('dashboard.searchGroups')}
+              >
+                <Search className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>{t('dashboard.searchGroups') || 'Buscar'}</span>
+              </Button>
+            )}
+
+            {/* Join Group with Code Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsJoinOpen(true)}
+              className="flex items-center gap-1.5 font-bold"
+              title={t('dashboard.joinWithCode')}
+            >
+              <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>{t('dashboard.joinWithCode') || 'Unirse'}</span>
+            </Button>
+
+            {/* New Group Button */}
+            <Button
+              size="sm"
+              variant="brand"
+              onClick={() => setIsCreateOpen(true)}
+              className="flex items-center gap-1.5 font-bold shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{t('nav.newGroup')}</span>
+            </Button>
+          </div>
         </div>
 
         {/* Groups Grid */}
-        {filteredGroups.length === 0 ? (
+        {activeGroups.length === 0 ? (
           <Card className="text-center py-12 border-dashed">
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center mx-auto mb-3 text-3xl">
               🏖️
@@ -230,14 +176,20 @@ export default function DashboardPage() {
             <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-5">
               {t('dashboard.noGroupsSubtitle')}
             </p>
-            <Button variant="brand" onClick={() => setIsCreateOpen(true)}>
-              <Plus className="w-4 h-4 mr-1.5" />
-              {t('dashboard.createFirstGroup')}
-            </Button>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <Button variant="brand" onClick={() => setIsCreateOpen(true)}>
+                <Plus className="w-4 h-4 mr-1.5" />
+                {t('dashboard.createFirstGroup')}
+              </Button>
+              <Button variant="outline" onClick={() => setIsJoinOpen(true)}>
+                <KeyRound className="w-4 h-4 mr-1.5 text-emerald-600" />
+                {t('dashboard.joinWithCode') || 'Unirse con código'}
+              </Button>
+            </div>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredGroups.map((group) => (
+            {activeGroups.map((group) => (
               <GroupCard key={group.id} group={group} />
             ))}
           </div>
@@ -335,6 +287,18 @@ export default function DashboardPage() {
       <CreateGroupModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+      />
+
+      <JoinGroupModal
+        isOpen={isJoinOpen}
+        onClose={() => setIsJoinOpen(false)}
+      />
+
+      <SearchGroupModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        groups={activeGroups}
+        getGroupMembersCount={(id) => getGroupMembers(id).length}
       />
 
       {validatingScan && (

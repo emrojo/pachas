@@ -33,6 +33,7 @@ export interface GroupChatSectionProps {
   members: GroupMember[];
   isAdmin?: boolean;
   targetMessageId?: string;
+  onClose?: () => void;
 }
 
 const QUICK_REACTIONS = ['❤️', '👍', '😂', '🎉', '🔥', '👏'];
@@ -43,6 +44,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   members,
   isAdmin = false,
   targetMessageId,
+  onClose,
 }) => {
   const {
     currentUser,
@@ -180,6 +182,9 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
     } finally {
       setIsSubmitting(false);
       inputRef.current?.focus({ preventScroll: true });
+      requestAnimationFrame(() => {
+        inputRef.current?.focus({ preventScroll: true });
+      });
     }
   };
 
@@ -264,6 +269,19 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
             </div>
           )}
         </div>
+
+        {/* Close Dialog Button */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-2xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-1 cursor-pointer shrink-0"
+            title={t('common.close') || 'Cerrar chat'}
+            aria-label="Cerrar chat"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Messages Scroll Area */}
@@ -587,7 +605,6 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
               : (t('chat.placeholder') || 'Escribe un mensaje al grupo...')
           }
           className="flex-1 bg-slate-100 dark:bg-slate-800/80 border-0 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          disabled={isSubmitting}
         />
 
         {/* Send Button */}
