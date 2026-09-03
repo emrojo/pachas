@@ -32,6 +32,7 @@ export interface GroupChatSectionProps {
   groupName?: string;
   members: GroupMember[];
   isAdmin?: boolean;
+  targetMessageId?: string;
 }
 
 const QUICK_REACTIONS = ['❤️', '👍', '😂', '🎉', '🔥', '👏'];
@@ -41,6 +42,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   groupName,
   members,
   isAdmin = false,
+  targetMessageId,
 }) => {
   const {
     currentUser,
@@ -64,15 +66,17 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   // Pickers state
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isGifModalOpen, setIsGifModalOpen] = useState(false);
   const [reactingMessage, setReactingMessage] = useState<{ id: string; anchorEl: HTMLElement } | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
+  const isJustSentRef = useRef<boolean>(false);
 
   const messages = getGroupMessages(groupId);
 
@@ -83,10 +87,38 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
     }
   }, [groupId]);
 
-  // Auto-scroll to bottom on new messages
+  // Deep link to targetMessageId from notification
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (!targetMessageId || messages.length === 0) return;
+    const element = document.getElementById(`group-msg-${targetMessageId}`);
+    if (element && chatContainerRef.current) {
+      const containerTop = chatContainerRef.current.getBoundingClientRect().top;
+      const elementTop = element.getBoundingClientRect().top;
+      chatContainerRef.current.scrollBy({
+        top: elementTop - containerTop - 80,
+        behavior: 'smooth',
+      });
+      setHighlightedId(targetMessageId);
+      const timer = setTimeout(() => {
+        setHighlightedId((curr) => (curr === targetMessageId ? null : curr));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [targetMessageId, messages.length]);
+
+  // Contained scroll to bottom on new messages without jarring window jumps
+  useEffect(() => {
+    if (!chatContainerRef.current) return;
+    const container = chatContainerRef.current;
+    const { scrollHeight, clientHeight, scrollTop } = container;
+    const isNearBottom = scrollHeight - clientHeight - scrollTop < 160;
+
+    if (isNearBottom || isJustSentRef.current) {
+      container.scrollTo({
+        top: scrollHeight,
+        behavior: isJustSentRef.current ? 'smooth' : 'auto',
+      });
+      isJustSentRef.current = false;
     }
   }, [messages.length]);
 
@@ -123,6 +155,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
 
     try {
       setIsSubmitting(true);
+      isJustSentRef.current = true;
       await addGroupMessage(
         groupId,
         messageText.trim(),
@@ -146,6 +179,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       alert(err.message || 'Error al enviar el mensaje.');
     } finally {
       setIsSubmitting(false);
+      inputRef.current?.focus({ preventScroll: true });
     }
   };
 
@@ -165,7 +199,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       expenseTitle: msg.expense_title || null,
     });
     if (inputRef.current) {
-      inputRef.current.focus();
+      inputRef.current.focus({ preventScroll: true });
     }
   };
 
@@ -184,7 +218,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   const handleInsertEmoji = (emoji: string) => {
     setMessageText((prev) => prev + emoji);
     if (inputRef.current) {
-      inputRef.current.focus();
+      inputRef.current.focus({ preventScroll: true });
     }
   };
 
@@ -233,7 +267,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 custom-scrollbar">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
@@ -275,7 +309,12 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`flex items-start gap-2.5 ${isAuthor ? 'flex-row-reverse' : 'flex-row'} group`}
+                id={`group-msg-${msg.id}`}
+                className={`flex items-start gap-2.5 ${isAuthor ? 'flex-row-reverse' : 'flex-row'} group p-1.5 rounded-2xl transition-all duration-700 ${
+                  highlightedId === msg.id
+                    ? 'ring-2 ring-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/50 shadow-md scale-[1.01]'
+                    : ''
+                }`}
               >
                 {/* Author Avatar */}
                 <Avatar profile={authorProfile} size="sm" className="mt-0.5 shrink-0" />
@@ -455,7 +494,6 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
             );
           })
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Replying To Banner above input */}

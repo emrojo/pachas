@@ -3,6 +3,7 @@ import { getDbPool } from '@/lib/db/postgres';
 import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
+import { realtimeHub } from '@/lib/realtime/sse';
 
 export async function PUT(
   request: NextRequest,
@@ -292,6 +293,46 @@ export async function PUT(
                 url: `/groups/${g.group_id}`,
               }).catch((pushErr) => console.warn('Push notification for expense update failed:', pushErr));
             }
+
+            // Broadcast real-time expense update to all connected clients
+            realtimeHub.broadcast({
+              type: 'expense_updated',
+              groupId: g.group_id,
+              userId: user.userId,
+              payload: {
+                id: expenseId,
+                group_id: g.group_id,
+                title,
+                amount: dbAmount,
+                currency,
+                exchange_rate: safeExchangeRate,
+                converted_amount: safeConvertedAmount,
+                category,
+                expense_date: cleanDate,
+                receipt_url: receiptUrl,
+                notes,
+                split_type: splitType,
+                latitude,
+                longitude,
+                location_name: locationName,
+                ocr_status: body.ocr_status || 'completed',
+                updated_at: new Date().toISOString(),
+                payers: payers.map((p: any) => ({
+                  id: p.id,
+                  expense_id: expenseId,
+                  user_id: p.userId || p.user_id,
+                  amount_paid: Number(p.amount || p.amount_paid) || 0,
+                })),
+                participants: participants.map((pt: any) => ({
+                  id: pt.id,
+                  expense_id: expenseId,
+                  user_id: pt.userId || pt.user_id,
+                  amount_owed: Number(pt.amount || pt.amount_owed) || 0,
+                  percentage: pt.percentage || null,
+                  shares: pt.shares || null,
+                })),
+              },
+            });
           }
         }
       } catch (notifErr) {
@@ -382,6 +423,17 @@ export async function DELETE(
           body: `${deletedExpenseInfo.deleter_name} eliminó "${deletedExpenseInfo.title}" (${deletedExpenseInfo.amount} ${deletedExpenseInfo.currency})`,
           url: `/groups/${deletedExpenseInfo.group_id}`,
         }).catch((pushErr) => console.warn('Push notification for expense deletion failed:', pushErr));
+
+        // Broadcast real-time expense deletion to all connected clients
+        realtimeHub.broadcast({
+          type: 'expense_deleted',
+          groupId: deletedExpenseInfo.group_id,
+          userId: user.userId,
+          payload: {
+            expenseId,
+            groupId: deletedExpenseInfo.group_id,
+          },
+        });
       } catch (notifErr) {
         console.warn('Could not dispatch delete notification:', notifErr);
       }

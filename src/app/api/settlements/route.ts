@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { requireActiveUser } from '@/lib/auth/userAuth';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
+import { realtimeHub } from '@/lib/realtime/sse';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -72,6 +73,25 @@ export async function POST(request: NextRequest) {
       tag: `settlement-${id}`,
       data: { groupId, settlementId: id },
     }).catch(() => {});
+
+    // Broadcast real-time settlement creation to all connected clients
+    realtimeHub.broadcast({
+      type: 'settlement_created',
+      groupId,
+      userId: user.userId,
+      payload: {
+        id,
+        group_id: groupId,
+        from_user_id: fromUserId,
+        to_user_id: toUserId,
+        amount: Number(amount),
+        currency,
+        payment_method: paymentMethod,
+        notes,
+        settled_at: settledAt,
+        created_at: new Date().toISOString(),
+      },
+    });
 
     return NextResponse.json({
       success: true,

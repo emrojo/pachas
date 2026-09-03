@@ -432,8 +432,8 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Validar Gasto Escaneado con IA"
-      description="Revisa los datos extraídos y las censuras automáticas de seguridad antes de crear el gasto"
+      title={t('expenses.validateAiScanTitle')}
+      description={t('expenses.validateAiScanSubtitle')}
       maxWidth="xl"
     >
       <form onSubmit={handleConfirmAndCreate} className="space-y-5">
@@ -441,10 +441,10 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1.5 shadow-xs">
           <div className="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400">
             <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span>Aviso de Privacidad y Responsabilidad</span>
+            <span>{t('expenses.privacyDisclaimerTitle')}</span>
           </div>
           <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-            Revisa con atención la información visible en la factura. Recuerda que <strong>todos los miembros del grupo podrán ver este recibo</strong>. Pachas no se hace responsable de los datos personales o bancarios compartidos dentro del grupo. Asegúrate de que las tarjetas o datos privados queden censurados.
+            {t('expenses.privacyDisclaimerText')}
           </p>
         </div>
 
@@ -455,7 +455,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Receipt className="w-3.5 h-3.5 text-emerald-600" />
-                Ticket Censurado
+                {t('expenses.censoredReceipt')}
               </span>
 
               {/* Toolbar Mini */}
@@ -469,10 +469,10 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                     }
                   }}
                   className="px-2 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors border border-slate-200/60 dark:border-slate-700/60 shadow-2xs"
-                  title="Ampliar y hacer zoom a la imagen censurada"
+                  title={t('expenses.zoomAndEnlarge')}
                 >
                   <ZoomIn className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-[11px]">Ampliar y Zoom</span>
+                  <span className="text-[11px]">{t('expenses.zoomAndEnlarge')}</span>
                 </button>
 
                 <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
@@ -483,7 +483,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   className={`p-1.5 rounded-lg text-xs font-bold ${
                     drawMode === 'brush' ? 'bg-black text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
                   }`}
-                  title="Rotulador negro"
+                  title={t('expenses.blackMarker')}
                 >
                   <Paintbrush className="w-3.5 h-3.5" />
                 </button>
@@ -493,7 +493,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   className={`p-1.5 rounded-lg text-xs font-bold ${
                     drawMode === 'box' ? 'bg-black text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
                   }`}
-                  title="Caja de censura"
+                  title={t('expenses.redactionBox')}
                 >
                   <Square className="w-3.5 h-3.5" />
                 </button>
@@ -503,7 +503,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   className={`p-1.5 rounded-lg text-xs font-bold ${
                     drawMode === 'eraser' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
                   }`}
-                  title="Borrador para quitar censuras"
+                  title={t('expenses.redactionEraser')}
                 >
                   <Eraser className="w-3.5 h-3.5" />
                 </button>
@@ -512,7 +512,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   onClick={handleUndo}
                   disabled={history.length <= 1}
                   className="p-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 disabled:opacity-40"
-                  title="Deshacer"
+                  title={t('expenses.undoRedaction')}
                 >
                   <Undo2 className="w-3.5 h-3.5" />
                 </button>
@@ -541,10 +541,10 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   }
                 }}
                 className="absolute bottom-3 right-3 px-2.5 py-1 rounded-xl bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-bold flex items-center gap-1.5 hover:bg-emerald-600 transition-colors shadow-lg border border-white/10"
-                title="Ampliar a pantalla completa con zoom interactivo"
+                title={t('expenses.zoomHD')}
               >
                 <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
-                <span>🔍 Zoom HD</span>
+                <span>🔍 {t('expenses.zoomHD')}</span>
               </button>
             </div>
             
@@ -552,11 +552,11 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             <div className="flex flex-wrap items-center justify-center gap-3 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-800 text-[11px]">
               <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
                 <span className="w-3 h-3 rounded-xs bg-black border border-slate-600 shrink-0 inline-block shadow-2xs" />
-                <span>Negro: Tu censura</span>
+                <span>{t('expenses.legendYourRedaction')}</span>
               </div>
               <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
                 <span className="w-3 h-3 rounded-xs bg-slate-600 border border-slate-500 shrink-0 inline-block shadow-2xs" />
-                <span>Gris: Censura de la IA</span>
+                <span>{t('expenses.legendAiRedaction')}</span>
               </div>
             </div>
           </div>
@@ -565,8 +565,8 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
           <div className="lg:col-span-7 space-y-4">
             {/* Title / Merchant */}
             <Input
-              label="Concepto / Establecimiento *"
-              placeholder="Ej. Mercadona, Restaurante El Faro..."
+              label={t('expenses.expenseTitle')}
+              placeholder={t('expenses.expenseTitlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -575,8 +575,8 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             {/* Amount & Currency */}
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label="Importe Total *"
-                placeholder="0,00"
+                label={t('expenses.amount')}
+                placeholder={t('expenses.amountPlaceholder')}
                 value={amountStr}
                 onChange={(e) => setAmountStr(e.target.value)}
                 required
@@ -584,7 +584,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                  Moneda
+                  {t('common.currency')}
                 </label>
                 <select
                   value={currency}
@@ -603,14 +603,14 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             {/* Date & Time (DD/MM/YYYY) */}
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label="Fecha (DD/MM/AAAA) *"
+                label={t('common.date')}
                 placeholder="DD/MM/AAAA"
                 value={dateDisplayStr}
                 onChange={(e) => setDateDisplayStr(e.target.value)}
                 required
               />
               <Input
-                label="Hora (HH:mm)"
+                label={t('expenses.dateTime')}
                 placeholder="14:30"
                 value={timeDisplayStr}
                 onChange={(e) => setTimeDisplayStr(e.target.value)}
@@ -620,7 +620,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             {/* Category */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Categoría
+                {t('expenses.category')}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {Object.values(CATEGORIES).map((cat) => (
@@ -644,7 +644,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             {/* Payer Selection */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Pagado por
+                {t('expenses.paidBy')}
               </label>
               <select
                 value={payerId}
@@ -653,7 +653,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               >
                 {members.map((m) => (
                   <option key={m.user_id} value={m.user_id}>
-                    {m.profile?.full_name || 'Amigo'} {m.user_id === currentUser?.id ? '(Tú)' : ''}
+                    {m.profile?.full_name || t('common.friend')} {m.user_id === currentUser?.id ? `(${t('common.you')})` : ''}
                   </option>
                 ))}
               </select>
@@ -663,14 +663,14 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                  Dividir entre ({selectedParticipants.length}/{members.length})
+                  {t('expenses.splitBetween')} ({selectedParticipants.length}/{members.length})
                 </label>
                 <button
                   type="button"
                   onClick={() => setSelectedParticipants(members.map((m) => m.user_id))}
                   className="text-[11px] font-bold text-emerald-600 hover:underline"
                 >
-                  Seleccionar todos
+                  {t('expenses.selectAll')}
                 </button>
               </div>
 
@@ -689,7 +689,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                       }`}
                     >
                       <Avatar profile={m.profile} size="sm" className="w-4 h-4 text-[8px]" />
-                      <span className="truncate max-w-[100px]">{m.profile?.full_name?.split(' ')[0] || 'Amigo'}</span>
+                      <span className="truncate max-w-[100px]">{m.profile?.full_name?.split(' ')[0] || t('common.friend')}</span>
                     </button>
                   );
                 })}
@@ -714,12 +714,12 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             className="text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900"
           >
             <Trash2 className="w-4 h-4 mr-1" />
-            Descartar ticket
+            {t('expenses.discardReceipt')}
           </Button>
 
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Cerrar
+              {t('common.close')}
             </Button>
             <Button
               type="submit"
@@ -728,7 +728,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               className="text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20"
             >
               <Check className="w-4 h-4" />
-              Confirmar y Crear Gasto
+              {t('expenses.confirmAndCreateExpense')}
             </Button>
           </div>
         </div>
@@ -738,7 +738,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         isOpen={Boolean(zoomModalUrl)}
         onClose={() => setZoomModalUrl(null)}
         receiptUrl={zoomModalUrl}
-        title={title || 'Ticket Censurado'}
+        title={title || t('expenses.censoredReceipt')}
       />
     </Modal>
   );

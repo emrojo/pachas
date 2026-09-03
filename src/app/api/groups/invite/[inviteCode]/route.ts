@@ -34,12 +34,13 @@ export async function GET(
 
     const group = groupRes.rows[0];
 
-    // 2. Fetch current members with their profile
+    // 2. Fetch current members with their profile (LEFT JOIN prevents omitting members without profiles)
     const membersRes = await pool.query(
       `SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at,
-              p.full_name, p.avatar_url, p.bizum_phone, p.email
+              COALESCE(p.full_name, 'Amigo') as full_name,
+              p.avatar_url, p.bizum_phone, p.email
        FROM public.group_members gm
-       JOIN public.profiles p ON p.id = gm.user_id
+       LEFT JOIN public.profiles p ON p.id::text = gm.user_id::text
        WHERE gm.group_id = $1`,
       [group.id]
     );
@@ -52,10 +53,10 @@ export async function GET(
       joined_at: m.joined_at,
       profile: {
         id: m.user_id,
-        email: m.email,
+        email: m.email || '',
         full_name: m.full_name,
-        avatar_url: m.avatar_url,
-        bizum_phone: m.bizum_phone,
+        avatar_url: m.avatar_url || null,
+        bizum_phone: m.bizum_phone || null,
         role: m.role,
       },
     }));

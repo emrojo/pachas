@@ -4,6 +4,7 @@ import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 import { sanitizeText } from '@/lib/security/sanitize';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
+import { realtimeHub } from '@/lib/realtime/sse';
 
 async function autoHealCommentsTable(pool: any) {
   try {
@@ -237,18 +238,31 @@ export async function POST(
       console.warn('Could not dispatch comment notification or mirror to chat:', notifErr);
     }
 
+    const commentPayload = {
+      id: commentId,
+      expense_id: expenseId,
+      group_id: targetGroupId,
+      user_id: user.userId,
+      comment: cleanComment,
+      gif_url: gifUrl,
+      reactions: {},
+      created_at: new Date().toISOString(),
+      profile: authorProfile,
+    };
+
+    // Broadcast real-time comment to all connected clients
+    if (targetGroupId) {
+      realtimeHub.broadcast({
+        type: 'expense_comment_created',
+        groupId: targetGroupId,
+        userId: user.userId,
+        payload: commentPayload,
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      comment: {
-        id: commentId,
-        expense_id: expenseId,
-        user_id: user.userId,
-        comment: cleanComment,
-        gif_url: gifUrl,
-        reactions: {},
-        created_at: new Date().toISOString(),
-        profile: authorProfile,
-      },
+      comment: commentPayload,
     });
   } catch (err: any) {
     console.error('Error creating expense comment:', err);
@@ -342,10 +356,29 @@ export async function DELETE(
     const pool = getDbPool();
     if (pool) {
       try {
+        const expRes = await pool.query(
+          `SELECT group_id FROM public.expenses WHERE id::text = $1::text`,
+          [expenseId]
+        );
+        const groupId = expRes.rows[0]?.group_id;
+
         await pool.query(
           `DELETE FROM public.expense_comments WHERE id::text = $1::text AND (user_id::text = $2::text OR expense_id::text = $3::text)`,
           [commentId, user.userId, expenseId]
         );
+
+        if (groupId) {
+          realtimeHub.broadcast({
+            type: 'expense_comment_deleted',
+            groupId,
+            userId: user.userId,
+            payload: {
+              commentId,
+              expenseId,
+              groupId,
+            },
+          });
+        }
       } catch (delErr: any) {
         if (delErr.code !== '42P01') throw delErr;
       }

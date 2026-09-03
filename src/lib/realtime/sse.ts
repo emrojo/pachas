@@ -13,6 +13,18 @@ export type RealtimeEventType =
   | 'group_message_created'
   | 'group_message_reaction'
   | 'group_message_deleted'
+  | 'expense_created'
+  | 'expense_updated'
+  | 'expense_deleted'
+  | 'settlement_created'
+  | 'settlement_deleted'
+  | 'member_joined'
+  | 'member_removed'
+  | 'member_role_updated'
+  | 'group_updated'
+  | 'group_deleted'
+  | 'expense_comment_created'
+  | 'expense_comment_deleted'
   | 'notification_created'
   | 'ping';
 

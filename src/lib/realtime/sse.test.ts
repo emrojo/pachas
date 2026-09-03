@@ -98,4 +98,95 @@ describe('SSE Realtime Hub', () => {
       unreg();
     }
   });
+
+  it('broadcasts expense_created and settlement_created events in real time', async () => {
+    const received: string[] = [];
+    const client: SSEClient = {
+      id: 'client-group-exp',
+      groupId: 'group-realtime-1',
+      send: (data) => received.push(data),
+      close: () => {},
+    };
+
+    const unreg = realtimeHub.registerClient(client);
+
+    try {
+      await realtimeHub.broadcast(
+        {
+          type: 'expense_created',
+          groupId: 'group-realtime-1',
+          payload: { id: 'exp-1', title: 'Cena en Menorca', amount: 45.5 },
+        },
+        true
+      );
+
+      await realtimeHub.broadcast(
+        {
+          type: 'settlement_created',
+          groupId: 'group-realtime-1',
+          payload: { id: 'stl-1', amount: 20 },
+        },
+        true
+      );
+
+      expect(received.length).toBe(2);
+      expect(received[0]).toContain('expense_created');
+      expect(received[0]).toContain('Cena en Menorca');
+      expect(received[1]).toContain('settlement_created');
+      expect(received[1]).toContain('"amount":20');
+    } finally {
+      unreg();
+    }
+  });
+
+  it('broadcasts member_joined and group_updated events in real time', async () => {
+    const received: string[] = [];
+    const client: SSEClient = {
+      id: 'client-group-meta',
+      groupId: 'group-meta-1',
+      send: (data) => received.push(data),
+      close: () => {},
+    };
+
+    const unreg = realtimeHub.registerClient(client);
+
+    try {
+      await realtimeHub.broadcast(
+        {
+          type: 'member_joined',
+          groupId: 'group-meta-1',
+          payload: { member: { id: 'gm-new', role: 'member' } },
+        },
+        true
+      );
+
+      await realtimeHub.broadcast(
+        {
+          type: 'group_updated',
+          groupId: 'group-meta-1',
+          payload: { id: 'group-meta-1', name: 'Viaje a Japón 2026', cover_image_url: 'https://images.unsplash.com/...' },
+        },
+        true
+      );
+
+      await realtimeHub.broadcast(
+        {
+          type: 'expense_comment_created',
+          groupId: 'group-meta-1',
+          payload: { id: 'comm-1', comment: '¡Qué buen plan!' },
+        },
+        true
+      );
+
+      expect(received.length).toBe(3);
+      expect(received[0]).toContain('member_joined');
+      expect(received[0]).toContain('gm-new');
+      expect(received[1]).toContain('group_updated');
+      expect(received[1]).toContain('Viaje a Japón 2026');
+      expect(received[2]).toContain('expense_comment_created');
+      expect(received[2]).toContain('¡Qué buen plan!');
+    } finally {
+      unreg();
+    }
+  });
 });

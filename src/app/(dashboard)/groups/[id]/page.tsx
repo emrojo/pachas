@@ -104,15 +104,16 @@ export default function GroupDetailPage() {
   const balances = getGroupBalances(groupId);
   const debts = getGroupDebts(groupId);
 
-  // Fetch group on-demand if not already in local state (e.g. for superadmins or direct URLs)
+  // Fetch and reconcile group data (including all members and latest changes) from server
   useEffect(() => {
-    if (!group && groupId) {
+    if (!groupId) return;
+    if (!group) {
       setIsFetchingGroup(true);
-      fetchGroup(groupId)
-        .catch(() => {})
-        .finally(() => setIsFetchingGroup(false));
     }
-  }, [groupId, group, fetchGroup]);
+    fetchGroup(groupId)
+      .catch(() => {})
+      .finally(() => setIsFetchingGroup(false));
+  }, [groupId, fetchGroup]);
 
   // Immediate redirect for banned users
   useEffect(() => {
@@ -157,7 +158,7 @@ export default function GroupDetailPage() {
       }
     }
 
-    const isChat = searchParams.get('chat') === 'true';
+    const isChat = requestedTab === 'chat' || searchParams.get('chat') === 'true';
     if (isChat) {
       setActiveTab('members');
       setFriendsSubTab('chat');
@@ -925,6 +926,7 @@ export default function GroupDetailPage() {
                 groupName={group.name}
                 members={members}
                 isAdmin={isAdmin}
+                targetMessageId={searchParams?.get('messageId') || undefined}
               />
             )}
           </div>

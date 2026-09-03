@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { requireActiveUser } from '@/lib/auth/userAuth';
+import { realtimeHub } from '@/lib/realtime/sse';
 
 async function autoHealGroupFrozenColumns(pool: any) {
   try {
@@ -120,7 +121,7 @@ export async function PUT(
     const safeFrozenReason = isAdmin && is_frozen !== undefined ? (is_frozen ? (frozen_reason || 'Bajo investigación por moderación') : null) : undefined;
     const safeFreezeType = isAdmin && is_frozen !== undefined ? (is_frozen ? (freeze_type || 'full') : null) : undefined;
 
-    await pool.query(
+    const updateRes = await pool.query(
       `UPDATE public.groups SET
          name = COALESCE($1, name),
          description = COALESCE($2, description),
@@ -135,7 +136,8 @@ export async function PUT(
          frozen_reason = CASE WHEN $14::boolean IS TRUE THEN $15 ELSE frozen_reason END,
          freeze_type = CASE WHEN $16::boolean IS TRUE THEN $17 ELSE freeze_type END,
          updated_at = NOW()
-       WHERE id = $18`,
+       WHERE id = $18
+       RETURNING *`,
       [
         name,
         description,
@@ -158,7 +160,19 @@ export async function PUT(
       ]
     );
 
-    return NextResponse.json({ success: true, id: groupId });
+    const updatedGroup = updateRes.rows[0];
+
+    // Broadcast real-time group updates (title, cover, currency, frozen, etc.)
+    if (updatedGroup) {
+      realtimeHub.broadcast({
+        type: 'group_updated',
+        groupId,
+        userId: user.userId,
+        payload: updatedGroup,
+      });
+    }
+
+    return NextResponse.json({ success: true, id: groupId, group: updatedGroup });
   } catch (err: any) {
     console.error('API update group error:', err);
     return NextResponse.json({ error: err.message || 'Error al actualizar grupo' }, { status: 500 });
@@ -174,6 +188,7 @@ export async function DELETE(
     if (authResult.errorResponse) {
       return authResult.errorResponse;
     }
+    const user = authResult.user!;
 
     const params = await props.params;
     const groupId = params?.id;
@@ -183,6 +198,15 @@ export async function DELETE(
     }
 
     await pool.query('DELETE FROM public.groups WHERE id = $1', [groupId]);
+
+    // Broadcast real-time group deletion
+    realtimeHub.broadcast({
+      type: 'group_deleted',
+      groupId,
+      userId: user.userId,
+      payload: { groupId },
+    });
+
     return NextResponse.json({ success: true, id: groupId });
   } catch (err: any) {
     console.error('API delete group error:', err);

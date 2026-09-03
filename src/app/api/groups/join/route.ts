@@ -3,6 +3,7 @@ import { getDbPool } from '@/lib/db/postgres';
 import { requireActiveUser } from '@/lib/auth/userAuth';
 import { randomUUID } from 'crypto';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
+import { realtimeHub } from '@/lib/realtime/sse';
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,13 +79,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Fetch all members with their profile
+    // 3. Fetch all members with their profile (LEFT JOIN prevents omitting members without profile record)
     const membersRes = await pool.query(
       `SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at,
-              p.full_name, p.avatar_url, p.bizum_phone, p.email,
+              COALESCE(p.full_name, 'Amigo') as full_name,
+              p.avatar_url, p.bizum_phone, p.email,
               COALESCE(p.is_banned, false) as is_banned, p.ban_reason
        FROM public.group_members gm
-       JOIN public.profiles p ON p.id = gm.user_id
+       LEFT JOIN public.profiles p ON p.id::text = gm.user_id::text
        WHERE gm.group_id = $1`,
       [group.id]
     );
@@ -97,20 +99,21 @@ export async function POST(request: NextRequest) {
       joined_at: m.joined_at,
       profile: {
         id: m.user_id,
-        email: m.email,
+        email: m.email || '',
         full_name: m.full_name,
-        avatar_url: m.avatar_url,
-        bizum_phone: m.bizum_phone,
+        avatar_url: m.avatar_url || null,
+        bizum_phone: m.bizum_phone || null,
         role: m.role,
         is_banned: Boolean(m.is_banned),
-        ban_reason: m.ban_reason,
+        ban_reason: m.ban_reason || null,
       },
     }));
 
+    const joinedMember = members.find((m) => m.user_id === user.userId);
+
     // Dispatch push notification to existing group members
     try {
-      const joiner = members.find((m) => m.user_id === user.userId)?.profile;
-      const joinerName = joiner?.full_name || user.email?.split('@')[0] || 'Un nuevo amigo';
+      const joinerName = joinedMember?.profile?.full_name || user.email?.split('@')[0] || 'Un nuevo amigo';
       notifyGroupMembers(group.id, user.userId, {
         title: `👥 Nuevo miembro en ${group.name}`,
         body: `${joinerName} se ha unido al grupo.`,
@@ -118,6 +121,19 @@ export async function POST(request: NextRequest) {
       }).catch((pushErr) => console.warn('Push notification for new member failed:', pushErr));
     } catch (notifErr) {
       console.warn('Could not dispatch join notification:', notifErr);
+    }
+
+    // Broadcast real-time member_joined event to all connected group members
+    if (joinedMember) {
+      realtimeHub.broadcast({
+        type: 'member_joined',
+        groupId: group.id,
+        userId: user.userId,
+        payload: {
+          member: joinedMember,
+          group,
+        },
+      });
     }
 
     return NextResponse.json({

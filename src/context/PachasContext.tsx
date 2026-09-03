@@ -2823,7 +2823,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const targetExpense = effExpenseId ? allExpenses.find((e) => e.id === effExpenseId) : undefined;
 
     const newMessage: GroupMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: generateUUID(),
       group_id: groupId,
       user_id: currentUser.id,
       message: message,
@@ -2861,9 +2861,14 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (res.ok) {
         const data = await res.json();
         if (data?.message) {
+          const finalMsg = { ...data.message, profile: currentUser };
           setGroupMessages((prev) => {
             const currentList = prev[groupId] || [];
-            const updated = { ...prev, [groupId]: [...currentList.filter((m) => m.id !== newMessage.id), { ...data.message, profile: currentUser }] };
+            const exists = currentList.some((m) => m.id === finalMsg.id || m.id === newMessage.id);
+            const updatedList = exists
+              ? currentList.map((m) => (m.id === finalMsg.id || m.id === newMessage.id ? finalMsg : m))
+              : [...currentList, finalMsg];
+            const updated = { ...prev, [groupId]: updatedList };
             safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
             return updated;
           });
@@ -3105,7 +3110,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     group_id: msg.group_id,
                     title: `Mensaje de ${authorName}`,
                     message: msg.message || 'Ha enviado un mensaje en el grupo',
-                    action_url: `/groups/${msg.group_id}?tab=chat`,
+                    action_url: `/groups/${msg.group_id}?tab=chat&messageId=${msg.id}`,
                   });
                 }
               }
@@ -3132,6 +3137,214 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   const updatedList = currentList.filter((m) => m.id !== messageId);
                   const updated = { ...prev, [targetGroupId]: updatedList };
                   safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'expense_created') {
+              const exp = parsed.payload;
+              if (exp && exp.group_id) {
+                setExpenses((prev) => {
+                  const currentList = prev[exp.group_id] || [];
+                  if (currentList.some((e) => e.id === exp.id)) {
+                    // Update if already in list (e.g. from local optimistic add)
+                    return {
+                      ...prev,
+                      [exp.group_id]: currentList.map((e) => (e.id === exp.id ? { ...e, ...exp } : e)),
+                    };
+                  }
+                  const updated = {
+                    ...prev,
+                    [exp.group_id]: [exp, ...currentList],
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.EXPENSES, JSON.stringify(sanitizeExpensesForLocalStorage(updated)));
+                  return updated;
+                });
+
+                // In-app notification if created by another user
+                if (currentUser && exp.created_by !== currentUser.id) {
+                  const authorName = exp.creator?.full_name || 'Un amigo';
+                  addNotification({
+                    user_id: currentUser.id,
+                    type: 'expense_created',
+                    group_id: exp.group_id,
+                    title: `Nuevo gasto: ${exp.title}`,
+                    message: `${authorName} ha añadido un gasto de ${exp.amount} ${exp.currency || 'EUR'}.`,
+                    action_url: `/groups/${exp.group_id}`,
+                  });
+                }
+              }
+            } else if (parsed.type === 'expense_updated') {
+              const exp = parsed.payload;
+              if (exp && exp.group_id) {
+                setExpenses((prev) => {
+                  const currentList = prev[exp.group_id] || [];
+                  const updatedList = currentList.map((e) => (e.id === exp.id ? { ...e, ...exp } : e));
+                  const updated = {
+                    ...prev,
+                    [exp.group_id]: updatedList,
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.EXPENSES, JSON.stringify(sanitizeExpensesForLocalStorage(updated)));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'expense_deleted') {
+              const { expenseId, groupId } = parsed.payload || {};
+              if (groupId && expenseId) {
+                setExpenses((prev) => {
+                  const currentList = prev[groupId] || [];
+                  const updatedList = currentList.filter((e) => e.id !== expenseId);
+                  const updated = {
+                    ...prev,
+                    [groupId]: updatedList,
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.EXPENSES, JSON.stringify(sanitizeExpensesForLocalStorage(updated)));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'settlement_created') {
+              const stl = parsed.payload;
+              if (stl && stl.group_id) {
+                setSettlements((prev) => {
+                  const currentList = prev[stl.group_id] || [];
+                  if (currentList.some((s) => s.id === stl.id)) {
+                    return prev;
+                  }
+                  const updated = {
+                    ...prev,
+                    [stl.group_id]: [stl, ...currentList],
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(updated));
+                  return updated;
+                });
+
+                if (currentUser && stl.from_user_id !== currentUser.id) {
+                  addNotification({
+                    user_id: currentUser.id,
+                    type: 'settlement_created',
+                    group_id: stl.group_id,
+                    title: 'Deuda liquidada',
+                    message: `Se ha registrado un pago de ${stl.amount} ${stl.currency || 'EUR'}.`,
+                    action_url: `/groups/${stl.group_id}?tab=balances`,
+                  });
+                }
+              }
+            } else if (parsed.type === 'member_joined') {
+              const { member, group } = parsed.payload || {};
+              if (member && member.group_id) {
+                setMembers((prev) => {
+                  const currentList = prev[member.group_id] || [];
+                  if (currentList.some((m) => m.user_id === member.user_id)) {
+                    return prev;
+                  }
+                  const updated = {
+                    ...prev,
+                    [member.group_id]: [...currentList, member],
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(updated));
+                  return updated;
+                });
+
+                if (member.profile) {
+                  setAvailableUsers((prev) => {
+                    if (prev.some((u) => u.id === member.profile.id)) return prev;
+                    return [...prev, member.profile];
+                  });
+                }
+
+                if (group) {
+                  setGroups((prev) => {
+                    if (prev.some((g) => g.id === group.id)) return prev;
+                    const updated = [group, ...prev];
+                    safeSetLocalStorage(STORAGE_KEYS.GROUPS, JSON.stringify(updated));
+                    return updated;
+                  });
+                }
+
+                if (currentUser && member.user_id !== currentUser.id) {
+                  const memberName = member.profile?.full_name || 'Un amigo';
+                  addNotification({
+                    user_id: currentUser.id,
+                    type: 'member_joined',
+                    group_id: member.group_id,
+                    title: 'Nuevo miembro en el grupo',
+                    message: `${memberName} se ha unido al grupo.`,
+                    action_url: `/groups/${member.group_id}?tab=members`,
+                  });
+                }
+              }
+            } else if (parsed.type === 'member_removed') {
+              const { userId, groupId } = parsed.payload || {};
+              if (groupId && userId) {
+                setMembers((prev) => {
+                  const currentList = prev[groupId] || [];
+                  const updated = {
+                    ...prev,
+                    [groupId]: currentList.filter((m) => m.user_id !== userId),
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'member_role_updated') {
+              const { userId, groupId, role } = parsed.payload || {};
+              if (groupId && userId && role) {
+                setMembers((prev) => {
+                  const currentList = prev[groupId] || [];
+                  const updated = {
+                    ...prev,
+                    [groupId]: currentList.map((m) => (m.user_id === userId ? { ...m, role } : m)),
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'group_updated') {
+              const updatedGroup = parsed.payload;
+              if (updatedGroup && updatedGroup.id) {
+                setGroups((prev) => {
+                  const exists = prev.some((g) => g.id === updatedGroup.id);
+                  const updated = exists
+                    ? prev.map((g) => (g.id === updatedGroup.id ? { ...g, ...updatedGroup } : g))
+                    : [updatedGroup, ...prev];
+                  safeSetLocalStorage(STORAGE_KEYS.GROUPS, JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'group_deleted') {
+              const { groupId } = parsed.payload || {};
+              if (groupId) {
+                setGroups((prev) => {
+                  const updated = prev.filter((g) => g.id !== groupId);
+                  safeSetLocalStorage(STORAGE_KEYS.GROUPS, JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'expense_comment_created') {
+              const comment = parsed.payload;
+              if (comment && comment.expense_id) {
+                setComments((prev) => {
+                  const currentList = prev[comment.expense_id] || [];
+                  if (currentList.some((c) => c.id === comment.id)) {
+                    return prev;
+                  }
+                  const updated = {
+                    ...prev,
+                    [comment.expense_id]: [...currentList, comment],
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            } else if (parsed.type === 'expense_comment_deleted') {
+              const { commentId, expenseId } = parsed.payload || {};
+              if (expenseId && commentId) {
+                setComments((prev) => {
+                  const currentList = prev[expenseId] || [];
+                  const updated = {
+                    ...prev,
+                    [expenseId]: currentList.filter((c) => c.id !== commentId),
+                  };
+                  safeSetLocalStorage(STORAGE_KEYS.COMMENTS, JSON.stringify(updated));
                   return updated;
                 });
               }

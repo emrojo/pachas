@@ -336,6 +336,41 @@ export const es = {
     receiptSafetyWarning: '🔒 Por tu seguridad, no subas tickets que muestren números completos de tarjeta de crédito (PAN) o códigos CVV.',
     locationPrivacyInfo: '📍 La ubicación solo será visible para los integrantes de este viaje.',
     reportExpense: 'Reportar gasto o imagen',
+    pendingValidationNotice: 'Revisa los datos y las censuras automáticas de tarjeta antes de confirmar.',
+    reviewAndValidate: 'Revisar y Validar',
+    backgroundOcrNotice: 'Te avisaremos cuando esté listo. No se creará ningún gasto hasta que des el visto bueno.',
+    ocrFailedTitle: 'No se pudo procesar el ticket con IA',
+    ocrFailedDesc: 'Error al analizar la imagen. Puedes introducir los datos manualmente.',
+    validateAiScanTitle: 'Validar Gasto Escaneado con IA',
+    validateAiScanSubtitle: 'Revisa los datos extraídos y las censuras automáticas de seguridad antes de crear el gasto',
+    privacyDisclaimerTitle: 'Aviso de Privacidad y Responsabilidad',
+    privacyDisclaimerText: 'Revisa con atención la información visible en la factura. Recuerda que todos los miembros del grupo podrán ver este recibo. Pachas no se hace responsable de los datos personales o bancarios compartidos dentro del grupo. Asegúrate de que las tarjetas o datos privados queden censurados.',
+    censoredReceipt: 'Ticket Censurado',
+    zoomHD: 'Zoom HD',
+    zoomAndEnlarge: 'Ampliar y Zoom',
+    blackMarker: 'Rotulador negro',
+    redactionBox: 'Caja de censura',
+    redactionEraser: 'Borrador para quitar censuras',
+    undoRedaction: 'Deshacer',
+    legendYourRedaction: 'Negro: Tu censura',
+    legendAiRedaction: 'Gris: Censura de la IA',
+    discardReceipt: 'Descartar ticket',
+    confirmAndCreateExpense: 'Confirmar y Crear Gasto',
+    redactionInstructions: 'Tacha cualquier información privada que NO quieras que el servicio de IA procese. Puedes usar el Borrador para corregir trazos o el Zoom para acercarte a textos pequeños.',
+    brushSizeLabel: 'Grosor:',
+    brushSizeFine: 'Fino',
+    brushSizeMedium: 'Medio',
+    brushSizeThick: 'Grueso',
+    toolBrush: 'Rotulador',
+    toolBox: 'Caja',
+    toolEraser: 'Borrador',
+    toolPan: 'Mover',
+    redactReceiptTitle: 'Censurar Factura / Ticket',
+    redactReceiptSubtitle: 'Tacha con el rotulador o borra censuras antes de enviar a la IA',
+    privacyGuaranteed: 'Privacidad Garantizada: Rotulador negro y Borrador',
+    processInBackground: 'Procesar en segundo plano',
+    splitBetween: 'Dividir entre',
+    selectAll: 'Seleccionar todos',
     title: 'Gastos del Grupo',
     addExpense: 'Añadir Gasto',
     editExpense: 'Editar Gasto',
@@ -664,6 +699,14 @@ export const es = {
     checkAudit: 'Revisión con calculadora',
     checkAuditSubtitle: 'Comprueba paso a paso cómo se calcula tu saldo',
     noExpensesYet: 'Aún no hay gastos registrados para auditar en este grupo.',
+    clearAll: 'Borrar todo (AC)',
+    backspace: 'Borrar último dígito',
+    calcLoaded: '¡Operación cargada!',
+    financialSummary: 'Resumen Financiero del Viaje',
+    totalSpentInTrip: 'Total gastado en el viaje:',
+    totalPaidByYou: 'Total adelantado por ti:',
+    totalConsumedByYou: 'Tu parte proporcional consumida:',
+    verifiedBalance: 'Saldo verificado:',
   },
   offline: {
   
@@ -752,8 +795,7 @@ export const es = {
 } as const;
 
 type DeepStringRecord<T> = {
-  [K in keyof T]: T[K] extends object ? DeepStringRecord<T[K]> : string;
+  [K in keyof T]?: T[K] extends object ? DeepStringRecord<T[K]> : string;
 };
 
 export type TranslationDictionary = DeepStringRecord<typeof es>;
-

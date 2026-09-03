@@ -135,6 +135,26 @@ export default function GroupAuditPage() {
     setCalculatorExpr(expr);
   };
 
+  // Keyboard navigation for audit steps (ArrowLeft / ArrowRight)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        if (currentStepIndex < totalSteps - 1) {
+          setCurrentStepIndex((prev) => prev + 1);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        if (currentStepIndex > 0) {
+          setCurrentStepIndex((prev) => prev - 1);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentStepIndex, totalSteps]);
+
   if ((isLoading || isFetchingGroup) && !group) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
@@ -667,51 +687,59 @@ export default function GroupAuditPage() {
                   </div>
                 )}
 
-                {/* Wizard Navigation Buttons */}
-                <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap">
+                {/* Wizard Navigation Buttons Docked in Persistent Fixed Position */}
+                <div className="sticky bottom-4 z-20 mt-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xl shadow-slate-900/10 flex items-center justify-between gap-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handlePrevStep}
                     disabled={currentStepIndex === 0}
-                    className="gap-1.5 flex-1 sm:flex-initial"
+                    className="gap-1.5 h-11 px-4 min-w-[110px] sm:min-w-[130px] font-bold"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     <span>{t('audit.prevStep')}</span>
                   </Button>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{currentStepIndex + 1}</span>
+                    <span className="opacity-40">/</span>
+                    <span>{totalSteps}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     {currentStepIndex === totalSteps - 1 ? (
                       <Button
                         type="button"
                         variant="outline"
                         onClick={handleRestart}
-                        className="gap-1.5 flex-1 sm:flex-initial"
+                        className="gap-1.5 h-11 px-4 min-w-[110px] sm:min-w-[130px] font-bold"
                       >
                         <RotateCcw className="w-4 h-4" />
                         <span>{t('audit.restart')}</span>
                       </Button>
                     ) : (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={handleJumpToEnd}
-                        className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hidden sm:inline-flex"
-                      >
-                        {t('audit.jumpToEnd')}
-                      </Button>
-                    )}
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={handleJumpToEnd}
+                          className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hidden md:inline-flex"
+                        >
+                          {t('audit.jumpToEnd')}
+                        </Button>
 
-                    <Button
-                      type="button"
-                      variant="brand"
-                      onClick={handleNextStep}
-                      disabled={currentStepIndex === totalSteps - 1}
-                      className="gap-1.5 flex-1 sm:flex-initial shadow-md shadow-emerald-600/20"
-                    >
-                      <span>{t('audit.nextStep')}</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
+                        <Button
+                          type="button"
+                          variant="brand"
+                          onClick={handleNextStep}
+                          disabled={currentStepIndex === totalSteps - 1}
+                          className="gap-1.5 h-11 px-5 min-w-[110px] sm:min-w-[130px] font-bold shadow-md shadow-emerald-600/25"
+                        >
+                          <span>{t('audit.nextStep')}</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -726,12 +754,12 @@ export default function GroupAuditPage() {
             <Card className="space-y-3.5">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <HandCoins className="w-4 h-4 text-emerald-600" />
-                <span>Resumen Financiero del Viaje</span>
+                <span>{t('audit.financialSummary')}</span>
               </h4>
 
               <div className="space-y-2.5 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Total gastado en el viaje:</span>
+                  <span className="text-slate-500 dark:text-slate-400">{t('audit.totalSpentInTrip')}</span>
                   <span className="font-bold text-slate-900 dark:text-white">
                     {formatMoney(
                       expenses.reduce((s, e) => s + (e.converted_amount || e.amount), 0),
@@ -741,14 +769,14 @@ export default function GroupAuditPage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Total adelantado por ti:</span>
+                  <span className="text-slate-500 dark:text-slate-400">{t('audit.totalPaidByYou')}</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
                     {formatMoney(currentStep?.runningPaid || 0, group.base_currency)}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Total de tu consumo:</span>
+                  <span className="text-slate-500 dark:text-slate-400">{t('audit.totalConsumedByYou')}</span>
                   <span className="font-bold text-rose-600 dark:text-rose-400">
                     {formatMoney(currentStep?.runningConsumed || 0, group.base_currency)}
                   </span>
@@ -756,7 +784,7 @@ export default function GroupAuditPage() {
 
                 <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="font-extrabold text-slate-900 dark:text-white">
-                    Saldo verificado:
+                    {t('audit.verifiedBalance')}
                   </span>
                   <span
                     className={`font-black text-sm ${

@@ -334,8 +334,8 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Censurar Factura / Ticket"
-      description="Tacha con el rotulador o borra censuras antes de enviar a la IA"
+      title={t('expenses.redactReceiptTitle')}
+      description={t('expenses.redactReceiptSubtitle')}
       maxWidth="xl"
     >
       <div className="space-y-4">
@@ -346,10 +346,10 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
           </div>
           <div className="space-y-0.5 min-w-0">
             <h4 className="text-xs font-bold text-amber-300">
-              Privacidad Garantizada: Rotulador negro y Borrador
+              {t('expenses.privacyGuaranteed')}
             </h4>
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              Tacha cualquier información privada que <strong>NO</strong> quieras que el servicio de IA procese. Puedes usar el <strong>Borrador</strong> para corregir trazos o el <strong>Zoom</strong> para acercarte a textos pequeños.
+              {t('expenses.redactionInstructions')}
             </p>
           </div>
         </div>
@@ -366,10 +366,10 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
                   ? 'bg-black text-white shadow-xs'
                   : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
               }`}
-              title="Rotulador negro (Censurar)"
+              title={t('expenses.blackMarker')}
             >
               <Paintbrush className="w-3.5 h-3.5" />
-              <span>Rotulador</span>
+              <span>{t('expenses.toolBrush')}</span>
             </button>
 
             <button
@@ -380,10 +380,10 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
                   ? 'bg-black text-white shadow-xs'
                   : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
               }`}
-              title="Caja rectangular de censura"
+              title={t('expenses.redactionBox')}
             >
               <Square className="w-3.5 h-3.5" />
-              <span>Caja</span>
+              <span>{t('expenses.toolBox')}</span>
             </button>
 
             <button
@@ -394,10 +394,10 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
               }`}
-              title="Borrador para quitar censuras"
+              title={t('expenses.redactionEraser')}
             >
               <Eraser className="w-3.5 h-3.5 text-rose-300" />
-              <span>Borrador</span>
+              <span>{t('expenses.toolEraser')}</span>
             </button>
 
             <button
@@ -408,17 +408,17 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
               }`}
-              title="Mover imagen con zoom"
+              title={t('expenses.toolPan')}
             >
               <Hand className="w-3.5 h-3.5" />
-              <span>Mover</span>
+              <span>{t('expenses.toolPan')}</span>
             </button>
           </div>
 
           {/* Stroke Widths */}
           {(drawMode === 'brush' || drawMode === 'eraser') && (
             <div className="flex items-center gap-1 bg-white dark:bg-slate-700 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
-              <span className="text-[10px] font-bold text-slate-400 px-1">Grosor:</span>
+              <span className="text-[10px] font-bold text-slate-400 px-1">{t('expenses.brushSizeLabel')}</span>
               <button
                 type="button"
                 onClick={() => setBrushSize('sm')}
@@ -426,7 +426,7 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
                   brushSize === 'sm' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                Fino
+                {t('expenses.brushSizeFine')}
               </button>
               <button
                 type="button"
@@ -435,7 +435,7 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
                   brushSize === 'md' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                Medio
+                {t('expenses.brushSizeMedium')}
               </button>
               <button
                 type="button"
@@ -444,7 +444,7 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
                   brushSize === 'lg' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                Grueso
+                {t('expenses.brushSizeThick')}
               </button>
             </div>
           )}
@@ -566,7 +566,7 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
             className="text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20"
           >
             <Sparkles className="w-4 h-4" />
-            <span>Procesar en segundo plano 🚀</span>
+            <span>{t('expenses.processInBackground')} 🚀</span>
           </Button>
         </div>
       </div>

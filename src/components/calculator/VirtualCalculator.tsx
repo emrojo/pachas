@@ -155,11 +155,11 @@ export const VirtualCalculator: React.FC<VirtualCalculatorProps> = ({
       setJustCalculated(true);
       setWaitingForOperand(false);
       setHistory((prev) => [`${exprStr} = ${evaluated}`, ...prev.slice(0, 4)]);
-      setFlashNotification('¡Operación cargada!');
+      setFlashNotification(t('audit.calcLoaded'));
       setTimeout(() => setFlashNotification(null), 2500);
       if (onResultChange) onResultChange(evaluated);
     }
-  }, [evaluateMath, onResultChange]);
+  }, [evaluateMath, onResultChange, t]);
 
   // Watch for initialExpression changes from parent
   useEffect(() => {
@@ -252,7 +252,7 @@ export const VirtualCalculator: React.FC<VirtualCalculatorProps> = ({
           type="button"
           onClick={clearAll}
           className="p-3 sm:p-3.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
-          title="Borrar todo (AC)"
+          title={t('audit.clearAll')}
         >
           AC
         </button>
@@ -261,7 +261,7 @@ export const VirtualCalculator: React.FC<VirtualCalculatorProps> = ({
           type="button"
           onClick={handleBackspace}
           className="p-3 sm:p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
-          title="Borrar último dígito"
+          title={t('audit.backspace')}
         >
           <Delete className="w-4 h-4" />
         </button>

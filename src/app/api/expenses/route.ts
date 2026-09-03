@@ -3,6 +3,7 @@ import { getDbPool } from '@/lib/db/postgres';
 import { requireActiveUser } from '@/lib/auth/userAuth';
 import { notifyGroupMembers } from '@/lib/notifications/webPush';
 import { isServerAdmin } from '@/lib/auth/adminAuth';
+import { realtimeHub } from '@/lib/realtime/sse';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -291,6 +292,35 @@ export async function POST(request: NextRequest) {
         tag: `expense-${id}`,
         data: { groupId, expenseId: id },
       }).catch(() => {});
+
+      // 6. Broadcast real-time expense creation to all connected clients
+      realtimeHub.broadcast({
+        type: 'expense_created',
+        groupId,
+        userId: user.userId,
+        payload: {
+          id,
+          group_id: groupId,
+          created_by: user.userId,
+          title,
+          amount,
+          currency,
+          exchange_rate: exchangeRate,
+          converted_amount: convertedAmount,
+          category,
+          expense_date: cleanDate,
+          receipt_url: receiptUrl,
+          notes,
+          split_type: splitType,
+          latitude,
+          longitude,
+          location_name: locationName,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          payers,
+          participants,
+        },
+      });
 
       return NextResponse.json({
         success: true,

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { PendingReceiptScan } from '@/types/database';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +17,7 @@ export const PendingScansBanner: React.FC<PendingScansBannerProps> = ({
   onSelectScanToValidate,
 }) => {
   const { pendingReceiptScans, dismissPendingScan } = usePachas();
+  const { t } = useTranslation();
 
   // Filter scans relevant to this group or all if on dashboard
   const relevantScans = (pendingReceiptScans || []).filter(
@@ -51,14 +53,14 @@ export const PendingScansBanner: React.FC<PendingScansBannerProps> = ({
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-black text-emerald-950 dark:text-emerald-200">
-                    🧾 Ticket listo para validar:
+                    🧾 {t('expenses.reviewRequired')}:
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                     {title} {amount && `(${amount})`}
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">
-                  Revisa los datos y las censuras automáticas de tarjeta antes de confirmar.
+                  {t('expenses.pendingValidationNotice')}
                 </p>
               </div>
             </div>
@@ -70,7 +72,7 @@ export const PendingScansBanner: React.FC<PendingScansBannerProps> = ({
                 onClick={() => onSelectScanToValidate(scan)}
                 className="text-xs font-bold gap-1.5 shadow-xs"
               >
-                <span>Revisar y Validar</span>
+                <span>{t('expenses.reviewAndValidate')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             </div>
@@ -87,9 +89,9 @@ export const PendingScansBanner: React.FC<PendingScansBannerProps> = ({
           <div className="flex items-center gap-2.5 min-w-0">
             <Loader2 className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-spin shrink-0" />
             <div className="min-w-0 text-xs">
-              <span className="font-bold">Analizando ticket con IA en segundo plano...</span>
+              <span className="font-bold">{t('expenses.analyzingReceipt')}</span>
               <span className="text-[11px] text-amber-700/80 dark:text-amber-300/80 block">
-                Te avisaremos cuando esté listo. No se creará ningún gasto hasta que des el visto bueno.
+                {t('expenses.backgroundOcrNotice')}
               </span>
             </div>
           </div>
@@ -105,9 +107,9 @@ export const PendingScansBanner: React.FC<PendingScansBannerProps> = ({
           <div className="flex items-center gap-2.5 min-w-0">
             <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             <div className="min-w-0 text-xs">
-              <span className="font-bold">No se pudo procesar el ticket con IA</span>
+              <span className="font-bold">{t('expenses.ocrFailedTitle')}</span>
               <span className="text-[11px] text-rose-700/80 dark:text-rose-300/80 block">
-                {scan.error_message || 'Error al analizar la imagen. Puedes introducir los datos manualmente.'}
+                {scan.error_message || t('expenses.ocrFailedDesc')}
               </span>
             </div>
           </div>
@@ -117,7 +119,7 @@ export const PendingScansBanner: React.FC<PendingScansBannerProps> = ({
             onClick={() => dismissPendingScan(scan.id)}
             className="text-xs text-rose-600 border-rose-200 hover:bg-rose-100 dark:border-rose-900 shrink-0"
           >
-            Descartar
+            {t('common.discard')}
           </Button>
         </div>
       ))}

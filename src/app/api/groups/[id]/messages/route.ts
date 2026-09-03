@@ -129,7 +129,8 @@ export async function POST(
       return NextResponse.json({ error: 'El mensaje no puede estar vacío' }, { status: 400 });
     }
 
-    const messageId = body.id && !body.id.startsWith('msg-') ? body.id : randomUUID();
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const messageId = body.id && uuidRegex.test(body.id) ? body.id : randomUUID();
     const pool = getDbPool();
 
     // Check if group is frozen
@@ -244,12 +245,12 @@ export async function POST(
       notifyGroupMembers(groupId, user.userId, {
         title: `💬 ${senderName} en "${groupName}"`,
         body: cleanMessage.length > 80 ? `${cleanMessage.substring(0, 80)}...` : cleanMessage,
-        url: `/groups/${groupId}?tab=chat`,
+        url: `/groups/${groupId}?tab=chat&messageId=${messageId}`,
         data: {
           type: 'group_message',
           groupId,
           messageId,
-          url: `/groups/${groupId}?tab=chat`,
+          url: `/groups/${groupId}?tab=chat&messageId=${messageId}`,
         },
       }).catch((pushErr) => {
         console.warn('Non-fatal push notification error:', pushErr);
