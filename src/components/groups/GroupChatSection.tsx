@@ -108,21 +108,41 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
     }
   }, [targetMessageId, messages.length]);
 
-  // Contained scroll to bottom on new messages without jarring window jumps
-  useEffect(() => {
+  const scrollToBottom = (smooth = true) => {
     if (!chatContainerRef.current) return;
     const container = chatContainerRef.current;
-    const { scrollHeight, clientHeight, scrollTop } = container;
-    const isNearBottom = scrollHeight - clientHeight - scrollTop < 160;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto',
+    });
+    // Deferred second pass to absorb late rendered images / GIFs / custom fonts
+    setTimeout(() => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: smooth ? 'smooth' : 'auto',
+        });
+      }
+    }, 100);
+  };
 
-    if (isNearBottom || isJustSentRef.current) {
-      container.scrollTo({
-        top: scrollHeight,
-        behavior: isJustSentRef.current ? 'smooth' : 'auto',
-      });
-      isJustSentRef.current = false;
+  // Initial scroll to bottom on mount or when group messages first load
+  useEffect(() => {
+    if (messages.length > 0 && !targetMessageId) {
+      scrollToBottom(false);
     }
-  }, [messages.length]);
+  }, [groupId]);
+
+  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+
+  // Position scroll at the very bottom whenever a new message or notification arrives while viewing chat
+  useEffect(() => {
+    if (messages.length === 0) return;
+    if (targetMessageId) return; // Respect deep-link highlight
+
+    scrollToBottom(isJustSentRef.current ? false : true);
+    isJustSentRef.current = false;
+  }, [messages.length, lastMessageId]);
 
   // Helper to resolve real author profile
   const getAuthorProfile = (userId: string, initialProfile?: any) => {

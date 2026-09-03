@@ -45,8 +45,26 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
+  const commentsContainerRef = useRef<HTMLDivElement>(null);
 
   const comments = getExpenseComments(expenseId);
+
+  const scrollToBottom = (smooth = true) => {
+    if (!commentsContainerRef.current) return;
+    const container = commentsContainerRef.current;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto',
+    });
+    setTimeout(() => {
+      if (commentsContainerRef.current) {
+        commentsContainerRef.current.scrollTo({
+          top: commentsContainerRef.current.scrollHeight,
+          behavior: smooth ? 'smooth' : 'auto',
+        });
+      }
+    }, 100);
+  };
 
   // Fetch comments from backend on mount
   useEffect(() => {
@@ -54,6 +72,15 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
       fetchExpenseComments(expenseId);
     }
   }, [expenseId]);
+
+  const lastCommentId = comments.length > 0 ? comments[comments.length - 1].id : null;
+
+  // Auto-scroll to bottom whenever comments change or new notification arrives
+  useEffect(() => {
+    if (comments.length > 0) {
+      scrollToBottom(true);
+    }
+  }, [comments.length, lastCommentId]);
 
   const groupMembers = groupId ? getGroupMembers(groupId) : [];
 
@@ -142,7 +169,7 @@ export const ExpenseCommentsSection: React.FC<ExpenseCommentsSectionProps> = ({
       </div>
 
       {/* Comments List */}
-      <div className="space-y-3 max-h-64 overflow-y-auto overscroll-contain pr-1 -mr-1 custom-scrollbar">
+      <div ref={commentsContainerRef} className="space-y-3 max-h-64 overflow-y-auto overscroll-contain pr-1 -mr-1 custom-scrollbar">
         {comments.map((cmt) => {
           const isAuthor = currentUser?.id === cmt.user_id;
           const authorProfile = getAuthorProfile(cmt.user_id, cmt.profile);
