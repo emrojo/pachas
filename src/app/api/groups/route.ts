@@ -125,10 +125,10 @@ export async function GET(request: NextRequest) {
                    'role', gm.role,
                    'joined_at', gm.joined_at,
                    'profile', jsonb_build_object(
-                     'id', p.id,
-                     'full_name', p.full_name,
+                     'id', COALESCE(p.id, gm.user_id),
+                     'full_name', COALESCE(p.full_name, 'Amigo'),
                      'avatar_url', p.avatar_url,
-                     'email', p.email,
+                     'email', COALESCE(p.email, ''),
                      'bizum_phone', p.bizum_phone,
                      'is_banned', COALESCE(p.is_banned, false),
                      'ban_reason', p.ban_reason
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
              ) as members
       FROM public.groups g
       LEFT JOIN public.group_members gm ON gm.group_id = g.id
-      LEFT JOIN public.profiles p ON p.id = gm.user_id
+      LEFT JOIN public.profiles p ON p.id::text = gm.user_id::text
     `;
 
     const params: any[] = [];

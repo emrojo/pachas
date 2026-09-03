@@ -128,6 +128,13 @@ export default function GroupDetailPage() {
 
   const [activeTab, setActiveTab] = useState<TabType>('expenses');
   const [friendsSubTab, setFriendsSubTab] = useState<'list' | 'chat'>('list');
+
+  // Re-fetch fresh members list from server when entering members tab
+  useEffect(() => {
+    if (activeTab === 'members' && groupId) {
+      fetchGroup(groupId).catch(() => {});
+    }
+  }, [activeTab, groupId, fetchGroup]);
   const [isExpenseFormOpen, setIsExpenseFormOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isEditGroupOpen, setIsEditGroupOpen] = useState(false);

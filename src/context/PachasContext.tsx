@@ -886,15 +886,43 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const grp: Group = data.group;
           setGroups((prev) => {
             const exists = prev.some((g) => g.id === grp.id);
-            return exists ? prev.map((g) => (g.id === grp.id ? grp : g)) : [grp, ...prev];
+            const updated = exists ? prev.map((g) => (g.id === grp.id ? grp : g)) : [grp, ...prev];
+            groupsRef.current = updated;
+            safeSetLocalStorage(STORAGE_KEYS.GROUPS, JSON.stringify(updated));
+            return updated;
           });
 
           const rawMembers = (data.group as any).members;
           if (rawMembers && Array.isArray(rawMembers)) {
-            setMembers((prev) => ({
-              ...prev,
-              [grp.id]: rawMembers,
-            }));
+            setMembers((prev) => {
+              const updated = {
+                ...prev,
+                [grp.id]: rawMembers,
+              };
+              membersRef.current = updated;
+              safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(updated));
+              return updated;
+            });
+
+            // Reconcile and enrich friends / availableUsers so they are recognized everywhere
+            setAvailableUsers((prev) => {
+              const userMap = new Map(prev.map((u) => [u.id, u]));
+              rawMembers.forEach((m: any) => {
+                if (m.profile && m.profile.id) {
+                  userMap.set(m.profile.id, {
+                    id: m.profile.id,
+                    email: m.profile.email || '',
+                    full_name: m.profile.full_name || 'Amigo',
+                    avatar_url: m.profile.avatar_url || null,
+                    bizum_phone: m.profile.bizum_phone || null,
+                    created_at: m.profile.created_at || m.joined_at || new Date().toISOString(),
+                  });
+                }
+              });
+              const enrichedUsers = Array.from(userMap.values());
+              safeSetLocalStorage(STORAGE_KEYS.USERS, JSON.stringify(enrichedUsers));
+              return enrichedUsers;
+            });
           }
 
           // Fetch expenses in parallel
@@ -2621,7 +2649,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const res = await fetch(`/api/expenses/${expenseId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: newComment.id, comment: text, gif_url: gifUrl }),
+        body: JSON.stringify({
+          id: newComment.id,
+          comment: text,
+          gif_url: gifUrl,
+          groupId: targetExpense?.group_id || targetGroup?.id,
+        }),
       });
       if (res.status === 403) {
         const errData = await res.json().catch(() => ({}));
@@ -3240,6 +3273,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     ...prev,
                     [member.group_id]: [...currentList, member],
                   };
+                  membersRef.current = updated;
                   safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(updated));
                   return updated;
                 });

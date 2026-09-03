@@ -181,7 +181,7 @@ export async function POST(
     };
 
     // Fetch expense and group details, and mirror comment into group_messages
-    let targetGroupId: string | null = null;
+    let targetGroupId: string | null = body.groupId || body.group_id || null;
     try {
       const expRes = await pool.query(
         `SELECT e.title, e.group_id, e.amount, e.currency, g.name as group_name
@@ -251,14 +251,12 @@ export async function POST(
     };
 
     // Broadcast real-time comment to all connected clients
-    if (targetGroupId) {
-      realtimeHub.broadcast({
-        type: 'expense_comment_created',
-        groupId: targetGroupId,
-        userId: user.userId,
-        payload: commentPayload,
-      });
-    }
+    realtimeHub.broadcast({
+      type: 'expense_comment_created',
+      groupId: targetGroupId || undefined,
+      userId: user.userId,
+      payload: commentPayload,
+    });
 
     return NextResponse.json({
       success: true,

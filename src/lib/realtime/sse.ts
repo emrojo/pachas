@@ -230,10 +230,8 @@ class RealtimeHub {
   }
 }
 
-// Global singleton across hot reloads
+// Global singleton across hot reloads and worker routes
 const globalRealtime = globalThis as unknown as { __pachas_realtime_hub__?: RealtimeHub };
 
 export const realtimeHub = globalRealtime.__pachas_realtime_hub__ || new RealtimeHub();
-if (process.env.NODE_ENV !== 'production') {
-  globalRealtime.__pachas_realtime_hub__ = realtimeHub;
-}
+globalRealtime.__pachas_realtime_hub__ = realtimeHub;
