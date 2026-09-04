@@ -26,7 +26,7 @@ function RegisterForm() {
   const { t, language, setLanguage } = useTranslation();
 
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(searchParams?.get('email') || '');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>(language);

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import {
   Group,
   GroupMember,
+  GroupInvitation,
   Expense,
   Settlement,
   Profile,
@@ -122,7 +123,12 @@ interface PachasContextType {
   isGroupFrozen: (groupId: string) => boolean;
   joinGroup: (inviteCode: string, enableNotifications?: boolean) => Promise<Group | null>;
   addMemberByEmail: (groupId: string, email: string) => Promise<boolean>;
-  addMemberToGroup: (groupId: string, userId: string) => Promise<boolean>;
+  sendGroupEmailInvite: (groupId: string, emails: string, customMessage?: string) => Promise<{ success: boolean; message: string }>;
+  getGroupInvitations: (groupId: string) => Promise<GroupInvitation[]>;
+  cancelGroupInvitation: (groupId: string, invitationId: string) => Promise<boolean>;
+  resendGroupInvitation: (groupId: string, invitationId: string) => Promise<boolean>;
+  getKnownContacts: (excludeGroupId?: string) => Promise<Profile[]>;
+  addMemberToGroup: (groupId: string, userId: string, profileOverride?: Profile) => Promise<boolean>;
   removeMemberFromGroup: (groupId: string, userId: string) => Promise<boolean>;
   updateMemberRole: (groupId: string, userId: string, newRole: 'admin' | 'member') => Promise<boolean>;
   availableUsers: Profile[];
@@ -1522,13 +1528,112 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return true;
   };
 
-  const addMemberToGroup = async (groupId: string, userId: string): Promise<boolean> => {
+  const getKnownContacts = async (excludeGroupId?: string): Promise<Profile[]> => {
+    try {
+      const url = excludeGroupId
+        ? `/api/user/known-contacts?excludeGroupId=${encodeURIComponent(excludeGroupId)}`
+        : '/api/user/known-contacts';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.contacts)) {
+          // Merge any newly discovered contacts into availableUsers
+          setAvailableUsers((prev) => {
+            const map = new Map(prev.map((u) => [u.id, u]));
+            data.contacts.forEach((c: Profile) => {
+              if (!map.has(c.id)) map.set(c.id, c);
+            });
+            return Array.from(map.values());
+          });
+          return data.contacts;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch known contacts from API, falling back to local state:', err);
+    }
+
+    // Fallback: calculate from local state (demo mode or offline)
+    if (!currentUser) return [];
+
+    const currentUserId = currentUser.id;
+    const knownMap = new Map<string, Profile & { shared_groups_count?: number }>();
+
+    // 1. Find all groups where currentUser participates
+    const userGroupIds = groups
+      .filter((g) => {
+        const grpMembers = members[g.id] || [];
+        return grpMembers.some((m) => m.user_id === currentUserId) || g.created_by === currentUserId;
+      })
+      .map((g) => g.id);
+
+    // 2. Collect all other members in those groups
+    userGroupIds.forEach((gid) => {
+      const grpMembers = members[gid] || [];
+      grpMembers.forEach((m) => {
+        if (m.user_id !== currentUserId && !m.profile?.is_banned) {
+          const prof = m.profile || availableUsers.find((u) => u.id === m.user_id);
+          if (prof) {
+            const existing = knownMap.get(prof.id);
+            if (existing) {
+              existing.shared_groups_count = (existing.shared_groups_count || 1) + 1;
+            } else {
+              knownMap.set(prof.id, { ...prof, shared_groups_count: 1 });
+            }
+          }
+        }
+      });
+    });
+
+    // 3. Exclude members already in the requested group
+    if (excludeGroupId) {
+      const excludeMembers = members[excludeGroupId] || [];
+      excludeMembers.forEach((m) => {
+        knownMap.delete(m.user_id);
+      });
+    }
+
+    return Array.from(knownMap.values());
+  };
+
+  const addMemberToGroup = async (
+    groupId: string,
+    userId: string,
+    profileOverride?: Profile
+  ): Promise<boolean> => {
     const grpMembers = members[groupId] || [];
-    const targetUser = availableUsers.find((u) => u.id === userId);
+    let targetUser = profileOverride || availableUsers.find((u) => u.id === userId);
+    if (!targetUser) {
+      for (const gId of Object.keys(members)) {
+        const found = members[gId].find((m) => m.user_id === userId);
+        if (found?.profile) {
+          targetUser = found.profile;
+          break;
+        }
+      }
+    }
     if (!targetUser) return false;
 
     if (grpMembers.some((m) => m.user_id === userId)) {
       return false; // Already in group
+    }
+
+    // Sync to PostgreSQL backend
+    try {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: targetUser.id, role: 'member' }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Error al agregar miembro al grupo');
+      }
+    } catch (e: any) {
+      if (!isDemoMode && !e.message?.includes('Failed to fetch')) {
+        console.error('API addMemberToGroup error:', e);
+        throw e;
+      }
+      console.warn('API addMemberToGroup warning:', e);
     }
 
     const newMember: GroupMember = {
@@ -1546,12 +1651,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     saveState(undefined, updatedMembers);
 
-    // Sync to PostgreSQL backend
-    fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: targetUser.id, role: 'member' }),
-    }).catch((e) => console.warn('API addMemberToGroup warning:', e));
+    // Register in availableUsers if not already present
+    setAvailableUsers((prev) => {
+      if (!prev.some((u) => u.id === targetUser!.id)) {
+        return [...prev, targetUser!];
+      }
+      return prev;
+    });
 
     const targetGroup = getGroup(groupId);
     addNotification({
@@ -1625,6 +1731,82 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }).catch((e) => console.warn('API addMemberByEmail warning:', e));
 
     return true;
+  };
+
+  const sendGroupEmailInvite = async (
+    groupId: string,
+    emails: string,
+    customMessage?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/invitations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails, customMessage }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al enviar la invitación');
+      }
+
+      const targetGroup = getGroup(groupId);
+      if (currentUser) {
+        addNotification({
+          user_id: currentUser.id,
+          type: 'member_invited',
+          title: '📨 Invitación enviada',
+          message: data.message || `Se ha enviado invitación al grupo "${targetGroup?.name || 'Viaje'}"`,
+          group_id: groupId,
+          group_name: targetGroup?.name,
+          action_url: `/groups/${groupId}?tab=members`,
+        });
+      }
+
+      return { success: true, message: data.message || 'Invitación enviada' };
+    } catch (err: any) {
+      console.warn('sendGroupEmailInvite API call:', err);
+      throw err;
+    }
+  };
+
+  const getGroupInvitations = async (groupId: string): Promise<GroupInvitation[]> => {
+    try {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/invitations`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.invitations || [];
+      }
+      return [];
+    } catch (err) {
+      console.warn('getGroupInvitations error:', err);
+      return [];
+    }
+  };
+
+  const cancelGroupInvitation = async (groupId: string, invitationId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(
+        `/api/groups/${encodeURIComponent(groupId)}/invitations?invitationId=${encodeURIComponent(invitationId)}`,
+        { method: 'DELETE' }
+      );
+      return res.ok;
+    } catch (err) {
+      console.warn('cancelGroupInvitation error:', err);
+      return false;
+    }
+  };
+
+  const resendGroupInvitation = async (groupId: string, invitationId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(
+        `/api/groups/${encodeURIComponent(groupId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
+        { method: 'POST' }
+      );
+      return res.ok;
+    } catch (err) {
+      console.warn('resendGroupInvitation error:', err);
+      return false;
+    }
   };
 
 
@@ -3683,6 +3865,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isGroupFrozen,
         joinGroup,
         addMemberByEmail,
+        sendGroupEmailInvite,
+        getGroupInvitations,
+        cancelGroupInvitation,
+        resendGroupInvitation,
+        getKnownContacts,
         addMemberToGroup,
         removeMemberFromGroup,
         updateMemberRole,

@@ -60,6 +60,21 @@ export interface GroupMember {
   profile?: Profile;
 }
 
+export interface GroupInvitation {
+  id: string;
+  group_id: string;
+  invited_by: string | null;
+  email: string;
+  role: 'admin' | 'member';
+  token: string;
+  status: 'pending' | 'accepted' | 'cancelled' | 'expired';
+  custom_message?: string | null;
+  created_at: string;
+  expires_at: string;
+  accepted_at?: string | null;
+  inviter?: Profile;
+}
+
 export interface ExpensePayer {
   id: string;
   expense_id: string;

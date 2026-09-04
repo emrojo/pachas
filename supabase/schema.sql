@@ -332,3 +332,19 @@ on conflict (id) do nothing;
 insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do nothing;
+
+-- 8. GROUP INVITATIONS
+create table if not exists public.group_invitations (
+    id uuid primary key default uuid_generate_v4(),
+    group_id uuid references public.groups(id) on delete cascade not null,
+    invited_by uuid references public.profiles(id) on delete set null,
+    email text not null,
+    role text default 'member' check (role in ('admin', 'member')) not null,
+    token text unique not null,
+    status text default 'pending' check (status in ('pending', 'accepted', 'cancelled', 'expired')) not null,
+    custom_message text,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    expires_at timestamp with time zone default (timezone('utc'::text, now()) + interval '14 days') not null,
+    accepted_at timestamp with time zone
+);
+

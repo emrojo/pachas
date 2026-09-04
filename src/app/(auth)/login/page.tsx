@@ -27,7 +27,7 @@ function LoginFormContent() {
   const { currentUser, setCurrentUser, availableUsers, isCurrentUserAdmin } = usePachas();
   const { t } = useTranslation();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(searchParams?.get('email') || '');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');

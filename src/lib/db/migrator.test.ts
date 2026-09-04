@@ -16,7 +16,7 @@ describe('Deterministic Database Migrator (Pachas Migrations Engine)', () => {
     // Check ordering
     expect(files[0].id).toBe('01-schema');
     expect(files[1].id).toBe('02-migration-exchange-rates');
-    expect(files[files.length - 1].id).toBe('11-user-preferred-language');
+    expect(files[files.length - 1].id).toBe('12-group-invitations');
 
     // Ensure reset-db is excluded from regular migration sequence
     expect(files.some(f => f.file === 'reset-db.sql')).toBe(false);

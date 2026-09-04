@@ -150,6 +150,21 @@ export async function POST(
     }
     const group = groupRes.rows[0];
 
+    // Check permissions: only group admin, group creator, or app superadmin can directly add members
+    const isCreator = String(group.created_by) === String(user.userId);
+    if (!isCreator && !user.isAdmin) {
+      const adminCheckRes = await pool.query(
+        'SELECT role FROM public.group_members WHERE group_id::text = $1 AND user_id::text = $2',
+        [groupId, user.userId]
+      );
+      if (adminCheckRes.rows.length === 0 || adminCheckRes.rows[0].role !== 'admin') {
+        return NextResponse.json(
+          { error: 'Solo los administradores del grupo pueden añadir miembros directamente' },
+          { status: 403 }
+        );
+      }
+    }
+
     let targetUserId = userId;
     let targetEmail = email?.trim()?.toLowerCase();
     let targetName = fullName?.trim();
@@ -158,6 +173,12 @@ export async function POST(
     if (targetUserId) {
       const profRes = await pool.query('SELECT * FROM public.profiles WHERE id::text = $1', [targetUserId]);
       if (profRes.rows.length > 0) {
+        if (profRes.rows[0].is_banned) {
+          return NextResponse.json(
+            { error: 'No se puede añadir a un usuario cuya cuenta está suspendida' },
+            { status: 400 }
+          );
+        }
         targetName = profRes.rows[0].full_name || targetName;
         targetEmail = profRes.rows[0].email || targetEmail;
       }

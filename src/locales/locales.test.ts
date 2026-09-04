@@ -37,17 +37,20 @@ describe('Internationalization (i18n) locales test suite', () => {
     expect(DEFAULT_LANGUAGE).toBe('es');
   });
 
-  it('should have matching key structure in Spanish and English dictionaries', () => {
-    const esKeys = Object.keys(LOCALES.es);
-    const enKeys = Object.keys(LOCALES.en);
+  it('should have matching key structure across all supported language dictionaries', () => {
+    const esKeys = Object.keys(LOCALES.es).sort();
+    const langCodes = Object.keys(LOCALES) as (keyof typeof LOCALES)[];
 
-    expect(esKeys.sort()).toEqual(enKeys.sort());
+    for (const lang of langCodes) {
+      if (lang === 'es') continue;
+      const langKeys = Object.keys(LOCALES[lang]).sort();
+      expect(langKeys, `Top-level sections in ${lang}`).toEqual(esKeys);
 
-    // Check each category section
-    for (const section of esKeys) {
-      const esSectionKeys = Object.keys((LOCALES.es as any)[section]).sort();
-      const enSectionKeys = Object.keys((LOCALES.en as any)[section]).sort();
-      expect(enSectionKeys).toEqual(esSectionKeys);
+      for (const section of esKeys) {
+        const esSectionKeys = Object.keys((LOCALES.es as any)[section]).sort();
+        const targetSectionKeys = Object.keys((LOCALES[lang] as any)[section] || {}).sort();
+        expect(targetSectionKeys, `Section "${section}" keys in ${lang}`).toEqual(esSectionKeys);
+      }
     }
   });
 

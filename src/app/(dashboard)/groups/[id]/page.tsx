@@ -61,6 +61,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  UserPlus,
 } from 'lucide-react';
 
 type TabType = 'expenses' | 'balances' | 'charts' | 'members' | 'history';
@@ -928,10 +929,10 @@ export default function GroupDetailPage() {
                   size="sm"
                   variant="brand"
                   onClick={() => setIsInviteOpen(true)}
-                  className="shrink-0 text-xs font-bold"
+                  className="shrink-0 text-xs font-bold gap-1.5"
                 >
-                  <QrCode className="w-3.5 h-3.5 mr-1" />
-                  <span>{t('groups.inviteFriends')}</span>
+                  {isAdmin ? <UserPlus className="w-3.5 h-3.5" /> : <QrCode className="w-3.5 h-3.5" />}
+                  <span>{isAdmin ? (t('groups.addMember') || 'Añadir Amigos') : t('groups.inviteFriends')}</span>
                 </Button>
               )}
             </div>

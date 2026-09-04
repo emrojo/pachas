@@ -87,6 +87,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Mark pending group invitations as accepted for this user's email
+    if (user.email) {
+      try {
+        await pool.query(
+          `UPDATE public.group_invitations
+           SET status = 'accepted', accepted_at = NOW()
+           WHERE group_id = $1 AND LOWER(email) = LOWER($2) AND status = 'pending'`,
+          [group.id, user.email.trim()]
+        );
+      } catch {
+        // Non-critical if table not yet migrated
+      }
+    }
+
     // 3. Fetch all members with their profile (LEFT JOIN prevents omitting members without profile record)
     const membersRes = await pool.query(
       `SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at,

@@ -71,7 +71,9 @@ export default function JoinGroupPage() {
 
   const handleJoinGroup = async () => {
     if (!currentUser) {
-      router.push(`/login?redirectTo=/join/${inviteCode}`);
+      const emailParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('email') : null;
+      const targetUrl = `/join/${inviteCode}${emailParam ? `?email=${encodeURIComponent(emailParam)}` : ''}`;
+      router.push(`/login?redirectTo=${encodeURIComponent(targetUrl)}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ''}`);
       return;
     }
 
