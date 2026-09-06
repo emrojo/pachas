@@ -41,17 +41,23 @@ describe('Internationalization (i18n) locales test suite', () => {
     const esKeys = Object.keys(LOCALES.es).sort();
     const langCodes = Object.keys(LOCALES) as (keyof typeof LOCALES)[];
 
+    const allMismatches: string[] = [];
     for (const lang of langCodes) {
       if (lang === 'es') continue;
-      const langKeys = Object.keys(LOCALES[lang]).sort();
-      expect(langKeys, `Top-level sections in ${lang}`).toEqual(esKeys);
-
       for (const section of esKeys) {
         const esSectionKeys = Object.keys((LOCALES.es as any)[section]).sort();
         const targetSectionKeys = Object.keys((LOCALES[lang] as any)[section] || {}).sort();
-        expect(targetSectionKeys, `Section "${section}" keys in ${lang}`).toEqual(esSectionKeys);
+        const missing = esSectionKeys.filter((k) => !targetSectionKeys.includes(k));
+        const extra = targetSectionKeys.filter((k) => !esSectionKeys.includes(k));
+        if (missing.length > 0 || extra.length > 0) {
+          allMismatches.push(`${lang}.${section}: missing=[${missing.join(', ')}] extra=[${extra.join(', ')}]`);
+        }
       }
     }
+    if (allMismatches.length > 0) {
+      console.log('ALL MISMATCHES:\n' + allMismatches.join('\n'));
+    }
+    expect(allMismatches).toEqual([]);
   });
 
   it('should have all t(...) calls in the codebase present in the translation dictionaries', () => {

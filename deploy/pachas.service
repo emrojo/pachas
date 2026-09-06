@@ -1,0 +1,54 @@
+# ==============================================================================
+# PACHAS - SYSTEMD SERVICE CONFIGURATION (UBUNTU / DEBIAN PRODUCTION)
+# ==============================================================================
+# Installation:
+#   sudo cp /var/www/pachas/deploy/pachas.service /etc/systemd/system/pachas.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable pachas.service
+#   sudo systemctl start pachas.service
+#
+# Management:
+#   sudo systemctl status pachas.service
+#   sudo systemctl restart pachas.service
+#   sudo journalctl -u pachas.service -f
+# ==============================================================================
+
+[Unit]
+Description=Pachas - Group Vacation Expense Splitter App (Next.js Standalone Production)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=nodeuser
+Group=nodeuser
+WorkingDirectory=/var/www/pachas
+
+# Environment variables from production environment file
+EnvironmentFile=/var/www/pachas/deploy/.env.production
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+Environment=NEXT_TELEMETRY_DISABLED=1
+
+# Process execution (Standalone Next.js runner)
+ExecStart=/usr/bin/node /var/www/pachas/deploy/start-node-prod.mjs
+
+# Automatic restart on crash or failure
+Restart=always
+RestartSec=5s
+
+# Security and resource hardening
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pachas
+
+# Sandboxing & security protections
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

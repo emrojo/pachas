@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { usePachas } from '@/context/PachasContext';
+import { usePachas, safeSetLocalStorage, safeGetLocalStorage } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import {
   Bell,
@@ -19,8 +19,11 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowRight,
+  Timer,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
 import { AppNotification, NotificationType } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { Navbar } from '@/components/layout/Navbar';
@@ -41,10 +44,39 @@ export default function NotificationsPage() {
     deleteNotification,
     clearAllNotifications,
     seedDemoNotifications,
+    triggerTestBubble,
     isDemoMode,
   } = usePachas();
   const { t } = useTranslation();
   const showDemoSeeds = isDemoMode && !isProduction();
+
+  const [bubbleDuration, setBubbleDuration] = useState<number>(5);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  useEffect(() => {
+    try {
+      const savedDur = safeGetLocalStorage('pachas_bubble_duration_seconds');
+      if (savedDur !== null) {
+        const val = parseInt(savedDur, 10);
+        if (!isNaN(val) && [0, 3, 5, 8, 12].includes(val)) setBubbleDuration(val);
+      }
+      const savedSnd = safeGetLocalStorage('pachas_bubble_sound_enabled');
+      if (savedSnd !== null) {
+        setSoundEnabled(savedSnd === 'true');
+      }
+    } catch {}
+  }, []);
+
+  const handleUpdateDuration = (secs: number) => {
+    setBubbleDuration(secs);
+    safeSetLocalStorage('pachas_bubble_duration_seconds', String(secs));
+  };
+
+  const handleToggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    safeSetLocalStorage('pachas_bubble_sound_enabled', String(next));
+  };
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
@@ -85,30 +117,30 @@ export default function NotificationsPage() {
   const getActionLabel = (type: NotificationType) => {
     switch (type) {
       case 'receipt_pending':
-        return '🔍 Validar ticket';
+        return `🔍 ${t('notifications.validateScan') || 'Validar ticket'}`;
       case 'expense_created':
       case 'expense_updated':
-        return '💰 Ver gasto';
+        return `💰 ${t('notifications.viewExpense') || 'Ver gasto'}`;
       case 'comment_created':
       case 'comment_reaction':
-        return '💬 Ver comentario';
+        return `💬 ${t('notifications.viewComment') || 'Ver comentario'}`;
       case 'group_message_created':
       case 'group_message_reaction':
-        return '💬 Ver chat';
+        return `💬 ${t('notifications.viewChat') || 'Ver chat'}`;
       case 'settlement_created':
-        return '🤝 Ver pago';
+        return `🤝 ${t('notifications.viewPayment') || 'Ver pago'}`;
       case 'group_role_updated':
       case 'member_invited':
       case 'member_joined':
       case 'member_removed':
       case 'group_archived':
       case 'group_restored':
-        return '👥 Ver grupo';
+        return '👥 ' + (t('groups.membersTab') || 'Ver grupo');
       case 'expense_deleted':
       case 'group_deleted':
-        return 'Ver aviso';
+        return t('common.details') || 'Ver aviso';
       default:
-        return 'Abrir';
+        return t('common.details') || 'Abrir';
     }
   };
 
@@ -186,7 +218,7 @@ export default function NotificationsPage() {
   };
 
   const handleClearRead = () => {
-    if (!confirm('¿Deseas eliminar todas las notificaciones ya leídas?')) return;
+    if (!confirm(t('notifications.confirmClearRead') || '¿Deseas eliminar todas las notificaciones ya leídas?')) return;
     notifications.forEach((n) => {
       if (n.read) deleteNotification(n.id);
     });
@@ -207,16 +239,16 @@ export default function NotificationsPage() {
               <div>
                 <div className="flex items-center gap-2.5">
                   <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                    Centro de Notificaciones
+                    {t('notifications.centerTitle') || 'Centro de Notificaciones'}
                   </h1>
                   {unreadNotificationsCount > 0 && (
                     <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-bold shadow-xs">
-                      {unreadNotificationsCount} sin leer
+                      {unreadNotificationsCount} {t('notifications.unread') || 'sin leer'}
                     </span>
                   )}
                 </div>
                 <p className="text-xs sm:text-sm text-emerald-50 mt-0.5">
-                  Consulta pagos por validar, cambios en grupos, comentarios y avisos
+                  {t('notifications.centerSubtitle') || 'Consulta pagos por validar, cambios en grupos, comentarios y avisos'}
                 </p>
               </div>
             </div>
@@ -229,10 +261,10 @@ export default function NotificationsPage() {
                   size="sm"
                   onClick={seedDemoNotifications}
                   className="text-xs font-bold gap-1.5 shadow-xs"
-                  title="Cargar notificaciones de ejemplo"
+                  title={t('notifications.loadExamples') || 'Cargar notificaciones de ejemplo'}
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Cargar ejemplos</span>
+                  <span>{t('notifications.loadExamples') || 'Cargar ejemplos'}</span>
                 </Button>
               )}
 
@@ -244,7 +276,7 @@ export default function NotificationsPage() {
                   className="text-xs font-bold gap-1.5 bg-white/15 hover:bg-white/25 text-white border-white/30"
                 >
                   <CheckCheck className="w-4 h-4 text-emerald-200" />
-                  <span>Marcar todas leídas</span>
+                  <span>{t('notifications.markAllRead') || 'Marcar todas leídas'}</span>
                 </Button>
               )}
 
@@ -254,12 +286,111 @@ export default function NotificationsPage() {
                   size="sm"
                   onClick={handleClearRead}
                   className="text-xs font-bold gap-1.5 bg-white/15 hover:bg-white/25 text-white border-white/30"
-                  title="Limpiar notificaciones leídas"
+                  title={t('notifications.clearRead') || 'Limpiar notificaciones leídas'}
                 >
                   <Trash2 className="w-4 h-4 text-rose-200" />
-                  <span>Limpiar leídas</span>
+                  <span>{t('notifications.clearRead') || 'Limpiar leídas'}</span>
                 </Button>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* WhatsApp Bubble Settings Card */}
+        <div className="bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-3xl p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#128c7e] to-[#25D366] text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>{t('notifications.bubbleTitle') || 'Burbujas flotantes (Estilo WhatsApp)'}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    {t('notifications.live') || 'En vivo'}
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('notifications.bubbleSubtitle') || 'Avisos en la esquina inferior con look & feel de WhatsApp para mensajes y nuevos integrantes'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleToggleSound}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border',
+                  soundEnabled
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                )}
+                title={t('notifications.soundEnabled') || 'Sonido de aviso'}
+              >
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+                <span>{soundEnabled ? (t('notifications.receiving') || 'Activado') : (t('notifications.muted') || 'Silenciado')}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+            {/* Duration Selector */}
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center gap-2">
+                <Timer className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {t('notifications.bubbleDuration') || 'Duración de las burbujas'}:
+                </span>
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  {bubbleDuration === 0 ? (t('notifications.durationManual') || 'Manual (Sin auto-cierre)') : `${bubbleDuration}s`}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: '3s', val: 3 },
+                  { label: '5s ⭐', val: 5 },
+                  { label: '8s', val: 8 },
+                  { label: '12s', val: 12 },
+                  { label: t('notifications.durationManual') || 'Manual', val: 0 },
+                ].map((item) => (
+                  <button
+                    key={item.val}
+                    type="button"
+                    onClick={() => handleUpdateDuration(item.val)}
+                    className={cn(
+                      'px-2.5 py-1 text-xs font-bold rounded-lg border transition-all',
+                      bubbleDuration === item.val
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-500'
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Test action buttons */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="brand"
+                size="sm"
+                onClick={() => triggerTestBubble('chat')}
+                className="text-xs font-bold gap-1.5 shadow-xs"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>{t('notifications.testChatBubble') || 'Probar chat'}</span>
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => triggerTestBubble('member')}
+                className="text-xs font-bold gap-1.5 shadow-xs"
+              >
+                <Users className="w-3.5 h-3.5 text-indigo-500" />
+                <span>{t('notifications.testMemberBubble') || 'Probar nuevo miembro'}</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -273,7 +404,7 @@ export default function NotificationsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por título, texto o grupo..."
+            placeholder={t('notifications.searchPlaceholder') || 'Buscar por título, texto o grupo...'}
             className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
           />
         </div>
@@ -289,7 +420,7 @@ export default function NotificationsPage() {
                 : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
-            Todas ({notifications.length})
+            {t('notifications.all') || 'Todas'} ({notifications.length})
           </button>
 
           <button
@@ -301,7 +432,7 @@ export default function NotificationsPage() {
                 : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
-            <span>No leídas</span>
+            <span>{t('notifications.unread') || 'No leídas'}</span>
             {unreadNotificationsCount > 0 && (
               <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
                 activeTab === 'unread' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400'
@@ -320,7 +451,7 @@ export default function NotificationsPage() {
                 : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
-            <span>💳 Pagos y Validaciones</span>
+            <span>💳 {t('notifications.payments') || 'Pagos y Validaciones'}</span>
           </button>
 
           <button
@@ -332,7 +463,7 @@ export default function NotificationsPage() {
                 : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
-            <span>💬 Comentarios</span>
+            <span>💬 {t('notifications.commentsTab') || 'Comentarios'}</span>
           </button>
 
           <button
@@ -344,7 +475,7 @@ export default function NotificationsPage() {
                 : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
             }`}
           >
-            <span>🌴 Grupos y Roles</span>
+            <span>🌴 {t('notifications.groupsTab') || 'Grupos y Roles'}</span>
           </button>
         </div>
       </div>
@@ -435,11 +566,11 @@ export default function NotificationsPage() {
             </div>
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                No hay notificaciones
+                {t('notifications.noNotifications') || 'No hay notificaciones'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                 {activeTab === 'unread'
-                  ? 'Estás al día. No tienes ninguna notificación pendiente sin leer.'
+                  ? (t('notifications.noUnreadNotifications') || 'Estás al día. No tienes ninguna notificación pendiente sin leer.')
                   : 'Cuando haya tickets pendientes de validación, nuevos comentarios o pagos, aparecerán aquí.'}
               </p>
             </div>
@@ -452,7 +583,7 @@ export default function NotificationsPage() {
                   className="text-xs font-bold gap-2 shadow-xs"
                 >
                   <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>Cargar notificaciones de ejemplo</span>
+                  <span>{t('notifications.loadExamples') || 'Cargar notificaciones de ejemplo'}</span>
                 </Button>
               </div>
             )}

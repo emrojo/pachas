@@ -3,15 +3,18 @@
 import React, { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { usePachas } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
 
 import { PwaRegistrar } from '@/components/pwa/PwaRegistrar';
 import { OfflineBanner } from '@/components/pwa/OfflineBanner';
 import { SupportChatModal } from '@/components/support/SupportChatModal';
+import { NotificationBubbleToast } from '@/components/notifications/NotificationBubbleToast';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LogOut, MessageSquare } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const {
     currentUser,
     isLoading,
@@ -58,7 +61,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="w-12 h-12 rounded-2xl bg-rose-600 flex items-center justify-center text-white text-2xl animate-pulse shadow-lg mb-4">
           🚫
         </div>
-        <span className="text-xs font-semibold text-slate-400">Redirigiendo a zona de moderación...</span>
+        <span className="text-xs font-semibold text-slate-400">
+          {t('auth.redirectingModeration') || 'Redirigiendo a zona de moderación...'}
+        </span>
       </div>
     );
   }
@@ -75,6 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           onClose={closeSupportModal}
           initialCategory={supportInitialCategory}
         />
+        <NotificationBubbleToast />
       </>
     );
   }
@@ -90,7 +96,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '150ms' }} />
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
-        <span className="text-xs font-semibold text-slate-400 mt-3">Comprobando sesión...</span>
+        <span className="text-xs font-semibold text-slate-400 mt-3">
+          {t('auth.checkingSession') || 'Comprobando sesión...'}
+        </span>
       </div>
     );
   }

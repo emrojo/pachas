@@ -171,7 +171,7 @@ export const GroupCoverPicker: React.FC<GroupCoverPickerProps> = ({
 
           <label className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold hover:bg-emerald-100 flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs">
             <Upload className="w-3.5 h-3.5" />
-            <span>Subir imagen</span>
+            <span>{t('groups.uploadCoverImage') || 'Subir imagen'}</span>
             <input
               type="file"
               accept="image/*"
@@ -226,7 +226,7 @@ export const GroupCoverPicker: React.FC<GroupCoverPickerProps> = ({
             }}
             className="text-xs h-8 px-2.5 shrink-0 bg-white dark:bg-slate-800 cursor-pointer"
           >
-            {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <span>Buscar</span>}
+            {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <span>{t('groups.searchPhotos') || 'Buscar'}</span>}
           </Button>
         </div>
 

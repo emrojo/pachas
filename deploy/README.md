@@ -67,6 +67,10 @@ deploy/
 ├── env.example                 # Environment variables template with security flags
 ├── generate-secrets.mjs        # Cryptographic secrets generator (PostgreSQL, JWT)
 ├── generate-secrets.ps1        # PowerShell wrapper for secrets generator
+├── rotate-secrets.mjs          # Cryptographic secrets rotation engine with pre-validation & reload
+├── rotate-secrets.ps1          # PowerShell wrapper for secrets rotation
+├── rotate-secrets.sh           # Bash wrapper for secrets rotation
+├── pachas.service              # Linux systemd production service unit template
 ├── build-native.ps1            # Automated native build pipeline for Windows (Android/iOS)
 ├── build-native.sh             # Automated native build pipeline for Linux/macOS
 ├── deploy.sh                   # Automated deployment script for Linux/macOS
@@ -82,6 +86,44 @@ deploy/
     ├── 01-schema.sql           # SQL schema with tables, triggers, and full RLS policies
     └── reset-db.sql            # Clean database truncate script
 ```
+
+---
+
+## 🔐 Rotación de Secretos, Invalidación y Recarga en Caliente
+
+En caso de sospecha o confirmación de credenciales comprometidas, Pachas incluye un motor de rotación determinista (`node deploy/rotate-secrets.mjs` o `npm run secrets:rotate`) que permite rotar secretos individualmente o de forma masiva, actualizando tanto `.env.local` como `deploy/.env.production`, con **revalidación previa estricta, rollback automático ante fallos y recarga en caliente del servicio en ejecución**.
+
+### Comandos de Rotación:
+```bash
+# Modo interactivo asistido:
+npm run secrets:rotate
+
+# Rotación masiva de emergencia (Local):
+npm run secrets:rotate:all
+
+# Rotación masiva en Producción con recarga automática:
+npm run secrets:rotate:prod
+
+# Rotación en Producción forzando recarga de systemd (pachas.service):
+npm run secrets:rotate:systemd
+```
+
+### Tabla de Invalidación de Credenciales:
+| Secreto / Clave | ¿Desactiva la anterior de inmediato? | Comportamiento Técnico |
+|---|:---:|---|
+| **`JWT_SECRET`** | **SÍ (Inmediata y total)** | Invalida al instante todas las sesiones activas y cookies previas. Todos los usuarios deben iniciar sesión de nuevo. |
+| **`POSTGRES_PASSWORD`** | **SÍ (Inmediata en motor SQL)** | Ejecuta `ALTER USER ... WITH PASSWORD` en PostgreSQL. La contraseña previa queda destruida en la base de datos. |
+| **`VAPID_KEYS` (WebPush)** | **SÍ (Invalida suscripciones previas)** | Genera nuevo par elíptico. Requiere que los navegadores renueven la suscripción push. |
+| **Contraseñas de Cuenta** | **SÍ (Inmediata)** | Sobreescribe el hash criptográfico del usuario en `auth.users`. |
+| **Google Gemini API Key** | **NO en Google (Acción requerida)** | Requiere entrar a [Google AI Studio](https://aistudio.google.com/app/apikey) y pulsar **Delete / Revoke** en la clave anterior. |
+| **Pexels API Key** | **NO en Pexels (Acción requerida)** | Requiere revocar o regenerar en el portal de [Pexels API](https://www.pexels.com/api/). |
+| **SMTP / Resend / SendGrid** | **NO en proveedor (Acción requerida)** | Requiere borrar la App Password de Google o la API Key comprometida en el panel de Resend/SendGrid. |
+
+### Ciclo de Seguridad: Revalidación Previa y Rollback
+1. **Copia de Respaldo**: Antes de tocar ningún archivo, crea un backup timestamped (ej. `.env.production.bak-YYYYMMDD-HHMMSS`).
+2. **Revalidación Estricta**: Verifica formato, sintaxis, longitud mínima y realiza una prueba de conexión handshake con PostgreSQL.
+3. **Rollback Automático**: Si la validación falla, restaura el `.bak` inmediatamente y cancela el reinicio de servicios para evitar caídas.
+4. **Recarga de Servicio**: Detecta automáticamente si la aplicación corre bajo **`pachas.service`** (systemd), **PM2** o **Docker**, ejecutando el reinicio seguro y comprobando la respuesta HTTP (healthcheck).
 
 ---
 

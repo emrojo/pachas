@@ -72,8 +72,8 @@ export const SearchGroupModal: React.FC<SearchGroupModalProps> = ({
         <div className="max-h-72 overflow-y-auto space-y-2 custom-scrollbar pr-1">
           {filtered.length === 0 ? (
             <div className="text-center py-8 text-slate-500 dark:text-slate-400 space-y-1">
-              <p className="text-sm font-semibold">No se encontraron grupos</p>
-              <p className="text-xs text-slate-400">Prueba con otro término de búsqueda</p>
+              <p className="text-sm font-semibold">{t('groups.noGroupsFound') || 'No se encontraron grupos'}</p>
+              <p className="text-xs text-slate-400">{t('groups.tryOtherSearch') || 'Prueba con otro término de búsqueda'}</p>
             </div>
           ) : (
             filtered.map((grp) => {

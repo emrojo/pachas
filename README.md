@@ -115,7 +115,9 @@
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🚀 Quick Start (Local Development — Native Priority)
+
+Follow these steps to run Pachas natively on your local machine:
 
 ### 1. Clone & Install Dependencies
 ```bash
@@ -125,33 +127,219 @@ npm install
 ```
 
 ### 2. Environment Variables Setup
-Copy the template or create `.env.local`:
+Copy the template to create your local `.env.local`:
+```bash
+cp .env.example .env.local
+```
+
+Recommended minimum configuration for local development:
 ```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# Application Base URL
+APP_URL=http://localhost:3000
 NEXT_PUBLIC_ADMIN_EMAIL=admin@pachas.local
-GEMINI_API_KEY=your_gemini_api_key_here
+NEXT_PUBLIC_ENABLE_DEMO_USERS=true
+JWT_SECRET=default-pachas-jwt-secret-key-32-chars-long
+
+# PostgreSQL Database (Local or Remote)
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=pachas
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
+POSTGRES_USER=pachas_admin
+POSTGRES_PASSWORD=password
+# Or full connection string:
+# DATABASE_URL=postgresql://pachas_admin:password@localhost:5432/pachas
+
+# Optional API Keys (Pachas includes built-in fallbacks for all services):
+# GEMINI_API_KEY=your_gemini_key_here
+# PEXELS_API_KEY=your_pexels_key_here
+# NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
+# VAPID_PRIVATE_KEY=your_vapid_private_key
 ```
 
-### 3. Run Development Server
+> [!TIP]
+> **Zero-Friction Fallback Guarantee**: Every third-party integration (Gemini OCR, Pexels Cover Photos, VAPID WebPush, Email Delivery) includes automated fallbacks. You can run and test 100% of Pachas locally immediately without having to register or acquire any external API keys beforehand!
+
+### 3. Initialize Database & Run Migrations
+Run the deterministic migration engine to create all tables, indexes, and RLS policies:
+```bash
+npm run db:init
+```
+Verify the migration ledger status at any time:
+```bash
+npm run db:status
+```
+
+### 4. Run Development Server
 ```bash
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 4. Run Automated Tests
+### 5. Run Automated Tests
 ```bash
+npm test
+# Or directly via Vitest:
 npx vitest run
 ```
 
-### 5. Build for Production
+### 6. Build for Production
 ```bash
 npm run build
 ```
+
+---
+
+## 🔑 External Services, APIs & Media Configuration
+
+Pachas connects to several specialized services to deliver intelligent OCR scanning, rich media, and real-time push notifications. Below is the complete setup guide for each service:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                             PACHAS SERVICE ECOSYSTEM                             │
+├───────────────────────┬─────────────────────────┬────────────────────────────────┤
+│ Service / Feature     │ Provider & Keys         │ Fallback Behavior              │
+├───────────────────────┼─────────────────────────┼────────────────────────────────┤
+│ Receipt OCR Scanner   │ Google Gemini 1.5 Flash │ Client-side Tesseract.js       │
+│                       │ GEMINI_API_KEY          │ Optical Scanner                │
+├───────────────────────┼─────────────────────────┼────────────────────────────────┤
+│ Dynamic Cover Photos  │ Pexels REST API         │ Curated HD Travel Preset       │
+│                       │ PEXELS_API_KEY          │ Offline Photo Library          │
+├───────────────────────┼─────────────────────────┼────────────────────────────────┤
+│ User Avatars & Icons  │ DiceBear Avatar Engine  │ Initials on Deterministic      │
+│                       │ NO API KEY (Public SVG) │ Color Palette + Custom Upload  │
+├───────────────────────┼─────────────────────────┼────────────────────────────────┤
+│ Push Notifications    │ WebPush (W3C VAPID)     │ Pre-configured internal        │
+│                       │ VAPID Public & Private  │ Development Keys               │
+├───────────────────────┼─────────────────────────┼────────────────────────────────┤
+│ Database & Migrations │ PostgreSQL 15 (Pool)    │ Automatic Schema Self-Healing  │
+│                       │ DATABASE_URL            │ & Transaction Ledger           │
+├───────────────────────┼─────────────────────────┼────────────────────────────────┤
+│ Password Reset / Mail │ SMTP / Resend / SendGrid│ Formatted Terminal Simulation  │
+│                       │ SMTP_HOST, RESEND_API...│ [Pachas Mailer] Console Output │
+└───────────────────────┴─────────────────────────┴────────────────────────────────┘
+```
+
+### 🧠 1. Google Gemini 1.5 Flash Vision (Intelligent Receipt OCR & Geocoding)
+- **What it does**: Multimodal optical character recognition for physical receipts and bills (`src/lib/ocr/geminiScanner.ts`). Automatically extracts monetary totals, split-payment breakdowns, merchant names, purchase categories, European dates (`DD/MM/YYYY`), time (`HH:mm`), and physical establishment addresses with forward-geocoded GPS coordinates pinned on Google Maps.
+- **How to obtain your key (Free — 15 requests/min)**:
+  1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey).
+  2. Sign in with your Google account.
+  3. Click **"Create API Key"** and copy the generated token.
+  4. Add it to your `.env.local`:
+     ```env
+     GEMINI_API_KEY=AIzaSy...
+     ```
+- **Fallback**: If `GEMINI_API_KEY` is not defined, Pachas automatically falls back to client-side [Tesseract.js](https://tesseract.projectnaptha.com/) for in-browser OCR extraction with manual confirmation dialogs.
+
+---
+
+### 📸 2. Pexels API (Dynamic Contextual Trip Cover Photos)
+- **What it does**: Real-time contextual search for high-definition, landscape-oriented travel photographs when creating or editing vacation groups (`GroupCoverPicker.tsx` via `/api/photos/search`). Matches group titles and destination search terms (e.g. *"Playa Formentera"*, *"Pirineos Cabaña"*, *"Tokio Shibuya"*).
+- **How to obtain your key (Free)**:
+  1. Register a developer account at [Pexels Developer Portal](https://www.pexels.com/api/).
+  2. Request your free API key in your account dashboard.
+  3. Add it to your `.env.local`:
+     ```env
+     PEXELS_API_KEY=your_pexels_api_key_here
+     # Also supported for client-direct environments:
+     # NEXT_PUBLIC_PEXELS_API_KEY=your_pexels_api_key_here
+     ```
+- **Fallback**: If no key is set, Pachas seamlessly displays its built-in, curated high-definition travel photography catalog categorized by themes (*Beach & Coast, Mountain & Nature, City & Culture, Party & Nightlife, Relax & Wellness*) with photographer credits and zero network errors.
+
+---
+
+### 👤 3. User Avatar System (DiceBear Engine & Custom Device Upload)
+- **DiceBear Avatar Engine (Zero API Key Needed)**:
+  - Pachas integrates the open-source [DiceBear Avatar API](https://www.dicebear.com) (`https://api.dicebear.com/9.x/`) under CC0 1.0 / MIT licenses.
+  - Offers **8 artistic styles**:
+    - `lorelei` (Modern vector illustration)
+    - `bottts` (Fun playful robots)
+    - `avataaars` (Expressive sketch characters)
+    - `adventurer` (Adventure and outdoor personas)
+    - `fun-emoji` (Vibrant custom emojis)
+    - `notionists` (Clean Notion-inspired art)
+    - `pixel-art` (Retro 8-bit characters)
+    - `micah` (Contemporary abstract artwork)
+  - Features interactive live customization: seed-based traits (username or random dice throw) and background color palettes (Sky, Lavender, Indigo, Pink, Peach, Emerald, Slate, or Transparent).
+  - **No registration, no API key, and no costs required.**
+- **Custom Photo Upload**: Users can upload any custom avatar image (JPEG, PNG, WebP) directly from their smartphone camera roll or PC file browser with client-side image compression.
+- **Fallback**: If no avatar or photo is chosen, `Avatar.tsx` automatically renders the user's initials over an elegant deterministic background color derived from their display name.
+
+---
+
+### 🔔 4. WebPush Push Notifications (W3C VAPID Protocol)
+- **What it does**: Cross-platform Web Push notifications for browsers (Chrome, Edge, Firefox, Safari iOS 16.4+) and native PWA / mobile wrappers. Alerts users when:
+  - An expense is recorded or edited in their trip group.
+  - A friend comments on a ticket or replies in the group chat.
+  - A settlement or Bizum debt repayment is marked as completed.
+- **How to generate VAPID keys**:
+  Generate your cryptographically secure public/private VAPID keypair using either command:
+  ```bash
+  # Using web-push CLI:
+  npx web-push generate-vapid-keys
+
+  # Or using the built-in Pachas secrets generator:
+  npm run secrets:generate
+  # (or node deploy/generate-secrets.mjs)
+  ```
+  Copy the keys to `.env.local`:
+  ```env
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY=BLu_...
+  VAPID_PRIVATE_KEY=...
+  VAPID_SUBJECT=mailto:admin@tu-dominio.com
+  ```
+- **Fallback**: If keys are omitted, Pachas uses pre-configured local development VAPID keys (`DEFAULT_VAPID_PUBLIC_KEY` in `src/lib/notifications/webPush.ts`) so local testing works seamlessly without configuration.
+
+---
+
+### 🗄️ 5. PostgreSQL Database & Deterministic Migrations
+- **What it does**: Robust relational data persistence with Row Level Security (RLS) policies, foreign key cascades, and connection pooling. Compatible with:
+  - Local PostgreSQL (`localhost:5432`)
+  - Cloud PostgreSQL providers ([Supabase](https://supabase.com), [Neon](https://neon.tech), [Railway](https://railway.app), [Aiven](https://aiven.io))
+  - Containerized PostgreSQL (`postgres:15-alpine`)
+- **Connection Configuration**:
+  ```env
+  # Option A: Single connection URI
+  DATABASE_URL=postgresql://user:password@localhost:5432/pachas
+
+  # Option B: Discrete connection variables (highest priority)
+  POSTGRES_HOST=localhost
+  POSTGRES_PORT=5432
+  POSTGRES_DB=pachas
+  POSTGRES_USER=pachas_admin
+  POSTGRES_PASSWORD=your_secure_password
+  ```
+- **Deterministic Migration Commands**:
+  - `npm run db:init` / `npm run db:migrate`: Executes all pending numbered SQL files in `deploy/init-scripts/` in sequential order (`01` through `12`) within an atomic transaction ledger (`_migrations`).
+  - `npm run db:status`: Prints an interactive terminal status table showing applied vs pending migrations with execution timestamps.
+  - `npm run db:reset`: Truncates application tables and resets the schema to a clean state.
+  - `npm run db:heal`: Verifies and repairs missing columns or constraints automatically.
+
+---
+
+### ✉️ 6. Email Delivery Services (Password Reset & Group Invitations)
+- **What it does**: Dispatches transactional emails for password recovery links (`/reset-password`) and email-based group invitations (`/join/[token]`).
+- **Supported Providers**:
+  - **SMTP Server** (Gmail with App Passwords, Outlook, Mailgun, Amazon SES, Brevo):
+    ```env
+    SMTP_HOST=smtp.gmail.com
+    SMTP_PORT=587
+    SMTP_SECURE=false
+    SMTP_USER=tu_correo@gmail.com
+    SMTP_PASS=tu_app_password
+    SMTP_FROM="Pachas" <tu_correo@gmail.com>
+    ```
+  - **Resend API** (Recommended for serverless & modern Next.js deployments):
+    ```env
+    RESEND_API_KEY=re_123456789
+    EMAIL_FROM=Pachas <onboarding@resend.dev>
+    ```
+  - **SendGrid API**:
+    ```env
+    SENDGRID_API_KEY=SG.123456789
+    EMAIL_FROM=notificaciones@tudominio.com
+    ```
+- **Simulation Fallback**: If no email credentials are provided, Pachas logs transactional messages to the server terminal (`[Pachas Mailer]`) with clickable simulation links, ensuring complete local testability without needing real SMTP servers.
 
 ---
 

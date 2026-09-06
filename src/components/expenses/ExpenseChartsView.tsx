@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/currencies';
 import { formatDate } from '@/lib/utils';
 import { getCategoryInfo } from '@/lib/categories';
+import { useTranslation } from '@/context/LanguageContext';
 import {
   BarChart3,
   Calendar,
@@ -63,6 +64,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
   members,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [viewMode, setViewMode] = useState<ViewMode>('payers');
   const [activeBucketIndex, setActiveBucketIndex] = useState<number | null>(null);
@@ -362,7 +364,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Por Horas</span>
+            <span>{t('charts.byHours') || 'Por Horas'}</span>
           </button>
 
           <button
@@ -378,7 +380,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Por Días</span>
+            <span>{t('charts.byDays') || 'Por Días'}</span>
           </button>
 
           <button
@@ -394,7 +396,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Por Semanas</span>
+            <span>{t('charts.byWeeks') || 'Por Semanas'}</span>
           </button>
 
           <button
@@ -410,7 +412,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
-            <span>En Total</span>
+            <span>{t('charts.inTotal') || 'En Total'}</span>
           </button>
         </div>
 
@@ -427,7 +429,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
             title="Muestra quién pagó y adelantó el dinero"
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Por Pagador</span>
+            <span>{t('charts.byPayer') || 'Por Pagador'}</span>
           </button>
 
           <button
@@ -441,7 +443,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
             title="Muestra el consumo / reparto asignado a cada amigo"
           >
             <PieChart className="w-3.5 h-3.5" />
-            <span>Por Consumo</span>
+            <span>{t('charts.byConsumer') || 'Por Consumo'}</span>
           </button>
 
           <button
@@ -455,7 +457,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
             title="Muestra el importe total del grupo sin desglosar"
           >
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>Total Global</span>
+            <span>{t('charts.grandTotal') || 'Total Global'}</span>
           </button>
         </div>
       </div>
@@ -639,7 +641,7 @@ export const ExpenseChartsView: React.FC<ExpenseChartsViewProps> = ({
               <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
                 <div>
                   <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <span>📌 Detalle del periodo:</span>
+                    <span>📌 {t('charts.periodDetail') || 'Detalle del periodo:'}</span>
                     <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
                       {activeBucket.label} {activeBucket.subLabel ? `(${activeBucket.subLabel})` : ''}
                     </span>

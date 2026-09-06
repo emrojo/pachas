@@ -175,6 +175,7 @@ interface PachasContextType {
   deleteNotification: (id: string) => void;
   clearAllNotifications: () => void;
   addNotification: (notif: Omit<AppNotification, 'id' | 'created_at' | 'read'>) => void;
+  triggerTestBubble: (type?: 'chat' | 'member' | 'expense') => void;
   seedDemoNotifications: () => void;
   supportMessages: SupportMessage[];
   isSupportModalOpen: boolean;
@@ -3306,8 +3307,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const addNotification = (notif: Omit<AppNotification, 'id' | 'created_at' | 'read'>) => {
+    let resolvedGroupName = notif.group_name;
+    if (!resolvedGroupName && notif.group_id) {
+      const g = groups.find((grp) => grp.id === notif.group_id);
+      if (g) resolvedGroupName = g.name;
+    }
+
     const newNotif: AppNotification = {
       ...notif,
+      group_name: resolvedGroupName,
       id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       created_at: new Date().toISOString(),
       read: false,
@@ -3317,6 +3325,75 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
       return updated;
     });
+  };
+
+  const triggerTestBubble = (type: 'chat' | 'member' | 'expense' = 'chat') => {
+    const targetGroup = groups[0] || { id: 'group-demo-1', name: 'Viaje a Roma 🍕' };
+    const currentUid = currentUser?.id || 'user-demo';
+
+    if (type === 'chat') {
+      const sampleMessages = [
+        '¡Hola chicos! Ya he reservado la mesa para la cena de esta noche 🍝',
+        '¿A qué hora salimos mañana para la excursión? 🚗',
+        'He subido los tickets del supermercado para repartirlos 🛒',
+        '¡Genial el día de hoy! Mañana nos vemos a las 10:00 ☕',
+      ];
+      const randomMsg = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
+      const sampleNames = ['Carlos Mendoza', 'Elena Gómez', 'Marcos Rubio', 'Laura Sanz'];
+      const randomName = sampleNames[Math.floor(Math.random() * sampleNames.length)];
+      const msgId = `msg-demo-${Date.now()}`;
+
+      addNotification({
+        user_id: currentUid,
+        type: 'group_message_created',
+        group_id: targetGroup.id,
+        group_name: targetGroup.name,
+        title: `Mensaje de ${randomName}`,
+        message: randomMsg,
+        action_url: `/groups/${targetGroup.id}?tab=chat&messageId=${msgId}`,
+        data: {
+          authorName: randomName,
+          authorAvatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(randomName)}`,
+          messageId: msgId,
+          groupId: targetGroup.id,
+          groupName: targetGroup.name,
+        },
+      });
+    } else if (type === 'member') {
+      const sampleNewMembers = ['Lucía Martínez', 'Pablo Herrera', 'Andrea Vega', 'Daniel Torres'];
+      const randomMember = sampleNewMembers[Math.floor(Math.random() * sampleNewMembers.length)];
+
+      addNotification({
+        user_id: currentUid,
+        type: 'member_joined',
+        group_id: targetGroup.id,
+        group_name: targetGroup.name,
+        title: 'Nuevo miembro en el grupo',
+        message: `${randomMember} se ha unido al grupo.`,
+        action_url: `/groups/${targetGroup.id}?tab=members`,
+        data: {
+          memberName: randomMember,
+          memberAvatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(randomMember)}`,
+          groupId: targetGroup.id,
+          groupName: targetGroup.name,
+        },
+      });
+    } else {
+      addNotification({
+        user_id: currentUid,
+        type: 'expense_created',
+        group_id: targetGroup.id,
+        group_name: targetGroup.name,
+        title: 'Nuevo gasto: Cena italiana',
+        message: 'Sofía ha añadido un gasto de 42,50 EUR en "Trattoria Romana".',
+        action_url: `/groups/${targetGroup.id}?tab=expenses`,
+        data: {
+          authorName: 'Sofía',
+          groupId: targetGroup.id,
+          groupName: targetGroup.name,
+        },
+      });
+    }
   };
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
@@ -3361,13 +3438,22 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 // In-app notification if message was sent by another user
                 if (currentUser && msg.user_id !== currentUser.id) {
                   const authorName = msg.profile?.full_name || 'Alguien';
+                  const grp = groups.find((g) => g.id === msg.group_id);
                   addNotification({
                     user_id: currentUser.id,
                     type: 'group_message_created',
                     group_id: msg.group_id,
+                    group_name: grp?.name,
                     title: `Mensaje de ${authorName}`,
                     message: msg.message || 'Ha enviado un mensaje en el grupo',
                     action_url: `/groups/${msg.group_id}?tab=chat&messageId=${msg.id}`,
+                    data: {
+                      authorName,
+                      authorAvatar: msg.profile?.avatar_url,
+                      messageId: msg.id,
+                      groupId: msg.group_id,
+                      groupName: grp?.name,
+                    },
                   });
                 }
               }
@@ -3550,13 +3636,22 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
                 if (currentUser && member.user_id !== currentUser.id) {
                   const memberName = member.profile?.full_name || 'Un amigo';
+                  const grp = group || groups.find((g) => g.id === member.group_id);
                   addNotification({
                     user_id: currentUser.id,
                     type: 'member_joined',
                     group_id: member.group_id,
+                    group_name: grp?.name,
                     title: 'Nuevo miembro en el grupo',
                     message: `${memberName} se ha unido al grupo.`,
                     action_url: `/groups/${member.group_id}?tab=members`,
+                    data: {
+                      memberName,
+                      memberAvatar: member.profile?.avatar_url,
+                      userId: member.user_id,
+                      groupId: member.group_id,
+                      groupName: grp?.name,
+                    },
                   });
                 }
               }
@@ -3899,6 +3994,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteNotification,
         clearAllNotifications,
         addNotification,
+        triggerTestBubble,
         seedDemoNotifications,
         supportMessages,
         isSupportModalOpen,
