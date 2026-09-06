@@ -185,6 +185,9 @@ export const tr: TranslationDictionary = {
     error: 'Bir hata oluştu',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: 'Veya şununla devam et',
+    continueWithGoogle: 'Google ile devam et',
+    googleLoginError: 'Google ile giriş yapılırken hata oluştu. Lütfen tekrar deneyin.',
   },
   dashboard: {
     welcome: 'Merhaba, {name}!',

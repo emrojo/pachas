@@ -185,6 +185,9 @@ export const zh: TranslationDictionary = {
     error: '发生错误',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: '或通过以下方式继续',
+    continueWithGoogle: '使用 Google 继续',
+    googleLoginError: '使用 Google 登录时出错，请重试。',
   },
   dashboard: {
     welcome: '你好，{name}！',

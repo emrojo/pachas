@@ -185,6 +185,9 @@ export const va: TranslationDictionary = {
     error: 'S’ha produït un error',
     checkingSession: "Comprovant sessió...",
     redirectingModeration: "Redirigint a zona de moderació...",
+    orContinueWith: 'O continua amb',
+    continueWithGoogle: 'Continuar amb Google',
+    googleLoginError: "Error en iniciar sessió amb Google. Torna a intentar-ho.",
   },
   dashboard: {
     welcome: 'Hola, {name}!',

@@ -185,6 +185,9 @@ export const nl: TranslationDictionary = {
     error: 'Er is een fout opgetreden',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: 'Of ga verder met',
+    continueWithGoogle: 'Doorgaan met Google',
+    googleLoginError: 'Fout bij het inloggen met Google. Probeer het opnieuw.',
   },
   dashboard: {
     welcome: 'Hallo, {name}!',

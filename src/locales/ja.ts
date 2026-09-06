@@ -185,6 +185,9 @@ export const ja: TranslationDictionary = {
     error: 'エラーが発生しました',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: 'または次の方法で続ける',
+    continueWithGoogle: 'Google で続ける',
+    googleLoginError: 'Google でのログインに失敗しました。もう一度お試しください。',
   },
   dashboard: {
     welcome: 'こんにちは、{name}さん！',

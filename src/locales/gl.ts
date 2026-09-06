@@ -185,6 +185,9 @@ export const gl: TranslationDictionary = {
     error: 'Produciuse un erro',
     checkingSession: "Comprobando sesión...",
     redirectingModeration: "Redirixindo a zona de moderación...",
+    orContinueWith: 'Ou continúa con',
+    continueWithGoogle: 'Continuar con Google',
+    googleLoginError: 'Erro ao iniciar sesión con Google. Téntao de novo.',
   },
   dashboard: {
     welcome: 'Ola, {name}!',

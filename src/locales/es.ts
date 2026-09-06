@@ -183,6 +183,9 @@ export const es = {
     error: 'Ha ocurrido un error',
     checkingSession: "Comprobando sesión...",
     redirectingModeration: "Redirigiendo a zona de moderación...",
+    orContinueWith: 'O continúa con',
+    continueWithGoogle: 'Continuar con Google',
+    googleLoginError: 'Error al iniciar sesión con Google. Inténtalo de nuevo.',
   },
   dashboard: {
     welcome: '¡Hola, {name}!',

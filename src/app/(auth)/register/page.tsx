@@ -12,6 +12,7 @@ import { Footer } from '@/components/layout/Footer';
 import { isDemoModeAllowed } from '@/lib/authConfig';
 import { User, Mail, Phone, Lock, ArrowRight, ShieldCheck, Globe } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, LanguageCode } from '@/locales';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 function RegisterForm() {
   const router = useRouter();
@@ -147,6 +148,17 @@ function RegisterForm() {
               {t('auth.registerSubtitle')}
             </p>
           </div>
+
+          {/* Google Sign-Up (quick alternative) */}
+          <GoogleSignInButton
+            context="signup"
+            onSuccess={(user) => {
+              setCurrentUser(user);
+              router.replace(redirectTo);
+              router.refresh();
+            }}
+            onError={(errorMsg) => setError(errorMsg)}
+          />
 
           <form onSubmit={handleRegister} className="space-y-4">
             <Input

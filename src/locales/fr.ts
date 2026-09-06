@@ -185,6 +185,9 @@ export const fr: TranslationDictionary = {
     error: 'Une erreur est survenue',
     checkingSession: "Vérification de la session...",
     redirectingModeration: "Redirection vers la zone de modération...",
+    orContinueWith: 'Ou continuer avec',
+    continueWithGoogle: 'Continuer avec Google',
+    googleLoginError: 'Erreur de connexion avec Google. Veuillez réessayer.',
   },
   dashboard: {
     welcome: 'Bonjour, {name} !',

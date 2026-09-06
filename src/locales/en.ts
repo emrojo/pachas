@@ -185,6 +185,9 @@ export const en: TranslationDictionary = {
     error: 'An error occurred',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: 'Or continue with',
+    continueWithGoogle: 'Continue with Google',
+    googleLoginError: 'Error signing in with Google. Please try again.',
   },
   dashboard: {
     welcome: 'Hello, {name}!',

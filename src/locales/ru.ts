@@ -185,6 +185,9 @@ export const ru: TranslationDictionary = {
     error: 'Произошла ошибка',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: 'Или продолжить через',
+    continueWithGoogle: 'Продолжить через Google',
+    googleLoginError: 'Ошибка входа через Google. Попробуйте ещё раз.',
   },
   dashboard: {
     welcome: 'Привет, {name}!',

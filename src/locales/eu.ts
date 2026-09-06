@@ -185,6 +185,9 @@ export const eu: TranslationDictionary = {
     error: 'Errore bat gertatu da',
     checkingSession: "Saioa egiaztatzen...",
     redirectingModeration: "Moderazio gunera berbideratzen...",
+    orContinueWith: 'Edo jarraitu honekin',
+    continueWithGoogle: 'Google-rekin jarraitu',
+    googleLoginError: 'Errorea Google-rekin saioa hastean. Saiatu berriro.',
   },
   dashboard: {
     welcome: 'Kaixo, {name}!',

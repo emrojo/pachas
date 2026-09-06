@@ -14,6 +14,7 @@ import { CreateUserModal } from '@/components/profile/CreateUserModal';
 import { Profile } from '@/types/database';
 import { Mail, Lock, ArrowRight, UserPlus } from 'lucide-react';
 import { isDemoModeAllowed } from '@/lib/authConfig';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 function LoginFormContent() {
   const router = useRouter();
@@ -187,6 +188,17 @@ function LoginFormContent() {
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </form>
+
+          {/* Google Sign-In */}
+          <GoogleSignInButton
+            context="signin"
+            onSuccess={(user) => {
+              setCurrentUser(user);
+              router.replace(redirectTo);
+              router.refresh();
+            }}
+            onError={(errorMsg) => setError(errorMsg)}
+          />
 
           {/* Local Fast Access & User Creation (Visible only in Development/Demo Mode) */}
           {isDemoAllowed && (

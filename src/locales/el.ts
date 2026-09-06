@@ -185,6 +185,9 @@ export const el: TranslationDictionary = {
     error: 'Παρουσιάστηκε σφάλμα',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: 'Ή συνέχισε με',
+    continueWithGoogle: 'Συνέχεια με Google',
+    googleLoginError: 'Σφάλμα σύνδεσης μέσω Google. Δοκιμάστε ξανά.',
   },
   dashboard: {
     welcome: 'Γεια σας, {name}!',

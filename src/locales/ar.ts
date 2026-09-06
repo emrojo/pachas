@@ -185,6 +185,9 @@ export const ar: TranslationDictionary = {
     error: 'حدث خطأ ما',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: 'أو تابع باستخدام',
+    continueWithGoogle: 'المتابعة باستخدام Google',
+    googleLoginError: 'خطأ في تسجيل الدخول باستخدام Google. يرجى المحاولة مرة أخرى.',
   },
   dashboard: {
     welcome: 'مرحباً، {name}!',

@@ -185,6 +185,9 @@ export const hi: TranslationDictionary = {
     error: 'एक त्रुटि हुई',
     checkingSession: "Checking session...",
     redirectingModeration: "Redirecting to moderation area...",
+    orContinueWith: 'या इसके साथ जारी रखें',
+    continueWithGoogle: 'Google से जारी रखें',
+    googleLoginError: 'Google से साइन इन करने में त्रुटि। कृपया पुनः प्रयास करें।',
   },
   dashboard: {
     welcome: 'नमस्ते, {name}!',

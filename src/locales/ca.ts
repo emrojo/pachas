@@ -185,6 +185,9 @@ export const ca: TranslationDictionary = {
     error: 'S’ha produït un error',
     checkingSession: "Comprovant sessió...",
     redirectingModeration: "Redirigint a zona de moderació...",
+    orContinueWith: 'O continua amb',
+    continueWithGoogle: 'Continuar amb Google',
+    googleLoginError: "Error en iniciar sessió amb Google. Torna-ho a provar.",
   },
   dashboard: {
     welcome: 'Hola, {name}!',

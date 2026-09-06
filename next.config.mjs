@@ -4,15 +4,15 @@ const isProd = process.env.NODE_ENV === 'production';
 // Content Security Policy (CSP)
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://maps.googleapis.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com blob:;
-  script-src-elem 'self' 'unsafe-inline' https://unpkg.com https://maps.googleapis.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com blob:;
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://maps.googleapis.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://accounts.google.com blob:;
+  script-src-elem 'self' 'unsafe-inline' https://unpkg.com https://maps.googleapis.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://accounts.google.com blob:;
   worker-src 'self' blob: https://cdn.jsdelivr.net https://unpkg.com;
   child-src 'self' blob: https://cdn.jsdelivr.net https://unpkg.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://accounts.google.com;
   img-src 'self' data: blob: https: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com;
   font-src 'self' https://fonts.gstatic.com data:;
   connect-src 'self' https: wss: blob: data: https://nominatim.openstreetmap.org https://maps.googleapis.com https://raw.githubusercontent.com https://cdn.jsdelivr.net https://unpkg.com https://tessdata.projectnaptha.com http://localhost:* ws://localhost:*;
-  frame-src 'self' https://maps.google.com https://www.google.com;
+  frame-src 'self' https://maps.google.com https://www.google.com https://accounts.google.com;
   frame-ancestors 'none';
   form-action 'self';
   base-uri 'self';
