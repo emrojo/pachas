@@ -423,7 +423,7 @@ export const NotificationBubbleToast: React.FC = () => {
       </div>
 
       {/* WhatsApp Floating Launcher / Quick Dock */}
-      <div className={cn("fixed z-40 transition-all", activeChatGroupId ? "bottom-24 right-3 sm:bottom-6 sm:right-6" : "bottom-20 right-3 sm:bottom-6 sm:right-6")}>
+      <div className={cn("fixed z-40 transition-all", activeChatGroupId ? "bottom-28 right-3 sm:bottom-6 sm:right-6" : "bottom-20 right-3 sm:bottom-6 sm:right-6")}>
         {/* Floating Bubble Button */}
         <button
           onClick={() => setIsDockOpen(!isDockOpen)}

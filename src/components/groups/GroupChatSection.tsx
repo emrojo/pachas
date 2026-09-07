@@ -91,6 +91,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const isJustSentRef = useRef<boolean>(false);
+  const initialTargetHandledRef = useRef<boolean>(false);
 
   const messages = getGroupMessages(groupId);
 
@@ -103,9 +104,10 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
 
   // Deep link to targetMessageId from notification
   useEffect(() => {
-    if (!targetMessageId || messages.length === 0) return;
+    if (!targetMessageId || messages.length === 0 || initialTargetHandledRef.current) return;
     const element = document.getElementById(`group-msg-${targetMessageId}`);
     if (element && chatContainerRef.current) {
+      initialTargetHandledRef.current = true;
       const containerTop = chatContainerRef.current.getBoundingClientRect().top;
       const elementTop = element.getBoundingClientRect().top;
       chatContainerRef.current.scrollBy({
@@ -121,32 +123,34 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   }, [targetMessageId, messages.length]);
 
   const scrollToBottom = (smooth = true) => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'end',
-      });
-    } else if (chatContainerRef.current) {
-      const container = chatContainerRef.current;
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    const targetTop = container.scrollHeight;
+    if (smooth) {
       container.scrollTo({
-        top: container.scrollHeight,
-        behavior: smooth ? 'smooth' : 'auto',
+        top: targetTop,
+        behavior: 'smooth',
       });
+    } else {
+      container.scrollTop = targetTop;
     }
-    // Deferred second pass to absorb late rendered images / GIFs / custom fonts
+
+    // Deferred passes to absorb late rendered images / GIFs / custom fonts
     setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({
-          behavior: smooth ? 'smooth' : 'auto',
-          block: 'end',
-        });
-      } else if (chatContainerRef.current) {
+      if (chatContainerRef.current) {
         chatContainerRef.current.scrollTo({
           top: chatContainerRef.current.scrollHeight,
           behavior: smooth ? 'smooth' : 'auto',
         });
       }
-    }, 100);
+    }, 60);
+
+    setTimeout(() => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+    }, 200);
   };
 
   // Initial scroll to bottom on mount or when group messages first load
@@ -161,7 +165,8 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   // Position scroll at the very bottom whenever a new message or notification arrives while viewing chat
   useEffect(() => {
     if (messages.length === 0) return;
-    if (targetMessageId) return; // Respect deep-link highlight
+    // Only pause scroll if the initial target message deep link is still pending
+    if (targetMessageId && !initialTargetHandledRef.current) return;
 
     scrollToBottom(isJustSentRef.current ? false : true);
     isJustSentRef.current = false;
@@ -220,6 +225,9 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       setMessageText('');
       setSelectedGifUrl(null);
       setReplyingTo(null);
+      requestAnimationFrame(() => {
+        scrollToBottom(false);
+      });
     } catch (err: any) {
       alert(err.message || 'Error al enviar el mensaje.');
     } finally {
@@ -615,7 +623,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       {/* Input Box Footer */}
       <form
         onSubmit={handleSendMessage}
-        className="p-3 sm:p-4 pb-7 sm:pb-4 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2 shrink-0"
+        className="p-3 sm:p-4 pb-12 sm:pb-4 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2 shrink-0"
       >
         {/* Emoji Button */}
         <button
