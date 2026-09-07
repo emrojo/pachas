@@ -76,6 +76,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   const [reactingMessage, setReactingMessage] = useState<{ id: string; anchorEl: HTMLElement } | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const isJustSentRef = useRef<boolean>(false);
@@ -109,15 +110,26 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   }, [targetMessageId, messages.length]);
 
   const scrollToBottom = (smooth = true) => {
-    if (!chatContainerRef.current) return;
-    const container = chatContainerRef.current;
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: smooth ? 'smooth' : 'auto',
-    });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
+    } else if (chatContainerRef.current) {
+      const container = chatContainerRef.current;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    }
     // Deferred second pass to absorb late rendered images / GIFs / custom fonts
     setTimeout(() => {
-      if (chatContainerRef.current) {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({
+          behavior: smooth ? 'smooth' : 'auto',
+          block: 'end',
+        });
+      } else if (chatContainerRef.current) {
         chatContainerRef.current.scrollTo({
           top: chatContainerRef.current.scrollHeight,
           behavior: smooth ? 'smooth' : 'auto',
@@ -253,7 +265,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[560px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
+    <div className="flex flex-col h-[calc(100dvh-200px)] min-h-[480px] sm:h-[580px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
       {/* Chat Header */}
       <div className="px-5 py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -305,7 +317,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       </div>
 
       {/* Messages Scroll Area */}
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4 custom-scrollbar">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-y-contain p-4 sm:p-5 space-y-4 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
@@ -532,6 +544,8 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
             );
           })
         )}
+        {/* Messages End Anchor with breathing space */}
+        <div ref={messagesEndRef} className="h-4 shrink-0" />
       </div>
 
       {/* Replying To Banner above input */}
@@ -590,7 +604,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       {/* Input Box Footer */}
       <form
         onSubmit={handleSendMessage}
-        className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2"
+        className="p-3 sm:p-4 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2 shrink-0"
       >
         {/* Emoji Button */}
         <button

@@ -17,8 +17,16 @@ import {
   Sparkles,
   ExternalLink,
   Users,
+  ChevronRight,
+  ArrowLeft,
+  Bell,
+  Receipt,
+  ShieldCheck,
+  Info,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { cn, formatDate } from '@/lib/utils';
+import { isDemoModeAllowed } from '@/lib/authConfig';
 
 const STORAGE_KEY_DURATION = 'pachas_bubble_duration_seconds';
 const STORAGE_KEY_SOUND = 'pachas_bubble_sound_enabled';
@@ -80,14 +88,17 @@ export const NotificationBubbleToast: React.FC = () => {
     notifications,
     unreadNotificationsCount,
     markNotificationAsRead,
+    markAllNotificationsAsRead,
     triggerTestBubble,
   } = usePachas();
   const { t } = useTranslation();
+  const isDev = isDemoModeAllowed();
 
   // Settings
   const [durationSeconds, setDurationSeconds] = useState<number>(5);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isDockOpen, setIsDockOpen] = useState<boolean>(false);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
 
   // Active floating bubbles on screen (up to 3)
   const [activeBubbles, setActiveBubbles] = useState<ActiveBubbleItem[]>([]);
@@ -246,6 +257,29 @@ export const NotificationBubbleToast: React.FC = () => {
     }
   };
 
+  const getNotificationItemIcon = (type: string) => {
+    switch (type) {
+      case 'group_message_created':
+      case 'group_message_reaction':
+        return <MessageSquare className="w-3.5 h-3.5 text-sky-500" />;
+      case 'member_joined':
+      case 'member_invited':
+      case 'member_removed':
+        return <Users className="w-3.5 h-3.5 text-indigo-500" />;
+      case 'expense_created':
+      case 'expense_updated':
+        return <DollarSign className="w-3.5 h-3.5 text-emerald-500" />;
+      case 'receipt_pending':
+        return <Receipt className="w-3.5 h-3.5 text-amber-500" />;
+      case 'settlement_created':
+        return <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />;
+      case 'group_role_updated':
+        return <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />;
+      default:
+        return <Bell className="w-3.5 h-3.5 text-emerald-600" />;
+    }
+  };
+
   return (
     <>
       {/* Floating Bubble Stack Container */}
@@ -395,110 +429,259 @@ export const NotificationBubbleToast: React.FC = () => {
           )}
         </button>
 
-        {/* Quick Dock / Settings Popover */}
+        {/* Quick Dock / Notifications Popover */}
         {isDockOpen && (
           <div
-            className="absolute bottom-14 right-0 w-80 max-w-[90vw] bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-2xl shadow-2xl shadow-emerald-950/20 p-3.5 animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-200 z-50"
+            className="absolute bottom-14 right-0 w-80 sm:w-96 max-w-[92vw] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-2xl shadow-slate-950/20 p-3.5 animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-200 z-50 overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-[#25D366] text-white flex items-center justify-center">
-                  <MessageSquare className="w-3.5 h-3.5" />
-                </span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
-                  {t('notifications.bubbleTitle') || 'Burbujas tipo WhatsApp'}
-                </span>
+                {showSettings ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowSettings(false)}
+                    className="p-1 -ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="Volver a notificaciones"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <span className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#128c7e] to-[#25D366] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Bell className="w-3.5 h-3.5" />
+                  </span>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">
+                    {showSettings
+                      ? (t('nav.settings') || 'Ajustes')
+                      : (t('notifications.centerTitle') || 'Notificaciones')}
+                  </h3>
+                  {!showSettings && unreadNotificationsCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                      {unreadNotificationsCount}
+                    </span>
+                  )}
+                </div>
               </div>
-              <button
-                onClick={() => setIsDockOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded"
-              >
-                <X className="w-4 h-4" />
-              </button>
+
+              <div className="flex items-center gap-1">
+                {!showSettings && unreadNotificationsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => markAllNotificationsAsRead()}
+                    className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 px-1.5 py-0.5 rounded hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors flex items-center gap-1 cursor-pointer"
+                    title={t('notifications.markAllRead') || 'Marcar todas leídas'}
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    <span className="text-[10px] hidden sm:inline">{t('notifications.markAllRead') || 'Leídas'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowSettings((prev) => !prev)}
+                  className={cn(
+                    "p-1.5 rounded-xl transition-colors cursor-pointer",
+                    showSettings
+                      ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
+                      : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  )}
+                  title={showSettings ? 'Ver notificaciones' : 'Configurar alertas'}
+                  aria-label="Configurar alertas"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDockOpen(false);
+                    setShowSettings(false);
+                  }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title={t('common.close') || 'Cerrar'}
+                  aria-label={t('common.close') || 'Cerrar'}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
-            {/* Duration Selector */}
-            <div className="space-y-1.5 mb-3">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                <span>{t('notifications.bubbleDuration') || 'Duración de la burbuja'}</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                  {durationSeconds === 0 ? (t('notifications.durationManual') || 'Manual') : `${durationSeconds}s`}
-                </span>
-              </div>
-              <div className="grid grid-cols-5 gap-1">
-                {[
-                  { label: '3s', val: 3 },
-                  { label: '5s ⭐', val: 5 },
-                  { label: '8s', val: 8 },
-                  { label: '12s', val: 12 },
-                  { label: t('notifications.durationManual') || 'Manual', val: 0 },
-                ].map((item) => (
+            {/* View Mode: Settings Panel */}
+            {showSettings ? (
+              <div className="space-y-3 py-1 animate-in fade-in duration-150">
+                {/* Duration Selector */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    <span>{t('notifications.bubbleDuration') || 'Duración de la burbuja'}</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                      {durationSeconds === 0 ? (t('notifications.durationManual') || 'Manual') : `${durationSeconds}s`}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1">
+                    {[
+                      { label: '3s', val: 3 },
+                      { label: '5s ⭐', val: 5 },
+                      { label: '8s', val: 8 },
+                      { label: '12s', val: 12 },
+                      { label: t('notifications.durationManual') || 'Manual', val: 0 },
+                    ].map((item) => (
+                      <button
+                        key={item.val}
+                        type="button"
+                        onClick={() => changeDuration(item.val)}
+                        className={cn(
+                          'py-1 text-[10px] font-bold rounded-lg border transition-all text-center cursor-pointer',
+                          durationSeconds === item.val
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-500'
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sound Toggle */}
+                <div className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    {soundEnabled ? (
+                      <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : (
+                      <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+                    )}
+                    <span>{t('notifications.soundEnabled') || 'Sonido de aviso'}</span>
+                  </span>
                   <button
-                    key={item.val}
                     type="button"
-                    onClick={() => changeDuration(item.val)}
+                    onClick={toggleSound}
                     className={cn(
-                      'py-1 text-[10px] font-bold rounded-lg border transition-all text-center',
-                      durationSeconds === item.val
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-500'
+                      'px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer',
+                      soundEnabled
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                     )}
                   >
-                    {item.label}
+                    {soundEnabled ? (t('notifications.receiving') || 'Activado') : (t('notifications.muted') || 'Silenciado')}
                   </button>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            {/* Sound Toggle */}
-            <div className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-800 mb-2.5">
-              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                {soundEnabled ? (
-                  <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
+                {/* Test simulation ONLY in development */}
+                {isDev && (
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                    <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      {t('notifications.simulateAlerts') || 'Simular alertas (Solo Dev)'}
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => triggerTestBubble('chat')}
+                        className="w-full py-1.5 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>{t('notifications.testChatBubble') || 'Probar Chat'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => triggerTestBubble('member')}
+                        className="w-full py-1.5 px-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <UserPlus className="w-3 h-3" />
+                        <span>{t('notifications.testMemberBubble') || 'Probar Miembro'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* View Mode: Latest Notifications List */
+              <div className="space-y-1 py-0.5 animate-in fade-in duration-150">
+                {notifications.length === 0 ? (
+                  <div className="py-7 text-center space-y-2">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                      <Bell className="w-5 h-5 opacity-60" />
+                    </div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {t('notifications.noNotifications') || 'Sin notificaciones recientes'}
+                    </p>
+                  </div>
                 ) : (
-                  <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-72 overflow-y-auto custom-scrollbar -mx-1 px-1">
+                    {notifications.slice(0, 5).map((notif) => (
+                      <button
+                        key={notif.id}
+                        type="button"
+                        onClick={() => {
+                          markNotificationAsRead(notif.id);
+                          removeBubble(notif.id);
+                          setIsDockOpen(false);
+                          if (notif.action_url) {
+                            router.push(notif.action_url);
+                          } else if (notif.group_id) {
+                            if (notif.type === 'group_message_created' || notif.type === 'group_message_reaction') {
+                              router.push(`/groups/${notif.group_id}?tab=members&chat=true`);
+                            } else if (notif.type === 'member_joined' || notif.type === 'member_invited') {
+                              router.push(`/groups/${notif.group_id}?tab=members`);
+                            } else {
+                              router.push(`/groups/${notif.group_id}`);
+                            }
+                          } else {
+                            router.push('/notifications');
+                          }
+                        }}
+                        className={cn(
+                          "w-full text-left p-2 rounded-2xl transition-all flex items-start gap-2.5 group my-0.5 cursor-pointer",
+                          notif.read
+                            ? "hover:bg-slate-100/70 dark:hover:bg-slate-800/60 opacity-80 hover:opacity-100"
+                            : "bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/50"
+                        )}
+                      >
+                        <div className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                          {getNotificationItemIcon(notif.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className={cn(
+                              "text-xs truncate font-bold",
+                              notif.read ? "text-slate-700 dark:text-slate-300" : "text-emerald-900 dark:text-emerald-100"
+                            )}>
+                              {notif.title}
+                            </span>
+                            <span className="text-[10px] text-slate-400 shrink-0 font-medium">
+                              {formatDate(notif.created_at, 'HH:mm')}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5 leading-snug">
+                            {notif.message}
+                          </p>
+                          {notif.group_name && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1">
+                              <Users className="w-2.5 h-2.5" />
+                              <span className="truncate max-w-[150px]">{notif.group_name}</span>
+                            </span>
+                          )}
+                        </div>
+                        {!notif.read && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-2" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                <span>{t('notifications.soundEnabled') || 'Sonido de aviso'}</span>
-              </span>
-              <button
-                type="button"
-                onClick={toggleSound}
-                className={cn(
-                  'px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors',
-                  soundEnabled
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                )}
-              >
-                {soundEnabled ? (t('notifications.receiving') || 'Activado') : (t('notifications.muted') || 'Silenciado')}
-              </button>
-            </div>
 
-            {/* Quick Test Buttons */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-              <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                {t('notifications.simulateAlerts') || 'Simular alertas en vivo'}
-              </span>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => triggerTestBubble('chat')}
-                  className="w-full py-1.5 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors flex items-center justify-center gap-1"
-                >
-                  <MessageSquare className="w-3 h-3" />
-                  <span>{t('notifications.testChatBubble') || 'Probar Chat'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => triggerTestBubble('member')}
-                  className="w-full py-1.5 px-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors flex items-center justify-center gap-1"
-                >
-                  <UserPlus className="w-3 h-3" />
-                  <span>{t('notifications.testMemberBubble') || 'Probar Miembro'}</span>
-                </button>
+                {/* Footer Link */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
+                  <Link
+                    href="/notifications"
+                    onClick={() => setIsDockOpen(false)}
+                    className="inline-flex items-center justify-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-colors py-0.5 w-full cursor-pointer"
+                  >
+                    <span>{t('notifications.viewAll') || 'Ver todas las notificaciones'}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

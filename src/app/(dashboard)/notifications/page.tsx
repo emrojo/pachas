@@ -371,27 +371,29 @@ export default function NotificationsPage() {
               </div>
             </div>
 
-            {/* Test action buttons */}
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                variant="brand"
-                size="sm"
-                onClick={() => triggerTestBubble('chat')}
-                className="text-xs font-bold gap-1.5 shadow-xs"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>{t('notifications.testChatBubble') || 'Probar chat'}</span>
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => triggerTestBubble('member')}
-                className="text-xs font-bold gap-1.5 shadow-xs"
-              >
-                <Users className="w-3.5 h-3.5 text-indigo-500" />
-                <span>{t('notifications.testMemberBubble') || 'Probar nuevo miembro'}</span>
-              </Button>
-            </div>
+            {/* Test action buttons (only in development / demo mode) */}
+            {isDemoMode && (
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="brand"
+                  size="sm"
+                  onClick={() => triggerTestBubble('chat')}
+                  className="text-xs font-bold gap-1.5 shadow-xs"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>{t('notifications.testChatBubble') || 'Probar chat'}</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => triggerTestBubble('member')}
+                  className="text-xs font-bold gap-1.5 shadow-xs"
+                >
+                  <Users className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>{t('notifications.testMemberBubble') || 'Probar nuevo miembro'}</span>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

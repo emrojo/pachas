@@ -20,9 +20,11 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { NotificationType } from '@/types/database';
+import { isDemoModeAllowed } from '@/lib/authConfig';
 
 export const NotificationBellDropdown: React.FC = () => {
   const router = useRouter();
+  const isDev = isDemoModeAllowed();
   const {
     notifications,
     unreadNotificationsCount,
@@ -277,44 +279,48 @@ export const NotificationBellDropdown: React.FC = () => {
                     ? (t('notifications.noUnreadNotifications') || 'No tienes notificaciones pendientes sin leer')
                     : (t('notifications.noNotifications') || 'No tienes notificaciones todavía')}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => seedDemoNotifications()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{t('notifications.loadExamples') || 'Cargar ejemplos'}</span>
-                </button>
+                {isDev && (
+                  <button
+                    type="button"
+                    onClick={() => seedDemoNotifications()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{t('notifications.loadExamples') || 'Cargar ejemplos'}</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
 
           {/* Footer Link & Bubble Test */}
           <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-1.5 text-center">
-            <div className="flex items-center justify-between gap-1.5 px-1">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerTestBubble('chat');
-                  setIsOpen(false);
-                }}
-                className="flex-1 inline-flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-emerald-100/70 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-200/70 transition-colors"
-              >
-                <MessageSquare className="w-3 h-3 text-[#25D366]" />
-                <span>{t('notifications.testChatBubble') || 'Probar WhatsApp'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerTestBubble('member');
-                  setIsOpen(false);
-                }}
-                className="flex-1 inline-flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-indigo-100/70 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 text-[11px] font-semibold hover:bg-indigo-200/70 transition-colors"
-              >
-                <Users className="w-3 h-3 text-indigo-500" />
-                <span>{t('notifications.testMemberBubble') || 'Nuevo miembro'}</span>
-              </button>
-            </div>
+            {isDev && (
+              <div className="flex items-center justify-between gap-1.5 px-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerTestBubble('chat');
+                    setIsOpen(false);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-emerald-100/70 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-200/70 transition-colors"
+                >
+                  <MessageSquare className="w-3 h-3 text-[#25D366]" />
+                  <span>{t('notifications.testChatBubble') || 'Probar WhatsApp'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerTestBubble('member');
+                    setIsOpen(false);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-indigo-100/70 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 text-[11px] font-semibold hover:bg-indigo-200/70 transition-colors"
+                >
+                  <Users className="w-3 h-3 text-indigo-500" />
+                  <span>{t('notifications.testMemberBubble') || 'Nuevo miembro'}</span>
+                </button>
+              </div>
+            )}
             <Link
               href="/notifications"
               onClick={() => setIsOpen(false)}

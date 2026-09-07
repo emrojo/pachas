@@ -390,8 +390,10 @@ export default function GroupDetailPage() {
     setIsExpenseFormOpen(true);
   };
 
+  const isChatActive = activeTab === 'members' && friendsSubTab === 'chat';
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-28 md:pb-12">
+    <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 ${isChatActive ? 'pb-4 md:pb-12' : 'pb-28 md:pb-12'}`}>
       <Navbar />
 
       <main className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-5">
@@ -1009,8 +1011,8 @@ export default function GroupDetailPage() {
 
       </main>
 
-      <Footer />
-      <BottomNav onAddClick={handleOpenNewExpense} groupId={group.id} />
+      {!isChatActive && <Footer />}
+      {!isChatActive && <BottomNav onAddClick={handleOpenNewExpense} groupId={group.id} />}
 
       <ExpenseForm
         groupId={group.id}
