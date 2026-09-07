@@ -87,6 +87,7 @@ export const NotificationBubbleToast: React.FC = () => {
   const {
     notifications,
     unreadNotificationsCount,
+    activeChatGroupId,
     markNotificationAsRead,
     markAllNotificationsAsRead,
     triggerTestBubble,
@@ -150,10 +151,20 @@ export const NotificationBubbleToast: React.FC = () => {
       return;
     }
 
-    // Identify brand new unread notifications
-    const newItems = notifications.filter(
-      (n) => !n.read && !seenNotifIdsRef.current.has(n.id)
-    );
+    // Identify brand new unread notifications (ignoring chat notifications if user is currently in that chat)
+    const newItems = notifications.filter((n) => {
+      if (n.read || seenNotifIdsRef.current.has(n.id)) return false;
+
+      if (activeChatGroupId) {
+        const targetGid = n.group_id || (n.data as any)?.groupId;
+        const isChatType = n.type === 'group_message_created' || (n.data as any)?.type === 'group_message';
+        if (isChatType && targetGid === activeChatGroupId) {
+          seenNotifIdsRef.current.add(n.id);
+          return false;
+        }
+      }
+      return true;
+    });
 
     if (newItems.length === 0) return;
 
@@ -412,7 +423,7 @@ export const NotificationBubbleToast: React.FC = () => {
       </div>
 
       {/* WhatsApp Floating Launcher / Quick Dock */}
-      <div className="fixed bottom-20 right-3 sm:bottom-6 sm:right-6 z-40">
+      <div className={cn("fixed z-40 transition-all", activeChatGroupId ? "bottom-24 right-3 sm:bottom-6 sm:right-6" : "bottom-20 right-3 sm:bottom-6 sm:right-6")}>
         {/* Floating Bubble Button */}
         <button
           onClick={() => setIsDockOpen(!isDockOpen)}

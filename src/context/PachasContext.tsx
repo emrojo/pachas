@@ -170,6 +170,8 @@ interface PachasContextType {
   toggleGroupMessageReaction: (messageId: string, groupId: string, emoji: string) => Promise<void>;
   notifications: AppNotification[];
   unreadNotificationsCount: number;
+  activeChatGroupId: string | null;
+  setActiveChatGroupId: (id: string | null) => void;
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
   deleteNotification: (id: string) => void;
@@ -344,6 +346,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
     }
   }, [notifications]);
+
+  const [activeChatGroupId, setActiveChatGroupId] = useState<string | null>(null);
+  const activeChatGroupIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeChatGroupIdRef.current = activeChatGroupId;
+  }, [activeChatGroupId]);
 
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>(() => {
     if (typeof window !== 'undefined') {
@@ -3169,52 +3177,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     }
 
-    // Sync to backend
-    try {
-      const res = await fetch(`/api/groups/${groupId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: newMessage.id,
-          message,
-          gif_url: gifUrl,
-          reply_to_id: replyToId,
-          reply_to_snippet: replyToSnippet,
-          expense_id: effExpenseId,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.message) {
-          setGroupMessages((prev) => {
-            const currentList = prev[groupId] || [];
-            const replaced = currentList.map((m) => (m.id === newMessage.id ? { ...data.message, profile: currentUser } : m));
-            const updated = { ...prev, [groupId]: replaced };
-            safeSetLocalStorage(STORAGE_KEYS.GROUP_MESSAGES, JSON.stringify(updated));
-            return updated;
-          });
-        }
-      }
-    } catch (err) {
-      console.warn('Error syncing group message to backend:', err);
-    }
-
-    const targetGroup = getGroup(groupId);
-    const snippet = message.trim()
-      ? message.length > 50 ? message.slice(0, 47) + '...' : message
-      : 'ha enviado un GIF';
-
-    addNotification({
-      user_id: currentUser.id,
-      type: 'group_message_created',
-      title: `💬 Mensaje en ${targetGroup?.name || 'el grupo'}`,
-      message: `${currentUser.full_name?.split(' ')[0] || 'Un amigo'}: ${snippet}`,
-      group_id: groupId,
-      group_name: targetGroup?.name,
-      action_url: `/groups/${groupId}?tab=members&chat=true`,
-      data: { messageId: newMessage.id, groupId, expenseId: effExpenseId },
-    });
-
     return newMessage;
   };
 
@@ -3435,8 +3397,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   return updated;
                 });
 
-                // In-app notification if message was sent by another user
-                if (currentUser && msg.user_id !== currentUser.id) {
+                // In-app notification if message was sent by another user and user is not currently viewing that chat
+                const isViewingChat = activeChatGroupIdRef.current === msg.group_id;
+                if (currentUser && msg.user_id !== currentUser.id && !isViewingChat) {
                   const authorName = msg.profile?.full_name || 'Alguien';
                   const grp = groups.find((g) => g.id === msg.group_id);
                   addNotification({
@@ -3733,6 +3696,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               }
             } else if (parsed.type === 'notification_created') {
               const notifData = parsed.payload;
+              // Ignore self-notifications (e.g. sender of group message)
+              if (currentUser && notifData?.excludeUserId && notifData.excludeUserId === currentUser.id) {
+                return;
+              }
+              // Ignore if user is actively viewing this group's chat and it's a chat notification
+              const isChatNotif = notifData?.type === 'group_message' || notifData?.data?.type === 'group_message';
+              if (isChatNotif && notifData?.groupId && activeChatGroupIdRef.current === notifData.groupId) {
+                return;
+              }
               if (currentUser && notifData && (!notifData.userId || notifData.userId === currentUser.id)) {
                 addNotification({
                   user_id: currentUser.id,
@@ -3989,6 +3961,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         toggleGroupMessageReaction,
         notifications,
         unreadNotificationsCount,
+        activeChatGroupId,
+        setActiveChatGroupId,
         markNotificationAsRead,
         markAllNotificationsAsRead,
         deleteNotification,

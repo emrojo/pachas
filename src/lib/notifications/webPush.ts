@@ -137,6 +137,7 @@ export async function notifyGroupMembers(
       payload: {
         ...payload,
         groupId,
+        excludeUserId,
         created_at: new Date().toISOString(),
       },
     }).catch(() => {});

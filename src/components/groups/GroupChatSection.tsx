@@ -54,8 +54,19 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
     fetchGroupMessages,
     toggleGroupMessageReaction,
     availableUsers,
+    setActiveChatGroupId,
   } = usePachas();
   const { t } = useTranslation();
+
+  // Mark this chat as actively viewed to suppress notifications for incoming messages
+  useEffect(() => {
+    if (groupId) {
+      setActiveChatGroupId(groupId);
+      return () => {
+        setActiveChatGroupId(null);
+      };
+    }
+  }, [groupId, setActiveChatGroupId]);
 
   const [messageText, setMessageText] = useState('');
   const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
@@ -267,26 +278,26 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   return (
     <div className="flex flex-col h-[calc(100dvh-200px)] min-h-[480px] sm:h-[580px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
       {/* Chat Header */}
-      <div className="px-5 py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-sm shadow-emerald-500/20">
+      <div className="px-4 sm:px-5 py-3 sm:py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-sm shadow-emerald-500/20 shrink-0">
             <MessageSquare className="w-4 h-4" />
           </div>
-          <div>
-            <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <span>{t('chat.title') || 'Chat del Grupo'}</span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold">
+          <div className="min-w-0">
+            <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span className="truncate">{t('chat.title') || 'Chat del Grupo'}</span>
+              <span className="text-[10px] sm:text-[11px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold shrink-0">
                 {messages.length}
               </span>
             </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {t('chat.subtitle') || 'Conversación privada para todos los miembros de'} {groupName || 'este grupo'}
+            <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+              {t('chat.subtitle') || 'Conversación privada para miembros de'} {groupName || 'este grupo'}
             </p>
           </div>
         </div>
 
         {/* Member Avatars Stack */}
-        <div className="flex items-center -space-x-2 overflow-hidden py-1">
+        <div className="hidden sm:flex items-center -space-x-2 overflow-hidden py-1 shrink-0">
           {members.slice(0, 4).map((m) => (
             <Avatar
               key={m.id}
@@ -476,30 +487,30 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
                       </div>
                     )}
 
-                    {/* Hover Quick Actions Toolbar */}
+                    {/* Hover/Tap Quick Actions Toolbar */}
                     <div
-                      className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-slate-200 dark:border-slate-700 rounded-xl px-1.5 py-0.5 shadow-md ${
-                        isAuthor ? '-left-24' : '-right-24'
+                      className={`absolute -top-3.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-slate-200 dark:border-slate-700 rounded-full px-1 py-0.5 shadow-md z-10 ${
+                        isAuthor ? 'right-2' : 'left-2'
                       }`}
                     >
                       {/* Reply Button */}
                       <button
                         type="button"
                         onClick={() => handleStartReply(msg, authorProfile)}
-                        className="p-1 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors"
+                        className="p-1 text-slate-500 hover:text-emerald-600 rounded-full transition-colors"
                         title={t('chat.reply') || 'Responder'}
                       >
-                        <Reply className="w-3.5 h-3.5" />
+                        <Reply className="w-3 h-3" />
                       </button>
 
                       {/* React trigger */}
                       <button
                         type="button"
                         onClick={(e) => setReactingMessage({ id: msg.id, anchorEl: e.currentTarget })}
-                        className="p-1 text-slate-500 hover:text-amber-500 rounded-lg transition-colors"
+                        className="p-1 text-slate-500 hover:text-amber-500 rounded-full transition-colors"
                         title="Reaccionar"
                       >
-                        <Smile className="w-3.5 h-3.5" />
+                        <Smile className="w-3 h-3" />
                       </button>
 
                       {/* Delete */}
@@ -507,10 +518,10 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDelete(msg.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded-full transition-colors"
                           title="Eliminar mensaje"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       )}
                     </div>
@@ -518,7 +529,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
 
                   {/* Emoji Reactions List */}
                   {reactionEntries.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1 mt-1.5 px-0.5">
+                    <div className={`flex flex-wrap items-center gap-1 mt-1.5 px-0.5 ${isAuthor ? 'justify-end' : 'justify-start'}`}>
                       {reactionEntries.map(([emoji, userIds]) => {
                         const hasReacted = currentUser ? userIds.includes(currentUser.id) : false;
                         return (
@@ -604,14 +615,14 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       {/* Input Box Footer */}
       <form
         onSubmit={handleSendMessage}
-        className="p-3 sm:p-4 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2 shrink-0"
+        className="p-3 sm:p-4 pb-7 sm:pb-4 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2 shrink-0"
       >
         {/* Emoji Button */}
         <button
           ref={emojiButtonRef}
           type="button"
           onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
-          className="p-2.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="p-2 sm:p-2.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
           title="Añadir emoji"
         >
           <Smile className="w-4 h-4" />
@@ -621,7 +632,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
         <button
           type="button"
           onClick={() => setIsGifModalOpen(true)}
-          className="p-2.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="p-2 sm:p-2.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
           title="Buscar GIF"
         >
           <Film className="w-4 h-4" />
@@ -638,7 +649,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
               ? `${t('chat.replyingTo') || 'Respondiendo a'} ${replyingTo.authorName}...`
               : (t('chat.placeholder') || 'Escribe un mensaje al grupo...')
           }
-          className="flex-1 bg-slate-100 dark:bg-slate-800/80 border-0 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="flex-1 min-w-0 bg-slate-100 dark:bg-slate-800/80 border-0 rounded-2xl px-3.5 sm:px-4 py-2.5 h-10 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
 
         {/* Send Button */}
@@ -648,7 +659,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
           size="sm"
           disabled={(!messageText.trim() && !selectedGifUrl) || isSubmitting}
           isLoading={isSubmitting}
-          className="rounded-2xl px-4 h-10 font-bold shrink-0 shadow-xs"
+          className="rounded-2xl px-3.5 sm:px-4 h-10 font-bold shrink-0 shadow-xs"
         >
           <Send className="w-4 h-4" />
         </Button>

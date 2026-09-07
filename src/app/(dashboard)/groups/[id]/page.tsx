@@ -393,7 +393,7 @@ export default function GroupDetailPage() {
   const isChatActive = activeTab === 'members' && friendsSubTab === 'chat';
 
   return (
-    <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 ${isChatActive ? 'pb-4 md:pb-12' : 'pb-28 md:pb-12'}`}>
+    <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 ${isChatActive ? 'pb-8 md:pb-12' : 'pb-28 md:pb-12'}`}>
       <Navbar />
 
       <main className="max-w-5xl mx-auto px-4 py-4 sm:py-6 space-y-5">
