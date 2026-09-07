@@ -95,6 +95,39 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
 
   const messages = getGroupMessages(groupId);
 
+  // Keep input in view above mobile keyboard when opened or visualViewport resizes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handleViewportChange = () => {
+      if (document.activeElement === inputRef.current) {
+        inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => {
+          scrollToBottom(true);
+        }, 100);
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleViewportChange);
+    window.visualViewport.addEventListener('scroll', handleViewportChange);
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleViewportChange);
+      window.visualViewport?.removeEventListener('scroll', handleViewportChange);
+    };
+  }, []);
+
+  const handleInputFocus = () => {
+    setTimeout(() => {
+      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      scrollToBottom(true);
+    }, 150);
+    setTimeout(() => {
+      inputRef.current?.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+      scrollToBottom(false);
+    }, 350);
+  };
+
   // Fetch messages from backend on mount
   useEffect(() => {
     if (groupId) {
@@ -284,7 +317,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-200px)] min-h-[480px] sm:h-[580px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
+    <div className="flex flex-col h-[calc(100dvh-200px)] min-h-[300px] sm:min-h-[520px] sm:h-[600px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
       {/* Chat Header */}
       <div className="px-4 sm:px-5 py-3 sm:py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
@@ -336,7 +369,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       </div>
 
       {/* Messages Scroll Area */}
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-y-contain p-4 sm:p-5 space-y-4 custom-scrollbar">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-y-contain p-4 sm:p-5 pb-6 sm:pb-4 space-y-4 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
@@ -564,7 +597,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
           })
         )}
         {/* Messages End Anchor with breathing space */}
-        <div ref={messagesEndRef} className="h-4 shrink-0" />
+        <div ref={messagesEndRef} className="h-8 sm:h-4 shrink-0" />
       </div>
 
       {/* Replying To Banner above input */}
@@ -623,7 +656,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
       {/* Input Box Footer */}
       <form
         onSubmit={handleSendMessage}
-        className="p-3 sm:p-4 pb-12 sm:pb-4 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2 shrink-0"
+        className="p-3 sm:p-4 pb-12 sm:pb-4 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.25)] flex items-center gap-1.5 sm:gap-2 shrink-0"
       >
         {/* Emoji Button */}
         <button
@@ -650,6 +683,7 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
         <input
           ref={inputRef}
           type="text"
+          onFocus={handleInputFocus}
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
           placeholder={
