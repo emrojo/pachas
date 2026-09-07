@@ -81,6 +81,9 @@ HTTPS_PORT=443
 
 # Security Flag: Disable demo test logins in production
 NEXT_PUBLIC_ENABLE_DEMO_USERS=false
+
+# Google OAuth (opcional - Google Cloud Console Client ID)
+# NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 `;
 
 writeFileSync(targetEnv, content, 'utf8');

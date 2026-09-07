@@ -1,3 +1,39 @@
+import fs from 'fs';
+import path from 'path';
+
+// Carga automática de variables de producción desde deploy/.env.production si existen
+const rootDir = process.cwd();
+const candidateEnvFiles = [
+  path.join(rootDir, 'deploy', '.env.production'),
+  path.join(rootDir, '.env.production'),
+  path.join(rootDir, 'deploy', '.env'),
+  path.join(rootDir, 'deploy', '.env.local'),
+];
+
+for (const envFile of candidateEnvFiles) {
+  if (fs.existsSync(envFile)) {
+    try {
+      const content = fs.readFileSync(envFile, 'utf8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+          const idx = trimmed.indexOf('=');
+          const key = trimmed.slice(0, idx).trim();
+          let val = trimmed.slice(idx + 1).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (!process.env[key]) {
+            process.env[key] = val;
+          }
+        }
+      }
+    } catch {
+      // Ignorar errores no críticos de lectura
+    }
+  }
+}
+
 /** @type {import('next').NextConfig} */
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -56,6 +92,9 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   output: 'standalone',

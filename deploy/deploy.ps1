@@ -45,10 +45,29 @@ if (-not (Test-Path $EnvFile)) {
     Copy-Item (Join-Path $ScriptDir "env.example") $EnvFile
 }
 
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+            $parts = $line.Split("=", 2)
+            $name = $parts[0].Trim()
+            $val = $parts[1].Trim().Trim('"').Trim("'")
+            if (-not [System.Environment]::GetEnvironmentVariable($name)) {
+                [System.Environment]::SetEnvironmentVariable($name, $val)
+            }
+        }
+    }
+}
+
 # 4. Construir imagen Docker
 Write-Host ">> Construyendo imagen de produccion ($ImageName)..." -ForegroundColor Cyan
 Set-Location $RootDir
-docker build -f deploy/Dockerfile -t $ImageName .
+docker build -f deploy/Dockerfile `
+    --build-arg NEXT_PUBLIC_SUPABASE_URL="$env:NEXT_PUBLIC_SUPABASE_URL" `
+    --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$env:NEXT_PUBLIC_SUPABASE_ANON_KEY" `
+    --build-arg NEXT_PUBLIC_ADMIN_EMAIL="$env:NEXT_PUBLIC_ADMIN_EMAIL" `
+    --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="$env:NEXT_PUBLIC_GOOGLE_CLIENT_ID" `
+    -t $ImageName .
 
 # 5. Desplegar Stack
 Write-Host ">> Desplegando Docker Stack: '$StackName'..." -ForegroundColor Cyan

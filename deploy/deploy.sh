@@ -40,7 +40,12 @@ export $(grep -v '^#' "${ENV_FILE}" | xargs -0) 2>/dev/null || true
 # 4. Construir la imagen Docker de la aplicación
 echo "📦 Construyendo imagen de producción (${IMAGE_NAME})..."
 cd "${ROOT_DIR}"
-docker build -f deploy/Dockerfile -t "${IMAGE_NAME}" .
+docker build -f deploy/Dockerfile \
+  --build-arg NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:3001}" \
+  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key}" \
+  --build-arg NEXT_PUBLIC_ADMIN_EMAIL="${NEXT_PUBLIC_ADMIN_EMAIL:-admin@pachas.local}" \
+  --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}" \
+  -t "${IMAGE_NAME}" .
 
 # 5. Desplegar el Stack en Swarm
 echo "🚀 Desplegando Docker Stack: '${STACK_NAME}'..."
