@@ -317,8 +317,10 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-200px)] min-h-[300px] sm:min-h-[520px] sm:h-[600px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
-      {/* Chat Header */}
+    <div className="flex flex-col h-[calc(100dvh-190px)] min-h-[340px] sm:min-h-[520px] sm:h-[600px] bg-slate-100/70 dark:bg-slate-900/50 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-2 sm:p-3 pb-3 sm:pb-3.5 shadow-xs gap-2 sm:gap-2.5">
+      {/* Messages & Header Inner Panel */}
+      <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs">
+        {/* Chat Header */}
       <div className="px-4 sm:px-5 py-3 sm:py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-sm shadow-emerald-500/20 shrink-0">
@@ -597,114 +599,118 @@ export const GroupChatSection: React.FC<GroupChatSectionProps> = ({
           })
         )}
         {/* Messages End Anchor with breathing space */}
-        <div ref={messagesEndRef} className="h-8 sm:h-4 shrink-0" />
+        <div ref={messagesEndRef} className="h-4 shrink-0" />
       </div>
+    </div>
 
-      {/* Replying To Banner above input */}
-      {replyingTo && (
-        <div className="px-4 py-2 bg-emerald-50/90 dark:bg-emerald-950/70 border-t border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
-          <div className="flex items-center gap-2 min-w-0">
-            <CornerDownRight className="w-4 h-4 text-emerald-600 shrink-0" />
-            <div className="min-w-0">
-              <span className="font-bold text-emerald-900 dark:text-emerald-100">
-                {t('chat.replyingTo') || 'Respondiendo a'} {replyingTo.authorName}:
-              </span>
-              <span className="ml-1 text-emerald-700 dark:text-emerald-300 truncate inline-block max-w-[200px] sm:max-w-md align-bottom italic">
-                "{replyingTo.textSnippet}"
-              </span>
-              {replyingTo.expenseId && (
-                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-                  <span>💸 {t('chat.syncWithExpenseNotice') || 'Se añadirá también como comentario en el gasto'}</span>
-                </div>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setReplyingTo(null)}
-            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg shrink-0"
-            title={t('chat.cancelReply') || 'Cancelar respuesta'}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Selected GIF Preview above input */}
-      {selectedGifUrl && (
-        <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Film className="w-4 h-4 text-emerald-600" />
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              GIF seleccionado para enviar
-            </span>
-            <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600">
-              <img src={selectedGifUrl} alt="Preview" className="w-full h-full object-cover" />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSelectedGifUrl(null)}
-            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg"
-            title="Quitar GIF"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Input Box Footer */}
+      {/* Input Box Independent Card */}
       <form
         onSubmit={handleSendMessage}
-        className="p-3 sm:p-4 pb-12 sm:pb-4 pb-safe bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.25)] flex items-center gap-1.5 sm:gap-2 shrink-0"
+        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-2 sm:p-2.5 flex flex-col gap-1.5 shrink-0"
       >
-        {/* Emoji Button */}
-        <button
-          ref={emojiButtonRef}
-          type="button"
-          onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
-          className="p-2 sm:p-2.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
-          title="Añadir emoji"
-        >
-          <Smile className="w-4 h-4" />
-        </button>
+        {/* Replying To Banner above input */}
+        {replyingTo && (
+          <div className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/70 rounded-xl border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between gap-2 text-xs animate-in fade-in slide-in-from-bottom-1 duration-150">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <CornerDownRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <div className="min-w-0">
+                <span className="font-bold text-emerald-900 dark:text-emerald-100 text-[11px] sm:text-xs">
+                  {t('chat.replyingTo') || 'Respondiendo a'} {replyingTo.authorName}:
+                </span>
+                <span className="ml-1 text-emerald-700 dark:text-emerald-300 truncate inline-block max-w-[180px] sm:max-w-md align-bottom italic text-[11px] sm:text-xs">
+                  "{replyingTo.textSnippet}"
+                </span>
+                {replyingTo.expenseId && (
+                  <div className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                    <span>💸 {t('chat.syncWithExpenseNotice') || 'Se añadirá también como comentario en el gasto'}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              className="p-1 text-slate-400 hover:text-rose-500 rounded-lg shrink-0"
+              title={t('chat.cancelReply') || 'Cancelar respuesta'}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
-        {/* GIF Button */}
-        <button
-          type="button"
-          onClick={() => setIsGifModalOpen(true)}
-          className="p-2 sm:p-2.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
-          title="Buscar GIF"
-        >
-          <Film className="w-4 h-4" />
-        </button>
+        {/* Selected GIF Preview above input */}
+        {selectedGifUrl && (
+          <div className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800/90 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Film className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                GIF seleccionado
+              </span>
+              <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600">
+                <img src={selectedGifUrl} alt="Preview" className="w-full h-full object-cover" />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedGifUrl(null)}
+              className="p-1 text-slate-400 hover:text-rose-500 rounded-lg"
+              title="Quitar GIF"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
-        {/* Text Input */}
-        <input
-          ref={inputRef}
-          type="text"
-          onFocus={handleInputFocus}
-          value={messageText}
-          onChange={(e) => setMessageText(e.target.value)}
-          placeholder={
-            replyingTo
-              ? `${t('chat.replyingTo') || 'Respondiendo a'} ${replyingTo.authorName}...`
-              : (t('chat.placeholder') || 'Escribe un mensaje al grupo...')
-          }
-          className="flex-1 min-w-0 bg-slate-100 dark:bg-slate-800/80 border-0 rounded-2xl px-3.5 sm:px-4 py-2.5 h-10 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        />
+        {/* Input Row */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Emoji Button */}
+          <button
+            ref={emojiButtonRef}
+            type="button"
+            onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
+            className="p-2 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            title="Añadir emoji"
+          >
+            <Smile className="w-4 h-4" />
+          </button>
 
-        {/* Send Button */}
-        <Button
-          type="submit"
-          variant="brand"
-          size="sm"
-          disabled={(!messageText.trim() && !selectedGifUrl) || isSubmitting}
-          isLoading={isSubmitting}
-          className="rounded-2xl px-3.5 sm:px-4 h-10 font-bold shrink-0 shadow-xs"
-        >
-          <Send className="w-4 h-4" />
-        </Button>
+          {/* GIF Button */}
+          <button
+            type="button"
+            onClick={() => setIsGifModalOpen(true)}
+            className="p-2 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            title="Buscar GIF"
+          >
+            <Film className="w-4 h-4" />
+          </button>
+
+          {/* Text Input */}
+          <input
+            ref={inputRef}
+            type="text"
+            onFocus={handleInputFocus}
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            placeholder={
+              replyingTo
+                ? `${t('chat.replyingTo') || 'Respondiendo a'} ${replyingTo.authorName}...`
+                : (t('chat.placeholder') || 'Escribe un mensaje al grupo...')
+            }
+            className="flex-1 min-w-0 bg-slate-100 dark:bg-slate-800/80 border-0 rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2 h-10 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+
+          {/* Send Button */}
+          <Button
+            type="submit"
+            variant="brand"
+            size="sm"
+            disabled={(!messageText.trim() && !selectedGifUrl) || isSubmitting}
+            isLoading={isSubmitting}
+            className="rounded-xl sm:rounded-2xl px-3.5 sm:px-4 h-10 font-bold shrink-0 shadow-xs"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
       </form>
 
       {/* Floating Emoji Popover for Input */}

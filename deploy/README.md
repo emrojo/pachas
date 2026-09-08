@@ -62,8 +62,10 @@ The [`docker-stack.yml`](./docker-stack.yml) and [`docker-compose.yml`](./docker
 deploy/
 ├── Dockerfile                  # Multi-stage build optimized for Next.js standalone
 ├── .dockerignore               # File filter to accelerate builds
+├── CICD-GUIDE.md               # Continuous Integration & Continuous Deployment (GHCR + SSH)
 ├── docker-stack.yml            # Production Swarm Stack specification with Nginx Proxy
-├── docker-compose.yml          # Production / Local Compose specification with Nginx Proxy
+├── docker-compose.yml          # Local / Dev Compose specification with Nginx Proxy
+├── docker-compose.prod.yml     # Hardened Production Compose specification consuming GHCR image
 ├── env.example                 # Environment variables template with security flags
 ├── generate-secrets.mjs        # Cryptographic secrets generator (PostgreSQL, JWT)
 ├── generate-secrets.ps1        # PowerShell wrapper for secrets generator
@@ -73,8 +75,9 @@ deploy/
 ├── pachas.service              # Linux systemd production service unit template
 ├── build-native.ps1            # Automated native build pipeline for Windows (Android/iOS)
 ├── build-native.sh             # Automated native build pipeline for Linux/macOS
-├── deploy.sh                   # Automated deployment script for Linux/macOS
+├── deploy.sh                   # Automated deployment script for Linux/macOS (Swarm)
 ├── deploy.ps1                  # Automated deployment script for Windows PowerShell
+├── remote-deploy.sh            # Automated remote deployment & rollback engine for SSH CI/CD
 ├── reset-db.sh                 # Database reset script for Linux/macOS
 ├── reset-db.ps1                # Database reset script for Windows PowerShell
 ├── README.md                   # This guide

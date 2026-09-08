@@ -1,0 +1,182 @@
+name: Deploy to Production (GHCR + SSH)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Forzar despliegue omitiendo pasos no críticos'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ============================================================================
+  # 1. QUALITY GATE (Lint, Typecheck, Tests, Security Audit)
+  # ============================================================================
+  quality-gate:
+    name: 🛡️ CI Quality & Security Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🔍 TypeScript Type Check
+        run: npx tsc --noEmit
+
+      - name: 🧪 Run Vitest Test Suite
+        run: npm run test
+
+      - name: 🔒 Pachas Security & Cryptographic Audit
+        run: npm run security:audit
+
+  # ============================================================================
+  # 2. BUILD & PUSH DOCKER IMAGE TO GHCR
+  # ============================================================================
+  build-and-push-ghcr:
+    name: 🐳 Build & Push Image to GHCR
+    needs: [quality-gate]
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+      image_name: ${{ steps.repo_lower.outputs.repo }}
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🏷️ Convert Repository Name to Lowercase
+        id: repo_lower
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "repo=${REPO_LOWER}" >> "$GITHUB_OUTPUT"
+
+      - name: ⚙️ Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 🚀 Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔖 Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.repo_lower.outputs.repo }}
+          tags: |
+            type=sha,format=long,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: 📦 Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:3001' }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key' }}
+            NEXT_PUBLIC_ADMIN_EMAIL=${{ vars.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@pachas.local' }}
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # 3. SSH ZERO-DOWNTIME DEPLOYMENT
+  # ============================================================================
+  deploy-ssh:
+    name: 🚀 SSH Deploy to Production
+    needs: [build-and-push-ghcr]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: 🔐 Execute Remote Deployment over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          TARGET_TAG: sha-${{ github.sha }}
+          REPO_IMAGE: ghcr.io/${{ needs.build-and-push-ghcr.outputs.image_name }}
+          DEPLOY_DIR: ${{ secrets.SERVER_APP_DIR || '/opt/pachas' }}
+          CR_PAT: ${{ secrets.CR_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE || '' }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: TARGET_TAG,REPO_IMAGE,DEPLOY_DIR,CR_PAT,GITHUB_ACTOR
+          script_stop: true
+          script: |
+            set -euo pipefail
+            
+            echo "=========================================================="
+            echo "🚀 CONECTADO AL SERVIDOR DE PRODUCCIÓN"
+            echo "=========================================================="
+            
+            # 1. Autenticación en GHCR (si se proporcionan credenciales)
+            if [ -n "${CR_PAT:-}" ]; then
+              echo "${CR_PAT}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+            fi
+            
+            # 2. Navegar al directorio de la aplicación
+            TARGET_DIR="${DEPLOY_DIR:-/opt/pachas}"
+            if [ ! -d "${TARGET_DIR}" ]; then
+              echo "❌ Error: Directorio ${TARGET_DIR} no existe en el servidor."
+              exit 1
+            fi
+            cd "${TARGET_DIR}"
+            
+            # 3. Sincronizar scripts y configuraciones si es repositorio git
+            if [ -d ".git" ]; then
+              echo "🔄 Actualizando archivos de configuración vía git..."
+              git fetch origin main || true
+              git checkout origin/main -- deploy/ || true
+            fi
+            
+            # 4. Invocar el script de despliegue remoto con verificación y rollback
+            if [ -f "deploy/remote-deploy.sh" ]; then
+              chmod +x deploy/remote-deploy.sh
+              PACHAS_REPO_IMAGE="${REPO_IMAGE}" DEPLOY_DIR="${TARGET_DIR}" ./deploy/remote-deploy.sh "${TARGET_TAG}"
+            else
+              echo "⚠️ Script deploy/remote-deploy.sh no encontrado. Ejecutando despliegue directo..."
+              export PACHAS_IMAGE="${REPO_IMAGE}:${TARGET_TAG}"
+              docker pull "${PACHAS_IMAGE}"
+              docker compose -f deploy/docker-compose.prod.yml up -d --remove-orphans
+            fi
+            
+            # 5. Cierre seguro de sesión en GHCR
+            if [ -n "${CR_PAT:-}" ]; then
+              docker logout ghcr.io >/dev/null 2>&1 || true
+            fi
+            
+            echo "=========================================================="
+            echo "✅ DESPLIEGUE SSH FINALIZADO CORRECTAMENTE"
+            echo "=========================================================="
