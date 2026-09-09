@@ -1,4 +1,3 @@
-version: '3.8'
 
 # ==============================================================================
 # PACHAS - PRODUCTION DOCKER COMPOSE SPECIFICATION
@@ -128,7 +127,7 @@ services:
 
 networks:
   proxy-network:
-    driver: bridge
+    external: true
 
 # volumes:
 #   postgres_data:
