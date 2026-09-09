@@ -48,7 +48,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - NEXT_TELEMETRY_DISABLED=1
-      - DATABASE_URL=postgres://${POSTGRES_USER:-pachas_admin}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB:-pachas}
+    #- DATABASE_URL=postgres://${POSTGRES_USER:-pachas_admin}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB:-pachas}
     # depends_on:
     #   postgres:
     #     condition: service_healthy
