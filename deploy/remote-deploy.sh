@@ -100,12 +100,12 @@ export PACHAS_IMAGE="${TARGET_IMAGE}"
 echo ""
 echo "🗄️ Ejecutando migraciones de base de datos..."
 # Levantar PostgreSQL primero si no está activo
-${DOCKER_COMPOSE} -f "${COMPOSE_FILE}" up -d postgres postgrest
+#${DOCKER_COMPOSE} -f "${COMPOSE_FILE}" up -d postgres postgrest
 
 # Esperar a que PostgreSQL responda
 echo "⏳ Esperando a que PostgreSQL esté listo..."
 for i in $(seq 1 15); do
-  if docker exec pachas_postgres pg_isready -U pachas_admin >/dev/null 2>&1; then
+  if docker exec postgres_db pg_isready -U pachas_admin >/dev/null 2>&1; then
     echo "✅ Base de datos lista."
     break
   fi
