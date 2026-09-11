@@ -67,6 +67,26 @@ if [ ! -f "${ENV_FILE}" ]; then
   fi
 fi
 
+# Cargar y exportar variables de entorno para Docker Compose y procesos del shell
+if [ -f "${ENV_FILE}" ]; then
+  echo "🔑 Cargando y exportando variables de entorno desde ${ENV_FILE}..."
+  set -a
+  # shellcheck disable=SC1090
+  . "${ENV_FILE}" 2>/dev/null || {
+    while IFS= read -r line || [ -n "${line}" ]; do
+      [[ -z "${line}" || "${line}" =~ ^[[:space:]]*# ]] && continue
+      eval "export ${line}" 2>/dev/null || true
+    done < "${ENV_FILE}"
+  }
+  set +a
+
+  # Garantizar que POSTGRES_HOST tenga como destino el contenedor de BD si no está definido
+  export POSTGRES_HOST="${POSTGRES_HOST:-postgres_db}"
+
+  # Incluir --env-file en docker compose para que interpole variables de archivo de forma nativa
+  DOCKER_COMPOSE="${DOCKER_COMPOSE} --env-file ${ENV_FILE}"
+fi
+
 # ------------------------------------------------------------------------------
 # 2. Capturar estado previo para Rollback
 # ------------------------------------------------------------------------------
@@ -114,7 +134,7 @@ done
 
 # Ejecutar migraciones usando la nueva imagen
 echo "⚙️ Aplicando migraciones pendientes con la nueva versión..."
-if ! ${DOCKER_COMPOSE} -f "${COMPOSE_FILE}" run --rm --no-deps -e DATABASE_URL="${DATABASE_URL:-}" app node deploy/migrate.mjs; then
+if ! ${DOCKER_COMPOSE} -f "${COMPOSE_FILE}" run --rm --no-deps -v "${DEPLOY_DIR}/deploy:/app/deploy:ro" -e DATABASE_URL="${DATABASE_URL:-}" app node deploy/migrate.mjs; then
   echo "⚠️ Aviso en migraciones: intentando migrador en línea o continuando..."
 fi
 
