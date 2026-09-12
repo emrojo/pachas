@@ -844,6 +844,43 @@ This document serves as the official and permanent registry for all **user requi
   - Modifications by administrators preserve the original `created_by` identifier and creator attribution, ensuring clear financial auditing and historical transparency.
 - **FR-67.5**: **Full Internationalization & Automated Unit Testing**:
   - Synchronized translations across all 20 supported languages in `src/locales/` (`expenses.adminEditingNotice`, `expenses.notAuthorizedToEdit`).
+  - Unit test suite in [`src/lib/groups/expenseAdminPermissions.test.ts`](file:///d:/Projects/pachas/src/lib/groups/expenseAdminPermissions.test.ts) validating creator vs. regular member vs. group admin vs. super admin permissions.
+
+### 📱 FR-68: Mobile Ergonomics, Icon-Only Action Buttons & Accordion-Driven Mobile Expense Editor
+- **FR-68.1**: **Mobile Dashboard Typography Scaling**:
+  - Enlarged typography throughout `/dashboard-mobile` to ensure high contrast, readability, and comfortable reading distances on smartphone screens.
+- **FR-68.2**: **Full-Surface Icon-Only Action Buttons**:
+  - The hero expense creation bar (Scan Ticket, Photo Upload, Manual Entry) and footer navigation buttons display self-descriptive prominent icons taking full advantage of the button surface without textual labels.
+- **FR-68.3**: **Enhanced Balance Card Padding & Boundary Protection**:
+  - The hero balance gradient card (`bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700`) features expanded padding (`p-6 sm:p-7 rounded-3xl`) ensuring text never touches container borders.
+- **FR-68.4**: **Accordion-Driven Mobile Expense Editor (`ExpenseForm.tsx`)**:
+  - Mobile mode (`isMobileView`) prioritizes the two most frequent inputs: **Concept** and **Amount** with immediate **Quick Save** action.
+  - Secondary sections (Category, Who Paid, Who Shares, Date & Time, Location, Notes, Receipt, Comments) are cleanly collapsed by default into interactive accordions, expanding only on demand.
+
+### 🔔 FR-69: Production Demo Notifications Database Purge Migration
+- **FR-69.1**: **Database Migration `17-clean-demo-notifications.sql`**:
+  - Transactional migration purging all pre-seeded demo/test notification entries from `public.notifications` in production databases.
+- **FR-69.2**: **Deterministic Migrator Integration**:
+  - Registered and tested within the automated migrator engine (`src/lib/db/migrator.ts`, `migrator.test.ts`), guaranteeing automatic execution on deployment.
+
+### 💰 FR-70: Participant Reimbursement Tracking, Multi-State Visual Badging & Debt Balance Exclusion (`has_paid`)
+- **FR-70.1**: **Participant Payment Status (`has_paid`)**:
+  - Database migration `deploy/init-scripts/18-expense-participant-has-paid.sql` adds column `has_paid BOOLEAN NOT NULL DEFAULT FALSE` to `public.expense_participants`.
+  - Schema auto-healing in `src/lib/db/postgres.ts` and type definitions in `src/types/database.ts`.
+- **FR-70.2**: **Interactive Reimbursement Section in Expense Form**:
+  - Dedicated accordion section in `ExpenseForm.tsx` (desktop & mobile) displaying debtor participants who owe money to the lender.
+  - Interactive toggle buttons per participant, along with *"Marcar todos"* and *"Desmarcar"* quick actions.
+- **FR-70.3**: **Multi-State Visual Status Badges**:
+  - Clear visual indicator rendered across both desktop (`ExpenseCard.tsx`) and mobile (`/dashboard-mobile`):
+    - `✅ Completado`: All debtor participants have reimbursed the lender.
+    - `🔄 Parcialmente pagado (X/Y)`: Some participants have reimbursed, with exact count progress.
+    - `⏳ Por pagar`: Pending payment.
+- **FR-70.4**: **Debt Settlement Balance Exclusion**:
+  - In `src/lib/algorithms/simplifyDebts.ts`, participants marked as `has_paid: true` are excluded from the debtor balance calculation and settlement transactions for that expense, maintaining mathematical zero-sum equilibrium ($\sum \text{netBalance} = 0$).
+- **FR-70.5**: **API Persistence & 20-Language i18n**:
+  - Full persistence in `POST /api/expenses` and `PUT /api/expenses/[id]`.
+  - Complete translation coverage across all 20 supported languages.
+
 ### 👥 FR-71: Equal Split Mode for Multiple Payers ("A partes iguales")
 - **FR-71.1**: **Mode Switcher for Multiple Payers**:
   - When selecting that multiple friends paid for an expense (`isMultiPayer === true`) in `ExpenseForm.tsx`, the interface presents a tab selector between:
@@ -1013,6 +1050,7 @@ This document serves as the official and permanent registry for all **user requi
 | **12/09/2026** | 🔒 Added | **FR-66** | **Closed Groups vs. Open Groups & Individual Single-Use Invitations**: All new groups default to Closed Groups (`is_closed: true`). Closed groups disable general invite codes, QR codes, and general WhatsApp share, requiring individual single-use claim links or addition of known contacts. Open groups allow open sharing via general code/link. Added interactive selector in `CreateGroupModal` and `EditGroupModal`, blocked generic join with security lockout screen on `/join/[inviteCode]`, badge indicators in desktop and mobile headers, database migration `16-closed-groups.sql`, and 20-language i18n synchronization. |
 | **12/09/2026** | 🛡️ Added | **FR-67** | **Group Administrator Expense Management & Modification Authority**: Group administrators and system administrators can edit and delete all expense information within a group (concept, amount, currency, category, date, payers, splits, items, notes, receipt), preserving the original creator's attribution with an emerald admin editing banner; enforced permissions in `ExpenseCard`, `ExpenseForm`, `PachasContext.tsx`, `PUT /api/expenses/[id]`, and `DELETE /api/expenses/[id]`; 20-language i18n support; and dedicated automated unit test suite (`expenseAdminPermissions.test.ts`). |
 | **13/09/2026** | 📱 Redesigned | **FR-68** | **Mobile Balance Card Padding & Accordion-Driven Mobile Expense Editor**: Increased padding on the financial balance card in `/dashboard-mobile` (`p-6 sm:p-7 rounded-3xl`) to prevent edge collisions; redesigned `ExpenseForm` for mobile (`isMobileView`) with enlarged high-contrast typography, prominent Concept and Amount inputs with direct Quick Save, and collapsible accordion cards collapsed by default for all secondary sections (Category, Who Paid, Who Shares, Date & Time, Receipt, Location, Notes, Comments). |
+| **13/09/2026** | 🔔 Added | **FR-69** | **Production Demo Notifications Database Purge Migration**: Database migration `17-clean-demo-notifications.sql` and deterministic runner integration in `migrator.ts` and `migrator.test.ts` to automatically purge development/mock notifications from `public.notifications` across production databases. |
 | **13/09/2026** | 💰 Added | **FR-70** | **Expense Reimbursement Tracking, Multi-State Visual Badging & Debt Balance Exclusion (`has_paid`)**: Integrated participant reimbursement tracking in the expense editor (`ExpenseForm`) for desktop and mobile (`isMobileView`); visual payment status badges (`✅ Completado`, `🔄 Parcialmente pagado (X/Y)`, `⏳ Por pagar`) across desktop (`ExpenseCard`) and mobile (`/dashboard-mobile`); mathematical exclusion of reimbursed debt from group net balances (`simplifyDebts.ts`), conserving zero-sum equilibrium ($\sum \text{netBalance} = 0$); PostgreSQL schema migration `18-expense-participant-has-paid.sql`; API persistence in `POST /api/expenses` and `PUT /api/expenses/[id]`; and full 20-language i18n synchronization. |
 | **13/09/2026** | 👥 Added | **FR-71** | **Equal Split Mode for Multiple Payers ("A partes iguales")**: Integrated mode switcher tab in `ExpenseForm` when multiple friends paid (`EQUAL` vs `EXACT`); interactive payer selection chips with member avatars; one-click *"Todos"* button; automatic equal share calculation using `calculateSplits(totalAmount, 'EQUAL', selectedPayerIds)` with loss-less penny balancing; live breakdown banner with exact cents; smart auto-detection on edit; contextual accordion header badge (`Varios amigos (X a partes iguales)`); and 20-language i18n synchronization. |
 
