@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { getDbPool, ensureGlobalSchema } from '@/lib/db/postgres';
 import { isServerAdmin } from '@/lib/auth/adminAuth';
+import { getAppVersionInfo } from '@/lib/version';
 
 async function checkAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string; email?: string }> {
   // 1. Check Bearer Authorization header or sb-access-token cookie
@@ -386,10 +387,12 @@ export async function GET(request: NextRequest) {
     }
 
     const mem = process.memoryUsage();
+    const versionInfo = getAppVersionInfo();
     const systemInfo = {
       uptimeSeconds: Math.floor(process.uptime()),
       nodeVersion: process.version,
       environment: process.env.NODE_ENV || 'development',
+      version: versionInfo,
       memory: {
         rssMb: Math.round(mem.rss / 1024 / 1024),
         heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),

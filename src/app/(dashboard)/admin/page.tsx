@@ -45,6 +45,9 @@ import {
   ChevronRight,
   Filter,
   Trash2,
+  GitCommit,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 
 interface MetricsData {
@@ -52,6 +55,14 @@ interface MetricsData {
     uptimeSeconds: number;
     nodeVersion: string;
     environment: string;
+    version?: {
+      commit: string;
+      shortCommit: string;
+      buildTime: string;
+      formattedBuildDate: string;
+      githubCommitUrl: string | null;
+      environment: string;
+    };
     memory: {
       rssMb: number;
       heapUsedMb: number;
@@ -181,6 +192,7 @@ export default function AdminBackofficePage() {
 
   const [activeTab, setActiveTab] = useState<'health' | 'users' | 'groups' | 'analytics' | 'anomalies' | 'reports' | 'support'>('health');
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const [copiedCommit, setCopiedCommit] = useState(false);
   const [reports, setReports] = useState<ContentReport[]>([]);
   const [reportSearch, setReportSearch] = useState('');
   const [reportStatusFilter, setReportStatusFilter] = useState<'all' | 'pending' | 'reviewed' | 'dismissed'>('all');
@@ -1099,6 +1111,92 @@ export default function AdminBackofficePage() {
                 </Card>
               ))}
             </div>
+
+            {/* Deployment Version & Git Commit Information */}
+            <Card className="p-6 space-y-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center shrink-0">
+                    <GitCommit className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>Último Despliegue en Producción</span>
+                      <Badge variant="emerald" size="sm">Activo</Badge>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Trazabilidad del código en ejecución, commit Git y fecha de compilación.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/api/version"
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 transition-colors"
+                  title="Consultar JSON de versión directamente"
+                >
+                  <span>API /version</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-400 block">Commit Hash</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-sm font-bold text-slate-800 dark:text-slate-200">
+                      {metrics?.systemInfo.version?.shortCommit || 'dev'}
+                    </span>
+                    {metrics?.systemInfo.version?.commit && metrics.systemInfo.version.commit !== 'dev' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (metrics?.systemInfo.version?.commit) {
+                            navigator.clipboard.writeText(metrics.systemInfo.version.commit);
+                            setCopiedCommit(true);
+                            setTimeout(() => setCopiedCommit(false), 2000);
+                          }
+                        }}
+                        className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                        title="Copiar hash completo"
+                      >
+                        {copiedCommit ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                    {metrics?.systemInfo.version?.githubCommitUrl && (
+                      <a
+                        href={metrics.systemInfo.version.githubCommitUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 rounded-md text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                        title="Ver commit en GitHub"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-400 block">Fecha y Hora de Despliegue</span>
+                  <span className="text-sm font-bold text-slate-800 dark:text-slate-200 block mt-1">
+                    {metrics?.systemInfo.version?.formattedBuildDate || 'Desarrollo local'}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-400 block">Versión y Release</span>
+                  <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 block mt-1">
+                    Pachas v0.1.0 • {metrics?.systemInfo.environment || 'production'}
+                  </span>
+                </div>
+              </div>
+            </Card>
 
             {/* Server Process & Resource Consumption */}
             <Card className="p-6 space-y-4">

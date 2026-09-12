@@ -1,5 +1,18 @@
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
+
+// Determinación del commit de Git y la fecha de compilación
+let gitCommit = process.env.NEXT_PUBLIC_GIT_COMMIT || '';
+if (!gitCommit) {
+  try {
+    gitCommit = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    gitCommit = 'dev';
+  }
+}
+
+const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString();
 
 // Carga automática de variables de producción desde deploy/.env.production si existen
 const rootDir = process.cwd();
@@ -94,6 +107,8 @@ const securityHeaders = [
 const nextConfig = {
   env: {
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+    NEXT_PUBLIC_GIT_COMMIT: gitCommit,
+    NEXT_PUBLIC_BUILD_TIME: buildTime,
   },
   reactStrictMode: true,
   poweredByHeader: false,

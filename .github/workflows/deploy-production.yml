@@ -106,6 +106,8 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key' }}
             NEXT_PUBLIC_ADMIN_EMAIL=${{ vars.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@pachas.local' }}
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '' }}
+            NEXT_PUBLIC_GIT_COMMIT=${{ github.sha }}
+            NEXT_PUBLIC_BUILD_TIME=${{ steps.meta.outputs.annotations || '' != '' && github.event.head_commit.timestamp || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
