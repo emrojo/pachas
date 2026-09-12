@@ -72,16 +72,16 @@ export async function POST(
       const provEmail = `unclaimed-${newProvUserId.substring(0, 8)}@pachas.local`;
 
       await client.query(
-        `INSERT INTO auth.users (id, email, created_at)
-         VALUES ($1, $2, NOW())
+        `INSERT INTO auth.users (id, email, raw_user_meta_data, created_at)
+         VALUES ($1, $2, json_build_object('full_name', $3::text)::jsonb, NOW())
          ON CONFLICT (id) DO NOTHING`,
-        [newProvUserId, provEmail]
+        [newProvUserId, provEmail, provisionalName]
       ).catch(() => {});
 
       await client.query(
         `INSERT INTO public.profiles (id, email, full_name, role, is_unclaimed, created_at, updated_at)
          VALUES ($1, $2, $3, 'member', TRUE, NOW(), NOW())
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, is_unclaimed = TRUE, updated_at = NOW()`,
         [newProvUserId, provEmail, provisionalName]
       );
 

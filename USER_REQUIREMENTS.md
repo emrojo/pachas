@@ -744,6 +744,67 @@ This document serves as the official and permanent registry for all **user requi
   - Allows an active member to renounce their claimed provisional slot, returning it to an open unclaimed state so another member can claim it.
   - Supported by database migration `14-unclaimed-members.sql` and comprehensive unit tests in [`src/lib/groups/unclaimedMembers.test.ts`](file:///d:/Projects/pachas/src/lib/groups/unclaimedMembers.test.ts).
 
+### 👤 FR-63: Admin User Profile & Group Membership Management
+- **FR-63.1**: **User Profile Editing by System Administrators ([`src/components/admin/AdminEditUserModal.tsx`](file:///d:/Projects/pachas/src/components/admin/AdminEditUserModal.tsx))**:
+  - System administrators can inspect and modify any registered user's profile information directly from the Admin Backoffice (`/admin?tab=users`).
+  - Editable fields include: Full Name (`full_name`), Email (`email`), Bizum Phone (`bizum_phone`), Preferred Language (`preferred_language`), System Role (`role`: 'member' | 'admin'), and Avatar (`avatar_url` via `DiceBearAvatarPicker`).
+  - Strict input sanitization and email uniqueness validation against existing database records.
+  - Bidirectional synchronization between `public.profiles` and `auth.users` (`email`, `raw_user_meta_data`).
+- **FR-63.2**: **User Group Membership Management from Admin Console**:
+  - Administrators can view all groups that a user belongs to, including their group role and joining date.
+  - Ability to remove the user from any group with a confirmation prompt, calling the authenticated `DELETE /api/groups/[id]/members?userId=[targetUserId]` endpoint.
+  - Ability to add the user to any existing group in the system with role selection ('member' | 'admin'), calling `POST /api/groups/[id]/members`.
+- **FR-63.3**: **Group Members Direct Inspection & Management ([`src/components/admin/AdminGroupMembersModal.tsx`](file:///d:/Projects/pachas/src/components/admin/AdminGroupMembersModal.tsx))**:
+  - Dedicated "Miembros" action in the Admin Backoffice Groups tab (`/admin?tab=groups`).
+  - Displays all group members with avatar, display name, email, role badge, and joining date.
+  - Administrators can directly add any system user to the group with designated role, or remove existing members from the group.
+- **FR-63.4**: **Dedicated Admin User Endpoint & Comprehensive Testing**:
+  - REST endpoint `/api/admin/users/[id]` (`GET`, `PUT`) protected by admin authorization verification (`isServerAdmin`).
+  - Full TypeScript type-checking and automated unit tests in [`src/app/api/admin/users/[id]/route.test.ts`](file:///d:/Projects/pachas/src/app/api/admin/users/[id]/route.test.ts).
+  - Complete 20-language internationalization synchronization in `src/locales/`.
+
+### 📱 FR-64: Mobile-First A/B Test Dashboard (`/dashboard-mobile`)
+- **FR-64.1**: **Parallel A/B Route Accessibility ([`src/app/(dashboard)/dashboard-mobile/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/dashboard-mobile/page.tsx))**:
+  - Independent route accessible at `/dashboard-mobile` running concurrently with standard `/dashboard`, tailored specifically for narrow mobile screens.
+  - Centered mobile viewport layout on desktop viewports (`max-w-md`) with native app-like interactions.
+- **FR-64.2**: **Compact Mobile Header with Identity & Financial Health**:
+  - Displays active group cover photo / icon emoji, group name, and active group dropdown switcher.
+  - Real-time financial indicators: total group spending and current user's net debt/credit status (*"Debes X €"*, *"Te deben X €"*, or *"Al día"*).
+  - Compact utility controls: Language Selector (`variant="compact"`), Buy Me a Coffee donation button (`useDonationUrl`), and User Avatar popover menu with profile, demo switcher, and logout actions.
+- **FR-64.3**: **Tri-Action Expense Creation Hero**:
+  - Prominent mobile control block providing three straightforward creation pathways:
+    1. **Escanear factura**: Camera input (`capture="environment"`) with client-side compression (`validateAndCompressImage`), privacy canvas redaction (`ReceiptRedactionModal`), and background OCR processing (`queueReceiptScan`).
+    2. **Subir imagen**: Photo album/gallery picker following the same privacy and OCR queue pipeline.
+    3. **Añadir a mano**: Immediate trigger opening `ExpenseForm` for manual entry.
+  - In-queue pending receipts banner integration (`PendingScansBanner`).
+- **FR-64.4**: **Tri-View Concise Footer Navigation**:
+  - Fixed mobile bottom navigation enabling instant switching between three concise views:
+    1. **Gastos (`expenses`)**: Streamlined list of group expenses with payer name, amount, date, and 1-click edit modal.
+    2. **Grupos (`groups`)**: Compact overview of user's active groups with 1-tap switching between groups, plus create (`CreateGroupModal`) and join (`JoinGroupModal`) actions.
+    3. **Opciones (`options`)**: Essential group management tools (Invite friends via `InviteModal`, settle debts via `SettleModal`, edit group via `EditGroupModal`, and export PDF/CSV reports).
+- **FR-64.5**: **Full Internationalization & Automated Testing**:
+  - Complete 20-language translation support in `src/locales/` (`mobileTitle`, `totalGroupSpent`, `youOweGroup`, `groupOwesYou`, `userSettled`, `scanReceiptCamera`, `uploadReceiptImage`, `addExpenseManual`, etc.).
+  - Automated test suite in [`src/app/(dashboard)/dashboard-mobile/mobileDashboard.test.ts`](file:///d:/Projects/pachas/src/app/(dashboard)/dashboard-mobile/mobileDashboard.test.ts).
+
+### 👤 FR-65: Display Original Provisional Names & Unclaimed Badging in Admin Console
+- **FR-65.1**: **Original Provisional Name Persistence on Creation**:
+  - Fixed conflict handling in provisional member insertion (`src/app/api/groups/route.ts`, `src/app/api/groups/[id]/members/route.ts`, `src/app/api/groups/[id]/members/[memberId]/renounce/route.ts`).
+  - Passes `raw_user_meta_data: { full_name: provisionalName }` to `auth.users` preventing the database trigger `handle_new_user()` from setting `full_name` to default email slugs (`unclaimed-xxxx`).
+  - Switched `ON CONFLICT (id) DO NOTHING` on `public.profiles` to `ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, is_unclaimed = TRUE, updated_at = NOW()`.
+- **FR-65.2**: **Database Healing & Lateral Join Resolution in Admin APIs**:
+  - Implemented automated self-healing SQL query in `src/app/api/admin/metrics/route.ts` updating legacy provisional records where `full_name ILIKE 'unclaimed-%'` with their actual `group_members.provisional_name`.
+  - Enriched user queries in both `/api/admin/metrics` and `/api/admin/users/[id]` with `LEFT JOIN LATERAL` against `public.group_members`, prioritizing real provisional names and selecting `is_unclaimed`.
+- **FR-65.3**: **Admin Users Table Badging, Filters & Search**:
+  - Displays the member's created name (`displayName`) in `/admin?tab=users` instead of technical `unclaimed-xxxx` identifiers.
+  - Distinguishes provisional users with a distinctive amber badge (`⏳ Sin reclamar`) alongside their system role.
+  - Subtitle under display name clearly indicates provisional status: `Cuenta provisional · unclaimed-...@pachas.local`.
+  - Added dedicated quick-filter tab `⏳ Sin reclamar (N)` in the user directory and extended search filtering to match on provisional names.
+- **FR-65.4**: **Admin Edit User Modal Unclaimed Awareness**:
+  - `AdminEditUserModal` detects `is_unclaimed: true`, displaying an explanatory amber notice banner and allowing administrators to update provisional names or manage group memberships.
+- **FR-65.5**: **Complete Localization & Unit Testing**:
+  - Added `admin.unclaimedUserBadge` and `admin.unclaimedAccount` across all 19 language dictionaries in `src/locales/`.
+  - Added automated unit tests in `src/app/api/admin/users/[id]/route.test.ts` and `src/app/api/admin/metrics/route.test.ts`.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -887,6 +948,9 @@ This document serves as the official and permanent registry for all **user requi
 | **12/09/2026** | 🧾 Added | **FR-60 & NFR-17** | **Itemized Line-Item Expense Splitting & Receipt Product Allocation**: Line-item receipt breakdown extracted via Google Gemini 1.5 Flash Vision (`/api/ocr/scan`), deterministic mathematical split engine (`itemizedSplitCalculations.ts`) with individual/shared assignment and loss-less penny balancing, database migration `15-expense-items.sql` (`public.expense_items`, `split_type = 'ITEMIZED'`), database types in `database.ts`, auto-schema synchronization in `postgres.ts`, interactive `ItemizedSplitEditor` UI with live balancing card, integration in `ExpenseForm` and `ReceiptValidationModal`, and 20-language i18n synchronization. |
 | **12/09/2026** | 🏷️ Added | **FR-61** | **Discrete Deployment Version & Commit Hash Indicator**: Public discrete health/version endpoint `/api/version` returning commit hash, build timestamp, version, and branch; integrated inspection card in `/admin` for operational verification. |
 | **12/09/2026** | 👥 Added | **FR-62** | **Unclaimed Provisional Group Members & Single-Use Claim Invitations**: Initial estimated member count and placeholder names during group creation, editing provisional names in group settings, single-use cryptographic claim links (`14-unclaimed-members.sql`), user claiming lifecycle, and slot relinquishment support. |
+| **12/09/2026** | 👤 Added | **FR-63** | **Admin User Profile & Group Membership Management**: Allows administrators to edit user profiles (name, email, phone, language, role, avatar), add/remove users from any group, and directly manage group members from the Admin Console (`AdminEditUserModal`, `AdminGroupMembersModal`, `/api/admin/users/[id]`). |
+| **12/09/2026** | 📱 Added | **FR-64** | **Mobile-First A/B Test Dashboard (`/dashboard-mobile`)**: Lightweight, mobile-optimized dashboard designed for A/B testing against standard dashboard. Features concise group header with financial debt status, tri-action expense creation hero (camera scan, photo upload, manual form), and 3 concise footer views (expenses list, group switcher, group settings). |
+| **12/09/2026** | 👤 Fixed & Added | **FR-65** | **Display Original Provisional Names & Unclaimed Badging in Admin Console**: Corrected database insertion conflicts in provisional user creation (`ON CONFLICT DO UPDATE`), updated Postgres profile healing and lateral join queries in `/api/admin/metrics` and `/api/admin/users/[id]`, displayed real provisional names instead of technical `unclaimed-xxxx` identifiers in the Admin user directory, integrated distinct `⏳ Sin reclamar` badge and filter tab in `/admin?tab=users`, and updated `AdminEditUserModal` with provisional account awareness and 19-language i18n support. |
 
 
 

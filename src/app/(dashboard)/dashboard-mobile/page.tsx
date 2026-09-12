@@ -1,0 +1,844 @@
+'use client';
+
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { usePachas, safeGetLocalStorage, safeSetLocalStorage } from '@/context/PachasContext';
+import { useTranslation } from '@/context/LanguageContext';
+import { useDonationUrl } from '@/lib/useDonationUrl';
+
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
+
+import { ExpenseForm } from '@/components/expenses/ExpenseForm';
+import { ReceiptRedactionModal } from '@/components/expenses/ReceiptRedactionModal';
+import { ReceiptValidationModal } from '@/components/expenses/ReceiptValidationModal';
+import { PendingScansBanner } from '@/components/expenses/PendingScansBanner';
+import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
+import { JoinGroupModal } from '@/components/groups/JoinGroupModal';
+import { InviteModal } from '@/components/groups/InviteModal';
+import { EditGroupModal } from '@/components/groups/EditGroupModal';
+import { SettleModal } from '@/components/balances/SettleModal';
+
+import { validateAndCompressImage } from '@/lib/security/sanitize';
+import { formatMoney } from '@/lib/currencies';
+import { formatDate } from '@/lib/utils';
+import { getCategoryInfo } from '@/lib/categories';
+import { exportGroupToPDF, exportGroupToCSV } from '@/lib/export';
+import { Expense, PendingReceiptScan, SimplifiedDebt, Profile } from '@/types/database';
+
+import {
+  Camera,
+  Upload,
+  Plus,
+  Receipt,
+  Users,
+  Settings,
+  ChevronDown,
+  ChevronRight,
+  Check,
+  LogOut,
+  Coffee,
+  CheckCircle2,
+  TrendingDown,
+  TrendingUp,
+  User,
+  ArrowUpRight,
+  Sparkles,
+  QrCode,
+  HandCoins,
+  FileDown,
+} from 'lucide-react';
+
+type MobileViewTab = 'expenses' | 'groups' | 'options';
+
+export default function MobileDashboardPage() {
+  const router = useRouter();
+  const {
+    groups,
+    currentUser,
+    getGroup,
+    fetchGroup,
+    getGroupMembers,
+    getGroupExpenses,
+    getGroupBalances,
+    getGroupDebts,
+    queueReceiptScan,
+    pendingReceiptScans,
+    availableUsers,
+    setCurrentUser,
+    logout,
+    isDemoMode,
+    addNotification,
+  } = usePachas();
+  const { t } = useTranslation();
+  const donationUrl = useDonationUrl();
+
+  const activeGroups = useMemo(() => groups.filter((g) => !g.is_archived), [groups]);
+
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+
+  useEffect(() => {
+    if (activeGroups.length > 0) {
+      const saved = safeGetLocalStorage('pachas_mobile_active_group');
+      const validSaved = activeGroups.find((g) => g.id === saved);
+      if (validSaved) {
+        setSelectedGroupId(validSaved.id);
+      } else if (!selectedGroupId || !activeGroups.find((g) => g.id === selectedGroupId)) {
+        setSelectedGroupId(activeGroups[0].id);
+      }
+    }
+  }, [activeGroups, selectedGroupId]);
+
+  const handleSelectGroup = (id: string) => {
+    setSelectedGroupId(id);
+    safeSetLocalStorage('pachas_mobile_active_group', id);
+    fetchGroup(id).catch(() => {});
+  };
+
+  const activeGroup = activeGroups.find((g) => g.id === selectedGroupId) || activeGroups[0] || null;
+
+  const members = activeGroup ? getGroupMembers(activeGroup.id) : [];
+  const expenses = activeGroup ? getGroupExpenses(activeGroup.id) : [];
+  const balances = activeGroup ? getGroupBalances(activeGroup.id) : [];
+  const debts = activeGroup ? getGroupDebts(activeGroup.id) : [];
+
+  const totalGroupSpent = useMemo(() => {
+    return expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  }, [expenses]);
+
+  const myNetBalance = useMemo(() => {
+    if (!currentUser || !activeGroup) return 0;
+    const myBalance = balances.find((b) => b.user_id === currentUser.id);
+    return myBalance?.net_balance || 0;
+  }, [balances, currentUser, activeGroup]);
+
+  const [activeTab, setActiveTab] = useState<MobileViewTab>('expenses');
+
+  const [isExpenseFormOpen, setIsExpenseFormOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [redactionImage, setRedactionImage] = useState<string | null>(null);
+  const [validatingScan, setValidatingScan] = useState<PendingReceiptScan | null>(null);
+  const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isJoinGroupOpen, setIsJoinGroupOpen] = useState(false);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isEditGroupOpen, setIsEditGroupOpen] = useState(false);
+  const [settlingDebt, setSettlingDebt] = useState<SimplifiedDebt | null>(null);
+
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  if (!currentUser) return null;
+
+  const handleProcessFile = async (file: File) => {
+    if (!activeGroup) return;
+    try {
+      const compressedDataUrl = await validateAndCompressImage(file, 1200, 0.85);
+      setRedactionImage(compressedDataUrl);
+    } catch (err: any) {
+      console.warn('Error processing receipt image:', err);
+      alert(err.message || 'Error al procesar la imagen.');
+    }
+  };
+
+  const handleCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleProcessFile(file);
+    e.target.value = '';
+  };
+
+  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleProcessFile(file);
+    e.target.value = '';
+  };
+
+  const handleOpenManualExpense = () => {
+    setEditingExpense(null);
+    setIsExpenseFormOpen(true);
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setIsExpenseFormOpen(true);
+  };
+
+  const handleSelectUser = (user: Profile) => {
+    setCurrentUser(user);
+    setIsUserMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    setIsUserMenuOpen(false);
+    await logout();
+    router.replace('/');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-between antialiased selection:bg-emerald-500 selection:text-white">
+      <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 shadow-2xl min-h-screen flex flex-col relative pb-20">
+
+        {/* HEADER */}
+        <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 pt-3 pb-3 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="relative min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => setIsGroupSwitcherOpen(!isGroupSwitcherOpen)}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-all text-left max-w-full"
+                title={t('dashboard.switchGroup') || 'Cambiar de grupo'}
+              >
+                {activeGroup?.cover_image_url ? (
+                  <img
+                    src={activeGroup.cover_image_url}
+                    alt=""
+                    className="w-6 h-6 rounded-lg object-cover shrink-0"
+                  />
+                ) : (
+                  <span className="text-base shrink-0">{activeGroup?.icon_emoji || '🏖️'}</span>
+                )}
+                <span className="text-xs font-black text-slate-900 dark:text-white truncate">
+                  {activeGroup ? activeGroup.name : t('dashboard.noGroupsTitle') || 'Sin grupos'}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-auto" />
+              </button>
+
+              {isGroupSwitcherOpen && (
+                <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-2 py-1 text-[10px] font-black uppercase text-slate-400">
+                    {t('dashboard.yourGroups') || 'Tus Grupos'}
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {activeGroups.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => {
+                          handleSelectGroup(g.id);
+                          setIsGroupSwitcherOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 p-2 rounded-xl text-left text-xs transition-colors ${
+                          g.id === activeGroup?.id
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <span className="text-sm shrink-0">{g.icon_emoji || '🏖️'}</span>
+                        <span className="truncate flex-1">{g.name}</span>
+                        {g.id === activeGroup?.id && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5 mt-1.5 flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsGroupSwitcherOpen(false);
+                        setIsCreateGroupOpen(true);
+                      }}
+                      className="flex-1 py-1.5 text-center text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg"
+                    >
+                      + {t('nav.newGroup') || 'Nuevo'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsGroupSwitcherOpen(false);
+                        setIsJoinGroupOpen(true);
+                      }}
+                      className="flex-1 py-1.5 text-center text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                    >
+                      {t('nav.joinGroup') || 'Unirse'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a
+                href={donationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center transition-transform active:scale-95 shadow-2xs"
+                title={t('dashboard.supportProject') || 'Apoyar el proyecto'}
+              >
+                <Coffee className="w-4 h-4" />
+              </a>
+
+              <LanguageSelector variant="compact" />
+
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="rounded-full ring-2 ring-transparent hover:ring-emerald-500 transition-all cursor-pointer"
+                >
+                  <Avatar profile={currentUser} size="sm" className="w-8 h-8 text-xs shadow-2xs" />
+                </button>
+
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 text-xs">
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-800 mb-1">
+                      <div className="font-bold text-slate-900 dark:text-white truncate">
+                        {currentUser.full_name || 'Usuario'}
+                      </div>
+                      <div className="text-[11px] text-slate-400 truncate">{currentUser.email}</div>
+                    </div>
+
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium"
+                    >
+                      <User className="w-4 h-4 text-slate-400" />
+                      <span>{t('nav.profile') || 'Mi Perfil'}</span>
+                    </Link>
+
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium"
+                    >
+                      <ArrowUpRight className="w-4 h-4 text-slate-400" />
+                      <span>Dashboard Estándar</span>
+                    </Link>
+
+                    {isDemoMode && (
+                      <div className="border-t border-slate-100 dark:border-slate-800 pt-1 mt-1">
+                        <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          Simular:
+                        </div>
+                        <div className="max-h-28 overflow-y-auto space-y-0.5">
+                          {availableUsers.map((u) => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => handleSelectUser(u)}
+                              className="w-full flex items-center gap-2 p-1.5 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                              <Avatar profile={u} size="sm" className="w-5 h-5 text-[9px]" />
+                              <span className="truncate flex-1">{u.full_name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-1 mt-1">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>{t('nav.logout') || 'Cerrar sesión'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {activeGroup ? (
+            <div className="bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 rounded-2xl p-3.5 text-white shadow-md shadow-emerald-600/15 relative overflow-hidden">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-100 block">
+                    {t('dashboard.totalGroupSpent') || 'Gasto Total del Grupo'}
+                  </span>
+                  <div className="text-xl font-black tracking-tight mt-0.5">
+                    {formatMoney(totalGroupSpent, activeGroup.base_currency)}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-100 block">
+                    Tu Estado
+                  </span>
+                  <div className="mt-0.5">
+                    {myNetBalance < 0 ? (
+                      <span className="inline-flex items-center gap-1 bg-rose-500/90 text-white font-black text-xs px-2 py-0.5 rounded-lg shadow-xs">
+                        <TrendingDown className="w-3 h-3" />
+                        {t('dashboard.youOweGroup') || 'Debes'} {formatMoney(Math.abs(myNetBalance), activeGroup.base_currency)}
+                      </span>
+                    ) : myNetBalance > 0 ? (
+                      <span className="inline-flex items-center gap-1 bg-white/20 text-white font-black text-xs px-2 py-0.5 rounded-lg">
+                        <TrendingUp className="w-3 h-3" />
+                        {t('dashboard.groupOwesYou') || 'Te deben'} {formatMoney(myNetBalance, activeGroup.base_currency)}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 bg-white/15 text-emerald-50 font-bold text-xs px-2 py-0.5 rounded-lg">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-200" />
+                        {t('dashboard.userSettled') || 'Al día'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-center text-xs text-slate-500">
+              {t('dashboard.noGroupsTitle') || 'Crea o únete a un grupo para empezar.'}
+            </div>
+          )}
+        </header>
+
+        {/* BODY */}
+        <main className="p-4 space-y-4 flex-1">
+          {activeGroup && (
+            <PendingScansBanner
+              groupId={activeGroup.id}
+              onSelectScanToValidate={(scan) => setValidatingScan(scan)}
+            />
+          )}
+
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleCameraChange}
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleGalleryChange}
+          />
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-3.5 shadow-sm space-y-2.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                Registrar Gasto
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">Elige una opción</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                disabled={!activeGroup}
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 active:scale-95 transition-all shadow-2xs group cursor-pointer disabled:opacity-50"
+              >
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
+                  <Camera className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">
+                  {t('dashboard.scanReceiptCamera') || 'Escanear'}
+                </span>
+                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">Cámara</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!activeGroup}
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/60 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-teal-800 dark:text-teal-200 active:scale-95 transition-all shadow-2xs group cursor-pointer disabled:opacity-50"
+              >
+                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
+                  <Upload className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">
+                  {t('dashboard.uploadReceiptImage') || 'Subir Foto'}
+                </span>
+                <span className="text-[9px] text-teal-600 dark:text-teal-400 font-medium">Galería</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!activeGroup}
+                onClick={handleOpenManualExpense}
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 active:scale-95 transition-all shadow-2xs group cursor-pointer disabled:opacity-50"
+              >
+                <div className="w-9 h-9 rounded-xl bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">
+                  {t('dashboard.addExpenseManual') || 'A mano'}
+                </span>
+                <span className="text-[9px] text-slate-400 font-medium">Formulario</span>
+              </button>
+            </div>
+          </div>
+
+          {activeTab === 'expenses' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {t('dashboard.tabExpenses') || 'Gastos del Grupo'} ({expenses.length})
+                </span>
+                {activeGroup && (
+                  <Link
+                    href={`/groups/${activeGroup.id}?tab=expenses`}
+                    className="text-[11px] font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
+                  >
+                    Ver todos <ChevronRight className="w-3 h-3" />
+                  </Link>
+                )}
+              </div>
+
+              {expenses.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
+                  {t('dashboard.noExpensesInGroup') || 'Aún no hay gastos registrados en este grupo.'}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {expenses.slice(0, 10).map((exp) => {
+                    const payerUserId = exp.payers?.[0]?.user_id || exp.created_by;
+                    const payerMember = members.find((m) => m.user_id === payerUserId);
+                    const payerName = payerMember?.provisional_name || payerMember?.profile?.full_name || exp.creator?.full_name || 'Alguien';
+                    const categoryInfo = getCategoryInfo(exp.category);
+                    return (
+                      <div
+                        key={exp.id}
+                        onClick={() => handleEditExpense(exp)}
+                        className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 hover:border-emerald-400 rounded-2xl flex items-center justify-between gap-2.5 cursor-pointer active:scale-[0.99] transition-all shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm shrink-0">
+                            {categoryInfo?.emoji || '🧾'}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
+                              {exp.title}
+                            </span>
+                            <span className="text-[10px] text-slate-400 truncate block">
+                              {formatDate(exp.expense_date || exp.created_at)} • Pagó <strong className="text-slate-600 dark:text-slate-300">{payerName}</strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                            {formatMoney(exp.amount, activeGroup?.base_currency || 'EUR')}
+                          </div>
+                          {exp.split_type === 'ITEMIZED' && (
+                            <span className="text-[9px] uppercase font-bold text-emerald-600">Por ítems</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'groups' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {t('dashboard.tabGroups') || 'Mis Grupos'} ({activeGroups.length})
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateGroupOpen(true)}
+                    className="text-[11px] font-bold text-emerald-600 hover:underline"
+                  >
+                    + Nuevo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsJoinGroupOpen(true)}
+                    className="text-[11px] font-bold text-slate-500 hover:underline"
+                  >
+                    Unirse
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                {activeGroups.map((g) => {
+                  const isSelected = g.id === activeGroup?.id;
+                  const gMembers = getGroupMembers(g.id);
+                  return (
+                    <div
+                      key={g.id}
+                      onClick={() => {
+                        handleSelectGroup(g.id);
+                        setActiveTab('expenses');
+                      }}
+                      className={`p-3 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 ring-1 ring-emerald-500 shadow-xs'
+                          : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {g.cover_image_url ? (
+                          <img src={g.cover_image_url} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg shrink-0">
+                            {g.icon_emoji || '🏖️'}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
+                            {g.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">
+                            {gMembers.length} miembros • {g.base_currency}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isSelected ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          Activo
+                        </span>
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'options' && (
+            <div className="space-y-3">
+              <div className="px-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                {t('dashboard.tabOptions') || 'Opciones del Grupo'}
+              </div>
+
+              {activeGroup ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteOpen(true)}
+                    className="w-full p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                        <QrCode className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">Invitar Amigos</div>
+                        <div className="text-[10px] text-slate-400">Enlace o código QR de acceso</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                  </button>
+
+                  {debts.length > 0 ? (
+                    <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/60 space-y-2">
+                      <div className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                        <HandCoins className="w-3.5 h-3.5 text-amber-600" />
+                        Deudas Pendientes ({debts.length})
+                      </div>
+                      <div className="space-y-1">
+                        {debts.map((d, i) => (
+                          <div
+                            key={i}
+                            onClick={() => setSettlingDebt(d)}
+                            className="p-2 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-between text-xs cursor-pointer hover:shadow-xs border border-amber-100 dark:border-amber-900/40"
+                          >
+                            <span className="text-[11px] truncate">
+                              <strong>{d.from_profile.full_name}</strong> ➔ {d.to_profile.full_name}
+                            </span>
+                            <span className="font-bold text-emerald-600 text-xs shrink-0">
+                              {formatMoney(d.amount, activeGroup.base_currency)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => setIsEditGroupOpen(true)}
+                    className="w-full p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 flex items-center justify-center">
+                        <Settings className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">Ajustes del Grupo</div>
+                        <div className="text-[10px] text-slate-400">Nombre, foto de portada y moneda</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => exportGroupToPDF(activeGroup, expenses, balances, debts, 'download')}
+                    className="w-full p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center">
+                        <FileDown className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">Descargar Informe PDF</div>
+                        <div className="text-[10px] text-slate-400">Balance y resumen de gastos</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                  </button>
+                </div>
+              ) : (
+                <div className="p-4 text-center text-xs text-slate-400">
+                  Selecciona un grupo para ver sus opciones.
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+
+        {/* FOOTER: 3 Concise Views Navigation Bar */}
+        <footer className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-3 py-2">
+          <div className="grid grid-cols-3 gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('expenses')}
+              className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all ${
+                activeTab === 'expenses'
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/60 dark:bg-emerald-950/30'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+              }`}
+            >
+              <Receipt className="w-4 h-4" />
+              <span className="text-[10px] mt-0.5">{t('dashboard.tabExpenses') || 'Gastos'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('groups')}
+              className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all ${
+                activeTab === 'groups'
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/60 dark:bg-emerald-950/30'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span className="text-[10px] mt-0.5">{t('dashboard.tabGroups') || 'Grupos'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('options')}
+              className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all ${
+                activeTab === 'options'
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/60 dark:bg-emerald-950/30'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span className="text-[10px] mt-0.5">{t('dashboard.tabOptions') || 'Opciones'}</span>
+            </button>
+          </div>
+        </footer>
+
+      </div>
+
+      {/* MODALS */}
+      {isExpenseFormOpen && activeGroup && (
+        <ExpenseForm
+          groupId={activeGroup.id}
+          isOpen={isExpenseFormOpen}
+          onClose={() => {
+            setIsExpenseFormOpen(false);
+            setEditingExpense(null);
+          }}
+          expenseToEdit={editingExpense || undefined}
+        />
+      )}
+
+      {redactionImage && activeGroup && (
+        <ReceiptRedactionModal
+          isOpen={!!redactionImage}
+          onClose={() => setRedactionImage(null)}
+          imageSrc={redactionImage}
+          onConfirmRedaction={async (censoredDataUrl) => {
+            await queueReceiptScan(activeGroup.id, censoredDataUrl);
+            setRedactionImage(null);
+            addNotification({
+              user_id: currentUser.id,
+              type: 'receipt_pending',
+              title: '⏳ Procesando factura con IA...',
+              message: 'Analizando conceptos e importes en segundo plano.',
+              group_id: activeGroup.id,
+            });
+          }}
+        />
+      )}
+
+      {validatingScan && activeGroup && (
+        <ReceiptValidationModal
+          isOpen={!!validatingScan}
+          onClose={() => setValidatingScan(null)}
+          pendingScan={validatingScan}
+          groupId={activeGroup.id}
+        />
+      )}
+
+      <CreateGroupModal
+        isOpen={isCreateGroupOpen}
+        onClose={() => setIsCreateGroupOpen(false)}
+        onSuccess={(newGroupId) => {
+          handleSelectGroup(newGroupId);
+          setIsCreateGroupOpen(false);
+        }}
+      />
+
+      <JoinGroupModal
+        isOpen={isJoinGroupOpen}
+        onClose={() => setIsJoinGroupOpen(false)}
+      />
+
+      {activeGroup && (
+        <InviteModal
+          group={activeGroup}
+          isOpen={isInviteOpen}
+          onClose={() => setIsInviteOpen(false)}
+        />
+      )}
+
+      {activeGroup && (
+        <EditGroupModal
+          group={activeGroup}
+          isOpen={isEditGroupOpen}
+          onClose={() => setIsEditGroupOpen(false)}
+        />
+      )}
+
+      {settlingDebt && activeGroup && (
+        <SettleModal
+          groupId={activeGroup.id}
+          debt={settlingDebt}
+          isOpen={!!settlingDebt}
+          onClose={() => setSettlingDebt(null)}
+        />
+      )}
+    </div>
+  );
+}

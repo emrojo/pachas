@@ -98,16 +98,16 @@ export async function POST(request: NextRequest) {
         await client.query('SAVEPOINT ensure_prov_profile');
         try {
           await client.query(
-            `INSERT INTO auth.users (id, email, created_at)
-             VALUES ($1, $2, NOW())
+            `INSERT INTO auth.users (id, email, raw_user_meta_data, created_at)
+             VALUES ($1, $2, json_build_object('full_name', $3::text)::jsonb, NOW())
              ON CONFLICT (id) DO NOTHING`,
-            [provUserId, provEmail]
+            [provUserId, provEmail, provName]
           ).catch(() => {});
 
           await client.query(
             `INSERT INTO public.profiles (id, email, full_name, role, is_unclaimed, created_at, updated_at)
              VALUES ($1, $2, $3, 'member', TRUE, NOW(), NOW())
-             ON CONFLICT (id) DO NOTHING`,
+             ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, is_unclaimed = TRUE, updated_at = NOW()`,
             [provUserId, provEmail, provName]
           );
           await client.query('RELEASE SAVEPOINT ensure_prov_profile');

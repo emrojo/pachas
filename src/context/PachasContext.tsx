@@ -151,6 +151,7 @@ interface PachasContextType {
   }) => Promise<Profile>;
   deleteLocalUser: (userId: string) => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
+  adminUpdateUser: (userId: string, data: Partial<Profile>) => Promise<Profile>;
   logout: () => Promise<void>;
   resetLocalDatabase: () => Promise<void>;
   isOnline: boolean;
@@ -3001,6 +3002,24 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const adminUpdateUser = async (userId: string, data: Partial<Profile>): Promise<Profile> => {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update user');
+    }
+    const { user: updatedUser } = await res.json();
+    if (currentUser && currentUser.id === userId) {
+      _setCurrentUser(updatedUser);
+      sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+    }
+    return updatedUser;
+  };
+
   const logout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -4173,6 +4192,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         removeMemberFromGroup,
         updateMemberRole,
         updateProfile,
+        adminUpdateUser,
         logout,
         resetLocalDatabase,
         isOnline,

@@ -15,8 +15,11 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { formatDate } from '@/lib/utils';
 import { ExpenseForm } from '@/components/expenses/ExpenseForm';
+import { AdminEditUserModal } from '@/components/admin/AdminEditUserModal';
+import { AdminGroupMembersModal } from '@/components/admin/AdminGroupMembersModal';
 import { Expense, SupportMessage } from '@/types/database';
 import {
+  Edit3,
   ShieldCheck,
   ShieldAlert,
   Shield,
@@ -123,6 +126,8 @@ interface MetricsData {
     groups_count: number;
     expenses_count: number;
     has_push: boolean;
+    is_unclaimed?: boolean;
+    provisional_name?: string | null;
   }>;
   groupsList: Array<{
     id: string;
@@ -217,10 +222,14 @@ export default function AdminBackofficePage() {
   const [isSendingAdminReply, setIsSendingAdminReply] = useState(false);
 
   // User Ban States
-  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'banned'>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'banned' | 'unclaimed'>('all');
   const [banningUserId, setBanningUserId] = useState<string | null>(null);
   const [banReasonInput, setBanReasonInput] = useState('Infracción de las normas de convivencia / conducta inapropiada');
   const [isBanSubmitting, setIsBanSubmitting] = useState(false);
+
+  // Admin User & Group Members Modals
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [managingGroup, setManagingGroup] = useState<{ id: string; name: string; icon_emoji?: string } | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -382,22 +391,38 @@ export default function AdminBackofficePage() {
       const creator = userMap.get(g.created_by);
 
       grpMembers.forEach((m: any) => {
-        if (m.profile && !userMap.has(m.user_id)) {
+        const isUnclaimed = Boolean(
+          m.is_unclaimed ||
+          m.profile?.is_unclaimed ||
+          (m.profile?.email && String(m.profile.email).startsWith('unclaimed-'))
+        );
+        const resolvedName = m.provisional_name || m.profile?.full_name || (isUnclaimed ? 'Amigo provisional' : 'Sin nombre');
+
+        if (!userMap.has(m.user_id)) {
           userMap.set(m.user_id, {
             id: m.user_id,
-            full_name: m.profile.full_name,
-            email: m.profile.email,
-            role: (m.profile.role || 'member') as 'admin' | 'member',
-            bizum_phone: m.profile.bizum_phone,
-            avatar_url: m.profile.avatar_url,
+            full_name: resolvedName,
+            email: m.profile?.email || (isUnclaimed ? `unclaimed-${String(m.user_id).substring(0, 8)}@pachas.local` : ''),
+            role: (m.profile?.role || 'member') as 'admin' | 'member',
+            bizum_phone: m.profile?.bizum_phone || null,
+            avatar_url: m.profile?.avatar_url || null,
             created_at: m.joined_at,
             groups_count: 1,
             expenses_count: 0,
             has_push: false,
+            is_unclaimed: isUnclaimed,
+            provisional_name: m.provisional_name || null,
           });
-        } else if (userMap.has(m.user_id)) {
+        } else {
           const existing = userMap.get(m.user_id);
           existing.groups_count = (existing.groups_count || 0) + 1;
+          if (isUnclaimed) {
+            existing.is_unclaimed = true;
+            if (m.provisional_name && (!existing.full_name || existing.full_name.startsWith('unclaimed-') || existing.full_name === 'Sin nombre')) {
+              existing.full_name = m.provisional_name;
+              existing.provisional_name = m.provisional_name;
+            }
+          }
         }
       });
 
@@ -478,7 +503,7 @@ export default function AdminBackofficePage() {
         paymentMethods,
         topCurrencies: topCurrencies.length > 0 ? topCurrencies : [{ currency: 'EUR', count: totalExp }],
       },
-      usersList: clientUsersList.length > 0 ? clientUsersList : serverData.usersList,
+      usersList: serverData.usersList && serverData.usersList.length > 0 ? serverData.usersList : clientUsersList,
       groupsList: clientGroupsList,
     };
   };
@@ -778,14 +803,20 @@ export default function AdminBackofficePage() {
   // Filtered users & groups
   const filteredUsers = (metrics?.usersList || []).filter((u) => {
     const q = (userSearch || '').trim().toLowerCase();
+    const displayName = (u.full_name && !u.full_name.startsWith('unclaimed-'))
+      ? u.full_name
+      : (u.provisional_name || u.full_name || '');
     const matchesQuery =
       !q ||
+      displayName.toLowerCase().includes(q) ||
+      (u.provisional_name && u.provisional_name.toLowerCase().includes(q)) ||
       (u.full_name && u.full_name.toLowerCase().includes(q)) ||
       (u.email && u.email.toLowerCase().includes(q)) ||
       (u.bizum_phone && u.bizum_phone.toLowerCase().includes(q));
 
-    if (userStatusFilter === 'active') return matchesQuery && !u.is_banned;
+    if (userStatusFilter === 'active') return matchesQuery && !u.is_banned && !u.is_unclaimed;
     if (userStatusFilter === 'banned') return matchesQuery && Boolean(u.is_banned);
+    if (userStatusFilter === 'unclaimed') return matchesQuery && Boolean(u.is_unclaimed);
     return Boolean(matchesQuery);
   });
 
@@ -1296,6 +1327,17 @@ export default function AdminBackofficePage() {
                 >
                   🚫 Baneados ({(metrics?.usersList || []).filter((u) => u.is_banned).length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setUserStatusFilter('unclaimed')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    userStatusFilter === 'unclaimed'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-amber-600 dark:text-amber-400 hover:text-amber-700'
+                  }`}
+                >
+                  ⏳ {t('admin.unclaimedUserBadge') || 'Sin reclamar'} ({(metrics?.usersList || []).filter((u) => u.is_unclaimed).length})
+                </button>
               </div>
             </div>
 
@@ -1325,17 +1367,29 @@ export default function AdminBackofficePage() {
                       filteredUsers.map((u) => {
                         const isAdmin = u.role === 'admin';
                         const isSelf = currentUser?.id === u.id;
+                        const isUnclaimed = Boolean(u.is_unclaimed);
+                        const displayName = (u.full_name && !u.full_name.startsWith('unclaimed-'))
+                          ? u.full_name
+                          : (u.provisional_name || u.full_name || 'Sin nombre');
                         return (
                           <tr key={u.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2.5">
-                                <Avatar profile={u as any} size="sm" className="w-7 h-7 text-xs" />
+                                <Avatar profile={{ ...u, full_name: displayName } as any} size="sm" className="w-7 h-7 text-xs" />
                                 <div className="min-w-0">
                                   <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1 truncate">
-                                    {u.full_name || 'Sin nombre'}
+                                    {displayName}
                                     {isSelf && <span className="text-[10px] text-emerald-600 font-bold ml-1">(Tú)</span>}
                                   </span>
-                                  <span className="text-[11px] text-slate-400 block truncate">{u.email}</span>
+                                  <span className="text-[11px] text-slate-400 block truncate">
+                                    {isUnclaimed ? (
+                                      <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                        {t('admin.unclaimedAccount') || 'Cuenta provisional'} · {u.email}
+                                      </span>
+                                    ) : (
+                                      u.email
+                                    )}
+                                  </span>
                                 </div>
                               </div>
                             </td>
@@ -1344,6 +1398,14 @@ export default function AdminBackofficePage() {
                                 <Badge variant={isAdmin ? 'purple' : 'gray'} size="sm">
                                   {isAdmin ? 'Administrador' : 'Miembro'}
                                 </Badge>
+                                {isUnclaimed && (
+                                  <span
+                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1"
+                                    title="Usuario provisional creado a mano en un grupo pendiente de reclamar"
+                                  >
+                                    ⏳ {t('admin.unclaimedUserBadge') || 'Sin reclamar'}
+                                  </span>
+                                )}
                                 {u.is_banned && (
                                   <span
                                     className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60"
@@ -1377,6 +1439,17 @@ export default function AdminBackofficePage() {
                             </td>
                             <td className="py-3 px-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingUserId(u.id)}
+                                  className="text-[11px] font-bold px-2 py-1 h-auto text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                  <Edit3 className="w-3 h-3 mr-1 text-slate-500" />
+                                  Editar
+                                </Button>
+
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -1570,6 +1643,17 @@ export default function AdminBackofficePage() {
                                   Activo
                                 </Badge>
                               )}
+
+                              {/* Group Members Management */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setManagingGroup({ id: g.id, name: g.name, icon_emoji: g.icon_emoji })}
+                                className="text-[11px] font-bold py-0.5 px-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              >
+                                <Users className="w-3 h-3 mr-1 text-slate-500" />
+                                Miembros
+                              </Button>
 
                               {g.is_frozen ? (
                                 <Button
@@ -2834,6 +2918,28 @@ export default function AdminBackofficePage() {
           </div>
         </Modal>
       )}
+
+      {/* Admin Edit User Modal */}
+      <AdminEditUserModal
+        isOpen={Boolean(editingUserId)}
+        userId={editingUserId}
+        onClose={() => setEditingUserId(null)}
+        onUserUpdated={() => {
+          fetchMetrics();
+        }}
+      />
+
+      {/* Admin Group Members Modal */}
+      <AdminGroupMembersModal
+        isOpen={Boolean(managingGroup)}
+        groupId={managingGroup?.id || null}
+        groupName={managingGroup?.name}
+        groupEmoji={managingGroup?.icon_emoji}
+        onClose={() => setManagingGroup(null)}
+        onMembersUpdated={() => {
+          fetchMetrics();
+        }}
+      />
 
       <Footer />
     </div>

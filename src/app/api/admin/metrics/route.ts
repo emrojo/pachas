@@ -99,12 +99,33 @@ export async function GET(request: NextRequest) {
         await ensureGlobalSchema(pool);
 
         // 1. Users directory
+        // Self-heal any provisional profiles that have default unclaimed email/names
+        try {
+          await pool.query(`
+            UPDATE public.profiles p
+            SET full_name = gm.provisional_name, 
+                is_unclaimed = TRUE, 
+                updated_at = NOW()
+            FROM public.group_members gm
+            WHERE p.id = gm.user_id 
+              AND (p.full_name ILIKE 'unclaimed-%' OR p.full_name IS NULL OR p.is_unclaimed = FALSE)
+              AND gm.is_unclaimed = TRUE
+              AND gm.provisional_name IS NOT NULL
+              AND LENGTH(TRIM(gm.provisional_name)) > 0
+          `);
+        } catch {}
+
         let usersRes;
         try {
           usersRes = await pool.query(`
             SELECT 
               p.id, 
-              p.full_name, 
+              COALESCE(
+                CASE WHEN p.full_name ILIKE 'unclaimed-%' THEN NULL ELSE NULLIF(TRIM(p.full_name), '') END,
+                gm.provisional_name,
+                p.full_name,
+                'Usuario provisional'
+              ) AS full_name, 
               p.email, 
               p.role, 
               p.bizum_phone, 
@@ -112,8 +133,17 @@ export async function GET(request: NextRequest) {
               COALESCE(p.is_banned, FALSE) AS is_banned,
               p.banned_at,
               p.ban_reason,
+              COALESCE(p.is_unclaimed, gm.is_unclaimed, (p.email ILIKE 'unclaimed-%'), FALSE) AS is_unclaimed,
+              gm.provisional_name,
               p.created_at
             FROM public.profiles p
+            LEFT JOIN LATERAL (
+              SELECT provisional_name, is_unclaimed
+              FROM public.group_members
+              WHERE user_id = p.id AND (is_unclaimed = TRUE OR provisional_name IS NOT NULL)
+              ORDER BY joined_at DESC
+              LIMIT 1
+            ) gm ON true
             ORDER BY p.created_at DESC
           `);
         } catch (err: any) {
@@ -121,7 +151,12 @@ export async function GET(request: NextRequest) {
           usersRes = await pool.query(`
             SELECT 
               p.id, 
-              p.full_name, 
+              COALESCE(
+                CASE WHEN p.full_name ILIKE 'unclaimed-%' THEN NULL ELSE NULLIF(TRIM(p.full_name), '') END,
+                gm.provisional_name,
+                p.full_name,
+                'Usuario provisional'
+              ) AS full_name, 
               p.email, 
               p.role, 
               p.bizum_phone, 
@@ -129,8 +164,17 @@ export async function GET(request: NextRequest) {
               FALSE AS is_banned,
               NULL AS banned_at,
               NULL AS ban_reason,
+              COALESCE(p.is_unclaimed, gm.is_unclaimed, (p.email ILIKE 'unclaimed-%'), FALSE) AS is_unclaimed,
+              gm.provisional_name,
               p.created_at
             FROM public.profiles p
+            LEFT JOIN LATERAL (
+              SELECT provisional_name, is_unclaimed
+              FROM public.group_members
+              WHERE user_id = p.id AND (is_unclaimed = TRUE OR provisional_name IS NOT NULL)
+              ORDER BY joined_at DESC
+              LIMIT 1
+            ) gm ON true
             ORDER BY p.created_at DESC
           `).catch(() => ({ rows: [] }));
         }
@@ -160,6 +204,8 @@ export async function GET(request: NextRequest) {
         usersList = rawUsers.map((r: any) => ({
           ...r,
           is_banned: Boolean(r.is_banned),
+          is_unclaimed: Boolean(r.is_unclaimed),
+          provisional_name: r.provisional_name || null,
           groups_count: groupCountMap[String(r.id)] || 0,
           expenses_count: expCountMap[String(r.id)] || 0,
           has_push: pushUserSet.has(String(r.id)),
