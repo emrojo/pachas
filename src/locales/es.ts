@@ -251,6 +251,19 @@ export const es = {
   },
 
   groups: {
+    accessType: 'Tipo de acceso',
+    closedGroup: 'Grupo Cerrado',
+    closedGroupDescription: 'Máxima privacidad. No hay enlace general; invita mediante enlaces personales únicos a cada persona o añadiendo contactos conocidos.',
+    openGroup: 'Grupo Abierto',
+    openGroupDescription: 'Cualquiera que disponga del enlace o código general podrá unirse libremente al grupo.',
+    closedGroupNoticeTitle: 'Grupo Cerrado (Alta Privacidad)',
+    closedGroupNoticeDesc: 'Este grupo es cerrado. No existe un código ni enlace general para unirse. Invita a cada amigo con su enlace personal único o añádelo desde tus contactos conocidos.',
+    closedGroupBadge: 'Cerrado',
+    openGroupBadge: 'Abierto',
+    closedGroupBlockedTitle: 'Grupo Cerrado y Seguro',
+    closedGroupBlockedDesc: 'Este grupo es privado y cerrado. Para unirte necesitas un enlace de invitación personal único generado por un administrador.',
+    recommended: 'Recomendado',
+
     archived: 'Archivado',
     frozenStatus: 'Congelado',
     frozenBadge: '❄️ Grupo Congelado por Investigación',

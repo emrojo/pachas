@@ -11,6 +11,7 @@ async function autoHealGroupFrozenColumns(pool: any) {
       ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS frozen_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
       ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS frozen_reason TEXT;
       ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS freeze_type TEXT DEFAULT 'full';
+      ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS is_closed BOOLEAN DEFAULT TRUE NOT NULL;
     `);
   } catch {}
 }
@@ -160,6 +161,7 @@ export async function PUT(
       frozen_by,
       frozen_reason,
       freeze_type,
+      is_closed,
     } = body;
 
     const pool = getDbPool();
@@ -192,8 +194,9 @@ export async function PUT(
          frozen_by = CASE WHEN $12::boolean IS TRUE THEN $13 ELSE frozen_by END,
          frozen_reason = CASE WHEN $14::boolean IS TRUE THEN $15 ELSE frozen_reason END,
          freeze_type = CASE WHEN $16::boolean IS TRUE THEN $17 ELSE freeze_type END,
+         is_closed = COALESCE($18, is_closed),
          updated_at = NOW()
-       WHERE id = $18
+       WHERE id = $19
        RETURNING *`,
       [
         name,
@@ -213,6 +216,7 @@ export async function PUT(
         safeFrozenReason,
         safeIsFrozen !== undefined,
         safeFreezeType,
+        is_closed !== undefined ? Boolean(is_closed) : null,
         groupId,
       ]
     );

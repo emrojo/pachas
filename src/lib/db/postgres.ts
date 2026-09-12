@@ -147,6 +147,10 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
       ALTER TABLE public.expenses ADD CONSTRAINT expenses_split_type_check 
         CHECK (split_type IN ('EQUAL', 'EXACT', 'PERCENTAGE', 'SHARES', 'ITEMIZED'));
     `).catch(() => {});
+
+    // 7. Closed vs Open groups access control
+    await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS is_closed BOOLEAN DEFAULT TRUE NOT NULL;`).catch(() => {});
+    await p.query(`CREATE INDEX IF NOT EXISTS idx_groups_is_closed ON public.groups(is_closed);`).catch(() => {});
   } catch (err) {
     console.warn('Schema auto-migration notice:', err);
   }

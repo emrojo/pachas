@@ -90,7 +90,8 @@ interface PachasContextType {
     currency: string,
     coverImageUrl?: string | null,
     enableNotifications?: boolean,
-    initialMembers?: string[]
+    initialMembers?: string[],
+    isClosed?: boolean
   ) => Promise<Group>;
   renameUnclaimedMember: (groupId: string, memberId: string, newName: string) => Promise<boolean>;
   claimMember: (claimToken: string, enableNotifications?: boolean) => Promise<{ success: boolean; groupId: string; groupName?: string; inviteCode?: string }>;
@@ -1063,7 +1064,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     currency: string,
     coverImageUrl?: string | null,
     enableNotifications: boolean = true,
-    initialMembers: string[] = []
+    initialMembers: string[] = [],
+    isClosed: boolean = true
   ): Promise<Group> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para crear un grupo.');
@@ -1082,6 +1084,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cover_image_url: coverImageUrl || null,
       base_currency: currency || 'EUR',
       invite_code: Math.random().toString(36).substring(2, 8).toLowerCase(),
+      is_closed: isClosed,
       created_by: currentUser.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -1146,6 +1149,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           cover_image_url: newGroup.cover_image_url,
           base_currency: newGroup.base_currency,
           invite_code: newGroup.invite_code,
+          is_closed: isClosed,
           notifications_enabled: enableNotifications,
           initial_members: cleanInitialMembers,
         }),
@@ -1183,48 +1187,87 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         return m;
       });
-      const next = { ...prev, [groupId]: updated };
-      membersRef.current = next;
-      safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(next));
-      return next;
+      return { ...prev, [groupId]: updated };
     });
 
     try {
-      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}/rename`, {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: cleanName }),
+        body: JSON.stringify({ provisional_name: cleanName }),
       });
       if (res.ok) {
-        fetchGroup(groupId);
         return true;
       }
-    } catch (err) {
-      console.warn('Error renaming unclaimed member API:', err);
+    } catch (e) {
+      console.warn('API renameUnclaimedMember fallback to local storage:', e);
     }
     return true;
+  };
+
+  const renounceMember = async (groupId: string, memberId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}/renounce`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.member) {
+          setMembers((prev) => {
+            const currentList = prev[groupId] || [];
+            const updated = currentList.map((m) => (m.id === memberId || m.user_id === memberId ? data.member : m));
+            return { ...prev, [groupId]: updated };
+          });
+        }
+        return true;
+      }
+    } catch (e) {
+      console.warn('API renounceMember failed:', e);
+    }
+    return false;
   };
 
   const addUnclaimedMember = async (groupId: string, provisionalName: string): Promise<GroupMember | null> => {
     const cleanName = provisionalName.trim();
     if (!cleanName) return null;
 
-    const provUserId = generateUUID();
-    const provMemberId = generateUUID();
-    const claimToken = generateUUID();
+    try {
+      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members/unclaimed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provisional_name: cleanName }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.member) {
+          setMembers((prev) => {
+            const currentList = prev[groupId] || [];
+            return { ...prev, [groupId]: [...currentList, data.member] };
+          });
+          return data.member;
+        }
+      }
+    } catch (e) {
+      console.warn('API addUnclaimedMember fallback to local storage:', e);
+    }
+
+    // Local fallback
+    const pUserId = generateUUID();
+    const pMemberId = generateUUID();
+    const pClaimToken = generateUUID();
     const newMember: GroupMember = {
-      id: provMemberId,
+      id: pMemberId,
       group_id: groupId,
-      user_id: provUserId,
+      user_id: pUserId,
       role: 'member',
       notifications_enabled: false,
       is_unclaimed: true,
       provisional_name: cleanName,
-      claim_token: claimToken,
+      claim_token: pClaimToken,
       joined_at: new Date().toISOString(),
       profile: {
-        id: provUserId,
-        email: `unclaimed-${provUserId.substring(0, 8)}@pachas.local`,
+        id: pUserId,
+        email: `unclaimed-${pUserId.substring(0, 8)}@pachas.local`,
         full_name: cleanName,
         avatar_url: null,
         bizum_phone: null,
@@ -1236,76 +1279,61 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setMembers((prev) => {
       const currentList = prev[groupId] || [];
-      const next = { ...prev, [groupId]: [...currentList, newMember] };
-      membersRef.current = next;
-      safeSetLocalStorage(STORAGE_KEYS.MEMBERS, JSON.stringify(next));
-      return next;
+      const updated = [...currentList, newMember];
+      saveState(undefined, { ...prev, [groupId]: updated });
+      return { ...prev, [groupId]: updated };
     });
 
-    try {
-      const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          is_unclaimed: true,
-          provisional_name: cleanName,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        fetchGroup(groupId);
-        return data.member || newMember;
-      }
-    } catch (err) {
-      console.warn('API addUnclaimedMember fallback:', err);
-    }
     return newMember;
   };
 
-  const claimMember = async (claimToken: string, enableNotifications: boolean = false): Promise<{ success: boolean; groupId: string; groupName?: string; inviteCode?: string }> => {
+  const claimMember = async (
+    claimToken: string,
+    enableNotifications: boolean = true
+  ): Promise<{ success: boolean; groupId: string; groupName?: string; inviteCode?: string }> => {
     if (!currentUser) {
-      throw new Error('Debes iniciar sesión para reclamar un puesto en el grupo.');
+      throw new Error('Debes iniciar sesión para reclamar este perfil.');
     }
 
-    const res = await fetch('/api/groups/claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ claimToken, enableNotifications }),
-    });
+    try {
+      const res = await fetch('/api/groups/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimToken, enableNotifications }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Error al reclamar el puesto en el grupo.');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'No se pudo reclamar el perfil');
+      }
+
+      if (data.group) {
+        setGroups((prev) => {
+          const exists = prev.some((g) => g.id === data.group.id);
+          const updated = exists ? prev.map((g) => (g.id === data.group.id ? data.group : g)) : [data.group, ...prev];
+          saveState(updated);
+          return updated;
+        });
+
+        if (data.members) {
+          setMembers((prev) => {
+            const updated = { ...prev, [data.group.id]: data.members };
+            saveState(undefined, updated);
+            return updated;
+          });
+        }
+      }
+
+      return {
+        success: true,
+        groupId: data.group?.id,
+        groupName: data.group?.name,
+        inviteCode: data.group?.invite_code,
+      };
+    } catch (e: any) {
+      console.warn('API claimMember error:', e);
+      throw e;
     }
-
-    if (data.groupId) {
-      await fetchGroup(data.groupId);
-    }
-    return {
-      success: true,
-      groupId: data.groupId,
-      groupName: data.groupName,
-      inviteCode: data.inviteCode,
-    };
-  };
-
-  const renounceMember = async (groupId: string, memberId: string): Promise<boolean> => {
-    if (!currentUser) {
-      throw new Error('Debes iniciar sesión para realizar esta acción.');
-    }
-
-    const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}/renounce`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Error al renunciar al puesto.');
-    }
-
-    await fetchGroup(groupId);
-    return true;
   };
 
   const updateGroup = async (groupId: string, data: Partial<Group>): Promise<Group> => {
@@ -1390,6 +1418,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           icon_emoji: updatedGroup.icon_emoji,
           cover_image_url: updatedGroup.cover_image_url,
           base_currency: updatedGroup.base_currency,
+          is_closed: updatedGroup.is_closed,
           is_archived: updatedGroup.is_archived,
           archived_at: updatedGroup.archived_at,
           is_frozen: updatedGroup.is_frozen,
@@ -1409,7 +1438,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return updatedGroup;
   };
-
 
   const archiveGroup = async (groupId: string): Promise<Group> => {
     const targetGroup = getGroup(groupId);
@@ -1547,7 +1575,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       const data = await res.json();
-      if (res.ok && data.group) {
+      if (!res.ok) {
+        throw new Error(data.error || 'No se pudo unir al grupo.');
+      }
+      if (data.group) {
         const group: Group = data.group;
         const groupMembers: GroupMember[] = data.members || [];
 
@@ -1582,7 +1613,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         return group;
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.message && (e.message.includes('cerrado') || e.message.includes('archivado') || e.message.includes('suspendid'))) {
+        throw e;
+      }
       console.warn('API joinGroup fallback:', e);
     }
 
@@ -1604,6 +1638,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     if (!targetGroup) return null;
+
+    if (targetGroup.is_closed) {
+      throw new Error('Este grupo es cerrado. Solo puedes unirte mediante una invitación personal única.');
+    }
 
     if (targetGroup.is_archived) {
       throw new Error('Este grupo ha sido archivado por el administrador y no admite nuevos miembros.');

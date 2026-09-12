@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { Footer } from '@/components/layout/Footer';
-import { ArrowRight, CheckCircle2, Bell, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Bell, Sparkles, AlertCircle, Lock } from 'lucide-react';
 import { GroupMember } from '@/types/database';
 import { subscribeDeviceToPush } from '@/lib/notifications/pushNotificationService';
 
@@ -189,9 +189,21 @@ export default function JoinGroupPage() {
                     </span>
                   )}
                 </div>
-                <span className="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 block">
-                  {t('join.title')}
-                </span>
+                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                  <span className="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
+                    {t('join.title')}
+                  </span>
+                  {targetGroup.is_closed ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                      <Lock className="w-3 h-3" />
+                      {t('groups.closedGroupBadge')}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+                      {t('groups.openGroupBadge')}
+                    </span>
+                  )}
+                </div>
                 <h1 className="text-2xl font-black text-slate-900 dark:text-white">
                   {targetGroup.name}
                 </h1>
@@ -199,6 +211,35 @@ export default function JoinGroupPage() {
                   <p className="text-xs text-slate-500">{targetGroup.description}</p>
                 )}
               </div>
+
+              {/* If Closed Group and accessing without claim token -> Block Generic Join */}
+              {Boolean(targetGroup.is_closed) && !claimToken ? (
+                <div className="space-y-4 pt-2 text-center">
+                  <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 text-left space-y-2">
+                    <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                      <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{t('groups.closedGroupBlockedTitle')}</span>
+                    </div>
+                    <p className="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed">
+                      {t('groups.closedGroupBlockedDesc')}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs text-left leading-relaxed">
+                    <span className="font-bold block text-slate-700 dark:text-slate-300 mb-1">
+                      🛡️ {t('groups.closedGroupNoticeTitle')}
+                    </span>
+                    <span>{t('groups.closedGroupNoticeDesc')}</span>
+                  </div>
+
+                  <Link href="/dashboard">
+                    <Button variant="brand" className="w-full shadow-md">
+                      {t('join.goToDashboard')}
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <>
 
               {/* Claim Notice Banner */}
               {claimStatus === 'already_claimed' && (
@@ -316,6 +357,8 @@ export default function JoinGroupPage() {
                 )}
               </div>
             </>
+          )}
+        </>
           ) : (
             <div className="space-y-4 py-4">
               <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto text-xl">

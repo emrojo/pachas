@@ -26,6 +26,8 @@ import {
   Users,
   ShieldAlert,
   Search,
+  Lock,
+  Globe,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -461,51 +463,81 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
           </div>
         )}
 
-        {/* QR Code & Link */}
-        <div className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
-          <div className="p-3 bg-white rounded-xl shadow-xs">
-            <QRCodeSVG value={inviteUrl} size={130} level="M" />
+        {/* Closed Group vs Open Group Invite Options */}
+        {group.is_closed ? (
+          <div className="p-4 bg-gradient-to-br from-emerald-50/80 via-teal-50/50 to-slate-50 dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-slate-900 border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl space-y-2.5 shadow-xs">
+            <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs">
+              <div className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="block font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  {t('groups.closedGroupNoticeTitle')}
+                </span>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                  {t('groups.closedGroupBadge')} • {t('groups.recommended')}
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              {t('groups.closedGroupNoticeDesc')}
+            </p>
           </div>
-          <span className="text-xs text-slate-500 dark:text-slate-400 mt-2.5">
-            {t('groups.scanQr')}
-          </span>
-        </div>
+        ) : (
+          <>
+            {/* Open Group Info Banner */}
+            <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 rounded-xl flex items-center gap-2 text-xs text-blue-800 dark:text-blue-300">
+              <Globe className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>{t('groups.openGroupDescription')}</span>
+            </div>
 
-        {/* Copy Link Input */}
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-            {t('groups.inviteLink')}
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              readOnly
-              value={inviteUrl}
-              className="flex-1 text-xs font-mono bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-200 select-all"
-            />
-            <Button
-              size="sm"
-              variant={copied ? 'brand' : 'secondary'}
-              onClick={handleCopy}
-              className="shrink-0"
-            >
-              {copied ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
-              {copied ? t('common.copied') : t('common.copy')}
-            </Button>
-          </div>
-        </div>
+            {/* QR Code & Link */}
+            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <div className="p-3 bg-white rounded-xl shadow-xs">
+                <QRCodeSVG value={inviteUrl} size={130} level="M" />
+              </div>
+              <span className="text-xs text-slate-500 dark:text-slate-400 mt-2.5">
+                {t('groups.scanQr')}
+              </span>
+            </div>
 
-        {/* Fast WhatsApp Share */}
-        <div>
-          <Button
-            type="button"
-            onClick={handleWhatsAppShare}
-            className="w-full bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold py-2.5 flex items-center justify-center gap-2 shadow-xs"
-          >
-            <MessageCircle className="w-4 h-4 fill-current" />
-            {t('groups.shareWhatsApp')}
-          </Button>
-        </div>
+            {/* Copy Link Input */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                {t('groups.inviteLink')}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteUrl}
+                  className="flex-1 text-xs font-mono bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-200 select-all"
+                />
+                <Button
+                  size="sm"
+                  variant={copied ? 'brand' : 'secondary'}
+                  onClick={handleCopy}
+                  className="shrink-0"
+                >
+                  {copied ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+                  {copied ? t('common.copied') : t('common.copy')}
+                </Button>
+              </div>
+            </div>
+
+            {/* Fast WhatsApp Share */}
+            <div>
+              <Button
+                type="button"
+                onClick={handleWhatsAppShare}
+                className="w-full bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold py-2.5 flex items-center justify-center gap-2 shadow-xs"
+              >
+                <MessageCircle className="w-4 h-4 fill-current" />
+                {t('groups.shareWhatsApp')}
+              </Button>
+            </div>
+          </>
+        )}
 
         {/* Unclaimed Provisional Members Specific Claim Links */}
         {unclaimedMembers.length > 0 && (

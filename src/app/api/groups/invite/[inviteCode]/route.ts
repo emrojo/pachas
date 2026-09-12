@@ -22,7 +22,8 @@ export async function GET(
 
     // 1. Fetch group by invite code
     const groupRes = await pool.query(
-      `SELECT id, name, description, icon_emoji, cover_image_url, base_currency, invite_code, is_archived, created_at
+      `SELECT id, name, description, icon_emoji, cover_image_url, base_currency, invite_code, is_archived,
+              COALESCE(is_closed, TRUE) AS is_closed, created_at
        FROM public.groups
        WHERE LOWER(invite_code) = LOWER($1)`,
       [inviteCode]

@@ -52,20 +52,23 @@ export async function POST(request: NextRequest) {
         await client.query('ROLLBACK TO SAVEPOINT ensure_profile');
       }
 
+      const isClosed = body.is_closed !== undefined ? Boolean(body.is_closed) : true;
+
       const groupRes = await client.query(
         `INSERT INTO public.groups (
            id, name, description, icon_emoji, cover_image_url, base_currency,
-           invite_code, created_by, is_archived, created_at, updated_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, NOW(), NOW())
+           invite_code, created_by, is_archived, is_closed, created_at, updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE, $9, NOW(), NOW())
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name,
            description = EXCLUDED.description,
            icon_emoji = EXCLUDED.icon_emoji,
            cover_image_url = EXCLUDED.cover_image_url,
            base_currency = EXCLUDED.base_currency,
+           is_closed = EXCLUDED.is_closed,
            updated_at = NOW()
          RETURNING *`,
-        [id, name, description, icon_emoji, cover_image_url, base_currency, invite_code, user.userId]
+        [id, name, description, icon_emoji, cover_image_url, base_currency, invite_code, user.userId, isClosed]
       );
 
       const memberId = randomUUID();

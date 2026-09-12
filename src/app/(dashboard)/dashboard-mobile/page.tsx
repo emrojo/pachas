@@ -51,6 +51,8 @@ import {
   QrCode,
   HandCoins,
   FileDown,
+  Lock,
+  Globe,
 } from 'lucide-react';
 
 type MobileViewTab = 'expenses' | 'groups' | 'options';
@@ -217,6 +219,13 @@ export default function MobileDashboardPage() {
                 <span className="text-xs font-black text-slate-900 dark:text-white truncate">
                   {activeGroup ? activeGroup.name : t('dashboard.noGroupsTitle') || 'Sin grupos'}
                 </span>
+                {activeGroup && (
+                  activeGroup.is_closed ? (
+                    <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  ) : (
+                    <Globe className="w-3 h-3 text-blue-500 shrink-0" />
+                  )
+                )}
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-auto" />
               </button>
 
@@ -242,6 +251,11 @@ export default function MobileDashboardPage() {
                       >
                         <span className="text-sm shrink-0">{g.icon_emoji || '🏖️'}</span>
                         <span className="truncate flex-1">{g.name}</span>
+                        {g.is_closed ? (
+                          <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                        ) : (
+                          <Globe className="w-3 h-3 text-slate-400 shrink-0" />
+                        )}
                         {g.id === activeGroup?.id && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
                       </button>
                     ))}

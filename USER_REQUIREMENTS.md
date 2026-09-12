@@ -805,6 +805,27 @@ This document serves as the official and permanent registry for all **user requi
   - Added `admin.unclaimedUserBadge` and `admin.unclaimedAccount` across all 19 language dictionaries in `src/locales/`.
   - Added automated unit tests in `src/app/api/admin/users/[id]/route.test.ts` and `src/app/api/admin/metrics/route.test.ts`.
 
+### 🔒 FR-66: Closed Groups vs. Open Groups & Individual Single-Use Invitations
+- **FR-66.1**: **Closed Groups by Default**:
+  - All newly created groups are configured as **Closed Groups (`is_closed: true`)** by default to prioritize maximum security, confidentiality, and data privacy for participating members.
+- **FR-66.2**: **Access Type Configuration on Group Creation & Editing**:
+  - `CreateGroupModal.tsx` provides an interactive selector between **Grupo Cerrado (Recomendado)** (lock icon, high privacy notice) and **Grupo Abierto** (globe icon, public notice).
+  - `EditGroupModal.tsx` enables group administrators to toggle between Closed and Open modes at any time.
+- **FR-66.3**: **Closed Group Security Enforcement**:
+  - **No General Invite Link or Code**: In closed groups, general invitation codes, general link copy, QR codes, and general WhatsApp share links are hidden and replaced with a dedicated security card.
+  - **Single-Use Individual Links**: Closed groups permit inviting members via their unique provisional member claim links (`/join/[inviteCode]?claim=[claimToken]`).
+  - **Known Contacts Addition**: Administrators can directly add trusted friends from their known contacts history.
+  - **Blocked Generic Join**: Direct visits to `/join/[inviteCode]` without a valid single-use claim token are strictly rejected (HTTP 403 / informative lock card preventing unauthorized joins).
+- **FR-66.4**: **Open Group Flexibility**:
+  - Open groups (`is_closed: false`) preserve the standard general invite link, scannable QR code, and one-click WhatsApp share, allowing anyone with the general code to join freely.
+- **FR-66.5**: **Database Migration & Auto-Healing**:
+  - Database migration `deploy/init-scripts/16-closed-groups.sql` adds column `is_closed BOOLEAN DEFAULT TRUE NOT NULL` to `public.groups`.
+  - Auto-healing schema check in `src/lib/db/postgres.ts` (`ensureGlobalSchema`).
+- **FR-66.6**: **Visual Status Indicators & Internationalization**:
+  - Desktop group header (`/groups/[id]`) and mobile dashboard (`/dashboard-mobile`) display a `🔒 Cerrado` or `🌐 Abierto` badge.
+  - Comprehensive 20-language translation synchronization in `src/locales/`.
+  - Automated test suite in `src/lib/groups/closedGroups.test.ts`.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -951,6 +972,7 @@ This document serves as the official and permanent registry for all **user requi
 | **12/09/2026** | 👤 Added | **FR-63** | **Admin User Profile & Group Membership Management**: Allows administrators to edit user profiles (name, email, phone, language, role, avatar), add/remove users from any group, and directly manage group members from the Admin Console (`AdminEditUserModal`, `AdminGroupMembersModal`, `/api/admin/users/[id]`). |
 | **12/09/2026** | 📱 Added | **FR-64** | **Mobile-First A/B Test Dashboard (`/dashboard-mobile`)**: Lightweight, mobile-optimized dashboard designed for A/B testing against standard dashboard. Features concise group header with financial debt status, tri-action expense creation hero (camera scan, photo upload, manual form), and 3 concise footer views (expenses list, group switcher, group settings). |
 | **12/09/2026** | 👤 Fixed & Added | **FR-65** | **Display Original Provisional Names & Unclaimed Badging in Admin Console**: Corrected database insertion conflicts in provisional user creation (`ON CONFLICT DO UPDATE`), updated Postgres profile healing and lateral join queries in `/api/admin/metrics` and `/api/admin/users/[id]`, displayed real provisional names instead of technical `unclaimed-xxxx` identifiers in the Admin user directory, integrated distinct `⏳ Sin reclamar` badge and filter tab in `/admin?tab=users`, and updated `AdminEditUserModal` with provisional account awareness and 19-language i18n support. |
+| **12/09/2026** | 🔒 Added | **FR-66** | **Closed Groups vs. Open Groups & Individual Single-Use Invitations**: All new groups default to Closed Groups (`is_closed: true`). Closed groups disable general invite codes, QR codes, and general WhatsApp share, requiring individual single-use claim links or addition of known contacts. Open groups allow open sharing via general code/link. Added interactive selector in `CreateGroupModal` and `EditGroupModal`, blocked generic join with security lockout screen on `/join/[inviteCode]`, badge indicators in desktop and mobile headers, database migration `16-closed-groups.sql`, and 20-language i18n synchronization. |
 
 
 

@@ -62,6 +62,8 @@ import {
   ChevronRight,
   ExternalLink,
   UserPlus,
+  Lock,
+  Globe,
 } from 'lucide-react';
 
 type TabType = 'expenses' | 'balances' | 'charts' | 'members' | 'history';
@@ -580,6 +582,17 @@ export default function GroupDetailPage() {
                       <Badge variant="emerald" size="sm">
                         {group.base_currency}
                       </Badge>
+                      {group.is_closed ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                          <Lock className="w-3 h-3" />
+                          <span>{t('groups.closedGroupBadge')}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-2xs">
+                          <Globe className="w-3 h-3" />
+                          <span>{t('groups.openGroupBadge')}</span>
+                        </span>
+                      )}
                     </div>
                     {group.description && (
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">

@@ -18,6 +18,8 @@ import {
   Check,
   Users,
   Plus,
+  Lock,
+  Globe,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -51,6 +53,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   const [description, setDescription] = useState(group.description || '');
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(group.cover_image_url || null);
   const [currency, setCurrency] = useState(group.base_currency || 'EUR');
+  const [isClosed, setIsClosed] = useState(group.is_closed ?? true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
   const [provisionalNames, setProvisionalNames] = useState<Record<string, string>>({});
@@ -66,6 +69,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
       setDescription(group.description || '');
       setCoverImageUrl(group.cover_image_url || null);
       setCurrency(group.base_currency || 'EUR');
+      setIsClosed(group.is_closed ?? true);
       setError('');
       setNewProvisionalName('');
 
@@ -138,6 +142,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
         icon_emoji: group.icon_emoji || '🏖️',
         cover_image_url: coverImageUrl,
         base_currency: currency,
+        is_closed: isClosed,
       });
 
       confetti({
@@ -248,6 +253,65 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
             </div>
           )}
         </div>
+
+        {/* Group Access Type (Closed vs Open) */}
+        {isAdmin && (
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              {t('groups.accessType')}
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setIsClosed(true)}
+                className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                  isClosed
+                    ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 ring-2 ring-emerald-500/20 shadow-xs'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1.5 rounded-xl ${isClosed ? 'bg-emerald-500 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-black text-slate-900 dark:text-white">
+                      {t('groups.closedGroup')}
+                    </span>
+                  </div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                    {t('groups.recommended')}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {t('groups.closedGroupDescription')}
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsClosed(false)}
+                className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                  !isClosed
+                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 ring-2 ring-blue-500/20 shadow-xs'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`p-1.5 rounded-xl ${!isClosed ? 'bg-blue-500 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-black text-slate-900 dark:text-white">
+                    {t('groups.openGroup')}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {t('groups.openGroupDescription')}
+                </p>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Provisional / Unclaimed Members Management */}
         <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">

@@ -49,6 +49,7 @@ export interface Group {
   frozen_by?: string | null;
   frozen_reason?: string | null;
   freeze_type?: 'full' | 'read_only' | null;
+  is_closed?: boolean;
 }
 
 export interface GroupMember {

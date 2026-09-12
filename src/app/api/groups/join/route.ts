@@ -57,6 +57,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (group.is_closed) {
+      return NextResponse.json(
+        { error: 'Este grupo es cerrado. Solo puedes unirte mediante un enlace de invitación personal o reclamando un puesto asignado.' },
+        { status: 403 }
+      );
+    }
+
     // Ensure joining user has a profile in public.profiles to satisfy FK
     await pool.query(
       `INSERT INTO public.profiles (id, email, full_name, role, created_at, updated_at)
