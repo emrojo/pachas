@@ -446,6 +446,8 @@ export const ru: TranslationDictionary = {
     deleteExpense: 'Удалить расход',
     deleteConfirm: 'Вы уверены, что хотите навсегда удалить расход "{title}"?',
     readOnlyBanner: 'Режим только для чтения — Записал {name}',
+    adminEditingNotice: 'Редактирование от имени администратора группы (расход изначально добавлен {name})',
+    notAuthorizedToEdit: 'У вас нет разрешения на изменение этого расхода. Только создатель или администратор группы могут его редактировать.',
     expenseTitle: 'Название / Описание расхода',
     expenseTitlePlaceholder: 'Напр. Ужин в ресторане, Бензин, Продукты...',
     amount: 'Сумма',

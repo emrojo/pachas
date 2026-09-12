@@ -446,6 +446,8 @@ export const zh: TranslationDictionary = {
     deleteExpense: '删除支出',
     deleteConfirm: '确定要彻底删除支出 "{title}" 吗？',
     readOnlyBanner: '只读模式 — 由 {name} 记录',
+    adminEditingNotice: '以群组管理员身份编辑（最初由 {name} 记录的支出）',
+    notAuthorizedToEdit: '您没有修改此支出的权限。只有创建者或群组管理员才能对其进行编辑。',
     expenseTitle: '支出名称 / 事项',
     expenseTitlePlaceholder: '例如：海鲜大餐、包车加油、超市采购...',
     amount: '金额',

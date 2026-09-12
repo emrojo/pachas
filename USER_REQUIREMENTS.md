@@ -826,6 +826,24 @@ This document serves as the official and permanent registry for all **user requi
   - Comprehensive 20-language translation synchronization in `src/locales/`.
   - Automated test suite in `src/lib/groups/closedGroups.test.ts`.
 
+### 🛡️ FR-67: Group Administrator Expense Management & Modification Authority
+- **FR-67.1**: **Group Administrator & System Admin Expense Editing Permissions**:
+  - Group administrators (`isGroupAdmin(groupId)` based on `role === 'admin'` in `group_members`, group creator ownership, or platform superadmin) possess full authorization to inspect, edit, and update any expense within the group, regardless of who originally registered it.
+  - Interactive edit buttons (pencil icon) in `ExpenseCard.tsx` are visible and active for both the original expense creator and authorized group/app administrators.
+- **FR-67.2**: **Transparent Administrative Form & Visual Indicator ([`src/components/expenses/ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
+  - In `ExpenseForm`, read-only mode is deactivated (`isReadOnly = false`) for group administrators and platform administrators.
+  - When an administrator modifies an expense created by another member, an emerald administrative banner is displayed: `🛡️ Editando como administrador del grupo (gasto registrado por [Nombre])`.
+  - Full modification capability covers: Concept / Title, Amount, Currency, Category, Date/Time, Payers, Participants/Splits (including itemized line items), Receipt Photo, and Notes.
+  - Group administrators can also delete any group expense directly from the form with confirmation.
+- **FR-67.3**: **Backend API & Context Authorization Safeguards**:
+  - `PachasContext.tsx` (`updateExpense`) validates that the user is the original creator, a group admin (`isUserGroupAdmin`), or a system administrator (`isAppAdminUser`), rejecting unauthorized members with an informative error.
+  - Backend API endpoints `PUT /api/expenses/[id]` and `DELETE /api/expenses/[id]` verify database permissions against `group_members.role = 'admin'`, `groups.created_by = user.userId`, `expenses.created_by = user.userId`, or `user.isAdmin`. Unauthorized attempts return HTTP 403.
+- **FR-67.4**: **Original Creator Identity Preservation**:
+  - Modifications by administrators preserve the original `created_by` identifier and creator attribution, ensuring clear financial auditing and historical transparency.
+- **FR-67.5**: **Full Internationalization & Automated Unit Testing**:
+  - Synchronized translations across all 20 supported languages in `src/locales/` (`expenses.adminEditingNotice`, `expenses.notAuthorizedToEdit`).
+  - Unit test suite in [`src/lib/groups/expenseAdminPermissions.test.ts`](file:///d:/Projects/pachas/src/lib/groups/expenseAdminPermissions.test.ts) validating creator vs. regular member vs. group admin vs. super admin permissions.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -973,6 +991,7 @@ This document serves as the official and permanent registry for all **user requi
 | **12/09/2026** | 📱 Added | **FR-64** | **Mobile-First A/B Test Dashboard (`/dashboard-mobile`)**: Lightweight, mobile-optimized dashboard designed for A/B testing against standard dashboard. Features concise group header with financial debt status, tri-action expense creation hero (camera scan, photo upload, manual form), and 3 concise footer views (expenses list, group switcher, group settings). |
 | **12/09/2026** | 👤 Fixed & Added | **FR-65** | **Display Original Provisional Names & Unclaimed Badging in Admin Console**: Corrected database insertion conflicts in provisional user creation (`ON CONFLICT DO UPDATE`), updated Postgres profile healing and lateral join queries in `/api/admin/metrics` and `/api/admin/users/[id]`, displayed real provisional names instead of technical `unclaimed-xxxx` identifiers in the Admin user directory, integrated distinct `⏳ Sin reclamar` badge and filter tab in `/admin?tab=users`, and updated `AdminEditUserModal` with provisional account awareness and 19-language i18n support. |
 | **12/09/2026** | 🔒 Added | **FR-66** | **Closed Groups vs. Open Groups & Individual Single-Use Invitations**: All new groups default to Closed Groups (`is_closed: true`). Closed groups disable general invite codes, QR codes, and general WhatsApp share, requiring individual single-use claim links or addition of known contacts. Open groups allow open sharing via general code/link. Added interactive selector in `CreateGroupModal` and `EditGroupModal`, blocked generic join with security lockout screen on `/join/[inviteCode]`, badge indicators in desktop and mobile headers, database migration `16-closed-groups.sql`, and 20-language i18n synchronization. |
+| **12/09/2026** | 🛡️ Added | **FR-67** | **Group Administrator Expense Management & Modification Authority**: Group administrators and system administrators can edit and delete all expense information within a group (concept, amount, currency, category, date, payers, splits, items, notes, receipt), preserving the original creator's attribution with an emerald admin editing banner; enforced permissions in `ExpenseCard`, `ExpenseForm`, `PachasContext.tsx`, `PUT /api/expenses/[id]`, and `DELETE /api/expenses/[id]`; 20-language i18n support; and dedicated automated unit test suite (`expenseAdminPermissions.test.ts`). |
 
 
 

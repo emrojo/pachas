@@ -158,6 +158,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     deleteExpense,
     queueReceiptScan,
     addNotification,
+    isGroupAdmin,
   } = usePachas();
   const { t, language } = useTranslation();
 
@@ -166,13 +167,16 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   const baseCurrency = group?.base_currency || 'EUR';
 
-  // Permission calculation: Only the creator of the expense can edit or delete it
+  // Permission calculation: Creator, Group Admin, or App Admin can edit or delete it
   const isCreator = currentUser && expenseToEdit ? expenseToEdit.created_by === currentUser.id : true;
+  const isGroupAdminUser = currentUser ? (isGroupAdmin ? isGroupAdmin(groupId) : false) : false;
+  const isAppAdminUser = currentUser?.role === 'admin';
+  const canEdit = isCreator || isGroupAdminUser || isAppAdminUser;
   const isReadOnly =
     explicitReadOnly !== undefined
       ? explicitReadOnly
       : expenseToEdit
-      ? !isCreator
+      ? !canEdit
       : false;
 
   const creatorProfile = expenseToEdit
@@ -862,6 +866,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <div className="min-w-0">
                 <span className="font-extrabold text-slate-900 dark:text-white block">
                   {t('expenses.readOnlyBanner', { name: creatorProfile?.full_name || t('common.someone') })}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Banner de Edición como Administrador */}
+        {!isReadOnly && expenseToEdit && !isCreator && (isGroupAdminUser || isAppAdminUser) && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 flex items-center justify-center text-base shrink-0">
+                🛡️
+              </div>
+              <div className="min-w-0">
+                <span className="font-extrabold text-emerald-900 dark:text-emerald-200 block">
+                  {t('expenses.adminEditingNotice', { name: creatorProfile?.full_name || t('common.someone') })}
                 </span>
               </div>
             </div>

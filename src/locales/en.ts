@@ -482,6 +482,8 @@ export const en: TranslationDictionary = {
     deleteExpense: 'Delete Expense',
     deleteConfirm: 'Are you sure you want to permanently delete "{title}"?',
     readOnlyBanner: 'Read-only mode — Registered by {name}',
+    adminEditingNotice: 'Editing as group administrator (expense originally recorded by {name})',
+    notAuthorizedToEdit: 'You do not have permission to modify this expense. Only the creator or the group administrator can edit it.',
     expenseTitle: 'Title / Description',
     expenseTitlePlaceholder: 'e.g. Dinner, Fuel, Groceries...',
     amount: 'Amount',

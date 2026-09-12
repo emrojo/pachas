@@ -480,6 +480,8 @@ export const es = {
     deleteExpense: 'Eliminar Gasto',
     deleteConfirm: '¿Estás seguro de que deseas eliminar definitivamente el gasto "{title}"?',
     readOnlyBanner: 'Modo sólo lectura — Asiento registrado por {name}',
+    adminEditingNotice: 'Editando como administrador del grupo (gasto registrado por {name})',
+    notAuthorizedToEdit: 'No tienes permisos para modificar este gasto. Solo el creador o el administrador del grupo pueden editarlo.',
     expenseTitle: 'Concepto / Título del gasto',
     expenseTitlePlaceholder: 'Ej. Cena en restaurante, Gasolina, Supermercado...',
     amount: 'Importe',

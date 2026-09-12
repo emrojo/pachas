@@ -36,7 +36,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   baseCurrency = 'EUR',
   onEdit,
 }) => {
-  const { currentUser, getExpenseComments, getGroupMembers, availableUsers } = usePachas();
+  const { currentUser, getExpenseComments, getGroupMembers, availableUsers, isGroupAdmin } = usePachas();
   const { t } = useTranslation();
   const [showReceipt, setShowReceipt] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
@@ -45,6 +45,9 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const isProcessing = expense.ocr_status === 'processing';
   const isFailed = expense.ocr_status === 'failed';
   const isCreator = currentUser ? expense.created_by === currentUser.id : false;
+  const isGroupAdminUser = isGroupAdmin ? isGroupAdmin(expense.group_id) : false;
+  const isAppAdminUser = currentUser?.role === 'admin';
+  const canEdit = isCreator || isGroupAdminUser || isAppAdminUser;
   const isForeign = expense.currency !== baseCurrency;
   const hasLocation = !!(expense.latitude && expense.longitude);
   const category = getCategoryInfo(expense.category);
@@ -301,7 +304,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
         {/* Column 4: Dedicated Fixed Action Toolbar */}
         <div className="shrink-0 flex items-center justify-end w-7 sm:w-14">
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            {isCreator ? (
+            {canEdit ? (
               <button
                 type="button"
                 onClick={handleEditClick}

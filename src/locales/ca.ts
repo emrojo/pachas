@@ -446,6 +446,8 @@ export const ca: TranslationDictionary = {
     deleteExpense: 'Eliminar Despesa',
     deleteConfirm: 'Segur que vols eliminar definitivament la despesa "{title}"?',
     readOnlyBanner: 'Mode només lectura — Registrat per {name}',
+    adminEditingNotice: 'Editant com a administrador del grup (despesa registrada originàriament per {name})',
+    notAuthorizedToEdit: 'No teniu permisos per modificar aquesta despesa. Només el creador o l\'administrador del grup la poden editar.',
     expenseTitle: 'Concepte / Títol de la despesa',
     expenseTitlePlaceholder: 'Ex. Sopar en restaurant, Gasolina, Supermercat...',
     amount: 'Import',

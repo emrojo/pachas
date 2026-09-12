@@ -446,6 +446,8 @@ export const af: TranslationDictionary = {
     deleteExpense: 'Verwyder Uitgawe',
     deleteConfirm: 'Is jy seker jy wil uitgawe "{title}" permanent verwyder?',
     readOnlyBanner: 'Leesalleen-modus — Aangeteken deur {name}',
+    adminEditingNotice: 'Wysig tans as groepadministrateur (uitgawe oorspronklik aangeteken deur {name})',
+    notAuthorizedToEdit: 'Jy het nie toestemming om hierdie uitgawe te wysig nie. Slegs die skepper of die groepadministrateur kan dit wysig.',
     expenseTitle: 'Titel / Beskrywing',
     expenseTitlePlaceholder: 'bv. Aandete by restaurant, Brandstof, Kruideniersware...',
     amount: 'Bedrag',

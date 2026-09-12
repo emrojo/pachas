@@ -446,6 +446,8 @@ export const de: TranslationDictionary = {
     deleteExpense: 'Ausgabe löschen',
     deleteConfirm: 'Möchtest du die Ausgabe "{title}" wirklich endgültig löschen?',
     readOnlyBanner: 'Schreibgeschützter Modus — Erfasst von {name}',
+    adminEditingNotice: 'Bearbeitung als Gruppenadministrator (Ausgabe ursprünglich erfasst von {name})',
+    notAuthorizedToEdit: 'Sie haben keine Berechtigung, diese Ausgabe zu ändern. Nur der Ersteller oder der Gruppenadministrator kann sie bearbeiten.',
     expenseTitle: 'Titel / Verwendungszweck',
     expenseTitlePlaceholder: 'z.B. Abendessen, Tanken, Supermarkt...',
     amount: 'Betrag',

@@ -446,6 +446,8 @@ export const tr: TranslationDictionary = {
     deleteExpense: 'Harcamayı Sil',
     deleteConfirm: '"{title}" harcamasını kalıcı olarak silmek istediğinizden emin misiniz?',
     readOnlyBanner: 'Salt okunur mod — {name} tarafından kaydedildi',
+    adminEditingNotice: 'Grup yöneticisi olarak düzenleniyor (aslen {name} tarafından kaydedilen harcama)',
+    notAuthorizedToEdit: 'Bu harcamayı değiştirme yetkiniz yok. Yalnızca oluşturan veya grup yöneticisi düzenleyebilir.',
     expenseTitle: 'Harcama Başlığı / Açıklaması',
     expenseTitlePlaceholder: 'Örn: Akşam Yemeği, Benzin, Market...',
     amount: 'Tutar',

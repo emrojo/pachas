@@ -446,6 +446,8 @@ export const it: TranslationDictionary = {
     deleteExpense: 'Elimina Spesa',
     deleteConfirm: 'Sei sicuro di voler eliminare definitivamente la spesa "{title}"?',
     readOnlyBanner: 'Modalità sola lettura — Registrata da {name}',
+    adminEditingNotice: 'Modifica come amministratore del gruppo (spesa originariamente registrata da {name})',
+    notAuthorizedToEdit: 'Non hai i permessi per modificare questa spesa. Solo il creatore o l\'amministratore del gruppo possono modificarla.',
     expenseTitle: 'Titolo / Causale della spesa',
     expenseTitlePlaceholder: 'Es. Cena ristorante, Benzina, Supermercato...',
     amount: 'Importo',

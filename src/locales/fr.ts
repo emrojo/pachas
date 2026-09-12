@@ -446,6 +446,8 @@ export const fr: TranslationDictionary = {
     deleteExpense: 'Supprimer la dépense',
     deleteConfirm: 'Êtes-vous sûr de vouloir supprimer définitivement "{title}" ?',
     readOnlyBanner: 'Mode lecture seule — Enregistré par {name}',
+    adminEditingNotice: 'Modification en tant qu\'administrateur du groupe (dépense enregistrée à l\'origine par {name})',
+    notAuthorizedToEdit: 'Vous n\'avez pas la permission de modifier cette dépense. Seul le créateur ou l\'administrateur du groupe peut la modifier.',
     expenseTitle: 'Titre / Intitulé de la dépense',
     expenseTitlePlaceholder: 'Ex. Restaurant, Essence, Courses...',
     amount: 'Montant',

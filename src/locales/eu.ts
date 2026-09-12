@@ -446,6 +446,8 @@ export const eu: TranslationDictionary = {
     deleteExpense: 'Ezabatu Gastua',
     deleteConfirm: 'Ziur zaude "{title}" gastua behin betiko ezabatu nahi duzula?',
     readOnlyBanner: 'Irakurtzeko modua soilik — {name}-(e)k erregistratua',
+    adminEditingNotice: 'Taldearen administratzaile gisa editatzen (jatorriz {name}-(e)k erregistratutako gastua)',
+    notAuthorizedToEdit: 'Ez duzu baimenik gastu hau aldatzeko. Sortzaileak edo taldeko administratzaileak bakarrik edita dezakete.',
     expenseTitle: 'Kontzeptua / Gastuaren izena',
     expenseTitlePlaceholder: 'Adib. Jatetxeko afaria, Gasolina, Supermerkatua...',
     amount: 'Zenbatekoa',

@@ -446,6 +446,8 @@ export const ja: TranslationDictionary = {
     deleteExpense: '支出を削除',
     deleteConfirm: '支出「{title}」を完全に削除してもよろしいですか？',
     readOnlyBanner: '読み取り専用モード — {name} が登録',
+    adminEditingNotice: 'グループ管理者として編集（元の登録者: {name}）',
+    notAuthorizedToEdit: 'この支出を変更する権限がありません。作成者またはグループ管理者のみが編集できます。',
     expenseTitle: '項目名 / 内容',
     expenseTitlePlaceholder: '例: レストランでの夕食、ガソリン代、買い物...',
     amount: '金額',

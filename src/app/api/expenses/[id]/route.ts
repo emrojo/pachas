@@ -46,21 +46,40 @@ export async function PUT(
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
-    // Check if group is frozen
+    // Check permission & group status
     try {
-      const grpRes = await pool.query(
-        'SELECT g.is_frozen FROM public.expenses e JOIN public.groups g ON g.id = e.group_id WHERE e.id = $1',
-        [expenseId]
+      const permRes = await pool.query(
+        `SELECT e.id, e.created_by, e.group_id, g.is_frozen, g.created_by as group_creator, gm.role as member_role
+         FROM public.expenses e
+         JOIN public.groups g ON g.id = e.group_id
+         LEFT JOIN public.group_members gm ON gm.group_id = e.group_id AND gm.user_id::text = $2::text
+         WHERE e.id::text = $1::text`,
+        [expenseId, user.userId]
       );
-      if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
-        if (!user.isAdmin) {
-          return NextResponse.json(
-            { error: 'El grupo se encuentra temporalmente congelado por moderación. No se pueden modificar gastos.' },
-            { status: 403 }
-          );
-        }
+      if (permRes.rows.length === 0) {
+        return NextResponse.json({ error: 'Gasto no encontrado' }, { status: 404 });
       }
-    } catch {}
+      const expRow = permRes.rows[0];
+      if (expRow.is_frozen && !user.isAdmin) {
+        return NextResponse.json(
+          { error: 'El grupo se encuentra temporalmente congelado por moderación. No se pueden modificar gastos.' },
+          { status: 403 }
+        );
+      }
+      const isCreator = expRow.created_by && String(expRow.created_by) === String(user.userId);
+      const isGroupCreator = expRow.group_creator && String(expRow.group_creator) === String(user.userId);
+      const isGroupAdmin = expRow.member_role === 'admin';
+      const isAuthorized = user.isAdmin || isCreator || isGroupCreator || isGroupAdmin;
+      if (!isAuthorized) {
+        return NextResponse.json(
+          { error: 'No tienes permisos para modificar este gasto. Solo el creador o el administrador del grupo pueden editarlo.' },
+          { status: 403 }
+        );
+      }
+    } catch (permErr: any) {
+      console.error('Error checking expense update permission:', permErr);
+      return NextResponse.json({ error: permErr.message || 'Error al verificar permisos' }, { status: 500 });
+    }
 
     // Auto-heal column outside transaction if database permissions allow
     try {
@@ -468,47 +487,56 @@ export async function DELETE(
       return NextResponse.json({ error: 'Base de datos no disponible' }, { status: 500 });
     }
 
-    // Check if group is frozen
-    try {
-      const grpRes = await pool.query(
-        'SELECT g.is_frozen FROM public.expenses e JOIN public.groups g ON g.id = e.group_id WHERE e.id = $1',
-        [expenseId]
-      );
-      if (grpRes.rows.length > 0 && grpRes.rows[0].is_frozen) {
-        if (!user.isAdmin) {
-          return NextResponse.json(
-            { error: 'El grupo se encuentra temporalmente congelado por moderación. Solo el administrador puede eliminar gastos.' },
-            { status: 403 }
-          );
-        }
-      }
-    } catch {}
-
-    // Query expense info before deletion to notify group
+    // Check permission & group status
     let deletedExpenseInfo: { title: string; amount: string; currency: string; group_id: string; group_name: string; deleter_name: string } | null = null;
     try {
       const expRes = await pool.query(
-        `SELECT e.title, e.amount, e.currency, e.group_id, g.name as group_name, p.full_name as deleter_name
+        `SELECT e.id, e.title, e.amount, e.currency, e.group_id, e.created_by,
+                g.name as group_name, g.is_frozen, g.created_by as group_creator,
+                p.full_name as deleter_name,
+                gm.role as member_role
          FROM public.expenses e
          JOIN public.groups g ON g.id = e.group_id
          LEFT JOIN public.profiles p ON p.id::text = $2::text
+         LEFT JOIN public.group_members gm ON gm.group_id = e.group_id AND gm.user_id::text = $2::text
          WHERE e.id::text = $1::text`,
         [expenseId, user.userId]
       );
-      if (expRes.rows.length > 0) {
-        const row = expRes.rows[0];
-        const numAmt = Number(row.amount) || 0;
-        deletedExpenseInfo = {
-          title: row.title,
-          amount: numAmt.toFixed(2).replace('.', ','),
-          currency: row.currency || 'EUR',
-          group_id: row.group_id,
-          group_name: row.group_name,
-          deleter_name: row.deleter_name || user.email?.split('@')[0] || 'Un amigo',
-        };
+      if (expRes.rows.length === 0) {
+        return NextResponse.json({ error: 'Gasto no encontrado' }, { status: 404 });
       }
-    } catch (infoErr) {
-      console.warn('Could not query expense info before deletion:', infoErr);
+
+      const row = expRes.rows[0];
+      if (row.is_frozen && !user.isAdmin) {
+        return NextResponse.json(
+          { error: 'El grupo se encuentra temporalmente congelado por moderación. Solo el administrador puede eliminar gastos.' },
+          { status: 403 }
+        );
+      }
+
+      const isCreator = row.created_by && String(row.created_by) === String(user.userId);
+      const isGroupCreator = row.group_creator && String(row.group_creator) === String(user.userId);
+      const isGroupAdmin = row.member_role === 'admin';
+      const isAuthorized = user.isAdmin || isCreator || isGroupCreator || isGroupAdmin;
+      if (!isAuthorized) {
+        return NextResponse.json(
+          { error: 'No tienes permisos para eliminar este gasto. Solo el creador o el administrador del grupo pueden eliminarlo.' },
+          { status: 403 }
+        );
+      }
+
+      const numAmt = Number(row.amount) || 0;
+      deletedExpenseInfo = {
+        title: row.title,
+        amount: numAmt.toFixed(2).replace('.', ','),
+        currency: row.currency || 'EUR',
+        group_id: row.group_id,
+        group_name: row.group_name,
+        deleter_name: row.deleter_name || user.email?.split('@')[0] || 'Un amigo',
+      };
+    } catch (permErr: any) {
+      console.error('Error checking expense delete permission:', permErr);
+      return NextResponse.json({ error: permErr.message || 'Error al verificar permisos' }, { status: 500 });
     }
 
     await pool.query('DELETE FROM public.expenses WHERE id = $1', [expenseId]);

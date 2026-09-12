@@ -446,6 +446,8 @@ export const ar: TranslationDictionary = {
     deleteExpense: 'حذف المصروف',
     deleteConfirm: 'هل أنت متأكد من رغبتك في حذف المصروف "{title}" نهائياً؟',
     readOnlyBanner: 'وضع القراءة فقط — سجله {name}',
+    adminEditingNotice: 'تعديل بصفتك مسؤول المجموعة (المصروف مسجل أصلاً بواسطة {name})',
+    notAuthorizedToEdit: 'ليس لديك إذن لتعديل هذه النفقة. يمكن فقط للمنشئ أو مسؤول المجموعة تعديلها.',
     expenseTitle: 'عنوان / بند المصروف',
     expenseTitlePlaceholder: 'مثال: عشاء في مطعم، وقود، تسوق...',
     amount: 'المبلغ',

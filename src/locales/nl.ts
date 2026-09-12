@@ -446,6 +446,8 @@ export const nl: TranslationDictionary = {
     deleteExpense: 'Uitgave Verwijderen',
     deleteConfirm: 'Weet je zeker dat je uitgave "{title}" definitief wilt verwijderen?',
     readOnlyBanner: 'Alleen-lezen modus — Geregistreerd door {name}',
+    adminEditingNotice: 'Bewerken als groepsbeheerder (uitgave oorspronkelijk vastgelegd door {name})',
+    notAuthorizedToEdit: 'Je hebt geen toestemming om deze uitgave te wijzigen. Alleen de maker of de groepsbeheerder kan deze bewerken.',
     expenseTitle: 'Titel / Omschrijving',
     expenseTitlePlaceholder: 'bijv. Diner restaurant, Brandstof, Supermarkt...',
     amount: 'Bedrag',

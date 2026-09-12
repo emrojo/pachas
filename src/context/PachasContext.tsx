@@ -2525,6 +2525,14 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const currentExpenses = expensesRef.current[groupId] || expenses[groupId] || [];
     let existing = currentExpenses.find((e) => e.id === expenseId);
+    const isAppAdminUser = isAppAdmin(currentUser);
+    const isGroupAdminUser = isUserGroupAdmin(groupId, currentUser.id);
+    const isCreator = existing ? existing.created_by === currentUser.id : true;
+
+    if (existing && !isCreator && !isAppAdminUser && !isGroupAdminUser) {
+      throw new Error('No tienes permisos para modificar este gasto. Solo el creador o el administrador del grupo pueden editarlo.');
+    }
+
     if (!existing) {
       existing = {
         id: expenseId,

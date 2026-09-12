@@ -446,6 +446,8 @@ export const hi: TranslationDictionary = {
     deleteExpense: 'खर्चा हटाएं',
     deleteConfirm: 'क्या आप वाकई खर्चा "{title}" हमेशा के लिए हटाना चाहते हैं?',
     readOnlyBanner: 'केवल-पढ़ने योग्य मोड — {name} द्वारा दर्ज',
+    adminEditingNotice: 'समूह व्यवस्थापक के रूप में संपादन (मूल रूप से {name} द्वारा दर्ज किया गया खर्च)',
+    notAuthorizedToEdit: 'आपके पास इस खर्च को संशोधित करने की अनुमति नहीं है। केवल निर्माता या समूह व्यवस्थापक ही इसे संपादित कर सकते हैं।',
     expenseTitle: 'खर्चे का नाम / शीर्षक',
     expenseTitlePlaceholder: 'उदा. डिनर, पेट्रोल, होटल, खरीदारी...',
     amount: 'राशि',

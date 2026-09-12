@@ -446,6 +446,8 @@ export const gl: TranslationDictionary = {
     deleteExpense: 'Eliminar Gasto',
     deleteConfirm: 'Seguro que desexas eliminar definitivamente o gasto "{title}"?',
     readOnlyBanner: 'Modo só lectura — Asento rexistrado por {name}',
+    adminEditingNotice: 'Editando como administrador do grupo (gasto rexistrado orixinalmente por {name})',
+    notAuthorizedToEdit: 'Non tes permisos para modificar este gasto. Só o creador o o administrador do grupo poden editalo.',
     expenseTitle: 'Concepto / Título do gasto',
     expenseTitlePlaceholder: 'Ex. Cea en restaurante, Gasolina, Supermercado...',
     amount: 'Importe',
