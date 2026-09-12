@@ -5,6 +5,12 @@ export interface SensitiveBox {
   label?: string;
 }
 
+export interface ScannedLineItem {
+  id?: string;
+  description: string;
+  price: number;
+}
+
 export interface ScannedReceiptData {
   amount?: number;
   amountFormatted?: string;
@@ -18,6 +24,7 @@ export interface ScannedReceiptData {
   currency?: string;
   rawText?: string;
   sensitiveBoxes?: SensitiveBox[];
+  items?: ScannedLineItem[];
   confidence: number;
   source?: string;
 }
@@ -206,6 +213,33 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
     }
   }
 
+  // 6. EXTRACT LINE ITEMS (heuristic fallback)
+  const detectedItems: ScannedLineItem[] = [];
+  const itemLineRegex = /^([a-zA-Z0-9\s\.\/\-\*\(\)]{2,50}?)\s+[:=]?\s*(\d{1,4}[,\.]\d{2})\s*(?:€|eur)?$/i;
+  const nonItemKeywords = [
+    'total', 'subtotal', 'iva', 'base', 'importe', 'suma', 'pagar', 'cobrado',
+    'tarjeta', 'visa', 'mastercard', 'cambio', 'entregado', 'nif', 'cif', 'fecha',
+    'hora', 'mesa', 'factura', 'gracias', 'ticket', 'atendido', 'caja', 'terminal'
+  ];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const lower = trimmed.toLowerCase();
+    if (nonItemKeywords.some((kw) => lower.includes(kw))) continue;
+
+    const match = trimmed.match(itemLineRegex);
+    if (match && match[1] && match[2]) {
+      const desc = match[1].trim();
+      const pr = parseFloat(match[2].replace(',', '.'));
+      if (desc.length >= 2 && !isNaN(pr) && pr > 0 && pr < 10000) {
+        detectedItems.push({
+          description: desc,
+          price: Math.round(pr * 100) / 100,
+        });
+      }
+    }
+  }
+
   // Calculate confidence score (0 to 1)
   let score = 0;
   if (detectedAmount) score += 0.40;
@@ -222,6 +256,7 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
     category: detectedCategory,
     locationName: detectedLocation,
     rawText,
+    items: detectedItems.length > 0 ? detectedItems : undefined,
     confidence: Math.round(score * 100) / 100,
   };
 }
@@ -263,6 +298,7 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
           longitude: d.longitude,
           mapsUrl: d.mapsUrl,
           currency: d.currency,
+          items: d.items || [],
           sensitiveBoxes: d.sensitiveBoxes || [],
           confidence: d.confidence || 0.98,
           source: d.source || 'gemini-1.5-flash',

@@ -56,6 +56,7 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-05.3**: **Percentages (%)**: Assign percentage shares ensuring a strict 100% total.
 - **FR-05.4**: **Portions / Shares**: Allocate weighted shares (ideal for couples, families, or unequal consumption).
 - **FR-05.5**: **Multiple Payers**: Support for expenses paid by multiple friends on a single receipt.
+- **FR-05.6**: **Itemized Line Items (Desglose por consumición/producto)**: Support for splitting individual ticket items among designated members or group-wide with loss-less penny balancing (see **FR-60**).
 
 ### ✏️ FR-06: Editing & Creator Permission Controls
 - **FR-06.1**: Ability to edit any registered expense (concept, amount, category, date, payers, split, photo, and geolocation).
@@ -644,6 +645,105 @@ This document serves as the official and permanent registry for all **user requi
   - Auto-searches contextual photos when the group title is typed (debounced).
   - Provides a search bar for custom locations/destinations, quick topic chips, thumbnail selection with photographer badges, and custom file upload support.
 
+### 📜 FR-56: Third-Party Libraries, Open-Source Licenses & Legal Attribution Compliance
+- **FR-56.1**: **Interactive Attribution Catalog ([`src/components/legal/ThirdPartyLicenses.tsx`](file:///d:/Projects/pachas/src/components/legal/ThirdPartyLicenses.tsx) & `/licenses`)**:
+  - Dedicated public page detailing all direct runtime and build-time open-source dependencies (Next.js, React, Tailwind CSS, Lucide, Canvas Confetti, Tesseract.js, Lucide Icons, pg, jsPDF, Web-Push, etc.), including licenses (MIT, Apache 2.0, BSD, ISC), repository URLs, and official license texts.
+- **FR-56.2**: **Global Footer & Legal Notice Integration**:
+  - Direct navigation link to `/licenses` embedded in the persistent application footer ([`src/components/layout/Footer.tsx`](file:///d:/Projects/pachas/src/components/layout/Footer.tsx)), Legal Notice ([`src/app/(dashboard)/legal/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/legal/page.tsx)), and Terms of Service ([`src/app/(dashboard)/terms/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/terms/page.tsx)).
+- **FR-56.3**: **Multi-Language Disclaimer Synchronization**:
+  - Mandatory "AS IS" warranty disclaimers and limitation of liability translated across all supported languages.
+
+### 🔄 FR-57: Deterministic Clean Database Reset Preserving Users & Credentials
+- **FR-57.1**: **Automated User Backup & Restoration CLI ([`deploy/clean-db-keep-users.mjs`](file:///d:/Projects/pachas/deploy/clean-db-keep-users.mjs))**:
+  - Executable script via `npm run db:clean-keep-users` and `npm run db:clean-keep-users:prod` that extracts user accounts, hashed passwords, avatars, preferred languages, and roles from `auth.users` and `public.profiles` into an encrypted/timestamped JSON backup before performing table cleanups.
+- **FR-57.2**: **Sequential Schema Reconstruction**:
+  - Drops operational relational tables (groups, expenses, splits, payments, comments, messages, reports) and reapplies migrations sequentially (`01` through latest), re-inserting backed-up users to enable immediate login with previous credentials.
+
+### 🔐 FR-58: Deterministic Secrets & Credentials Rotation Engine with Live Handshake
+- **FR-58.1**: **Multi-Scope Rotation Automation ([`deploy/rotate-secrets.mjs`](file:///d:/Projects/pachas/deploy/rotate-secrets.mjs))**:
+  - Supports granular or complete secret rotation (`--jwt`, `--postgres`, `--session`, `--vapid`, `--all`) across `.env.local` and `deploy/.env.production`.
+- **FR-58.2**: **Strict Pre-Restart Validation & Live Handshake**:
+  - Verifies cryptographic entropy, syntax validity, and performs an active live handshake against the PostgreSQL database before applying changes to environment files, with automatic `.bak` backup rollback on failure.
+- **FR-58.3**: **Process Hot-Reloading**:
+  - Integrates automated service reload notifications for Docker Compose, systemd (`pachas.service`), and PM2 clusters.
+
+### 🚀 FR-59: Standard Production CI/CD Pipeline (GitHub Actions + GHCR + SSH Deploy)
+- **FR-59.1**: **Automated CI Quality & Security Gate ([`.github/workflows/deploy-production.yml`](file:///d:/Projects/pachas/.github/workflows/deploy-production.yml))**:
+  - Triggered automatically on push to the `main` branch or on manual `workflow_dispatch`.
+  - Executes strict TypeScript type checking (`npx tsc --noEmit`), the complete Vitest test suite (`npm run test`), and the Pachas cryptographic security audit (`npm run security:audit`).
+  - Strict gate policy: any compilation warning, failed test, or security flag immediately halts the pipeline, preventing defective code from progressing to packaging or deployment.
+- **FR-59.2**: **Docker Buildx & GitHub Container Registry (GHCR) Publishing**:
+  - Automated multi-stage container compilation using `deploy/Dockerfile` optimized for Next.js standalone execution on Alpine Linux.
+  - GitHub Actions layer caching (`type=gha`, `mode=max`) ensuring fast incremental compilation times.
+  - Immutable image tagging via Git commit SHA (`ghcr.io/emrojo/pachas:sha-<commit>`) alongside semantic tags (`latest`, branch name).
+  - Secure publication to GitHub Packages (`ghcr.io/emrojo/pachas`) leveraging `packages: write` permissions.
+- **FR-59.3**: **Hardened Production Docker Compose Specification ([`deploy/docker-compose.prod.yml`](file:///d:/Projects/pachas/deploy/docker-compose.prod.yml))**:
+  - Consumes pre-built GHCR images (`${PACHAS_IMAGE:-ghcr.io/emrojo/pachas:latest}`) with zero server-side compilation overhead or CPU/RAM spikes on the production host.
+  - Strict perimeter network isolation: PostgreSQL and Next.js internal ports are bound exclusively to `127.0.0.1`.
+  - Ingress traffic is exclusively routed through the hardened Nginx reverse proxy (ports 80 and 443) featuring rate limiting, brute-force mitigation, SSL termination, and security headers.
+  - Explicit log rotation limits (`json-file`, max-size 10m/20m) to eliminate risk of server disk exhaustion.
+- **FR-59.4**: **Decoupled Deployment Scripts via Dynamic Volume Mounts & Minimal Attack Surface**:
+  - Runtime container images maintain a minimal attack surface and lean footprint by keeping deployment and migration utilities outside the production runner image (strictly adhering to `.dockerignore`), mounting `/app/deploy:ro` dynamically during migration execution steps in [`deploy/remote-deploy.sh`](file:///d:/Projects/pachas/deploy/remote-deploy.sh).
+- **FR-59.5**: **Zero-Downtime SSH Deployment & Automatic Rollback Engine ([`deploy/remote-deploy.sh`](file:///d:/Projects/pachas/deploy/remote-deploy.sh))**:
+  - Secure remote deployment via `appleboy/ssh-action` within the designated GitHub `production` environment.
+  - Idempotent Bash runner (`set -euo pipefail`) capturing the running image state (`PREV_IMAGE`) prior to updates.
+  - Automatic execution of pending database migrations (`node deploy/migrate.mjs`) inside a temporary runner before promoting the new application container.
+  - Smooth rolling service reload (`docker compose up -d --remove-orphans`).
+  - Active liveness polling (`/api/health`) for up to 60 seconds with exponential retry backoff.
+  - **Automated Rollback Guarantee**: If the newly launched container fails the health check, the script immediately rolls back to `PREV_IMAGE`, prints container logs for diagnostics, and exits with a failure alert.
+  - Post-deployment maintenance: prunes dangling images (`docker image prune -f`) and logs out from GHCR to clear temporary tokens.
+- **FR-59.6**: **Adaptive Database Host Resolution & Fallback Shielding**:
+  - [`deploy/docker-compose.prod.yml`](file:///d:/Projects/pachas/deploy/docker-compose.prod.yml) and [`deploy/remote-deploy.sh`](file:///d:/Projects/pachas/deploy/remote-deploy.sh) enforce explicit fallback resolution for `POSTGRES_HOST="${POSTGRES_HOST:-postgres}"` and `DATABASE_URL="${DATABASE_URL:-postgres://${POSTGRES_USER:-pachas_admin}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-pachas}}"`, preventing containerized runtime processes in [`src/lib/db/postgres.ts`](file:///d:/Projects/pachas/src/lib/db/postgres.ts) from defaulting to `localhost:5432` and resolving accurately across Docker internal networks.
+- **FR-59.7**: **Lightweight Liveness & Health Probe ([`src/app/api/health/route.ts`](file:///d:/Projects/pachas/src/app/api/health/route.ts))**:
+  - Public JSON health endpoint responding on `GET /api/health` with HTTP 200/503 status, uptime in seconds, timestamp, and PostgreSQL pool connectivity latency without exposing sensitive database credentials.
+  - Supported by unit tests in [`src/app/api/health/route.test.ts`](file:///d:/Projects/pachas/src/app/api/health/route.test.ts).
+- **FR-59.8**: **Operations & Server Provisioning Guide ([`deploy/CICD-GUIDE.md`](file:///d:/Projects/pachas/deploy/CICD-GUIDE.md))**:
+  - Comprehensive operational documentation detailing:
+    - Generation of dedicated Ed25519 deployment keys and setup of the non-root `deploy` user.
+    - Configuration of required GitHub repository secrets (`SSH_HOST`, `SSH_USER`, `SSH_KEY`, `SSH_PORT`, `CR_PAT`).
+    - Server directory preparation in `/opt/pachas`, file permission hardening, and troubleshooting procedures.
+
+### 🧾 FR-60: Itemized Line-Item Expense Splitting & Receipt Product Allocation
+- **FR-60.1**: **Product Line-Item Extraction via AI Vision**:
+  - Automatic structured detection and extraction of individual purchased items or dishes (`description`, `price`) through Google Gemini 1.5 Flash Vision in [`src/app/api/ocr/scan/route.ts`](file:///d:/Projects/pachas/src/app/api/ocr/scan/route.ts) returning validated `items: Array<{ description: string; price: number }>`.
+- **FR-60.2**: **Deterministic Line-Item Mathematical Split Engine ([`src/lib/algorithms/itemizedSplitCalculations.ts`](file:///d:/Projects/pachas/src/lib/algorithms/itemizedSplitCalculations.ts))**:
+  - *Individual assignment*: When 1 member is assigned to a line item, they bear 100% of that item's price.
+  - *Shared allocation*: When $N$ members are assigned to an item, its cost is split equally with exact loss-less penny distribution.
+  - *Unassigned fallback*: Items without explicitly selected participants are evenly distributed across all group members.
+  - *Conservation constraint*: Validates that $\sum \text{Item Prices} = \text{Total Expense Amount}$ within a strict $\pm0.01$ tolerance.
+  - Supported by exhaustive unit test coverage in [`src/lib/algorithms/itemizedSplitCalculations.test.ts`](file:///d:/Projects/pachas/src/lib/algorithms/itemizedSplitCalculations.test.ts).
+- **FR-60.3**: **Relational Line-Item Persistence & Migration 15 ([`deploy/init-scripts/15-expense-items.sql`](file:///d:/Projects/pachas/deploy/init-scripts/15-expense-items.sql))**:
+  - Creation of `public.expense_items` table with foreign key cascading (`expense_id UUID REFERENCES public.expenses(id) ON DELETE CASCADE`) storing line item details (`description TEXT`, `price NUMERIC(12, 2)`, `assigned_user_ids TEXT[]`).
+  - Update of the `expenses_split_type_check` constraint on `public.expenses` to include `'ITEMIZED'` alongside `EQUAL`, `EXACT`, `PERCENTAGE`, and `SHARES`.
+- **FR-60.5**: **Interactive Itemized Line-Item Split Editor ([`src/components/expenses/ItemizedSplitEditor.tsx`](file:///d:/Projects/pachas/src/components/expenses/ItemizedSplitEditor.tsx))**:
+  - Dynamic line item manipulation: Add, edit, remove, and price adjustment of individual items.
+  - Per-item member avatar selector chips with real-time assignment badges (`Paga X (100%)`, `Compartido entre N`, `Compartido por todo el grupo`).
+  - Real-time balancing card comparing items sum with total invoice amount, displaying green checkmark on match or exact variance amount when unbalanced.
+  - Live calculated summary table showing the resulting net share breakdown per friend.
+- **FR-60.6**: **Strict Accounting Enforcement in Expense Form & Validation Modals**:
+  - Form submission and modal confirmation buttons are strictly disabled when line items do not balance with total invoice amount (`Math.abs(diff) > 0.01`).
+  - Seamless toggle in scan panels and split sections to activate or deactivate itemized mode.
+  - Distinct itemized pill indicator in expense card listings and full 20-language translation support.
+
+### 🏷️ FR-61: Discrete Deployment Version & Commit Hash Indicator
+- **FR-61.1**: **Discrete Version Endpoint ([`src/app/api/version/route.ts`](file:///d:/Projects/pachas/src/app/api/version/route.ts))**:
+  - Dedicated JSON endpoint returning deployment metadata (`commit`, `buildTime`, `version`, `branch`, `environment`) generated automatically from build-time environment variables or dynamic Git inspection.
+- **FR-61.2**: **Administrative Verification Hub ([`src/app/(dashboard)/admin/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/admin/page.tsx))**:
+  - Discreet version and deployment commit inspection card within the admin backoffice allowing administrators to verify deployed versions without exposing operational details publicly.
+
+### 👥 FR-62: Unclaimed Provisional Group Members & Single-Use Claim Invitations
+- **FR-62.1**: **Provisional Member Estimation during Group Creation ([`src/components/groups/CreateGroupModal.tsx`](file:///d:/Projects/pachas/src/components/groups/CreateGroupModal.tsx))**:
+  - Option to specify estimated total member count when creating a group and assign preliminary provisional names (or auto-generate default placeholder names).
+- **FR-62.2**: **Provisional Member Management in Group Settings ([`src/components/groups/EditGroupModal.tsx`](file:///d:/Projects/pachas/src/components/groups/EditGroupModal.tsx))**:
+  - Ability to edit provisional member names and monitor unclaimed vs claimed status in group settings.
+- **FR-62.3**: **Single-Use Unique Claim Links ([`src/lib/groups/unclaimedMembers.ts`](file:///d:/Projects/pachas/src/lib/groups/unclaimedMembers.ts))**:
+  - Generation of cryptographically secure single-use claim tokens linked to specific provisional member slots.
+  - Entering the link allows a real authenticated user to claim that provisional slot, merging their profile and past expenses.
+  - Once claimed, the token is invalidated and cannot be claimed by another user.
+- **FR-62.4**: **Relinquishing & Releasing Member Slots**:
+  - Allows an active member to renounce their claimed provisional slot, returning it to an open unclaimed state so another member can claim it.
+  - Supported by database migration `14-unclaimed-members.sql` and comprehensive unit tests in [`src/lib/groups/unclaimedMembers.test.ts`](file:///d:/Projects/pachas/src/lib/groups/unclaimedMembers.test.ts).
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -654,6 +754,17 @@ This document serves as the official and permanent registry for all **user requi
 - **NFR-04**: **Persistence & Offline Mode**: Interactive `localStorage` state acting as an immediate resilient layer with backend synchronization.
 - **NFR-05**: **Internationalization (i18n)**: Full multi-language dictionary architecture supporting 20 languages with RTL support for Arabic.
 - **NFR-06**: **Regulatory & GDPR Compliance**: Full alignment with European General Data Protection Regulation (GDPR / LOPDGDD) and LSSI-CE.
+- **NFR-07**: **High-Entropy Cryptographic Security**: 256-bit randomness across all generated database passwords, JWT signing tokens, and session secrets with zero plaintext leakage in version control.
+- **NFR-08**: **Zero-Downtime High Availability**: Rolling container updates and healthcheck verification ensuring uninterrupted application access during version upgrades.
+- **NFR-09**: **Automated Rollback Resilience**: Automatic failure detection during deployment restoring previous functional containers in under 10 seconds if new releases fail liveness probes.
+- **NFR-10**: **Resource Efficiency**: Next.js standalone multi-stage Alpine images with minimal memory footprint (<256MB per replica) and external layer caching in CI.
+- **NFR-11**: **Perimeter Network Isolation**: Private database and application ports strictly bound to local loopback (`127.0.0.1`), exposing only reverse proxy ingress to the public internet.
+- **NFR-12**: **Automated Database Schema Evolution**: Transactional, idempotent migrations ledger (`public._migrations`) preventing schema drift or race conditions.
+- **NFR-13**: **Immutable Artifact Traceability**: Every container image pushed to GHCR is immutably tagged with the full Git commit SHA (`sha-<commit>`) guaranteeing deterministic auditability.
+- **NFR-14**: **Disk Space & Log Retention Protection**: Docker container log limits (max-size 10MB/20MB) and post-deployment dangling image pruning preventing host volume exhaustion.
+- **NFR-15**: **External Services & API Resilience**: Multi-tier fallbacks for AI Vision (Gemini 1.5 Flash -> local Tesseract OCR), currency exchange rates (Frankfurter ECB -> local cache), and email dispatchers (SMTP, Resend, SendGrid -> simulated console logs).
+- **NFR-16**: **Continuous Integration & Delivery (CI/CD)**: Standard, automated industrial pipeline using GitHub Actions, GitHub Container Registry (GHCR), and SSH Deploy executing automated quality gates, container packaging, and zero-downtime server deployments.
+- **NFR-17**: **Itemized Financial Conservation Law**: The sum of all itemized line items must square exactly with the total expense amount down to the cent, guaranteeing that individual item allocations cannot inflate or deflate the total transaction value.
 
 ---
 
@@ -770,6 +881,13 @@ This document serves as the official and permanent registry for all **user requi
 | **01/09/2026** | 🔄 Added | **FR-57** | **Deterministic Clean Database Reset Preserving Users & Passwords**: Built automated backup and migration runner (`clean-db-keep-users.mjs`, `npm run db:clean-keep-users`), extracting all accounts from `auth.users` and `public.profiles` (passwords, UUIDs, metadata, roles, avatars, languages), creating timestamped JSON backups, wiping tables and re-applying migrations 01-11 sequentially, and restoring users for immediate login. |
 | **05/09/2026** | 📖 Added | **NFR-15** | **Comprehensive External Services, APIs & Media Configuration Specification**: Documented setup workflows, key generation commands, fallbacks, and environment variables across `.env.example`, `deploy/env.example`, and `README.md` for Google Gemini 1.5 Flash OCR (`GEMINI_API_KEY`), Pexels API (`PEXELS_API_KEY`), DiceBear open vector avatar engine & custom image uploads, W3C VAPID Web Push notifications (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`), PostgreSQL migration engine, and transactional email dispatchers. |
 | **05/09/2026** | 🔐 Added | **FR-58** | **Deterministic Secrets & Credentials Rotation Engine with Pre-Restart Validation & Hot Reload**: Built `deploy/rotate-secrets.mjs`, `deploy/rotate-secrets.ps1`, `deploy/rotate-secrets.sh`, and `deploy/pachas.service` supporting individual or emergency mass rotation (`--all`) across `.env.local` and `deploy/.env.production`; automated timestamped `.bak` backups; strict pre-restart validation (syntax, entropy, live DB handshake); automated rollback protection; native hot-reloading for Linux systemd (`pachas.service`), PM2 cluster, and Docker; and explicit invalidation transparency (`[INVALIDACIÓN INMEDIATA]` vs `[ACCIÓN EXTERNA REQUERIDA]`). |
+| **12/09/2026** | 🐳 Fixed & Hardened | **FR-59** | **Resilient Production Container Networking, Database Connection & Automated Deployment Pipeline**: Resolved production PostgreSQL connection and migration failures: dynamic host volume mounting for migration scripts (`-v ${DEPLOY_DIR}/deploy:/app/deploy:ro`) respecting `.dockerignore` image hygiene, shell environment discovery and export (`set -a; . "${ENV_FILE}"; set +a`), Compose `--env-file` parameter injection eliminating blank password fallbacks (`POSTGRES_PASSWORD`), explicit fallback shielding for `POSTGRES_HOST="${POSTGRES_HOST:-postgres_db}"` preventing internal `localhost:5432` connection rejections, dynamic `${DATABASE_URL:-...}` configuration in `docker-compose.prod.yml`, and pre-migration socket readiness polling (`pg_isready`). |
+| **12/09/2026** | 🚀 Added | **FR-59 & NFR-16** | **Standard Production CI/CD Pipeline (GitHub Actions + GHCR + SSH Deploy)**: Fully automated quality gate (TypeScript typecheck, Vitest suite, Pachas security audit), Docker Buildx multi-stage caching (`type=gha`), immutable commit SHA tags pushed to GitHub Container Registry (`ghcr.io/emrojo/pachas`), zero-downtime SSH deploy with automated migrations, continuous healthcheck polling (`/api/health`), automatic rollback on failure, and server provisioning guide (`deploy/CICD-GUIDE.md`). |
+| **12/09/2026** | 📦 Fixed | **CI Dependencies Synchronization** | Synchronized `package-lock.json` with `package.json` adding missing lockfile entries for `web-push@3.6.7` and its transitive dependencies (`asn1.js`, `http_ece`, `https-proxy-agent`, `jws`, `minimist`, `bn.js`), ensuring strict and deterministic `npm ci` executions in GitHub Actions runners. |
+| **12/09/2026** | 🧾 Added | **FR-60 & NFR-17** | **Itemized Line-Item Expense Splitting & Receipt Product Allocation**: Line-item receipt breakdown extracted via Google Gemini 1.5 Flash Vision (`/api/ocr/scan`), deterministic mathematical split engine (`itemizedSplitCalculations.ts`) with individual/shared assignment and loss-less penny balancing, database migration `15-expense-items.sql` (`public.expense_items`, `split_type = 'ITEMIZED'`), database types in `database.ts`, auto-schema synchronization in `postgres.ts`, interactive `ItemizedSplitEditor` UI with live balancing card, integration in `ExpenseForm` and `ReceiptValidationModal`, and 20-language i18n synchronization. |
+| **12/09/2026** | 🏷️ Added | **FR-61** | **Discrete Deployment Version & Commit Hash Indicator**: Public discrete health/version endpoint `/api/version` returning commit hash, build timestamp, version, and branch; integrated inspection card in `/admin` for operational verification. |
+| **12/09/2026** | 👥 Added | **FR-62** | **Unclaimed Provisional Group Members & Single-Use Claim Invitations**: Initial estimated member count and placeholder names during group creation, editing provisional names in group settings, single-use cryptographic claim links (`14-unclaimed-members.sql`), user claiming lifecycle, and slot relinquishment support. |
+
 
 
 

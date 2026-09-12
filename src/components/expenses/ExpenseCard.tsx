@@ -213,6 +213,21 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 </button>
               )}
 
+              {/* Itemized split pill */}
+              {(expense.split_type === 'ITEMIZED' || (expense.items && expense.items.length > 0)) && (
+                <div
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/80"
+                  title={t('expenses.itemizedSplitTitle') || 'Desglose por productos'}
+                >
+                  <Sparkles className="w-3 h-3 text-emerald-500" />
+                  <span className="hidden sm:inline">
+                    {expense.items && expense.items.length > 0
+                      ? `${expense.items.length} ${t('expenses.itemizedItemsShort') || 'prod.'}`
+                      : t('expenses.itemizedBadge') || 'Desglose'}
+                  </span>
+                </div>
+              )}
+
               {/* Location pill (clickable) */}
               {hasLocation && (
                 <button

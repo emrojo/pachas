@@ -27,6 +27,10 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
     expect(data.title).toBe('Restaurante El Faro');
     expect(data.category).toBe('food');
     expect(data.confidence).toBeGreaterThanOrEqual(0.8);
+    expect(data.items).toBeDefined();
+    expect(data.items?.length).toBe(4);
+    expect(data.items?.[0]).toEqual({ description: '2x PAELLA MIXTA', price: 32.0 });
+    expect(data.items?.[1]).toEqual({ description: '1x ENSALADA VERDE', price: 7.5 });
   });
 
   it('extracts supermarket groceries ticket details', () => {
@@ -48,6 +52,9 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
     expect(data.date).toBe('2026-07-15T19:10');
     expect(data.title).toBe('Supermercado Mercadona');
     expect(data.category).toBe('shopping');
+    expect(data.items).toBeDefined();
+    expect(data.items?.length).toBe(4);
+    expect(data.items?.[0]).toEqual({ description: 'LECHE ENTERA', price: 1.2 });
   });
 
   it('extracts transport and gas station receipts', () => {

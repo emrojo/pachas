@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       ocr_status = ocrStatus,
       payers = [],
       participants = [],
+      items = [],
     } = body;
 
     if (!cleanGroupId || !title || amount === undefined || amount === null) {
@@ -242,6 +243,29 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 3b. Clear and insert expense line items if present
+      await client.query('SAVEPOINT save_expense_items');
+      try {
+        await client.query('DELETE FROM public.expense_items WHERE expense_id = $1', [id]);
+        if (Array.isArray(items) && items.length > 0) {
+          for (const it of items) {
+            const itemId = it.id && !it.id.startsWith('item-') ? it.id : randomUUID();
+            const desc = (it.description || 'Producto').trim();
+            const itemPrice = Math.max(0, Number(it.price) || 0);
+            const assigned = Array.isArray(it.assigned_user_ids) ? it.assigned_user_ids : [];
+            await client.query(
+              `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [itemId, id, desc, itemPrice, assigned]
+            );
+          }
+        }
+        await client.query('RELEASE SAVEPOINT save_expense_items');
+      } catch (itemsErr) {
+        console.warn('Expense items non-fatal insert error:', itemsErr);
+        await client.query('ROLLBACK TO SAVEPOINT save_expense_items');
+      }
+
       // 4. Record/Upsert the exchange rate in `exchange_rates` if different from base currency.
       // Uses SAVEPOINT so a DDL/DML failure (e.g. permissions, table lock) does NOT abort
       // the expense COMMIT — saving exchange rates is best-effort.
@@ -322,6 +346,13 @@ export async function POST(request: NextRequest) {
                     'email', ppart.email
                   )
                 )) FILTER (WHERE epart.id IS NOT NULL) as participants,
+                json_agg(DISTINCT jsonb_build_object(
+                  'id', ei.id,
+                  'expense_id', ei.expense_id,
+                  'description', ei.description,
+                  'price', ei.price,
+                  'assigned_user_ids', ei.assigned_user_ids
+                )) FILTER (WHERE ei.id IS NOT NULL) as items,
                 jsonb_build_object(
                   'id', pcreator.id,
                   'full_name', pcreator.full_name,
@@ -334,6 +365,7 @@ export async function POST(request: NextRequest) {
          LEFT JOIN public.profiles pp ON pp.id::text = ep.user_id::text
          LEFT JOIN public.expense_participants epart ON epart.expense_id::text = e.id::text
          LEFT JOIN public.profiles ppart ON ppart.id::text = epart.user_id::text
+         LEFT JOIN public.expense_items ei ON ei.expense_id::text = e.id::text
          WHERE e.id::text = $1
          GROUP BY e.id, pcreator.id`,
         [id]
@@ -362,6 +394,10 @@ export async function POST(request: NextRequest) {
             shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
             profile: pt.profile && pt.profile.id ? pt.profile : undefined,
           })),
+          items: (row.items || []).map((it: any) => ({
+            ...it,
+            price: parseFloat(it.price) || 0,
+          })),
         };
       } else {
         createdExpense = {
@@ -378,6 +414,7 @@ export async function POST(request: NextRequest) {
           receipt_url: receiptUrl,
           notes,
           split_type: splitType,
+          items: items || [],
           latitude,
           longitude,
           location_name: locationName,
@@ -458,6 +495,13 @@ export async function GET(request: NextRequest) {
                  'email', ppart.email
                )
              )) FILTER (WHERE epart.id IS NOT NULL) as participants,
+             json_agg(DISTINCT jsonb_build_object(
+               'id', ei.id,
+               'expense_id', ei.expense_id,
+               'description', ei.description,
+               'price', ei.price,
+               'assigned_user_ids', ei.assigned_user_ids
+             )) FILTER (WHERE ei.id IS NOT NULL) as items,
              jsonb_build_object(
                'id', pcreator.id,
                'full_name', pcreator.full_name,
@@ -470,6 +514,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN public.profiles pp ON pp.id = ep.user_id
       LEFT JOIN public.expense_participants epart ON epart.expense_id = e.id
       LEFT JOIN public.profiles ppart ON ppart.id = epart.user_id
+      LEFT JOIN public.expense_items ei ON ei.expense_id = e.id
     `;
 
     const params: any[] = [];
@@ -499,6 +544,10 @@ export async function GET(request: NextRequest) {
         percentage: pt.percentage !== null && pt.percentage !== undefined ? parseFloat(pt.percentage) : null,
         shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
         profile: pt.profile && pt.profile.id ? pt.profile : undefined,
+      })),
+      items: (row.items || []).map((it: any) => ({
+        ...it,
+        price: parseFloat(it.price) || 0,
       })),
     }));
 

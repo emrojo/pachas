@@ -31,6 +31,9 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ReceiptModal } from './ReceiptModal';
+import { ItemizedSplitEditor } from './ItemizedSplitEditor';
+import { LineItemInput } from '@/lib/algorithms/itemizedSplitCalculations';
+import { generateUUID } from '@/lib/id';
 
 export interface ReceiptValidationModalProps {
   isOpen: boolean;
@@ -116,6 +119,9 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
   const [payerId, setPayerId] = useState(currentUser?.id || '');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [splitByItems, setSplitByItems] = useState(false);
+  const [lineItems, setLineItems] = useState<LineItemInput[]>([]);
+  const [isItemsBalanced, setIsItemsBalanced] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -151,6 +157,22 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     }
     const allMemberIds = members.map((m) => m.user_id);
     setSelectedParticipants(allMemberIds.length > 0 ? allMemberIds : (currentUser ? [currentUser.id] : []));
+
+    const rawItems = Array.isArray(data.items) ? data.items : [];
+    if (rawItems.length > 0) {
+      setLineItems(
+        rawItems.map((it: any) => ({
+          id: it.id || generateUUID(),
+          description: it.description || '',
+          price: Number(it.price) || 0,
+          assignedUserIds: it.assigned_user_ids || [],
+        }))
+      );
+      setSplitByItems(true);
+    } else {
+      setLineItems([]);
+      setSplitByItems(false);
+    }
 
     // Render image on canvas and apply sensitiveBoxes auto-censoring
     const img = new Image();
@@ -384,6 +406,34 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
       return;
     }
 
+    if (splitByItems) {
+      if (lineItems.length === 0) {
+        setError(t('expenses.itemizedItemsRequired') || 'Debes añadir al menos un producto en el desglose.');
+        return;
+      }
+      for (const item of lineItems) {
+        if (!item.description.trim()) {
+          setError(t('expenses.itemizedDescriptionRequired') || 'Todos los productos deben tener descripción.');
+          return;
+        }
+        if (item.price <= 0) {
+          setError(t('expenses.itemizedPricePositive') || 'El precio de todos los productos debe ser mayor que 0.');
+          return;
+        }
+      }
+      const sumItems = lineItems.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
+      const diff = Math.round((parsedAmt - sumItems) * 100) / 100;
+      if (Math.abs(diff) > 0.01) {
+        setError(
+          t('expenses.itemizedSumMismatch', {
+            itemsTotal: formatMoney(sumItems, currency),
+            invoiceTotal: formatMoney(parsedAmt, currency),
+          }) || `La suma de los productos (${formatMoney(sumItems, currency)}) no coincide con el total (${formatMoney(parsedAmt, currency)}).`
+        );
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
       setError('');
@@ -394,6 +444,15 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
 
       const expenseDate = combineEuropeanDateTimeToISO(dateDisplayStr, timeDisplayStr);
 
+      const itemsToSave = splitByItems
+        ? lineItems.map((it) => ({
+            id: it.id,
+            description: it.description,
+            price: it.price,
+            assigned_user_ids: it.assignedUserIds,
+          }))
+        : undefined;
+
       await confirmPendingScan(pendingScan.id, {
         groupId,
         title: title.trim(),
@@ -402,9 +461,14 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         category,
         expenseDate,
         receiptUrl: finalReceiptUrl,
-        splitType: 'EQUAL' as SplitType,
+        splitType: (splitByItems ? 'ITEMIZED' : 'EQUAL') as SplitType,
+        items: itemsToSave,
         payers: [{ userId: payerId, amountPaid: parsedAmt }],
-        selectedParticipantIds: selectedParticipants.length > 0 ? selectedParticipants : [payerId],
+        selectedParticipantIds: splitByItems
+          ? members.map((m) => m.user_id)
+          : selectedParticipants.length > 0
+          ? selectedParticipants
+          : [payerId],
         locationName: locationName || undefined,
         latitude,
         longitude,
@@ -659,41 +723,80 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               </select>
             </div>
 
-            {/* Participants */}
-            <div className="space-y-1.5">
+            {/* Split Mode & Participants / Itemized Split */}
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                  {t('expenses.splitBetween')} ({selectedParticipants.length}/{members.length})
+                  {splitByItems ? t('expenses.itemizedSplitTitle') : `${t('expenses.splitBetween')} (${selectedParticipants.length}/${members.length})`}
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setSelectedParticipants(members.map((m) => m.user_id))}
-                  className="text-[11px] font-bold text-emerald-600 hover:underline"
-                >
-                  {t('expenses.selectAll')}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (splitByItems) {
+                        setSplitByItems(false);
+                      } else {
+                        setSplitByItems(true);
+                        if (lineItems.length === 0 && parseEuropeanAmount(amountStr) > 0) {
+                          setLineItems([
+                            {
+                              id: generateUUID(),
+                              description: title.trim() || 'Ticket',
+                              price: parseEuropeanAmount(amountStr),
+                              assignedUserIds: [],
+                            },
+                          ]);
+                        }
+                      }
+                    }}
+                    className="text-[11px] font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3 text-emerald-500" />
+                    <span>{splitByItems ? (t('expenses.switchToNormalSplit') || 'Reparto estándar') : t('expenses.splitByItemsToggle')}</span>
+                  </button>
+                  {!splitByItems && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedParticipants(members.map((m) => m.user_id))}
+                      className="text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer"
+                    >
+                      {t('expenses.selectAll')}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
-                {members.map((m) => {
-                  const isSelected = selectedParticipants.includes(m.user_id);
-                  return (
-                    <button
-                      key={m.user_id}
-                      type="button"
-                      onClick={() => handleToggleParticipant(m.user_id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                        isSelected
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      <Avatar profile={m.profile} size="sm" className="w-4 h-4 text-[8px]" />
-                      <span className="truncate max-w-[100px]">{m.profile?.full_name?.split(' ')[0] || t('common.friend')}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {splitByItems ? (
+                <ItemizedSplitEditor
+                  items={lineItems}
+                  onChange={setLineItems}
+                  members={members}
+                  totalInvoiceAmount={parseEuropeanAmount(amountStr)}
+                  currency={currency}
+                  onBalanceChange={setIsItemsBalanced}
+                />
+              ) : (
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                  {members.map((m) => {
+                    const isSelected = selectedParticipants.includes(m.user_id);
+                    return (
+                      <button
+                        key={m.user_id}
+                        type="button"
+                        onClick={() => handleToggleParticipant(m.user_id)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        <Avatar profile={m.profile} size="sm" className="w-4 h-4 text-[8px]" />
+                        <span className="truncate max-w-[100px]">{m.profile?.full_name?.split(' ')[0] || t('common.friend')}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -725,6 +828,8 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               type="submit"
               variant="brand"
               isLoading={isSubmitting}
+              disabled={isSubmitting || (splitByItems && !isItemsBalanced)}
+              title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
               className="text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20"
             >
               <Check className="w-4 h-4" />

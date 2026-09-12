@@ -118,6 +118,35 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     // 5. Support message indexes
     await p.query(`CREATE INDEX IF NOT EXISTS idx_support_messages_user ON public.support_messages(user_id);`).catch(() => {});
     await p.query(`CREATE INDEX IF NOT EXISTS idx_support_messages_created ON public.support_messages(created_at DESC);`).catch(() => {});
+
+    // 6. Expense items table and split_type CHECK update
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS public.expense_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        expense_id UUID NOT NULL REFERENCES public.expenses(id) ON DELETE CASCADE,
+        description TEXT NOT NULL,
+        price NUMERIC(12, 2) NOT NULL,
+        assigned_user_ids TEXT[] DEFAULT '{}' NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+      );
+    `).catch(async () => {
+      await p.query(`
+        CREATE TABLE IF NOT EXISTS public.expense_items (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          expense_id UUID NOT NULL REFERENCES public.expenses(id) ON DELETE CASCADE,
+          description TEXT NOT NULL,
+          price NUMERIC(12, 2) NOT NULL,
+          assigned_user_ids TEXT[] DEFAULT '{}' NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+        );
+      `).catch(() => {});
+    });
+    await p.query(`CREATE INDEX IF NOT EXISTS idx_expense_items_expense_id ON public.expense_items(expense_id);`).catch(() => {});
+    await p.query(`
+      ALTER TABLE public.expenses DROP CONSTRAINT IF EXISTS expenses_split_type_check;
+      ALTER TABLE public.expenses ADD CONSTRAINT expenses_split_type_check 
+        CHECK (split_type IN ('EQUAL', 'EXACT', 'PERCENTAGE', 'SHARES', 'ITEMIZED'));
+    `).catch(() => {});
   } catch (err) {
     console.warn('Schema auto-migration notice:', err);
   }

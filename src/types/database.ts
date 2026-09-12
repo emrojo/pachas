@@ -1,4 +1,4 @@
-export type SplitType = 'EQUAL' | 'EXACT' | 'PERCENTAGE' | 'SHARES';
+export type SplitType = 'EQUAL' | 'EXACT' | 'PERCENTAGE' | 'SHARES' | 'ITEMIZED';
 
 export type ExpenseCategory =
   | 'accommodation'
@@ -99,6 +99,15 @@ export interface ExpenseParticipant {
   profile?: Profile;
 }
 
+export interface ExpenseItem {
+  id: string;
+  expense_id?: string;
+  description: string;
+  price: number;
+  assigned_user_ids: string[];
+  created_at?: string;
+}
+
 export interface Expense {
   id: string;
   group_id: string;
@@ -122,6 +131,7 @@ export interface Expense {
   creator?: Profile;
   payers?: ExpensePayer[];
   participants?: ExpenseParticipant[];
+  items?: ExpenseItem[];
   is_pending_sync?: boolean;
 }
 

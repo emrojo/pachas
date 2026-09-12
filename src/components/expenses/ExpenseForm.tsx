@@ -61,6 +61,9 @@ import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { ExpenseCommentsSection } from '@/components/expenses/ExpenseCommentsSection';
 import { ReceiptRedactionModal } from '@/components/expenses/ReceiptRedactionModal';
 import { scanReceipt, ScannedReceiptData } from '@/lib/ocr/receiptScanner';
+import { ItemizedSplitEditor } from '@/components/expenses/ItemizedSplitEditor';
+import { LineItemInput } from '@/lib/algorithms/itemizedSplitCalculations';
+import { generateUUID } from '@/lib/id';
 
 // Helper to parse date string into { dateStr: "DD/MM/YYYY", timeStr: "HH:mm", isoDate: "YYYY-MM-DD" }
 function splitEuropeanDateTime(rawIsoOrDate?: string | null): { dateStr: string; timeStr: string; isoDate: string } {
@@ -234,6 +237,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   >({});
   const [customSplitInputs, setCustomSplitInputs] = useState<Record<string, string>>({});
 
+  // Itemized line-items state ("Separar gastos por productos")
+  const [splitByItems, setSplitByItems] = useState(false);
+  const [wantItemizedSplit, setWantItemizedSplit] = useState(false);
+  const [lineItems, setLineItems] = useState<LineItemInput[]>([]);
+  const [isItemsBalanced, setIsItemsBalanced] = useState(true);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -376,6 +385,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         setCustomSplits(customMap);
         setCustomSplitInputs(stringInputs);
       }
+
+      // Populate itemized line items if present
+      if (expenseToEdit.split_type === 'ITEMIZED' || (expenseToEdit.items && expenseToEdit.items.length > 0)) {
+        setSplitByItems(true);
+        setLineItems(
+          (expenseToEdit.items || []).map((it) => ({
+            id: it.id || generateUUID(),
+            description: it.description,
+            price: Number(it.price) || 0,
+            assignedUserIds: it.assigned_user_ids || [],
+          }))
+        );
+      } else {
+        setSplitByItems(false);
+        setLineItems([]);
+      }
     } else {
 
       // New expense defaults
@@ -400,6 +425,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setCustomPayers(defaultUserId ? { [defaultUserId]: '' } : {});
       setSelectedParticipants(members.map((m) => m.user_id));
       setSplitType('EQUAL');
+      setSplitByItems(false);
+      setWantItemizedSplit(false);
+      setLineItems([]);
       setCustomSplits({});
       setCustomSplitInputs({});
       setIsWhoPaidOpen(false);
@@ -561,7 +589,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setIsScanningReceipt(true);
     try {
       const data = await scanReceipt(censoredDataUrl);
-      if (data && (data.amount || data.title || data.date)) {
+      if (data && (data.amount || data.title || data.date || (data.items && data.items.length > 0))) {
         setScannedData(data);
       }
     } catch (ocrErr) {
@@ -599,6 +627,20 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     ) {
       setLatitude(scannedData.latitude);
       setLongitude(scannedData.longitude);
+    }
+    if (scannedData.items && scannedData.items.length > 0) {
+      const parsedItems: LineItemInput[] = scannedData.items.map((it) => ({
+        id: generateUUID(),
+        description: it.description,
+        price: it.price,
+        assignedUserIds: [], // Empty means shared equally by all group members
+      }));
+      setLineItems(parsedItems);
+      if (wantItemizedSplit) {
+        setSplitByItems(true);
+        setSplitType('ITEMIZED');
+        setIsSplitOpen(true);
+      }
     }
     setScannedData(null);
   };
@@ -644,9 +686,37 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setErrorMessage('Introduce un importe válido mayor que 0 (ej: 25,50)');
       return;
     }
-    if (selectedParticipants.length === 0) {
-      setErrorMessage('Selecciona al menos un amigo para compartir el gasto');
-      return;
+    if (splitByItems) {
+      if (lineItems.length === 0) {
+        setErrorMessage(t('expenses.itemizedItemsRequired') || 'Debes añadir al menos un producto en el desglose.');
+        return;
+      }
+      for (const item of lineItems) {
+        if (!item.description.trim()) {
+          setErrorMessage(t('expenses.itemizedDescriptionRequired') || 'Todos los productos deben tener descripción.');
+          return;
+        }
+        if (item.price <= 0) {
+          setErrorMessage(t('expenses.itemizedPricePositive') || 'El precio de todos los productos debe ser mayor que 0.');
+          return;
+        }
+      }
+      const sumItems = lineItems.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
+      const diff = Math.round((totalAmount - sumItems) * 100) / 100;
+      if (Math.abs(diff) > 0.01) {
+        setErrorMessage(
+          t('expenses.itemizedSumMismatch', {
+            itemsTotal: formatMoney(sumItems, currency),
+            invoiceTotal: formatMoney(totalAmount, currency),
+          }) || `La suma de los productos (${formatMoney(sumItems, currency)}) no coincide con el total (${formatMoney(totalAmount, currency)}).`
+        );
+        return;
+      }
+    } else {
+      if (selectedParticipants.length === 0) {
+        setErrorMessage('Selecciona al menos un amigo para compartir el gasto');
+        return;
+      }
     }
 
     // Prepare Payers
@@ -672,41 +742,54 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     }
 
     // Filtramos los participantes que efectivamente participan:
-    // En reparto EXACTO y PERCENTAGE, si un amigo tiene 0 o vacío, no participa en el reparto.
-    const activeParticipants = splitType === 'EXACT'
-      ? selectedParticipants.filter((id) => (customSplits[id]?.exact || 0) > 0)
-      : splitType === 'PERCENTAGE'
-      ? selectedParticipants.filter((id) => (customSplits[id]?.percentage || 0) > 0)
-      : selectedParticipants;
+    let activeParticipants: string[] = [];
+    if (!splitByItems) {
+      activeParticipants = splitType === 'EXACT'
+        ? selectedParticipants.filter((id) => (customSplits[id]?.exact || 0) > 0)
+        : splitType === 'PERCENTAGE'
+        ? selectedParticipants.filter((id) => (customSplits[id]?.percentage || 0) > 0)
+        : selectedParticipants;
 
-    if (activeParticipants.length === 0) {
-      setErrorMessage(
-        splitType === 'EXACT'
-          ? 'Debes asignar un importe mayor a 0 a al menos un participante'
-          : splitType === 'PERCENTAGE'
-          ? 'Debes asignar un porcentaje mayor a 0% a al menos un participante'
-          : 'Selecciona al menos un amigo para compartir el gasto'
+      if (activeParticipants.length === 0) {
+        setErrorMessage(
+          splitType === 'EXACT'
+            ? 'Debes asignar un importe mayor a 0 a al menos un participante'
+            : splitType === 'PERCENTAGE'
+            ? 'Debes asignar un porcentaje mayor a 0% a al menos un participante'
+            : 'Selecciona al menos un amigo para compartir el gasto'
+        );
+        return;
+      }
+
+      // Validate Splits in the transaction currency
+      const splitValidation = calculateSplits(
+        totalAmount,
+        splitType,
+        activeParticipants,
+        customSplits,
+        currency
       );
-      return;
-    }
 
-    // Validate Splits in the transaction currency
-    const splitValidation = calculateSplits(
-      totalAmount,
-      splitType,
-      activeParticipants,
-      customSplits,
-      currency
-    );
-
-    if (!splitValidation.isValid) {
-      setErrorMessage(splitValidation.errorMessage || 'Error en el reparto');
-      return;
+      if (!splitValidation.isValid) {
+        setErrorMessage(splitValidation.errorMessage || 'Error en el reparto');
+        return;
+      }
+    } else {
+      activeParticipants = members.map((m) => m.user_id);
     }
 
     try {
       setIsLoading(true);
       const finalIsoDate = combineEuropeanDateTimeToISO(dateDisplayStr, timeDisplayStr);
+
+      const itemsToSave = splitByItems
+        ? lineItems.map((it) => ({
+            id: it.id,
+            description: it.description,
+            price: it.price,
+            assigned_user_ids: it.assignedUserIds,
+          }))
+        : undefined;
 
       if (expenseToEdit) {
         await updateExpense(groupId, expenseToEdit.id, {
@@ -722,7 +805,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           longitude,
           locationName: sanitizeText(locationName, 150) || null,
           notes: sanitizeText(notes, 500) || undefined,
-          splitType,
+          splitType: splitByItems ? 'ITEMIZED' : splitType,
+          items: itemsToSave,
           payers: payersList,
           selectedParticipantIds: activeParticipants,
           splitCustomInputs: customSplits,
@@ -741,7 +825,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           longitude,
           locationName: sanitizeText(locationName, 150) || null,
           notes: sanitizeText(notes, 500) || undefined,
-          splitType,
+          splitType: splitByItems ? 'ITEMIZED' : splitType,
+          items: itemsToSave,
           payers: payersList,
           selectedParticipantIds: activeParticipants,
           splitCustomInputs: customSplits,
@@ -801,7 +886,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         )}
 
         {/* Banner de Datos detectados por OCR */}
-        {scannedData && !isReadOnly && (scannedData.amount || scannedData.title || scannedData.date) && (
+        {scannedData && !isReadOnly && (scannedData.amount || scannedData.title || scannedData.date || (scannedData.items && scannedData.items.length > 0)) && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 shadow-xs text-xs">
             <div className="flex items-start gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
@@ -829,6 +914,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   {scannedData.locationName && (
                     <span className="truncate max-w-[200px]" title={scannedData.locationName}>
                       🗺️ {scannedData.locationName} {scannedData.latitude !== undefined && '📍 (Google Maps)'}
+                    </span>
+                  )}
+                  {scannedData.items && scannedData.items.length > 0 && (
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                      🧾 {t('expenses.itemizedDetected', { count: scannedData.items.length }) || `${scannedData.items.length} productos detectados`}
                     </span>
                   )}
                 </div>
@@ -880,7 +970,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 onClick={() => setIsScanPanelOpen(!isScanPanelOpen)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 dark:border-emerald-700/80 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors shrink-0 shadow-2xs"
               >
-                <Sparkles className="w-3 h-3 text-emerald-500" />
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
                 <span>{isScanPanelOpen ? t('common.close') : t('expenses.scanOrUpload')}</span>
                 <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isScanPanelOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -888,28 +978,49 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
             {/* Panel de captura desplegable bajo demanda */}
             {isScanPanelOpen && (
-              <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in duration-200">
-                <label className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs">
-                  <Camera className="w-3.5 h-3.5 shrink-0" />
-                  <span>{t('expenses.scanWithCamera')}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                </label>
+              <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 dark:border-slate-800 space-y-2 animate-in fade-in duration-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs">
+                    <Camera className="w-3.5 h-3.5 shrink-0" />
+                    <span>{t('expenses.scanWithCamera')}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
 
-                <label className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors shadow-2xs">
-                  <ImageIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>{t('expenses.uploadFromGallery')}</span>
+                  <label className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors shadow-2xs">
+                    <ImageIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span>{t('expenses.uploadFromGallery')}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Opción de Separar gastos con IA */}
+                <label className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer transition-colors select-none text-xs text-slate-700 dark:text-slate-200">
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
+                    type="checkbox"
+                    checked={wantItemizedSplit}
+                    onChange={(e) => setWantItemizedSplit(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800 cursor-pointer"
                   />
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5">
+                    <span className="font-semibold flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                      <Sparkles className="w-3 h-3" />
+                      {t('expenses.splitByItemsToggle')}
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      ({t('expenses.splitByItemsToggleDesc')})
+                    </span>
+                  </div>
                 </label>
               </div>
             )}
@@ -1352,18 +1463,28 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   {t('expenses.whoShares')}
                 </span>
                 <span className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
-                  {selectedParticipants.length === members.length
-                    ? `${t('common.all')} (${members.length}) • `
-                    : `${selectedParticipants.length} / ${members.length} • `}
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                    {splitType === 'EQUAL'
-                      ? t('expenses.splitModes.equal')
-                      : splitType === 'EXACT'
-                      ? t('expenses.splitModes.exact')
-                      : splitType === 'PERCENTAGE'
-                      ? t('expenses.splitModes.percentage')
-                      : t('expenses.splitModes.shares')}
-                  </span>
+                  {splitByItems ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>{t('expenses.itemizedSplit')}</span>
+                      <span>• {lineItems.length} {t('expenses.itemizedItemsCount', { count: lineItems.length }) || `${lineItems.length} productos`}</span>
+                    </span>
+                  ) : (
+                    <>
+                      {selectedParticipants.length === members.length
+                        ? `${t('common.all')} (${members.length}) • `
+                        : `${selectedParticipants.length} / ${members.length} • `}
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        {splitType === 'EQUAL'
+                          ? t('expenses.splitModes.equal')
+                          : splitType === 'EXACT'
+                          ? t('expenses.splitModes.exact')
+                          : splitType === 'PERCENTAGE'
+                          ? t('expenses.splitModes.percentage')
+                          : t('expenses.splitModes.shares')}
+                      </span>
+                    </>
+                  )}
                 </span>
               </div>
             </div>
@@ -1382,20 +1503,84 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
           {isSplitOpen && (
             <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 space-y-4 mt-3">
-              <div className="flex items-center justify-between pt-3">
-                <span className="text-xs text-slate-500">
-                  {t('expenses.whoShares')}
-                </span>
-                {!isReadOnly && (
-                  <button
-                    type="button"
-                    onClick={selectAllParticipants}
-                    className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
-                  >
-                    {t('common.all')}
-                  </button>
-                )}
-              </div>
+              {splitByItems ? (
+                <div className="pt-3 space-y-4">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white">
+                        {t('expenses.itemizedSplitTitle')}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                        IA / Desglose
+                      </span>
+                    </div>
+                    {!isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(t('expenses.confirmSwitchToNormalSplit') || '¿Deseas volver al reparto estándar? Se descartará el desglose por productos.')) {
+                            setSplitByItems(false);
+                            setSplitType('EQUAL');
+                          }
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
+                      >
+                        {t('expenses.switchToNormalSplit') || 'Volver a reparto estándar'}
+                      </button>
+                    )}
+                  </div>
+
+                  <ItemizedSplitEditor
+                    items={lineItems}
+                    onChange={setLineItems}
+                    members={members}
+                    totalInvoiceAmount={totalAmount}
+                    currency={currency}
+                    isReadOnly={isReadOnly}
+                    onBalanceChange={setIsItemsBalanced}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between pt-3">
+                    <span className="text-xs text-slate-500">
+                      {t('expenses.whoShares')}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSplitByItems(true);
+                            setSplitType('ITEMIZED');
+                            if (lineItems.length === 0 && totalAmount > 0) {
+                              setLineItems([
+                                {
+                                  id: generateUUID(),
+                                  description: title.trim() || t('expenses.expenseTitle'),
+                                  price: totalAmount,
+                                  assignedUserIds: [],
+                                },
+                              ]);
+                            }
+                          }}
+                          className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Sparkles className="w-3 h-3 text-emerald-500" />
+                          <span>{t('expenses.splitByItemsToggle')}</span>
+                        </button>
+                      )}
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={selectAllParticipants}
+                          className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                        >
+                          {t('common.all')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
               {/* Participants Chips */}
               <div className="flex flex-wrap gap-2">
@@ -1633,8 +1818,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
+        </div>
+      )}
         </div>
 
         {/* NOTAS Y OBSERVACIONES */}
@@ -1908,7 +2095,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   type="submit"
                   variant="brand"
                   isLoading={isLoading}
-                  disabled={isDeleting}
+                  disabled={isDeleting || (splitByItems && !isItemsBalanced)}
+                  title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
                   className="text-sm font-bold px-5"
                 >
                   {t('expenses.saveChanges')}
@@ -1924,7 +2112,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 type="submit"
                 variant="brand"
                 isLoading={isLoading}
-                disabled={isDeleting}
+                disabled={isDeleting || (splitByItems && !isItemsBalanced)}
+                title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
                 className="flex-1 text-sm font-bold"
               >
                 {t('expenses.quickSave', { amount: formatMoney(totalAmount, currency) })}

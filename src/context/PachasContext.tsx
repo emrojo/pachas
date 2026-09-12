@@ -6,6 +6,7 @@ import {
   GroupMember,
   GroupInvitation,
   Expense,
+  ExpenseItem,
   Settlement,
   Profile,
   MemberBalance,
@@ -33,6 +34,7 @@ import {
 } from '@/lib/demoData';
 import { calculateBalances, simplifyDebts } from '@/lib/algorithms/simplifyDebts';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
+import { calculateItemizedSplits } from '@/lib/algorithms/itemizedSplitCalculations';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 
 import { isAppAdmin, isGroupAdmin as checkIsGroupAdmin, isDemoModeAllowed } from '@/lib/authConfig';
@@ -69,6 +71,7 @@ export interface CreateExpenseInput {
   longitude?: number | null;
   locationName?: string | null;
   ocr_status?: 'processing' | 'completed' | 'failed' | null;
+  items?: ExpenseItem[];
 }
 
 interface PachasContextType {
@@ -2016,13 +2019,33 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const convertedAmount = Math.round(input.amount * exchangeRate * 100) / 100;
 
     // Calculate splits on the original expense currency
-    const { results } = calculateSplits(
-      input.amount,
-      input.splitType,
-      input.selectedParticipantIds,
-      input.splitCustomInputs,
-      input.currency
-    );
+    let splitResults: any[];
+    if (input.splitType === 'ITEMIZED' && input.items && input.items.length > 0) {
+      const allMembers = input.selectedParticipantIds.length > 0
+        ? input.selectedParticipantIds
+        : grpMembers.map((m) => m.user_id);
+      const itemized = calculateItemizedSplits(
+        input.amount,
+        input.items.map((it) => ({
+          id: it.id,
+          description: it.description,
+          price: it.price,
+          assignedUserIds: it.assigned_user_ids || [],
+        })),
+        allMembers,
+        input.currency
+      );
+      splitResults = itemized.results;
+    } else {
+      const calc = calculateSplits(
+        input.amount,
+        input.splitType,
+        input.selectedParticipantIds,
+        input.splitCustomInputs,
+        input.currency
+      );
+      splitResults = calc.results;
+    }
 
     const expenseId = generateUUID();
 
@@ -2031,9 +2054,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let distributedBaseCents = 0;
     const totalBaseCents = Math.round(convertedAmount * 100);
 
-    const convertedParticipants = results.map((r, idx) => {
+    const convertedParticipants = splitResults.map((r, idx) => {
       let participantBaseAmount = 0;
-      if (idx === results.length - 1) {
+      if (idx === splitResults.length - 1) {
         participantBaseAmount = (totalBaseCents - distributedBaseCents) / 100;
       } else {
         const cents = Math.round(((r.amountOwed / origTotal) * convertedAmount) * 100);
@@ -2069,6 +2092,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       receipt_url: input.receiptUrl || null,
       notes: input.notes || null,
       split_type: input.splitType,
+      items: input.items || [],
       latitude: input.latitude !== undefined ? input.latitude : null,
       longitude: input.longitude !== undefined ? input.longitude : null,
       location_name: input.locationName || null,
@@ -2110,6 +2134,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             receiptUrl: newExpense.receipt_url,
             notes: newExpense.notes,
             splitType: newExpense.split_type,
+            items: newExpense.items,
             latitude: newExpense.latitude,
             longitude: newExpense.longitude,
             locationName: newExpense.location_name,
@@ -2485,22 +2510,42 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const convertedAmount = Math.round(input.amount * exchangeRate * 100) / 100;
 
     // Calculate splits on the original expense currency
-    const { results } = calculateSplits(
-      input.amount,
-      input.splitType,
-      input.selectedParticipantIds,
-      input.splitCustomInputs,
-      input.currency
-    );
+    let splitResults: any[];
+    if (input.splitType === 'ITEMIZED' && input.items && input.items.length > 0) {
+      const allMembers = input.selectedParticipantIds.length > 0
+        ? input.selectedParticipantIds
+        : grpMembers.map((m) => m.user_id);
+      const itemized = calculateItemizedSplits(
+        input.amount,
+        input.items.map((it) => ({
+          id: it.id,
+          description: it.description,
+          price: it.price,
+          assignedUserIds: it.assigned_user_ids || [],
+        })),
+        allMembers,
+        input.currency
+      );
+      splitResults = itemized.results;
+    } else {
+      const calc = calculateSplits(
+        input.amount,
+        input.splitType,
+        input.selectedParticipantIds,
+        input.splitCustomInputs,
+        input.currency
+      );
+      splitResults = calc.results;
+    }
 
     // Convert participants owed amounts to the group's base currency with cent balancing
     const origTotal = input.amount > 0 ? input.amount : 1;
     let distributedBaseCents = 0;
     const totalBaseCents = Math.round(convertedAmount * 100);
 
-    const convertedParticipants = results.map((r, idx) => {
+    const convertedParticipants = splitResults.map((r, idx) => {
       let participantBaseAmount = 0;
-      if (idx === results.length - 1) {
+      if (idx === splitResults.length - 1) {
         participantBaseAmount = (totalBaseCents - distributedBaseCents) / 100;
       } else {
         const cents = Math.round(((r.amountOwed / origTotal) * convertedAmount) * 100);
@@ -2531,6 +2576,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       receipt_url: input.receiptUrl !== undefined ? input.receiptUrl : existing.receipt_url,
       notes: input.notes !== undefined ? input.notes : existing.notes,
       split_type: input.splitType,
+      items: input.items !== undefined ? input.items : existing.items,
       latitude: input.latitude !== undefined ? input.latitude : existing.latitude,
       longitude: input.longitude !== undefined ? input.longitude : existing.longitude,
       location_name: input.locationName !== undefined ? input.locationName : existing.location_name,
@@ -2564,6 +2610,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             receiptUrl: updatedExpense.receipt_url,
             notes: updatedExpense.notes,
             splitType: updatedExpense.split_type,
+            items: updatedExpense.items,
             latitude: updatedExpense.latitude,
             longitude: updatedExpense.longitude,
             locationName: updatedExpense.location_name,

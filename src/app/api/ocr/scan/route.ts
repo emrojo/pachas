@@ -21,6 +21,7 @@ export interface VisionScanResult {
   mapsUrl?: string;
   currency?: string;
   sensitiveBoxes?: SensitiveBox[];
+  items?: Array<{ description: string; price: number }>;
   confidence: number;
   source: string;
 }
@@ -134,6 +135,12 @@ Esquema JSON requerido:
   "category": "food" | "shopping" | "transport" | "accommodation" | "activities" | "other",
   "locationName": "Dirección física (calle, número, código postal y/o ciudad) del establecimiento si aparece en el ticket (ej: 'C/ Gran Vía 28, Madrid') o null",
   "currency": "EUR",
+  "items": [
+    {
+      "description": "Nombre o concepto individual del producto o consumición",
+      "price": 0.00
+    }
+  ],
   "sensitiveBoxes": [
     {
       "box_2d": [ymin, xmin, ymax, xmax],
@@ -155,12 +162,13 @@ Reglas críticas de extracción:
    - "other": cualquier otro concepto.
 5. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay dirección legible, devuelve null.
 6. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").
-7. sensitiveBoxes: Coordenadas de cajas delimitadoras normalizadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 que cubran información bancaria o sensible:
+7. items: Lista de productos individuales comprados o consumidos con su precio final desglosado. Si el ticket lista productos (ej: '2x Cerveza 6,00', 'Hamburguesa 12,50', 'Pan 0,95'), extrae cada producto con su nombre limpio y su precio decimal positivo. No incluyas subtotales, propinas globales ni líneas de IVA/impuestos en items. Si no hay desglose legible, devuelve un array vacío: [].
+8. sensitiveBoxes: Coordenadas de cajas delimitadoras normalizadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 que cubran información bancaria o sensible:
    - Números de tarjeta de crédito/débito (PAN, **** 1234, fecha caducidad, tipo de tarjeta).
    - Datos bancarios, números de cuenta, IBAN, códigos de autorización de datáfono, PINs o firmas.
    - DNI/NIF/CIF del cliente, nombres personales o teléfonos privados del comprador.
    Si no hay información sensible presente en la imagen, devuelve un array vacío: [].
-8. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
+9. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
 
     // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
     const candidateModels = [
@@ -534,6 +542,23 @@ Reglas críticas de extracción:
         });
     };
 
+    const sanitizeItems = (rawItems: any): Array<{ description: string; price: number }> => {
+      if (!Array.isArray(rawItems)) return [];
+      const items: Array<{ description: string; price: number }> = [];
+      for (const it of rawItems) {
+        if (!it || typeof it !== 'object') continue;
+        const desc = String(it.description || it.name || it.concept || '').trim();
+        let price = typeof it.price === 'number' ? it.price : parseFloat(String(it.price).replace(',', '.'));
+        if (desc && !isNaN(price) && price > 0 && price < 50000) {
+          items.push({
+            description: desc.slice(0, 150),
+            price: Math.round(price * 100) / 100,
+          });
+        }
+      }
+      return items;
+    };
+
     const result: VisionScanResult = {
       title: cleanTitle(parsed.title),
       amount: detectedAmount,
@@ -545,6 +570,7 @@ Reglas críticas de extracción:
       longitude: detectedLongitude,
       mapsUrl: detectedMapsUrl,
       currency: parsed.currency || 'EUR',
+      items: sanitizeItems(parsed.items),
       sensitiveBoxes: sanitizeSensitiveBoxes(parsed.sensitiveBoxes),
       confidence: detectedAmount ? 0.98 : 0.7,
       source: successfulModel || 'gemini-1.5-flash',

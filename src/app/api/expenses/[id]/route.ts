@@ -38,6 +38,7 @@ export async function PUT(
       ocr_status = ocrStatus,
       payers = [],
       participants = [],
+      items = [],
     } = body;
 
     const pool = getDbPool();
@@ -217,6 +218,29 @@ export async function PUT(
         );
       }
 
+      // 3b. Clear and insert expense line items if present
+      await client.query('SAVEPOINT save_expense_items');
+      try {
+        await client.query('DELETE FROM public.expense_items WHERE expense_id = $1', [expenseId]);
+        if (Array.isArray(items) && items.length > 0) {
+          for (const it of items) {
+            const itemId = it.id && !it.id.startsWith('item-') ? it.id : randomUUID();
+            const desc = (it.description || 'Producto').trim();
+            const itemPrice = Math.max(0, Number(it.price) || 0);
+            const assigned = Array.isArray(it.assigned_user_ids) ? it.assigned_user_ids : [];
+            await client.query(
+              `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [itemId, expenseId, desc, itemPrice, assigned]
+            );
+          }
+        }
+        await client.query('RELEASE SAVEPOINT save_expense_items');
+      } catch (itemsErr) {
+        console.warn('Expense items non-fatal update error:', itemsErr);
+        await client.query('ROLLBACK TO SAVEPOINT save_expense_items');
+      }
+
       // Save exchange rate into public.exchange_rates if foreign currency.
       // Uses SAVEPOINT so a DDL/DML failure here does NOT abort the expense COMMIT.
       await client.query('SAVEPOINT exchange_rate');
@@ -323,6 +347,13 @@ export async function PUT(
                           'email', ppart.email
                         )
                       )) FILTER (WHERE epart.id IS NOT NULL) as participants,
+                      json_agg(DISTINCT jsonb_build_object(
+                        'id', ei.id,
+                        'expense_id', ei.expense_id,
+                        'description', ei.description,
+                        'price', ei.price,
+                        'assigned_user_ids', ei.assigned_user_ids
+                      )) FILTER (WHERE ei.id IS NOT NULL) as items,
                       jsonb_build_object(
                         'id', pcreator.id,
                         'full_name', pcreator.full_name,
@@ -335,6 +366,7 @@ export async function PUT(
                LEFT JOIN public.profiles pp ON pp.id::text = ep.user_id::text
                LEFT JOIN public.expense_participants epart ON epart.expense_id::text = e.id::text
                LEFT JOIN public.profiles ppart ON ppart.id::text = epart.user_id::text
+               LEFT JOIN public.expense_items ei ON ei.expense_id::text = e.id::text
                WHERE e.id::text = $1
                GROUP BY e.id, pcreator.id`,
               [expenseId]
@@ -363,6 +395,10 @@ export async function PUT(
                   shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
                   profile: pt.profile && pt.profile.id ? pt.profile : undefined,
                 })),
+                items: (row.items || []).map((it: any) => ({
+                  ...it,
+                  price: parseFloat(it.price) || 0,
+                })),
               };
             } else {
               updatedExpensePayload = {
@@ -378,6 +414,7 @@ export async function PUT(
                 receipt_url: receiptUrl,
                 notes,
                 split_type: splitType,
+                items: items || [],
                 latitude,
                 longitude,
                 location_name: locationName,
@@ -554,6 +591,12 @@ export async function GET(
       [expenseId]
     );
 
+    // Fetch items
+    const itemsRes = await pool.query(
+      'SELECT * FROM public.expense_items WHERE expense_id::text = $1 ORDER BY created_at ASC',
+      [expenseId]
+    ).catch(() => ({ rows: [] }));
+
     return NextResponse.json({
       expense: {
         ...expense,
@@ -569,6 +612,10 @@ export async function GET(
         splits: splitsRes.rows.map((s) => ({
           ...s,
           amount_owed: Number(s.amount_owed),
+        })),
+        items: itemsRes.rows.map((it) => ({
+          ...it,
+          price: Number(it.price),
         })),
       },
     });
