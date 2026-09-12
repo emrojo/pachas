@@ -31,13 +31,14 @@ import {
   DEMO_SETTLEMENTS,
   DEMO_USERS,
   DEFAULT_NOTIFICATIONS,
+  SAMPLE_DEV_NOTIFICATIONS,
 } from '@/lib/demoData';
 import { calculateBalances, simplifyDebts } from '@/lib/algorithms/simplifyDebts';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import { calculateItemizedSplits } from '@/lib/algorithms/itemizedSplitCalculations';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 
-import { isAppAdmin, isGroupAdmin as checkIsGroupAdmin, isDemoModeAllowed } from '@/lib/authConfig';
+import { isAppAdmin, isGroupAdmin as checkIsGroupAdmin, isDemoModeAllowed, isProduction } from '@/lib/authConfig';
 import {
   getSyncQueue,
   enqueueSyncAction,
@@ -67,6 +68,7 @@ export interface CreateExpenseInput {
   payers: { userId: string; amountPaid: number }[];
   selectedParticipantIds: string[];
   splitCustomInputs?: Record<string, { exact?: number; percentage?: number; shares?: number }>;
+  reimbursedParticipantIds?: string[];
   latitude?: number | null;
   longitude?: number | null;
   locationName?: string | null;
@@ -340,15 +342,20 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (typeof window !== 'undefined') {
       try {
         const saved = safeGetLocalStorage(STORAGE_KEYS.NOTIFICATIONS);
-        if (saved) {
+        if (saved !== null) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed)) {
+            // Automatically purge any residual or mock demo notifications
+            return parsed.filter(
+              (n: any) => !n?.id?.startsWith('notif-demo-') && n?.group_name !== 'Vacaciones Playa'
+            );
+          }
         }
       } catch {
-        return DEFAULT_NOTIFICATIONS;
+        return [];
       }
     }
-    return DEFAULT_NOTIFICATIONS;
+    return [];
   });
 
   useEffect(() => {
@@ -2110,6 +2117,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         amount_owed: participantBaseAmount,
         percentage: r.percentage,
         shares: r.shares,
+        has_paid: Boolean(input.reimbursedParticipantIds?.includes(r.userId)),
         profile:
           memberProfiles.get(r.userId) ||
           availableUsers.find((u) => u.id === r.userId) ||
@@ -2607,6 +2615,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         amount_owed: participantBaseAmount,
         percentage: r.percentage,
         shares: r.shares,
+        has_paid: Boolean(input.reimbursedParticipantIds?.includes(r.userId)),
         profile: memberProfiles.get(r.userId),
       };
     });
@@ -3557,8 +3566,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const seedDemoNotifications = () => {
-    setNotifications(DEFAULT_NOTIFICATIONS);
-    safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(DEFAULT_NOTIFICATIONS));
+    if (isProduction()) return;
+    setNotifications(SAMPLE_DEV_NOTIFICATIONS);
+    safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(SAMPLE_DEV_NOTIFICATIONS));
   };
 
   const addNotification = (notif: Omit<AppNotification, 'id' | 'created_at' | 'read'>) => {

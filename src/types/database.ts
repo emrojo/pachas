@@ -97,6 +97,7 @@ export interface ExpenseParticipant {
   amount_owed: number;
   percentage?: number | null;
   shares?: number | null;
+  has_paid?: boolean;
   profile?: Profile;
 }
 

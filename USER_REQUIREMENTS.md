@@ -844,7 +844,25 @@ This document serves as the official and permanent registry for all **user requi
   - Modifications by administrators preserve the original `created_by` identifier and creator attribution, ensuring clear financial auditing and historical transparency.
 - **FR-67.5**: **Full Internationalization & Automated Unit Testing**:
   - Synchronized translations across all 20 supported languages in `src/locales/` (`expenses.adminEditingNotice`, `expenses.notAuthorizedToEdit`).
-  - Unit test suite in [`src/lib/groups/expenseAdminPermissions.test.ts`](file:///d:/Projects/pachas/src/lib/groups/expenseAdminPermissions.test.ts) validating creator vs. regular member vs. group admin vs. super admin permissions.
+### 👥 FR-71: Equal Split Mode for Multiple Payers ("A partes iguales")
+- **FR-71.1**: **Mode Switcher for Multiple Payers**:
+  - When selecting that multiple friends paid for an expense (`isMultiPayer === true`) in `ExpenseForm.tsx`, the interface presents a tab selector between:
+    - **A partes iguales** (`EQUAL`): Default mode when selecting multiple payers.
+    - **Cantidades exactas** (`EXACT`): Manual exact amount input mode.
+- **FR-71.2**: **Interactive Payer Chips & Quick Selection**:
+  - In equal mode, users toggle which group members paid using ergonomic chips featuring member avatars, names, and check icons.
+  - Direct *"Todos"* action button to select all members in one tap.
+- **FR-71.3**: **Loss-less Penny Balancing & Live Breakdown Banner**:
+  - Automatically divides the invoice total among selected payers using `calculateSplits(totalAmount, 'EQUAL', selectedPayerIds)` ensuring zero penny loss or inflation ($\sum \text{amountPaid} = \text{totalAmount}$).
+  - Live feedback card displays *"Cada uno pagó X,XX €"* and badges with exact individual amounts.
+- **FR-71.4**: **Bidirectional State Synchronization**:
+  - Seamlessly keeps `customPayers` in sync with the equal division, enabling instant switching between equal mode and exact mode without re-entering values.
+- **FR-71.5**: **Auto-Detection for Existing Expenses**:
+  - When editing a multi-payer expense, automatically detects if amounts are identical (within ±0.02 €) and defaults to `EQUAL` mode with the respective payers selected.
+- **FR-71.6**: **Contextual Accordion Header**:
+  - Collapsed accordion header indicates `Varios amigos (X a partes iguales)` when equal mode is active.
+- **FR-71.7**: **Internationalization (i18n)**:
+  - Synchronized across all 20 languages in `src/locales/*.ts`.
 
 ---
 
@@ -995,6 +1013,8 @@ This document serves as the official and permanent registry for all **user requi
 | **12/09/2026** | 🔒 Added | **FR-66** | **Closed Groups vs. Open Groups & Individual Single-Use Invitations**: All new groups default to Closed Groups (`is_closed: true`). Closed groups disable general invite codes, QR codes, and general WhatsApp share, requiring individual single-use claim links or addition of known contacts. Open groups allow open sharing via general code/link. Added interactive selector in `CreateGroupModal` and `EditGroupModal`, blocked generic join with security lockout screen on `/join/[inviteCode]`, badge indicators in desktop and mobile headers, database migration `16-closed-groups.sql`, and 20-language i18n synchronization. |
 | **12/09/2026** | 🛡️ Added | **FR-67** | **Group Administrator Expense Management & Modification Authority**: Group administrators and system administrators can edit and delete all expense information within a group (concept, amount, currency, category, date, payers, splits, items, notes, receipt), preserving the original creator's attribution with an emerald admin editing banner; enforced permissions in `ExpenseCard`, `ExpenseForm`, `PachasContext.tsx`, `PUT /api/expenses/[id]`, and `DELETE /api/expenses/[id]`; 20-language i18n support; and dedicated automated unit test suite (`expenseAdminPermissions.test.ts`). |
 | **13/09/2026** | 📱 Redesigned | **FR-68** | **Mobile Balance Card Padding & Accordion-Driven Mobile Expense Editor**: Increased padding on the financial balance card in `/dashboard-mobile` (`p-6 sm:p-7 rounded-3xl`) to prevent edge collisions; redesigned `ExpenseForm` for mobile (`isMobileView`) with enlarged high-contrast typography, prominent Concept and Amount inputs with direct Quick Save, and collapsible accordion cards collapsed by default for all secondary sections (Category, Who Paid, Who Shares, Date & Time, Receipt, Location, Notes, Comments). |
+| **13/09/2026** | 💰 Added | **FR-70** | **Expense Reimbursement Tracking, Multi-State Visual Badging & Debt Balance Exclusion (`has_paid`)**: Integrated participant reimbursement tracking in the expense editor (`ExpenseForm`) for desktop and mobile (`isMobileView`); visual payment status badges (`✅ Completado`, `🔄 Parcialmente pagado (X/Y)`, `⏳ Por pagar`) across desktop (`ExpenseCard`) and mobile (`/dashboard-mobile`); mathematical exclusion of reimbursed debt from group net balances (`simplifyDebts.ts`), conserving zero-sum equilibrium ($\sum \text{netBalance} = 0$); PostgreSQL schema migration `18-expense-participant-has-paid.sql`; API persistence in `POST /api/expenses` and `PUT /api/expenses/[id]`; and full 20-language i18n synchronization. |
+| **13/09/2026** | 👥 Added | **FR-71** | **Equal Split Mode for Multiple Payers ("A partes iguales")**: Integrated mode switcher tab in `ExpenseForm` when multiple friends paid (`EQUAL` vs `EXACT`); interactive payer selection chips with member avatars; one-click *"Todos"* button; automatic equal share calculation using `calculateSplits(totalAmount, 'EQUAL', selectedPayerIds)` with loss-less penny balancing; live breakdown banner with exact cents; smart auto-detection on edit; contextual accordion header badge (`Varios amigos (X a partes iguales)`); and 20-language i18n synchronization. |
 
 
 

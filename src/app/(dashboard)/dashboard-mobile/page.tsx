@@ -28,6 +28,7 @@ import { formatMoney } from '@/lib/currencies';
 import { formatDate } from '@/lib/utils';
 import { getCategoryInfo } from '@/lib/categories';
 import { exportGroupToPDF, exportGroupToCSV } from '@/lib/export';
+import { getExpensePaymentStatus } from '@/lib/algorithms/simplifyDebts';
 import { Expense, PendingReceiptScan, SimplifiedDebt, Profile } from '@/types/database';
 
 import {
@@ -514,6 +515,7 @@ export default function MobileDashboardPage() {
                     const payerMember = members.find((m) => m.user_id === payerUserId);
                     const payerName = payerMember?.provisional_name || payerMember?.profile?.full_name || exp.creator?.full_name || 'Alguien';
                     const categoryInfo = getCategoryInfo(exp.category);
+                    const paymentInfo = getExpensePaymentStatus(exp);
                     return (
                       <div
                         key={exp.id}
@@ -525,9 +527,29 @@ export default function MobileDashboardPage() {
                             {categoryInfo?.emoji || '🧾'}
                           </div>
                           <div className="min-w-0">
-                            <span className="font-bold text-base text-slate-900 dark:text-white truncate block">
-                              {exp.title}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-base text-slate-900 dark:text-white truncate">
+                                {exp.title}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
+                                  paymentInfo.status === 'PAID'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-700/80'
+                                    : paymentInfo.status === 'PARTIAL'
+                                    ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80'
+                                }`}
+                              >
+                                <span>{paymentInfo.status === 'PAID' ? '✅' : paymentInfo.status === 'PARTIAL' ? '🔄' : '⏳'}</span>
+                                <span>
+                                  {paymentInfo.status === 'PAID'
+                                    ? t('expenses.statusCompleted')
+                                    : paymentInfo.status === 'PARTIAL'
+                                    ? `${t('expenses.statusPartial')} (${paymentInfo.paidCount}/${paymentInfo.totalDebtors})`
+                                    : t('expenses.statusPending')}
+                                </span>
+                              </span>
+                            </div>
                             <span className="text-sm text-slate-500 dark:text-slate-400 truncate block mt-0.5">
                               {formatDate(exp.expense_date || exp.created_at)} • Pagó <strong className="text-slate-700 dark:text-slate-200 font-bold">{payerName}</strong>
                             </span>

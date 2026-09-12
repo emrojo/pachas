@@ -224,8 +224,8 @@ export async function PUT(
         const ptAmt = Number(pt.amountOwed !== undefined ? pt.amountOwed : pt.amount_owed);
         const dbPtAmt = !isNaN(ptAmt) && ptAmt > 0 ? ptAmt : 0.01;
         await client.query(
-          `INSERT INTO public.expense_participants (id, expense_id, user_id, amount_owed, percentage, shares)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+          `INSERT INTO public.expense_participants (id, expense_id, user_id, amount_owed, percentage, shares, has_paid)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
             partId,
             expenseId,
@@ -233,6 +233,7 @@ export async function PUT(
             dbPtAmt,
             pt.percentage || null,
             pt.shares || null,
+            Boolean(pt.has_paid || pt.hasPaid),
           ]
         );
       }
@@ -359,6 +360,7 @@ export async function PUT(
                         'amount_owed', epart.amount_owed,
                         'percentage', epart.percentage,
                         'shares', epart.shares,
+                        'has_paid', COALESCE(epart.has_paid, false),
                         'profile', jsonb_build_object(
                           'id', ppart.id,
                           'full_name', ppart.full_name,
@@ -412,6 +414,7 @@ export async function PUT(
                   amount_owed: parseFloat(pt.amount_owed) || 0,
                   percentage: pt.percentage !== null && pt.percentage !== undefined ? parseFloat(pt.percentage) : null,
                   shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
+                  has_paid: Boolean(pt.has_paid),
                   profile: pt.profile && pt.profile.id ? pt.profile : undefined,
                 })),
                 items: (row.items || []).map((it: any) => ({

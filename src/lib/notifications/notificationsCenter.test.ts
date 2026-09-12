@@ -234,4 +234,37 @@ describe('Unified Notification Center Logic', () => {
       '/groups/grp-1?validateScan=scan-7'
     );
   });
+
+  it('strictly filters out legacy demo notifications (notif-demo-* and Vacaciones Playa) from storage', () => {
+    const rawList: AppNotification[] = [
+      {
+        id: 'notif-demo-1',
+        user_id: 'user-edu',
+        type: 'receipt_pending',
+        title: '🧾 Ticket listo para validar',
+        message: 'Se ha procesado "Restaurante El Faro"',
+        created_at: '2026-08-30T17:30:00Z',
+        read: false,
+        group_name: 'Vacaciones Playa',
+      },
+      {
+        id: 'notif-real-101',
+        user_id: 'user-real',
+        type: 'expense_created',
+        title: '💸 Nuevo gasto añadido',
+        message: 'Compra semanal por importe de 60,00 €',
+        created_at: '2026-09-12T10:00:00Z',
+        read: false,
+        group_name: 'Piso Compartido',
+      },
+    ];
+
+    const sanitized = rawList.filter(
+      (n) => !n?.id?.startsWith('notif-demo-') && n?.group_name !== 'Vacaciones Playa'
+    );
+
+    expect(sanitized.length).toBe(1);
+    expect(sanitized[0].id).toBe('notif-real-101');
+    expect(sanitized[0].group_name).toBe('Piso Compartido');
+  });
 });

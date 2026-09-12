@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
@@ -34,6 +34,8 @@ import {
   Receipt,
   Users,
   Check,
+  CheckCircle2,
+  RotateCcw,
   Percent,
   Calculator,
   PieChart,
@@ -240,6 +242,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   // Payers state
   const [isMultiPayer, setIsMultiPayer] = useState(false);
+  const [multiPayerMode, setMultiPayerMode] = useState<'EQUAL' | 'EXACT'>('EQUAL');
+  const [selectedPayerIds, setSelectedPayerIds] = useState<string[]>([]);
   const [singlePayerId, setSinglePayerId] = useState(currentUser?.id || '');
   const [customPayers, setCustomPayers] = useState<Record<string, string>>({
     ...(currentUser?.id ? { [currentUser.id]: '' } : {}),
@@ -252,6 +256,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     Record<string, { exact?: number; percentage?: number; shares?: number }>
   >({});
   const [customSplitInputs, setCustomSplitInputs] = useState<Record<string, string>>({});
+  const [reimbursedParticipantIds, setReimbursedParticipantIds] = useState<string[]>([]);
+  const [isReimbursementOpen, setIsReimbursementOpen] = useState(true);
 
   // Itemized line-items state ("Separar gastos por productos")
   const [splitByItems, setSplitByItems] = useState(false);
@@ -387,6 +393,15 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       if (expenseToEdit.payers && expenseToEdit.payers.length > 1) {
         setIsMultiPayer(true);
         const map: Record<string, string> = {};
+        const pIds = expenseToEdit.payers.map((p) => p.user_id);
+        setSelectedPayerIds(pIds);
+
+        const amounts = expenseToEdit.payers.map((p) => Number(p.amount_paid) || 0);
+        const minAmt = Math.min(...amounts);
+        const maxAmt = Math.max(...amounts);
+        const isBasicallyEqual = Math.abs(maxAmt - minAmt) <= 0.02;
+        setMultiPayerMode(isBasicallyEqual ? 'EQUAL' : 'EXACT');
+
         expenseToEdit.payers.forEach((p) => {
           const amt = Number(p.amount_paid) || 0;
           map[p.user_id] = amt.toFixed(2).replace('.', ',');
@@ -394,10 +409,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         setCustomPayers(map);
       } else if (expenseToEdit.payers && expenseToEdit.payers.length === 1) {
         setIsMultiPayer(false);
+        setMultiPayerMode('EQUAL');
         setSinglePayerId(expenseToEdit.payers[0].user_id);
+        setSelectedPayerIds([expenseToEdit.payers[0].user_id]);
       } else {
         setIsMultiPayer(false);
+        setMultiPayerMode('EQUAL');
         setSinglePayerId(expenseToEdit.created_by);
+        setSelectedPayerIds([expenseToEdit.created_by]);
       }
 
       // Populate participants
@@ -421,6 +440,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         });
         setCustomSplits(customMap);
         setCustomSplitInputs(stringInputs);
+        const reimbursed = expenseToEdit.participants
+          .filter((p) => Boolean(p.has_paid))
+          .map((p) => p.user_id);
+        setReimbursedParticipantIds(reimbursed);
+      } else {
+        setReimbursedParticipantIds([]);
       }
 
       // Populate itemized line items if present
@@ -458,6 +483,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setLongitude(null);
       setLocationName(null);
       setIsMultiPayer(false);
+      setMultiPayerMode('EQUAL');
+      setSelectedPayerIds(defaultUserId ? [defaultUserId] : []);
       setSinglePayerId(defaultUserId);
       setCustomPayers(defaultUserId ? { [defaultUserId]: '' } : {});
       setSelectedParticipants(members.map((m) => m.user_id));
@@ -467,6 +494,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setLineItems([]);
       setCustomSplits({});
       setCustomSplitInputs({});
+      setReimbursedParticipantIds([]);
       if (isMobileView) {
         setIsCategoryOpen(false);
         setIsDateTimeOpen(false);
@@ -582,6 +610,52 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const selectAllParticipants = () => {
     setSelectedParticipants(members.map((m) => m.user_id));
   };
+
+  // Toggle payer in equal multi-payer mode
+  const toggleSelectedPayer = (userId: string) => {
+    if (isReadOnly) return;
+    if (selectedPayerIds.includes(userId)) {
+      setSelectedPayerIds(selectedPayerIds.filter((id) => id !== userId));
+    } else {
+      setSelectedPayerIds([...selectedPayerIds, userId]);
+    }
+  };
+
+  // Select all payers in equal multi-payer mode
+  const selectAllPayers = () => {
+    if (isReadOnly) return;
+    setSelectedPayerIds(members.map((m) => m.user_id));
+  };
+
+  // Switch to EQUAL mode, preserving existing positive payers if any
+  const handleSwitchToEqual = () => {
+    setMultiPayerMode('EQUAL');
+    const active = Object.entries(customPayers)
+      .filter(([_, val]) => parseEuropeanAmount(val) > 0)
+      .map(([uid]) => uid);
+    if (active.length > 0) {
+      setSelectedPayerIds(active);
+    } else if (selectedPayerIds.length === 0) {
+      setSelectedPayerIds(singlePayerId ? [singlePayerId] : members.map((m) => m.user_id));
+    }
+  };
+
+  // Calculate equal splits among selected payers with exact penny balancing
+  const equalPayerSplits = useMemo(() => {
+    if (selectedPayerIds.length === 0 || totalAmount <= 0) return [];
+    return calculateSplits(totalAmount, 'EQUAL', selectedPayerIds, {}, currency).results;
+  }, [totalAmount, selectedPayerIds, currency]);
+
+  // Synchronize equal split amounts into customPayers state for seamless editing
+  useEffect(() => {
+    if (isMultiPayer && multiPayerMode === 'EQUAL' && equalPayerSplits.length > 0) {
+      const newMap: Record<string, string> = {};
+      equalPayerSplits.forEach((r) => {
+        newMap[r.userId] = r.amountOwed.toFixed(2).replace('.', ',');
+      });
+      setCustomPayers(newMap);
+    }
+  }, [isMultiPayer, multiPayerMode, equalPayerSplits]);
 
   const handleAssignRemainder = (userId: string, remainder: number) => {
     if (isReadOnly) return;
@@ -774,20 +848,36 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     // Prepare Payers
     let payersList: { userId: string; amountPaid: number }[] = [];
     if (isMultiPayer) {
-      let sumPaid = 0;
-      for (const [uid, val] of Object.entries(customPayers)) {
-        const amt = parseEuropeanAmount(val);
-        if (amt > 0) {
-          payersList.push({ userId: uid, amountPaid: amt });
-          sumPaid += amt;
+      if (multiPayerMode === 'EQUAL') {
+        if (selectedPayerIds.length === 0) {
+          setErrorMessage(t('expenses.selectAtLeastOnePayer') || 'Selecciona al menos un amigo que haya pagado');
+          return;
         }
-      }
-      const diff = Math.round((totalAmount - sumPaid) * 100) / 100;
-      if (Math.abs(diff) > 0.02) {
-        setErrorMessage(
-          `La suma pagada (${formatMoney(sumPaid, currency)}) no coincide con el total (${formatMoney(totalAmount, currency)})`
-        );
-        return;
+        const splitRes = calculateSplits(totalAmount, 'EQUAL', selectedPayerIds, {}, currency);
+        if (!splitRes.isValid || splitRes.results.length === 0) {
+          setErrorMessage(splitRes.errorMessage || 'Error al repartir el pago a partes iguales');
+          return;
+        }
+        payersList = splitRes.results.map((r) => ({
+          userId: r.userId,
+          amountPaid: r.amountOwed,
+        }));
+      } else {
+        let sumPaid = 0;
+        for (const [uid, val] of Object.entries(customPayers)) {
+          const amt = parseEuropeanAmount(val);
+          if (amt > 0) {
+            payersList.push({ userId: uid, amountPaid: amt });
+            sumPaid += amt;
+          }
+        }
+        const diff = Math.round((totalAmount - sumPaid) * 100) / 100;
+        if (Math.abs(diff) > 0.02) {
+          setErrorMessage(
+            `La suma pagada (${formatMoney(sumPaid, currency)}) no coincide con el total (${formatMoney(totalAmount, currency)})`
+          );
+          return;
+        }
       }
     } else {
       payersList = [{ userId: singlePayerId, amountPaid: totalAmount }];
@@ -862,6 +952,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           payers: payersList,
           selectedParticipantIds: activeParticipants,
           splitCustomInputs: customSplits,
+          reimbursedParticipantIds,
         });
       } else {
         await addExpense({
@@ -882,6 +973,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           payers: payersList,
           selectedParticipantIds: activeParticipants,
           splitCustomInputs: customSplits,
+          reimbursedParticipantIds,
         });
       }
 
@@ -1480,6 +1572,204 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     );
   };
 
+  // 7. Reimbursement / Payment to Lender Section
+  const renderReimbursementSection = () => {
+    if (selectedParticipants.length === 0) return null;
+
+    // Debtors are participants who owe money to the lender(s)
+    const debtors = selectedParticipants.filter((id) => {
+      if (!isMultiPayer && id === singlePayerId) return false;
+      return true;
+    });
+
+    if (debtors.length === 0) return null;
+
+    const paidCount = debtors.filter((id) => reimbursedParticipantIds.includes(id)).length;
+    const totalDebtors = debtors.length;
+    const isAllPaid = totalDebtors > 0 && paidCount === totalDebtors;
+    const isPartialPaid = paidCount > 0 && paidCount < totalDebtors;
+
+    const toggleReimbursed = (userId: string) => {
+      if (isReadOnly) return;
+      setReimbursedParticipantIds((prev) =>
+        prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+      );
+    };
+
+    const markAllReimbursed = () => {
+      if (isReadOnly) return;
+      setReimbursedParticipantIds(debtors);
+    };
+
+    const markAllPending = () => {
+      if (isReadOnly) return;
+      setReimbursedParticipantIds([]);
+    };
+
+    return (
+      <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setIsReimbursementOpen(!isReimbursementOpen)}
+          className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`rounded-2xl flex items-center justify-center shrink-0 ${
+                isMobileView ? 'w-10 h-10' : 'w-8 h-8 rounded-xl'
+              } ${
+                isAllPaid
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                  : isPartialPaid
+                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                  : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              {isAllPaid ? (
+                <CheckCircle2 className={isMobileView ? 'w-5 h-5' : 'w-4 h-4'} />
+              ) : isPartialPaid ? (
+                <RotateCcw className={isMobileView ? 'w-5 h-5' : 'w-4 h-4'} />
+              ) : (
+                <Clock className={isMobileView ? 'w-5 h-5' : 'w-4 h-4'} />
+              )}
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                {t('expenses.reimbursedToLender')}
+              </span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span
+                  className={`inline-flex items-center gap-1 font-bold rounded-full px-2 py-0.5 text-xs ${
+                    isAllPaid
+                      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border border-emerald-300/80 dark:border-emerald-700/80'
+                      : isPartialPaid
+                      ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80'
+                      : 'bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <span>{isAllPaid ? '✅' : isPartialPaid ? '🔄' : '⏳'}</span>
+                  <span>
+                    {isAllPaid
+                      ? t('expenses.statusCompleted')
+                      : isPartialPaid
+                      ? `${t('expenses.statusPartial')} (${paidCount}/${totalDebtors})`
+                      : t('expenses.statusPending')}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span
+              className={`text-emerald-600 dark:text-emerald-400 font-bold ${
+                isMobileView ? 'text-xs' : 'text-xs font-semibold hidden sm:inline'
+              }`}
+            >
+              {isReimbursementOpen ? t('common.close') : isReadOnly ? t('common.details') : t('common.edit')}
+            </span>
+            {isReimbursementOpen ? (
+              <ChevronUp className="w-5 h-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            )}
+          </div>
+        </button>
+
+        {isReimbursementOpen && (
+          <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 space-y-3 mt-2">
+            {!isReadOnly && debtors.length > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {isAllPaid
+                    ? t('expenses.allReimbursedNotice')
+                    : `${paidCount} de ${totalDebtors} han devuelto`}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={markAllReimbursed}
+                    className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    Marcar todos
+                  </button>
+                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                  <button
+                    type="button"
+                    onClick={markAllPending}
+                    className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:underline cursor-pointer"
+                  >
+                    Desmarcar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 pt-1">
+              {debtors.map((userId) => {
+                const m = members.find((mem) => mem.user_id === userId);
+                const isPaid = reimbursedParticipantIds.includes(userId);
+
+                return (
+                  <div
+                    key={userId}
+                    className={`flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all ${
+                      isPaid
+                        ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60'
+                        : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar profile={m?.profile} size={isMobileView ? 'md' : 'sm'} />
+                      <div className="min-w-0">
+                        <span
+                          className={`font-bold block truncate text-slate-900 dark:text-white ${
+                            isMobileView ? 'text-base' : 'text-xs'
+                          }`}
+                        >
+                          {currentUser && userId === currentUser.id
+                            ? t('common.you')
+                            : m?.profile?.full_name || expenseToEdit?.participants?.find((p) => p.user_id === userId)?.profile?.full_name || t('common.friend')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      <button
+                        type="button"
+                        disabled={isReadOnly}
+                        onClick={() => toggleReimbursed(userId)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                          isReadOnly ? 'cursor-default' : 'active:scale-95'
+                        } ${
+                          isPaid
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300/70 dark:border-slate-700'
+                        }`}
+                      >
+                        {isPaid ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>{t('expenses.reimbursedToLender')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{t('expenses.pendingReimbursement')}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -1955,8 +2245,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       </span>
                     </div>
                   ) : (
-                    <span className={`font-bold text-slate-900 dark:text-white ${isMobileView ? 'text-base' : 'text-xs'}`}>
-                      {t('expenses.paidByMultiple')}
+                    <span className={`font-bold text-slate-900 dark:text-white truncate ${isMobileView ? 'text-base' : 'text-xs'}`}>
+                      {multiPayerMode === 'EQUAL' && selectedPayerIds.length > 0
+                        ? t('expenses.paidByMultipleEqual', { count: selectedPayerIds.length })
+                        : t('expenses.paidByMultiple')}
                     </span>
                   )}
                 </div>
@@ -1984,8 +2276,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 {!isReadOnly && (
                   <button
                     type="button"
-                    onClick={() => setIsMultiPayer(!isMultiPayer)}
-                    className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                    onClick={() => {
+                      const next = !isMultiPayer;
+                      setIsMultiPayer(next);
+                      if (next && selectedPayerIds.length === 0) {
+                        setSelectedPayerIds(singlePayerId ? [singlePayerId] : members.map((m) => m.user_id));
+                      }
+                    }}
+                    className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer"
                   >
                     {isMultiPayer ? t('expenses.singlePayer') : t('expenses.multiPayer')}
                   </button>
@@ -2022,50 +2320,178 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   })}
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-slate-500">
-                    {t('expenses.splitSummary')} ({t('common.total')}: {formatMoney(totalAmount, currency)}):
-                  </p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {members.map((m) => {
-                      const val = customPayers[m.user_id] || '';
-                      const amt = parseEuropeanAmount(val);
-                      if (isReadOnly && amt <= 0) return null;
+                <div className="space-y-3 pt-1">
+                  {/* Selector de modo: A partes iguales vs Cantidades exactas */}
+                  <div className="grid grid-cols-2 gap-1 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <button
+                      type="button"
+                      disabled={isReadOnly}
+                      onClick={handleSwitchToEqual}
+                      className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        multiPayerMode === 'EQUAL'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      } ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                    >
+                      {t('expenses.multiPayerEqual') || 'A partes iguales'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isReadOnly}
+                      onClick={() => setMultiPayerMode('EXACT')}
+                      className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        multiPayerMode === 'EXACT'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      } ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                    >
+                      {t('expenses.multiPayerExact') || 'Cantidades exactas'}
+                    </button>
+                  </div>
 
-                      return (
-                        <div
-                          key={m.user_id}
-                          className="flex items-center justify-between gap-3 p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Avatar profile={m.profile} size="sm" />
-                            <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                              {m.profile?.full_name || expenseToEdit?.payers?.find((p) => p.user_id === m.user_id)?.profile?.full_name || t('common.friend')}
+                  {multiPayerMode === 'EQUAL' ? (
+                    <div className="space-y-3">
+                      {/* Cabecera de seleccion y boton Todos */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {t('expenses.multiPayerSelectHint') || 'Selecciona los amigos que pagaron el gasto:'}
+                        </span>
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={selectAllPayers}
+                            className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer"
+                          >
+                            {t('common.all')} ({members.length})
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Chips de amigos que pagaron */}
+                      <div className="flex flex-wrap gap-2">
+                        {members.map((m) => {
+                          const isSelected = selectedPayerIds.includes(m.user_id);
+                          if (isReadOnly && !isSelected) return null;
+
+                          return (
+                            <button
+                              key={m.user_id}
+                              type="button"
+                              onClick={() => toggleSelectedPayer(m.user_id)}
+                              disabled={isReadOnly}
+                              className={`px-3 py-1.5 rounded-full border flex items-center gap-2 transition-all ${
+                                isReadOnly ? 'cursor-default' : 'cursor-pointer active:scale-95'
+                              } ${
+                                isSelected
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 opacity-60'
+                              }`}
+                            >
+                              <Avatar profile={m.profile} size="sm" className="w-5 h-5 text-[10px]" />
+                              <span className={`text-xs font-medium ${isMobileView ? 'text-sm' : ''}`}>
+                                {currentUser && m.user_id === currentUser.id
+                                  ? t('common.you')
+                                  : m.profile?.full_name?.split(' ')[0] || t('common.friend')}
+                              </span>
+                              {isSelected && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Resumen del reparto a partes iguales */}
+                      {selectedPayerIds.length === 0 ? (
+                        <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-300">
+                          {t('expenses.selectAtLeastOnePayer') || 'Selecciona al menos un amigo que haya pagado'}
+                        </div>
+                      ) : totalAmount > 0 ? (
+                        <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                              {t('expenses.eachPayerAmount', {
+                                amount: formatMoney(
+                                  Math.round((totalAmount / selectedPayerIds.length) * 100) / 100,
+                                  currency
+                                ),
+                              })}
                             </span>
-
+                            <span className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold">
+                              {selectedPayerIds.length} {selectedPayerIds.length === 1 ? (t('common.friend') || 'pagador') : 'pagadores'}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-1 w-28">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0,00"
-                              value={customPayers[m.user_id] || ''}
-                              onChange={(e) =>
-                                !isReadOnly &&
-                                setCustomPayers({
-                                  ...customPayers,
-                                  [m.user_id]: e.target.value,
-                                })
-                              }
-                              readOnly={isReadOnly}
-                              className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
-                            />
-                            <span className="text-xs text-slate-500">{currencyObj.symbol}</span>
+
+                          {/* Desglose individual de cada pagador */}
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {selectedPayerIds.map((uid) => {
+                              const m = members.find((mem) => mem.user_id === uid);
+                              const splitInfo = equalPayerSplits.find((r) => r.userId === uid);
+                              const payerAmt = splitInfo ? splitInfo.amountOwed : (totalAmount / selectedPayerIds.length);
+                              const name = currentUser && uid === currentUser.id
+                                ? t('common.you')
+                                : m?.profile?.full_name?.split(' ')[0] || t('common.friend');
+
+                              return (
+                                <span
+                                  key={uid}
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-slate-800 dark:text-slate-200"
+                                >
+                                  <span>{name}:</span>
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                    {formatMoney(payerAmt, currency)}
+                                  </span>
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500">
+                        {t('expenses.splitSummary')} ({t('common.total')}: {formatMoney(totalAmount, currency)}):
+                      </p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {members.map((m) => {
+                          const val = customPayers[m.user_id] || '';
+                          const amt = parseEuropeanAmount(val);
+                          if (isReadOnly && amt <= 0) return null;
+
+                          return (
+                            <div
+                              key={m.user_id}
+                              className="flex items-center justify-between gap-3 p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Avatar profile={m.profile} size="sm" />
+                                <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                                  {m.profile?.full_name || expenseToEdit?.payers?.find((p) => p.user_id === m.user_id)?.profile?.full_name || t('common.friend')}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 w-28">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="0,00"
+                                  value={customPayers[m.user_id] || ''}
+                                  onChange={(e) =>
+                                    !isReadOnly &&
+                                    setCustomPayers({
+                                      ...customPayers,
+                                      [m.user_id]: e.target.value,
+                                    })
+                                  }
+                                  readOnly={isReadOnly}
+                                  className="w-full text-right text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-transparent"
+                                />
+                                <span className="text-xs text-slate-500">{currencyObj.symbol}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2448,6 +2874,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         </div>
       )}
         </div>
+
+        {/* SECCIÓN 3: Estado de devolución al prestador */}
+        {renderReimbursementSection()}
 
         {/* NOTAS Y OBSERVACIONES */}
         <div>

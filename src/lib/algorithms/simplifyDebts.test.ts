@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateBalances, simplifyDebts } from './simplifyDebts';
+import { calculateBalances, simplifyDebts, getExpensePaymentStatus } from './simplifyDebts';
 import { GroupMember, Expense, Settlement, Profile } from '@/types/database';
 
 describe('simplifyDebts & calculateBalances Algorithms', () => {
@@ -166,5 +166,99 @@ describe('simplifyDebts & calculateBalances Algorithms', () => {
 
     const debts = simplifyDebts(balances);
     expect(debts.length).toBe(0);
+  });
+
+  it('correctly handles reimbursed participants (has_paid: true) so it does not count in debts', () => {
+    // Ana pays 60 EUR for Ana, Bernat, and Carla (20 EUR each).
+    // Bernat has reimbursed Ana directly (has_paid: true). Carla has not paid yet (has_paid: false).
+    const expense: Expense = {
+      id: 'e_reimbursed',
+      group_id: 'g1',
+      created_by: 'u1',
+      title: 'Cena compartida',
+      amount: 60,
+      currency: 'EUR',
+      exchange_rate: 1,
+      converted_amount: 60,
+      category: 'food',
+      expense_date: '2026-08-15',
+      split_type: 'EQUAL',
+      created_at: '',
+      updated_at: '',
+      payers: [{ id: 'p1', expense_id: 'e_reimbursed', user_id: 'u1', amount_paid: 60 }],
+      participants: [
+        { id: 'pt1', expense_id: 'e_reimbursed', user_id: 'u1', amount_owed: 20 },
+        { id: 'pt2', expense_id: 'e_reimbursed', user_id: 'u2', amount_owed: 20, has_paid: true },
+        { id: 'pt3', expense_id: 'e_reimbursed', user_id: 'u3', amount_owed: 20, has_paid: false },
+      ],
+    };
+
+    const balances = calculateBalances([members[0], members[1], members[2]], [expense]);
+    const ana = balances.find((b) => b.user_id === 'u1')!;
+    const bernat = balances.find((b) => b.user_id === 'u2')!;
+    const carla = balances.find((b) => b.user_id === 'u3')!;
+
+    // Bernat owes 0 pending debt because he already reimbursed
+    expect(bernat.total_owed).toBe(0);
+    expect(bernat.net_balance).toBe(0);
+
+    // Carla still owes 20
+    expect(carla.total_owed).toBe(20);
+    expect(carla.net_balance).toBe(-20);
+
+    // Ana paid 60 minus 20 reimbursed = 40 effective un-reimbursed credit.
+    // Ana's own share is 20, so Ana's net balance is +20 (which is exactly what Carla owes her)
+    expect(ana.total_paid).toBe(40);
+    expect(ana.total_owed).toBe(20);
+    expect(ana.net_balance).toBe(20);
+
+    // Group zero-sum equilibrium
+    expect(ana.net_balance + bernat.net_balance + carla.net_balance).toBe(0);
+
+    const debts = simplifyDebts(balances);
+    expect(debts.length).toBe(1);
+    expect(debts[0].from_user_id).toBe('u3'); // Carla pays Ana 20
+    expect(debts[0].to_user_id).toBe('u1');
+    expect(debts[0].amount).toBe(20);
+
+    // Check payment status helper
+    const statusPartial = getExpensePaymentStatus(expense);
+    expect(statusPartial.status).toBe('PARTIAL');
+    expect(statusPartial.paidCount).toBe(1);
+    expect(statusPartial.totalDebtors).toBe(2);
+
+    // If Carla also reimburses Ana:
+    const fullyPaidExpense: Expense = {
+      ...expense,
+      participants: [
+        { id: 'pt1', expense_id: 'e_reimbursed', user_id: 'u1', amount_owed: 20 },
+        { id: 'pt2', expense_id: 'e_reimbursed', user_id: 'u2', amount_owed: 20, has_paid: true },
+        { id: 'pt3', expense_id: 'e_reimbursed', user_id: 'u3', amount_owed: 20, has_paid: true },
+      ],
+    };
+
+    const statusPaid = getExpensePaymentStatus(fullyPaidExpense);
+    expect(statusPaid.status).toBe('PAID');
+    expect(statusPaid.paidCount).toBe(2);
+    expect(statusPaid.totalDebtors).toBe(2);
+
+    const settledBalances = calculateBalances([members[0], members[1], members[2]], [fullyPaidExpense]);
+    expect(settledBalances.every((b) => b.net_balance === 0)).toBe(true);
+    expect(simplifyDebts(settledBalances).length).toBe(0);
+
+    // If nobody has reimbursed yet:
+    const pendingExpense: Expense = {
+      ...expense,
+      participants: [
+        { id: 'pt1', expense_id: 'e_reimbursed', user_id: 'u1', amount_owed: 20 },
+        { id: 'pt2', expense_id: 'e_reimbursed', user_id: 'u2', amount_owed: 20, has_paid: false },
+        { id: 'pt3', expense_id: 'e_reimbursed', user_id: 'u3', amount_owed: 20, has_paid: false },
+      ],
+    };
+
+    const statusPending = getExpensePaymentStatus(pendingExpense);
+    expect(statusPending.status).toBe('PENDING');
+    expect(statusPending.paidCount).toBe(0);
+    expect(statusPending.totalDebtors).toBe(2);
   });
 });

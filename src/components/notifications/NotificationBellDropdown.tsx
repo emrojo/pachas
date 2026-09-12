@@ -20,11 +20,11 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { NotificationType } from '@/types/database';
-import { isDemoModeAllowed } from '@/lib/authConfig';
-
+import { isDemoModeAllowed, isProduction } from '@/lib/authConfig';
+ 
 export const NotificationBellDropdown: React.FC = () => {
   const router = useRouter();
-  const isDev = isDemoModeAllowed();
+  const isDev = isDemoModeAllowed() && !isProduction();
   const {
     notifications,
     unreadNotificationsCount,

@@ -58,7 +58,9 @@ export const DEMO_EXPENSES: Record<string, Expense[]> = {};
 
 export const DEMO_SETTLEMENTS: Record<string, Settlement[]> = {};
 
-export const DEFAULT_NOTIFICATIONS: AppNotification[] = [
+export const DEFAULT_NOTIFICATIONS: AppNotification[] = [];
+
+export const SAMPLE_DEV_NOTIFICATIONS: AppNotification[] = [
   {
     id: 'notif-demo-1',
     user_id: 'user-edu',

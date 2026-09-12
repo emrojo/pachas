@@ -151,6 +151,10 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     // 7. Closed vs Open groups access control
     await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS is_closed BOOLEAN DEFAULT TRUE NOT NULL;`).catch(() => {});
     await p.query(`CREATE INDEX IF NOT EXISTS idx_groups_is_closed ON public.groups(is_closed);`).catch(() => {});
+
+    // 8. Expense participants reimbursement tracking (has_paid)
+    await p.query(`ALTER TABLE public.expense_participants ADD COLUMN IF NOT EXISTS has_paid BOOLEAN DEFAULT FALSE NOT NULL;`).catch(() => {});
+    await p.query(`CREATE INDEX IF NOT EXISTS idx_expense_participants_has_paid ON public.expense_participants(has_paid);`).catch(() => {});
   } catch (err) {
     console.warn('Schema auto-migration notice:', err);
   }

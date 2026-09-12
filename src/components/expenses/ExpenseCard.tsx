@@ -7,6 +7,7 @@ import { useTranslation } from '@/context/LanguageContext';
 import { getCategoryInfo } from '@/lib/categories';
 import { formatMoney } from '@/lib/currencies';
 import { formatDate, formatExpenseDisplayDate } from '@/lib/utils';
+import { getExpensePaymentStatus } from '@/lib/algorithms/simplifyDebts';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { LocationModal } from '@/components/expenses/LocationModal';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
@@ -52,6 +53,7 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   const hasLocation = !!(expense.latitude && expense.longitude);
   const category = getCategoryInfo(expense.category);
   const commentCount = getExpenseComments ? (getExpenseComments(expense.id)?.length || 0) : 0;
+  const paymentInfo = getExpensePaymentStatus(expense);
 
   // Payers info with resilient multi-level profile resolution
   const directPayerProfiles = (expense.payers?.map((p) => p.profile).filter(Boolean) as Profile[]) || [];
@@ -166,6 +168,28 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center gap-0.5 shrink-0">
                 <Globe className="w-2.5 h-2.5" />
                 {expense.currency}
+              </span>
+            )}
+
+            {/* Payment / Reimbursement Status Badge */}
+            {!isProcessing && !isFailed && (
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
+                  paymentInfo.status === 'PAID'
+                    ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-700/80'
+                    : paymentInfo.status === 'PARTIAL'
+                    ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80'
+                }`}
+              >
+                <span>{paymentInfo.status === 'PAID' ? '✅' : paymentInfo.status === 'PARTIAL' ? '🔄' : '⏳'}</span>
+                <span>
+                  {paymentInfo.status === 'PAID'
+                    ? t('expenses.statusCompleted')
+                    : paymentInfo.status === 'PARTIAL'
+                    ? `${t('expenses.statusPartial')} (${paymentInfo.paidCount}/${paymentInfo.totalDebtors})`
+                    : t('expenses.statusPending')}
+                </span>
               </span>
             )}
           </div>
@@ -284,14 +308,18 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
             {!isProcessing && !isFailed && userInvolved && (
               <span
                 className={`text-[11px] font-semibold tabular-nums leading-none ${
-                  netDiff > 0.01
+                  userParticipant?.has_paid
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : netDiff > 0.01
                     ? 'text-emerald-600 dark:text-emerald-400'
                     : netDiff < -0.01
                     ? 'text-rose-600 dark:text-rose-400'
                     : 'text-slate-400 dark:text-slate-500'
                 }`}
               >
-                {netDiff > 0.01
+                {userParticipant?.has_paid
+                  ? t('expenses.reimbursedToLender')
+                  : netDiff > 0.01
                   ? `${t('expenses.youLent')} ${formatMoney(userPaidOriginal - userOwedOriginal, expense.currency)}`
                   : netDiff < -0.01
                   ? `${t('expenses.youOwe')} ${formatMoney(userOwedOriginal - userPaidOriginal, expense.currency)}`

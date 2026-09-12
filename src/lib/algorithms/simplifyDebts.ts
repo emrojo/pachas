@@ -49,31 +49,42 @@ export function calculateBalances(
     const expenseBaseAmount = expense.converted_amount || expense.amount;
     const expenseOrigAmount = expense.amount > 0 ? expense.amount : expenseBaseAmount || 1;
 
-    // Process Payers (Who paid) - convert to base currency
+    // Process Participants (Who owes - stored in base currency)
+    // If a participant has already reimbursed the lender (has_paid = true),
+    // they no longer owe this debt in the final balance ("para que no cuente").
+    // Correspondingly, the payer(s) who received this reimbursement should not
+    // have this portion counted as an outstanding credit to be settled, keeping sum of net balances = 0.
+    let reimbursedBase = 0;
+    if (expense.participants && expense.participants.length > 0) {
+      for (const participant of expense.participants) {
+        const owed = Number(participant.amount_owed) || 0;
+        if (participant.has_paid) {
+          reimbursedBase += owed;
+        } else {
+          const entry = balanceMap.get(participant.user_id);
+          if (entry) {
+            entry.owed += owed;
+          }
+        }
+      }
+    }
+
+    // Process Payers (Who paid) - convert to base currency minus reimbursed portion
     if (expense.payers && expense.payers.length > 0) {
       for (const payer of expense.payers) {
         const entry = balanceMap.get(payer.user_id);
         if (entry) {
-          const payerInBase =
-            (Number(payer.amount_paid) / expenseOrigAmount) * expenseBaseAmount;
-          entry.paid += payerInBase;
+          const payerFraction = Number(payer.amount_paid) / expenseOrigAmount;
+          const payerInBase = payerFraction * expenseBaseAmount;
+          const payerReimbursed = payerFraction * reimbursedBase;
+          entry.paid += Math.max(0, payerInBase - payerReimbursed);
         }
       }
     } else {
       // Single payer fallback (created_by)
       const entry = balanceMap.get(expense.created_by);
       if (entry) {
-        entry.paid += Number(expenseBaseAmount);
-      }
-    }
-
-    // Process Participants (Who owes - stored in base currency)
-    if (expense.participants && expense.participants.length > 0) {
-      for (const participant of expense.participants) {
-        const entry = balanceMap.get(participant.user_id);
-        if (entry) {
-          entry.owed += Number(participant.amount_owed);
-        }
+        entry.paid += Math.max(0, Number(expenseBaseAmount) - reimbursedBase);
       }
     }
   }
@@ -185,3 +196,67 @@ export function simplifyDebts(
 
   return transactions;
 }
+
+export type ExpensePaymentStatus = 'PAID' | 'PARTIAL' | 'PENDING';
+
+export interface ExpensePaymentInfo {
+  status: ExpensePaymentStatus;
+  paidCount: number;
+  totalDebtors: number;
+}
+
+/**
+ * Determines the payment/reimbursement status of an expense:
+ * - 'PAID': All debtors have returned the money to the lender(s).
+ * - 'PARTIAL': Some participants have paid, but others still owe.
+ * - 'PENDING': No debtor has paid yet.
+ */
+export function getExpensePaymentStatus(expense: Expense): ExpensePaymentInfo {
+  const participants = expense.participants || [];
+  if (participants.length === 0) {
+    return { status: 'PENDING', paidCount: 0, totalDebtors: 0 };
+  }
+
+  // Identify who the lenders / payers are
+  const payers =
+    expense.payers && expense.payers.length > 0
+      ? expense.payers
+      : [{ user_id: expense.created_by, amount_paid: expense.converted_amount || expense.amount }];
+
+  const singlePayerId = payers.length === 1 ? payers[0].user_id : null;
+
+  // Debtors are participants who owe money to the lender(s).
+  // If there is a single payer (the most common case), the payer themselves is the lender,
+  // so they are not their own debtor. All other participants with amount_owed > 0 are debtors.
+  const debtors = participants.filter((p) => {
+    if (Number(p.amount_owed) <= 0) return false;
+    if (singlePayerId && p.user_id === singlePayerId) {
+      return false;
+    }
+    if (payers.length > 1) {
+      const payerRec = payers.find((pyr) => pyr.user_id === p.user_id);
+      const paidAmt = payerRec ? Number(payerRec.amount_paid) : 0;
+      if (paidAmt >= Number(p.amount_owed)) return false;
+    }
+    return true;
+  });
+
+  if (debtors.length === 0) {
+    return { status: 'PAID', paidCount: 0, totalDebtors: 0 };
+  }
+
+  const paidCount = debtors.filter((d) => Boolean(d.has_paid)).length;
+  const totalDebtors = debtors.length;
+
+  let status: ExpensePaymentStatus = 'PENDING';
+  if (paidCount === totalDebtors) {
+    status = 'PAID';
+  } else if (paidCount > 0) {
+    status = 'PARTIAL';
+  } else {
+    status = 'PENDING';
+  }
+
+  return { status, paidCount, totalDebtors };
+}
+

@@ -230,8 +230,8 @@ export async function POST(request: NextRequest) {
       for (const part of participants) {
         const partId = part.id && !part.id.startsWith('part-') ? part.id : randomUUID();
         await client.query(
-          `INSERT INTO public.expense_participants (id, expense_id, user_id, amount_owed, percentage, shares)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+          `INSERT INTO public.expense_participants (id, expense_id, user_id, amount_owed, percentage, shares, has_paid)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
             partId,
             id,
@@ -239,6 +239,7 @@ export async function POST(request: NextRequest) {
             part.amount_owed,
             part.percentage !== undefined ? part.percentage : null,
             part.shares !== undefined ? part.shares : null,
+            Boolean(part.has_paid || part.hasPaid),
           ]
         );
       }
@@ -339,6 +340,7 @@ export async function POST(request: NextRequest) {
                   'amount_owed', epart.amount_owed,
                   'percentage', epart.percentage,
                   'shares', epart.shares,
+                  'has_paid', COALESCE(epart.has_paid, false),
                   'profile', jsonb_build_object(
                     'id', ppart.id,
                     'full_name', ppart.full_name,
@@ -392,6 +394,7 @@ export async function POST(request: NextRequest) {
             amount_owed: parseFloat(pt.amount_owed) || 0,
             percentage: pt.percentage !== null && pt.percentage !== undefined ? parseFloat(pt.percentage) : null,
             shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
+            has_paid: Boolean(pt.has_paid),
             profile: pt.profile && pt.profile.id ? pt.profile : undefined,
           })),
           items: (row.items || []).map((it: any) => ({
@@ -488,6 +491,7 @@ export async function GET(request: NextRequest) {
                'amount_owed', epart.amount_owed,
                'percentage', epart.percentage,
                'shares', epart.shares,
+               'has_paid', COALESCE(epart.has_paid, false),
                'profile', jsonb_build_object(
                  'id', ppart.id,
                  'full_name', ppart.full_name,
@@ -543,6 +547,7 @@ export async function GET(request: NextRequest) {
         amount_owed: parseFloat(pt.amount_owed) || 0,
         percentage: pt.percentage !== null && pt.percentage !== undefined ? parseFloat(pt.percentage) : null,
         shares: pt.shares !== null && pt.shares !== undefined ? parseFloat(pt.shares) : null,
+        has_paid: Boolean(pt.has_paid),
         profile: pt.profile && pt.profile.id ? pt.profile : undefined,
       })),
       items: (row.items || []).map((it: any) => ({
