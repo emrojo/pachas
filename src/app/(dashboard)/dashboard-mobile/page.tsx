@@ -374,7 +374,7 @@ export default function MobileDashboardPage() {
           </div>
 
           {activeGroup ? (
-            <div className="bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 rounded-2xl p-4.5 text-white shadow-md shadow-emerald-600/15 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 rounded-3xl p-6 sm:p-7 text-white shadow-md shadow-emerald-600/15 relative overflow-hidden">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <span className="text-sm uppercase font-extrabold tracking-wider text-emerald-100 block">
@@ -770,6 +770,7 @@ export default function MobileDashboardPage() {
         <ExpenseForm
           groupId={activeGroup.id}
           isOpen={isExpenseFormOpen}
+          isMobileView={true}
           onClose={() => {
             setIsExpenseFormOpen(false);
             setEditingExpense(null);

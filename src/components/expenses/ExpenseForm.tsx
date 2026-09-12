@@ -55,6 +55,8 @@ import {
   ScanLine,
   Camera,
   Plus,
+  FileText,
+  MessageSquare,
 } from 'lucide-react';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
@@ -138,6 +140,7 @@ export interface ExpenseFormProps {
   onSuccess?: () => void;
   expenseToEdit?: Expense | null;
   isReadOnly?: boolean;
+  isMobileView?: boolean;
 }
 
 export const ExpenseForm: React.FC<ExpenseFormProps> = ({
@@ -147,6 +150,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   onSuccess,
   expenseToEdit,
   isReadOnly: explicitReadOnly,
+  isMobileView = false,
 }) => {
   const {
     getGroup,
@@ -225,6 +229,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   // Accordion collapsed states (both collapsed by default, expanded in read-only mode)
   const [isWhoPaidOpen, setIsWhoPaidOpen] = useState(false);
   const [isSplitOpen, setIsSplitOpen] = useState(false);
+
+  // Mobile accordion collapsed states (all secondary sections collapsed by default on mobile)
+  const [isCategoryOpen, setIsCategoryOpen] = useState(!isMobileView);
+  const [isDateTimeOpen, setIsDateTimeOpen] = useState(!isMobileView);
+  const [isLocationOpen, setIsLocationOpen] = useState(!isMobileView && Boolean(expenseToEdit?.location_name || expenseToEdit?.latitude));
+  const [isNotesOpen, setIsNotesOpen] = useState(!isMobileView && Boolean(expenseToEdit?.notes));
+  const [isReceiptSectionOpen, setIsReceiptSectionOpen] = useState(!isMobileView && Boolean(expenseToEdit?.receipt_url));
+  const [isCommentsOpen, setIsCommentsOpen] = useState(!isMobileView);
 
   // Payers state
   const [isMultiPayer, setIsMultiPayer] = useState(false);
@@ -340,9 +352,30 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       if (isReadOnly) {
         setIsWhoPaidOpen(true);
         setIsSplitOpen(true);
+        setIsCategoryOpen(true);
+        setIsDateTimeOpen(true);
+        setIsLocationOpen(Boolean(expenseToEdit.location_name || expenseToEdit.latitude));
+        setIsNotesOpen(Boolean(expenseToEdit.notes));
+        setIsReceiptSectionOpen(Boolean(expenseToEdit.receipt_url));
+        setIsCommentsOpen(true);
+      } else if (isMobileView) {
+        setIsWhoPaidOpen(false);
+        setIsSplitOpen(false);
+        setIsCategoryOpen(false);
+        setIsDateTimeOpen(false);
+        setIsLocationOpen(Boolean(expenseToEdit.location_name || expenseToEdit.latitude));
+        setIsNotesOpen(Boolean(expenseToEdit.notes));
+        setIsReceiptSectionOpen(Boolean(expenseToEdit.receipt_url));
+        setIsCommentsOpen(false);
       } else {
         setIsWhoPaidOpen(false);
         setIsSplitOpen(false);
+        setIsCategoryOpen(true);
+        setIsDateTimeOpen(true);
+        setIsLocationOpen(true);
+        setIsNotesOpen(true);
+        setIsReceiptSectionOpen(true);
+        setIsCommentsOpen(true);
       }
 
       // Populate location
@@ -434,11 +467,26 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setLineItems([]);
       setCustomSplits({});
       setCustomSplitInputs({});
+      if (isMobileView) {
+        setIsCategoryOpen(false);
+        setIsDateTimeOpen(false);
+        setIsLocationOpen(false);
+        setIsNotesOpen(false);
+        setIsReceiptSectionOpen(false);
+        setIsCommentsOpen(false);
+      } else {
+        setIsCategoryOpen(true);
+        setIsDateTimeOpen(true);
+        setIsLocationOpen(true);
+        setIsNotesOpen(true);
+        setIsReceiptSectionOpen(true);
+        setIsCommentsOpen(true);
+      }
       setIsWhoPaidOpen(false);
       setIsSplitOpen(false);
       setRateSourceInfo(null);
     }
-  }, [isOpen, expenseToEdit, members, currentUser?.id, baseCurrency, isReadOnly]);
+  }, [isOpen, expenseToEdit, members, currentUser?.id, baseCurrency, isReadOnly, isMobileView]);
 
 
   const handleCurrencyChange = (newCurrency: string) => {
@@ -518,7 +566,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     : totalAmount;
 
   // Selected single payer object
-  const currentSinglePayer = members.find((m) => m.user_id === singlePayerId)?.profile || currentUser;
+  const currentSinglePayer = members.find((m) => m.user_id === singlePayerId)?.profile || expenseToEdit?.payers?.[0]?.profile || currentUser;
 
   // Toggle single participant
   const toggleParticipant = (userId: string) => {
@@ -847,13 +895,598 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     }
   };
 
+  // 1. Category Section
+  const renderCategorySection = () => {
+    const categoryContent = (
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {Object.values(CATEGORIES).map((cat) => {
+          const isSelected = category === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => !isReadOnly && setCategory(cat.id)}
+              disabled={isReadOnly}
+              className={`p-2.5 sm:p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                isSelected
+                  ? `${cat.bgColor} ${cat.borderColor} ring-2 ring-emerald-500 shadow-sm scale-105`
+                  : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              } ${isReadOnly && !isSelected ? 'opacity-40' : ''}`}
+            >
+              <span className={isMobileView ? 'text-2xl' : 'text-xl'}>{cat.emoji}</span>
+              <span
+                className={`font-medium leading-tight line-clamp-1 ${isMobileView ? 'text-xs font-bold' : 'text-[11px]'} ${
+                  isSelected ? cat.textColor : 'text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {t(`categories.${cat.id}` as any) || cat.label.split(' ')[0]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+
+    if (isMobileView) {
+      return (
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-2xl shrink-0">
+                {CATEGORIES[category]?.emoji || '🧾'}
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                  {t('expenses.category')}
+                </span>
+                <span className="text-base font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                  {t(`categories.${category}` as any) || CATEGORIES[category]?.label || 'General'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                {isCategoryOpen ? t('common.close') : t('common.edit')}
+              </span>
+              {isCategoryOpen ? (
+                <ChevronUp className="w-5 h-5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              )}
+            </div>
+          </button>
+
+          {isCategoryOpen && (
+            <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 mt-2 animate-in fade-in duration-200">
+              <div className="pt-3">
+                {categoryContent}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
+          {t('expenses.category')}
+        </label>
+        {categoryContent}
+      </div>
+    );
+  };
+
+  // 2. Location Section
+  const renderLocationSection = () => {
+    const locationContent = (
+      <LocationPicker
+        latitude={latitude}
+        longitude={longitude}
+        locationName={locationName}
+        onChange={({ latitude, longitude, locationName }) => {
+          if (!isReadOnly) {
+            setLatitude(latitude);
+            setLongitude(longitude);
+            setLocationName(locationName);
+          }
+        }}
+        isEditing={!!expenseToEdit}
+        disabled={isReadOnly}
+      />
+    );
+
+    if (isMobileView) {
+      return (
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsLocationOpen(!isLocationOpen)}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                  {t('expenses.location')}
+                </span>
+                <span className="text-base font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                  {locationName || (latitude ? `${latitude.toFixed(4)}, ${longitude?.toFixed(4)}` : 'Sin ubicación')}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                {isLocationOpen ? t('common.close') : locationName ? t('common.edit') : '+ Añadir'}
+              </span>
+              {isLocationOpen ? (
+                <ChevronUp className="w-5 h-5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              )}
+            </div>
+          </button>
+
+          {isLocationOpen && (
+            <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 mt-2 animate-in fade-in duration-200">
+              <div className="pt-3">
+                {locationContent}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+          {t('expenses.location')}
+        </label>
+        {locationContent}
+      </div>
+    );
+  };
+
+  // 3. Notes Section
+  const renderNotesSection = () => {
+    const notesContent = (
+      <textarea
+        rows={2}
+        placeholder={isReadOnly ? '' : t('common.notes')}
+        value={notes}
+        onChange={(e) => !isReadOnly && setNotes(e.target.value)}
+        readOnly={isReadOnly}
+        className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm resize-none ${
+          isReadOnly ? 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300' : ''
+        }`}
+      />
+    );
+
+    if (isMobileView) {
+      return (
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsNotesOpen(!isNotesOpen)}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                  {t('common.notes')}
+                </span>
+                <span className="text-base font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                  {notes.trim() ? notes.trim() : 'Sin notas'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                {isNotesOpen ? t('common.close') : notes.trim() ? t('common.edit') : '+ Añadir'}
+              </span>
+              {isNotesOpen ? (
+                <ChevronUp className="w-5 h-5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              )}
+            </div>
+          </button>
+
+          {isNotesOpen && (
+            <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 mt-2 animate-in fade-in duration-200">
+              <div className="pt-3">
+                {notesContent}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+          {t('common.notes')}
+        </label>
+        {notesContent}
+      </div>
+    );
+  };
+
+  // 4. DateTime Section
+  const renderDateTimeSection = () => {
+    const dateTimeContent = isReadOnly ? (
+      <div className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3.5 py-3 text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+        <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <span>
+          {dateDisplayStr} • {timeDisplayStr}
+        </span>
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Fecha Europea DD/MM/AAAA */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              Fecha <span className="text-[10px] text-slate-400 font-normal">(DD/MM/AAAA)</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={setTodayDate}
+                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+              >
+                Hoy
+              </button>
+              <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
+              <button
+                type="button"
+                onClick={setYesterdayDate}
+                className="text-xs font-bold text-slate-500 hover:underline cursor-pointer"
+              >
+                Ayer
+              </button>
+            </div>
+          </div>
+          <div className="relative flex items-center">
+            <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="DD/MM/AAAA (ej: 30/08/2026)"
+              value={dateDisplayStr}
+              onChange={(e) => handleDateInputChange(e.target.value)}
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
+            />
+            <input
+              type="date"
+              ref={datePickerRef}
+              value={(() => {
+                const parts = (dateDisplayStr || '').split(/[\/\.-]/);
+                if (parts.length >= 3) {
+                  const d = parts[0].padStart(2, '0');
+                  const m = parts[1].padStart(2, '0');
+                  let y = parts[2];
+                  if (y.length === 2) y = `20${y}`;
+                  return `${y}-${m}-${d}`;
+                }
+                return '';
+              })()}
+              onChange={(e) => handleNativeDateChange(e.target.value)}
+              className="absolute right-2 opacity-0 w-6 h-6 cursor-pointer"
+              tabIndex={-1}
+            />
+            <button
+              type="button"
+              onClick={() => datePickerRef.current?.showPicker?.() || datePickerRef.current?.click()}
+              className="absolute right-2.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1 cursor-pointer"
+              title="Abrir calendario"
+            >
+              <Calendar className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Hora HH:mm (24h) */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+              Hora <span className="text-[10px] text-slate-400 font-normal">(24h)</span>
+            </span>
+            <button
+              type="button"
+              onClick={setNowTime}
+              className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+            >
+              Ahora
+            </button>
+          </div>
+          <div className="relative flex items-center">
+            <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="HH:MM (ej: 14:35)"
+              value={timeDisplayStr}
+              onChange={(e) => handleTimeInputChange(e.target.value)}
+              className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
+            />
+          </div>
+        </div>
+      </div>
+    );
+
+    if (isMobileView) {
+      return (
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsDateTimeOpen(!isDateTimeOpen)}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                  {t('expenses.dateTime')}
+                </span>
+                <span className="text-base font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                  {dateDisplayStr} • {timeDisplayStr}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                {isDateTimeOpen ? t('common.close') : t('common.edit')}
+              </span>
+              {isDateTimeOpen ? (
+                <ChevronUp className="w-5 h-5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              )}
+            </div>
+          </button>
+
+          {isDateTimeOpen && (
+            <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 mt-2 animate-in fade-in duration-200">
+              <div className="pt-3">
+                {dateTimeContent}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+            {t('expenses.dateTime')}
+          </label>
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-medium" title={getUserTimezoneLabel()}>
+            {getUserTimezoneLabel()}
+          </span>
+        </div>
+        {dateTimeContent}
+      </div>
+    );
+  };
+
+  // 5. Receipt Section
+  const renderReceiptSection = () => {
+    const receiptContent = (
+      <div>
+        <div className="flex items-center gap-2">
+          {!isReadOnly ? (
+            <>
+              {/* Botón 1: Hacer foto directamente con la cámara */}
+              <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-2xl border border-dashed border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/50 dark:bg-emerald-950/30 text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/60 cursor-pointer transition-colors shadow-xs">
+                <Camera className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>{t('expenses.takePhoto')}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Botón 2: Subir archivo o galería */}
+              <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-xs">
+                <ImageIcon className="w-4 h-4 text-slate-500 shrink-0" />
+                <span>{receiptUrl ? t('expenses.changeReceipt') : t('expenses.uploadFromGallery')}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+              </label>
+
+              {receiptUrl && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowReceiptModal(true)}
+                    className="p-3 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-2xl text-xs font-bold transition-colors shadow-xs shrink-0 cursor-pointer"
+                    title={t('expenses.viewReceipt')}
+                  >
+                    <Eye className="w-4.5 h-4.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReceiptUrl(null);
+                      setScannedData(null);
+                    }}
+                    className="p-3 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-2xl text-xs font-bold transition-colors shadow-xs shrink-0 cursor-pointer"
+                    title={t('expenses.removeReceipt')}
+                  >
+                    <Trash2 className="w-4.5 h-4.5" />
+                  </button>
+                </>
+              )}
+            </>
+          ) : receiptUrl ? (
+            <button
+              type="button"
+              onClick={() => setShowReceiptModal(true)}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-2xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40 text-sm font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/60 transition-colors shadow-xs cursor-pointer"
+            >
+              <Receipt className="w-4 h-4" />
+              <span>{t('expenses.viewReceipt')}</span>
+            </button>
+          ) : (
+            <div className="flex-1 px-3 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-sm text-slate-400 text-center font-medium">
+              {t('expenses.noReceipt')}
+            </div>
+          )}
+        </div>
+        {!isReadOnly && (
+          <p className="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400 mt-1.5 flex items-start gap-1">
+            <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>{t('expenses.receiptSafetyWarning')}</span>
+          </p>
+        )}
+      </div>
+    );
+
+    if (isMobileView) {
+      return (
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsReceiptSectionOpen(!isReceiptSectionOpen)}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 flex items-center justify-center shrink-0">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                  {t('expenses.receiptPhoto')}
+                </span>
+                <span className="text-base font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                  {receiptUrl ? '✅ Ticket adjuntado' : 'Sin ticket adjuntado'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                {isReceiptSectionOpen ? t('common.close') : receiptUrl ? t('common.edit') : '+ Adjuntar'}
+              </span>
+              {isReceiptSectionOpen ? (
+                <ChevronUp className="w-5 h-5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              )}
+            </div>
+          </button>
+
+          {isReceiptSectionOpen && (
+            <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 mt-2 animate-in fade-in duration-200">
+              <div className="pt-3">
+                {receiptContent}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+          {t('expenses.receiptPhoto')}
+        </label>
+        {receiptContent}
+      </div>
+    );
+  };
+
+  // 6. Comments Section
+  const renderCommentsSection = () => {
+    if (!expenseToEdit?.id) return null;
+
+    if (isMobileView) {
+      return (
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setIsCommentsOpen(!isCommentsOpen)}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center shrink-0">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                  Comentarios y Debate
+                </span>
+                <span className="text-base font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                  Debate del gasto
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                {isCommentsOpen ? t('common.close') : 'Ver'}
+              </span>
+              {isCommentsOpen ? (
+                <ChevronUp className="w-5 h-5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              )}
+            </div>
+          </button>
+
+          {isCommentsOpen && (
+            <div className="p-4 pt-0 border-t border-slate-200/60 dark:border-slate-800 mt-2 animate-in fade-in duration-200">
+              <div className="pt-3">
+                <ExpenseCommentsSection
+                  expenseId={expenseToEdit.id}
+                  expenseTitle={expenseToEdit.title}
+                  groupId={groupId}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <ExpenseCommentsSection
+        expenseId={expenseToEdit.id}
+        expenseTitle={expenseToEdit.title}
+        groupId={groupId}
+      />
+    );
+  };
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={isReadOnly ? t('expenses.viewExpense') : expenseToEdit ? t('expenses.editExpense') : t('expenses.addExpense')}
       description={`${t('nav.groups')}: ${group?.name || ''}`}
-      maxWidth="lg"
+      maxWidth={isMobileView ? 'md' : 'lg'}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Banner de Modo Sólo Lectura */}
@@ -1113,25 +1746,38 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
         {/* LÍNEA 1: Concepto del Gasto */}
         <div>
+          {isMobileView && (
+            <label className="block text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+              {t('expenses.expenseTitle')} *
+            </label>
+          )}
           <Input
-            label={`${t('expenses.expenseTitle')} *`}
+            label={isMobileView ? undefined : `${t('expenses.expenseTitle')} *`}
             placeholder={t('expenses.expenseTitlePlaceholder')}
             value={title}
             onChange={(e) => !isReadOnly && setTitle(e.target.value)}
             required
             autoFocus={!isReadOnly}
             disabled={isReadOnly}
-            className={`text-base py-3 ${isReadOnly ? 'bg-slate-50 dark:bg-slate-800/50 cursor-default' : ''}`}
+            className={`${
+              isMobileView
+                ? 'text-lg sm:text-xl font-bold py-3.5 px-4 rounded-2xl'
+                : 'text-base py-3'
+            } ${isReadOnly ? 'bg-slate-50 dark:bg-slate-800/50 cursor-default' : ''}`}
           />
         </div>
 
         {/* LÍNEA 2: Importe y Divisa */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+          <label className={`block uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5 ${
+            isMobileView ? 'text-sm font-bold text-slate-700 dark:text-slate-300' : 'text-xs font-semibold'
+          }`}>
             {t('expenses.amount')} *
           </label>
           <div className="flex rounded-2xl border-2 border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs bg-white dark:bg-slate-900 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
-            <div className="flex items-center pl-4 pr-1 text-slate-400 font-extrabold text-2xl select-none">
+            <div className={`flex items-center pl-4 pr-1 text-slate-400 font-extrabold select-none ${
+              isMobileView ? 'text-3xl font-black' : 'text-2xl'
+            }`}>
               {currencyObj.symbol}
             </div>
 
@@ -1142,18 +1788,18 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               value={amountStr}
               onChange={(e) => !isReadOnly && setAmountStr(e.target.value)}
               readOnly={isReadOnly}
-              className={`w-full px-2 py-3 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white bg-transparent focus:outline-none placeholder:text-slate-300 ${
-                isReadOnly ? 'cursor-default' : ''
-              }`}
+              className={`w-full px-2 font-black text-slate-900 dark:text-white bg-transparent focus:outline-none placeholder:text-slate-300 ${
+                isMobileView ? 'py-3.5 text-3xl sm:text-4xl font-mono' : 'py-3 text-2xl sm:text-3xl'
+              } ${isReadOnly ? 'cursor-default' : ''}`}
               required
             />
             <select
               value={currency}
               onChange={(e) => !isReadOnly && handleCurrencyChange(e.target.value)}
               disabled={isReadOnly}
-              className={`bg-slate-100 dark:bg-slate-800 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 px-3.5 border-l border-slate-200 dark:border-slate-700 focus:outline-none ${
-                isReadOnly ? 'cursor-default' : 'cursor-pointer'
-              }`}
+              className={`bg-slate-100 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-200 px-3.5 border-l border-slate-200 dark:border-slate-700 focus:outline-none ${
+                isMobileView ? 'text-sm sm:text-base cursor-pointer' : 'text-xs sm:text-sm'
+              } ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`}
             >
               {SUPPORTED_CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -1261,79 +1907,38 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               type="submit"
               variant="brand"
               isLoading={isLoading || isDeleting}
-              className="w-full text-sm font-bold shadow-md shadow-emerald-600/15 py-2.5 flex items-center justify-center gap-2"
+              disabled={isDeleting || (splitByItems && !isItemsBalanced)}
+              title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
+              className={`w-full font-bold shadow-md shadow-emerald-600/15 flex items-center justify-center gap-2 ${
+                isMobileView ? 'py-3.5 text-base rounded-2xl shadow-emerald-600/25' : 'py-2.5 text-sm'
+              }`}
             >
-              <Check className="w-4 h-4" />
+              <Check className={isMobileView ? "w-5 h-5 stroke-[2.5]" : "w-4 h-4"} />
               <span>{expenseToEdit ? t('expenses.saveChanges') : t('expenses.quickSave', { amount: formatMoney(totalAmount, currency) })}</span>
             </Button>
           </div>
         )}
 
-        {/* GEOLOCALIZACIÓN Y MAPA DE GOOGLE */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-            {t('expenses.location')}
-          </label>
-          <LocationPicker
-            latitude={latitude}
-            longitude={longitude}
-            locationName={locationName}
-            onChange={({ latitude, longitude, locationName }) => {
-              if (!isReadOnly) {
-                setLatitude(latitude);
-                setLongitude(longitude);
-                setLocationName(locationName);
-              }
-            }}
-            isEditing={!!expenseToEdit}
-            disabled={isReadOnly}
-          />
-        </div>
-
-        {/* Categoría del gasto */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
-            {t('expenses.category')}
-          </label>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {Object.values(CATEGORIES).map((cat) => {
-              const isSelected = category === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => !isReadOnly && setCategory(cat.id)}
-                  disabled={isReadOnly}
-                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
-                    isSelected
-                      ? `${cat.bgColor} ${cat.borderColor} ring-2 ring-emerald-500 shadow-sm scale-105`
-                      : 'border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  } ${isReadOnly && !isSelected ? 'opacity-40' : ''}`}
-                >
-                  <span className="text-xl">{cat.emoji}</span>
-                  <span
-                    className={`text-[11px] font-medium leading-tight line-clamp-1 ${
-                      isSelected ? cat.textColor : 'text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    {t(`categories.${cat.id}` as any) || cat.label.split(' ')[0]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {/* En móvil: Categoría antes de Quién pagó */}
+        {isMobileView ? (
+          renderCategorySection()
+        ) : (
+          <>
+            {renderLocationSection()}
+            {renderCategorySection()}
+          </>
+        )}
 
         {/* SECCIÓN 1: ¿Quién pagó el gasto? */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
           <button
             type="button"
             onClick={() => setIsWhoPaidOpen(!isWhoPaidOpen)}
-            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors"
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                <CreditCard className="w-4 h-4" />
+              <div className={`rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 ${isMobileView ? 'w-10 h-10' : 'w-8 h-8 rounded-xl'}`}>
+                <CreditCard className={isMobileView ? "w-5 h-5" : "w-4 h-4"} />
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
@@ -1342,15 +1947,15 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <div className="flex items-center gap-2 mt-0.5">
                   {!isMultiPayer ? (
                     <div className="flex items-center gap-1.5">
-                      <Avatar profile={currentSinglePayer} size="sm" className="w-5 h-5 text-[10px]" />
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      <Avatar profile={currentSinglePayer} size="sm" className={isMobileView ? "w-6 h-6 text-xs" : "w-5 h-5 text-[10px]"} />
+                      <span className={`font-bold text-slate-900 dark:text-white truncate ${isMobileView ? 'text-base' : 'text-xs'}`}>
                         {currentUser && singlePayerId === currentUser.id
                           ? `${t('common.you')} (${currentUser.full_name?.split(' ')[0] || ''})`
                           : currentSinglePayer?.full_name}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                    <span className={`font-bold text-slate-900 dark:text-white ${isMobileView ? 'text-base' : 'text-xs'}`}>
                       {t('expenses.paidByMultiple')}
                     </span>
                   )}
@@ -1359,7 +1964,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline">
+              <span className={`text-emerald-600 dark:text-emerald-400 font-bold ${isMobileView ? 'text-xs' : 'text-xs font-semibold hidden sm:inline'}`}>
                 {isWhoPaidOpen ? t('common.close') : isReadOnly ? t('common.details') : t('common.edit')}
               </span>
               {isWhoPaidOpen ? (
@@ -1468,21 +2073,21 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         </div>
 
         {/* SECCIÓN 2: ¿Con quién se comparte? */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden transition-all shadow-2xs">
           <button
             type="button"
             onClick={() => setIsSplitOpen(!isSplitOpen)}
-            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors"
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
-                <Users className="w-4 h-4" />
+              <div className={`rounded-2xl bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0 ${isMobileView ? 'w-10 h-10' : 'w-8 h-8 rounded-xl'}`}>
+                <Users className={isMobileView ? "w-5 h-5" : "w-4 h-4"} />
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                   {t('expenses.whoShares')}
                 </span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                <span className={`font-bold text-slate-900 dark:text-white mt-0.5 block truncate ${isMobileView ? 'text-base' : 'text-xs'}`}>
                   {splitByItems ? (
                     <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
@@ -1510,7 +2115,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline">
+              <span className={`text-emerald-600 dark:text-emerald-400 font-bold ${isMobileView ? 'text-xs' : 'text-xs font-semibold hidden sm:inline'}`}>
                 {isSplitOpen ? t('common.close') : isReadOnly ? t('common.details') : t('common.edit')}
               </span>
               {isSplitOpen ? (
@@ -1861,211 +2466,27 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           />
         </div>
 
-        {/* FECHA Y HORA DEL GASTO (Estricto formato europeo DD/MM/AAAA y 24h) */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-              {t('expenses.dateTime')}
-            </label>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-medium" title={getUserTimezoneLabel()}>
-              {getUserTimezoneLabel()}
-            </span>
-          </div>
-          {isReadOnly ? (
-            <div className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>
-                {dateDisplayStr} • {timeDisplayStr}
-              </span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Fecha Europea DD/MM/AAAA */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                    Fecha <span className="text-[10px] text-slate-400 font-normal">(DD/MM/AAAA)</span>
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={setTodayDate}
-                      className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-                    >
-                      Hoy
-                    </button>
-                    <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
-                    <button
-                      type="button"
-                      onClick={setYesterdayDate}
-                      className="text-[11px] font-bold text-slate-500 hover:underline"
-                    >
-                      Ayer
-                    </button>
-                  </div>
-                </div>
-                <div className="relative flex items-center">
-                  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="DD/MM/AAAA (ej: 30/08/2026)"
-                    value={dateDisplayStr}
-                    onChange={(e) => handleDateInputChange(e.target.value)}
-                    className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
-                  />
-                  {/* Native hidden date picker for calendar click */}
-                  <input
-                    type="date"
-                    ref={datePickerRef}
-                    value={(() => {
-                      const parts = (dateDisplayStr || '').split(/[\/\.-]/);
-                      if (parts.length >= 3) {
-                        const d = parts[0].padStart(2, '0');
-                        const m = parts[1].padStart(2, '0');
-                        let y = parts[2];
-                        if (y.length === 2) y = `20${y}`;
-                        return `${y}-${m}-${d}`;
-                      }
-                      return '';
-                    })()}
-                    onChange={(e) => handleNativeDateChange(e.target.value)}
-                    className="absolute right-2 opacity-0 w-6 h-6 cursor-pointer"
-                    tabIndex={-1}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => datePickerRef.current?.showPicker?.() || datePickerRef.current?.click()}
-                    className="absolute right-2.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1"
-                    title="Abrir calendario"
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Hora HH:mm (24h) */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                    Hora <span className="text-[10px] text-slate-400 font-normal">(24h)</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={setNowTime}
-                    className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-                  >
-                    Ahora
-                  </button>
-                </div>
-                <div className="relative flex items-center">
-                  <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 pointer-events-none" />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="HH:MM (ej: 14:35)"
-                    value={timeDisplayStr}
-                    onChange={(e) => handleTimeInputChange(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-mono"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* FOTO DEL TICKET / FACTURA */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-            {t('expenses.receiptPhoto')}
-          </label>
-            <div className="flex items-center gap-2">
-              {!isReadOnly ? (
-                <>
-                  {/* Botón 1: Hacer foto directamente con la cámara */}
-                  <label className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/50 dark:bg-emerald-950/30 text-xs font-bold text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/60 cursor-pointer transition-colors shadow-xs">
-                    <Camera className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>{t('expenses.takePhoto')}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                  </label>
-
-                  {/* Botón 2: Subir archivo o galería */}
-                  <label className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-xs">
-                    <ImageIcon className="w-4 h-4 text-slate-500 shrink-0" />
-                    <span>{receiptUrl ? t('expenses.changeReceipt') : t('expenses.uploadFromGallery')}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                  </label>
-
-                  {receiptUrl && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setShowReceiptModal(true)}
-                        className="p-2.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-xl text-xs font-semibold transition-colors shadow-xs shrink-0"
-                        title={t('expenses.viewReceipt')}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReceiptUrl(null);
-                          setScannedData(null);
-                        }}
-                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-semibold transition-colors shrink-0"
-                        title={t('expenses.removeReceipt')}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-                </>
-              ) : receiptUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setShowReceiptModal(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/60 transition-colors shadow-xs"
-                >
-                  <Receipt className="w-4 h-4" />
-                  <span>{t('expenses.viewReceipt')}</span>
-                </button>
-              ) : (
-                <div className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-xs text-slate-400 text-center">
-                  {t('expenses.noReceipt')}
-                </div>
-              )}
-            </div>
-            {!isReadOnly && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 flex items-start gap-1">
-                <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span>{t('expenses.receiptSafetyWarning')}</span>
-              </p>
-            )}
-          </div>
-
-        {/* Comentarios y aclaraciones del gasto */}
-        {expenseToEdit?.id && (
-          <ExpenseCommentsSection
-            expenseId={expenseToEdit.id}
-            expenseTitle={expenseToEdit.title}
-            groupId={groupId}
-          />
+        {/* Secciones secundarias después de reparto */}
+        {isMobileView ? (
+          <>
+            {renderDateTimeSection()}
+            {renderReceiptSection()}
+            {renderLocationSection()}
+            {renderNotesSection()}
+            {renderCommentsSection()}
+          </>
+        ) : (
+          <>
+            {renderNotesSection()}
+            {renderDateTimeSection()}
+            {renderReceiptSection()}
+            {renderCommentsSection()}
+          </>
         )}
 
         {/* Error message */}
         {errorMessage && (
-          <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 rounded-xl text-xs text-rose-600 dark:text-rose-400 font-medium">
+          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 rounded-2xl text-xs sm:text-sm text-rose-600 dark:text-rose-400 font-medium">
             {errorMessage}
           </div>
         )}
@@ -2078,7 +2499,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsReportOpen(true)}
-                  className="px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 shrink-0"
+                  className={`font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 shrink-0 cursor-pointer ${
+                    isMobileView ? 'px-4 py-3 text-sm rounded-2xl' : 'px-3.5 py-2 text-xs rounded-xl'
+                  }`}
                   title={t('expenses.reportExpense')}
                 >
                   <ShieldAlert className="w-4 h-4 text-rose-500" />
@@ -2089,7 +2512,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 type="button"
                 variant="brand"
                 onClick={onClose}
-                className="flex-1 text-sm font-bold shadow-md shadow-emerald-600/20"
+                className={`flex-1 font-bold shadow-md shadow-emerald-600/20 ${isMobileView ? 'py-3.5 text-base rounded-2xl' : 'text-sm'}`}
               >
                 {t('expenses.closeDetail')}
               </Button>
@@ -2100,7 +2523,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 type="button"
                 onClick={handleDeleteExpense}
                 disabled={isDeleting || isLoading}
-                className="px-3.5 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all flex items-center gap-1.5 border border-rose-200 dark:border-rose-900/50 cursor-pointer"
+                className={`font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all flex items-center gap-1.5 border border-rose-200 dark:border-rose-900/50 cursor-pointer ${
+                  isMobileView ? 'px-4 py-3 text-sm rounded-2xl' : 'px-3.5 py-2 text-xs rounded-xl'
+                }`}
                 title={t('expenses.deleteExpense')}
               >
                 <Trash2 className="w-4 h-4" />
@@ -2108,7 +2533,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               </button>
 
               <div className="flex items-center gap-2 flex-1 justify-end">
-                <Button type="button" variant="outline" onClick={onClose} className="px-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className={isMobileView ? 'px-4 py-3 text-sm sm:text-base rounded-2xl font-bold' : 'px-4'}
+                >
                   {t('common.cancel')}
                 </Button>
                 <Button
@@ -2117,7 +2547,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   isLoading={isLoading}
                   disabled={isDeleting || (splitByItems && !isItemsBalanced)}
                   title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
-                  className="text-sm font-bold px-5"
+                  className={`font-bold ${isMobileView ? 'px-5 py-3 text-sm sm:text-base rounded-2xl shadow-md shadow-emerald-600/20' : 'text-sm px-5'}`}
                 >
                   {t('expenses.saveChanges')}
                 </Button>
@@ -2125,7 +2555,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             </div>
           ) : (
             <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className={`flex-1 ${isMobileView ? 'py-3.5 text-base rounded-2xl font-bold' : ''}`}
+              >
                 {t('common.cancel')}
               </Button>
               <Button
@@ -2134,7 +2569,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 isLoading={isLoading}
                 disabled={isDeleting || (splitByItems && !isItemsBalanced)}
                 title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
-                className="flex-1 text-sm font-bold"
+                className={`flex-1 font-bold ${isMobileView ? 'py-3.5 text-base rounded-2xl shadow-md shadow-emerald-600/20' : 'text-sm'}`}
               >
                 {t('expenses.quickSave', { amount: formatMoney(totalAmount, currency) })}
               </Button>
