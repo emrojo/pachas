@@ -16,6 +16,8 @@ import {
   BellOff,
   Sparkles,
   Check,
+  Users,
+  Plus,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -38,10 +40,12 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { updateGroup, archiveGroup, restoreGroup, isGroupAdmin } = usePachas();
+  const { updateGroup, archiveGroup, restoreGroup, isGroupAdmin, getGroupMembers, renameUnclaimedMember, addUnclaimedMember } = usePachas();
   const { t } = useTranslation();
 
   const isAdmin = isGroupAdmin(group.id);
+  const groupMembers = getGroupMembers(group.id);
+  const unclaimedMembers = groupMembers.filter((m) => m.is_unclaimed);
 
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description || '');
@@ -49,6 +53,9 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   const [currency, setCurrency] = useState(group.base_currency || 'EUR');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
+  const [provisionalNames, setProvisionalNames] = useState<Record<string, string>>({});
+  const [newProvisionalName, setNewProvisionalName] = useState('');
+  const [isAddingProvisional, setIsAddingProvisional] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [error, setError] = useState('');
@@ -60,12 +67,19 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
       setCoverImageUrl(group.cover_image_url || null);
       setCurrency(group.base_currency || 'EUR');
       setError('');
+      setNewProvisionalName('');
+
+      const namesMap: Record<string, string> = {};
+      unclaimedMembers.forEach((m) => {
+        namesMap[m.id] = m.provisional_name || m.profile?.full_name || '';
+      });
+      setProvisionalNames(namesMap);
 
       getGroupNotificationPreference(group.id).then((enabled) => {
         setNotificationsEnabled(enabled);
       });
     }
-  }, [isOpen, group]);
+  }, [isOpen, group, groupMembers.length]);
 
   const handleToggleNotifications = async () => {
     if (isUpdatingNotifications) return;
@@ -85,6 +99,19 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
     }
   };
 
+  const handleAddNewProvisional = async () => {
+    if (!newProvisionalName.trim()) return;
+    try {
+      setIsAddingProvisional(true);
+      await addUnclaimedMember(group.id, sanitizeText(newProvisionalName, 50));
+      setNewProvisionalName('');
+    } catch (err: any) {
+      alert(err.message || 'Error al añadir participante provisional');
+    } finally {
+      setIsAddingProvisional(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -95,6 +122,15 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
     try {
       setIsLoading(true);
       setError('');
+
+      // Update any changed provisional member names
+      for (const m of unclaimedMembers) {
+        const editedName = provisionalNames[m.id]?.trim();
+        const currentName = m.provisional_name || m.profile?.full_name || '';
+        if (editedName && editedName !== currentName) {
+          await renameUnclaimedMember(group.id, m.id, editedName);
+        }
+      }
 
       const updated = await updateGroup(group.id, {
         name: sanitizeText(name, 80),
@@ -211,6 +247,80 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
               <span>{t('groups.currencyChangeWarning')}</span>
             </div>
           )}
+        </div>
+
+        {/* Provisional / Unclaimed Members Management */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                {t('groups.provisionalMembersTitle') || 'Participantes provisionales (sin reclamar)'}
+              </span>
+            </div>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+              {unclaimedMembers.length}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            {t('groups.provisionalMembersEditHint') || 'Modifica el nombre de los amigos que aún no han reclamado su puesto o añade más participantes provisionales.'}
+          </p>
+
+          {unclaimedMembers.length > 0 ? (
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {unclaimedMembers.map((member, idx) => (
+                <div key={member.id} className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center justify-center shrink-0">
+                    {idx + 1}
+                  </div>
+                  <input
+                    type="text"
+                    value={provisionalNames[member.id] ?? (member.provisional_name || member.profile?.full_name || '')}
+                    onChange={(e) =>
+                      setProvisionalNames((prev) => ({
+                        ...prev,
+                        [member.id]: e.target.value,
+                      }))
+                    }
+                    placeholder={`Nombre del participante ${idx + 1}`}
+                    maxLength={50}
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic py-1">
+              {t('groups.noProvisionalMembers') || 'Todos los participantes actuales son usuarios reales registrados.'}
+            </p>
+          )}
+
+          {/* Add new provisional member field */}
+          <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-2">
+            <input
+              type="text"
+              value={newProvisionalName}
+              onChange={(e) => setNewProvisionalName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddNewProvisional();
+                }
+              }}
+              placeholder={t('groups.newProvisionalPlaceholder') || 'Añadir nuevo amigo provisional...'}
+              className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddNewProvisional}
+              disabled={isAddingProvisional || !newProvisionalName.trim()}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50 hover:bg-emerald-700 flex items-center gap-1 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{t('common.add') || 'Añadir'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Group Notification Preferences */}

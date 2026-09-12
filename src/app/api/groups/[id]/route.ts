@@ -42,8 +42,9 @@ export async function GET(
 
     const membersRes = await pool.query(
       `SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at,
+              gm.is_unclaimed, gm.provisional_name, gm.claim_token, gm.claimed_by, gm.claimed_at,
               COALESCE(p.id, gm.user_id) as profile_id,
-              COALESCE(p.full_name, 'Amigo') as full_name,
+              COALESCE(gm.provisional_name, p.full_name, 'Amigo') as full_name,
               p.avatar_url, p.bizum_phone, p.email,
               COALESCE(p.is_banned, false) as is_banned, p.ban_reason
        FROM public.group_members gm
@@ -59,6 +60,11 @@ export async function GET(
       user_id: m.user_id,
       role: m.role || 'member',
       joined_at: m.joined_at,
+      is_unclaimed: Boolean(m.is_unclaimed),
+      provisional_name: m.provisional_name || null,
+      claim_token: m.claim_token || null,
+      claimed_by: m.claimed_by || null,
+      claimed_at: m.claimed_at || null,
       profile: {
         id: m.profile_id,
         email: m.email || '',
@@ -68,6 +74,7 @@ export async function GET(
         role: m.role,
         is_banned: Boolean(m.is_banned),
         ban_reason: m.ban_reason || null,
+        is_unclaimed: Boolean(m.is_unclaimed),
       },
     }));
 
@@ -95,6 +102,11 @@ export async function GET(
           user_id: group.created_by,
           role: 'admin',
           joined_at: now,
+          is_unclaimed: false,
+          provisional_name: null,
+          claim_token: null,
+          claimed_by: null,
+          claimed_at: null,
           profile: {
             id: group.created_by,
             email: cp?.email || '',
@@ -104,6 +116,7 @@ export async function GET(
             role: 'admin',
             is_banned: Boolean(cp?.is_banned),
             ban_reason: cp?.ban_reason || null,
+            is_unclaimed: false,
           },
         });
       } catch (err) {

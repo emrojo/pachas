@@ -84,6 +84,53 @@ export async function POST(request: NextRequest) {
         await client.query('ROLLBACK TO SAVEPOINT ensure_member');
       }
 
+      // Insert initial estimated provisional members if provided
+      const initialMembers: string[] = Array.isArray(body.initial_members)
+        ? body.initial_members.map((m: any) => String(m).trim()).filter(Boolean)
+        : [];
+
+      for (const provName of initialMembers) {
+        const provUserId = randomUUID();
+        const provMemberId = randomUUID();
+        const claimToken = randomUUID();
+        const provEmail = `unclaimed-${provUserId.substring(0, 8)}@pachas.local`;
+
+        await client.query('SAVEPOINT ensure_prov_profile');
+        try {
+          await client.query(
+            `INSERT INTO auth.users (id, email, created_at)
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (id) DO NOTHING`,
+            [provUserId, provEmail]
+          ).catch(() => {});
+
+          await client.query(
+            `INSERT INTO public.profiles (id, email, full_name, role, is_unclaimed, created_at, updated_at)
+             VALUES ($1, $2, $3, 'member', TRUE, NOW(), NOW())
+             ON CONFLICT (id) DO NOTHING`,
+            [provUserId, provEmail, provName]
+          );
+          await client.query('RELEASE SAVEPOINT ensure_prov_profile');
+        } catch (provProfErr) {
+          console.warn('Provisional profile non-fatal warning:', provProfErr);
+          await client.query('ROLLBACK TO SAVEPOINT ensure_prov_profile');
+        }
+
+        await client.query('SAVEPOINT ensure_prov_member');
+        try {
+          await client.query(
+            `INSERT INTO public.group_members (id, group_id, user_id, role, notifications_enabled, is_unclaimed, provisional_name, claim_token, joined_at)
+             VALUES ($1, $2, $3, 'member', FALSE, TRUE, $4, $5, NOW())
+             ON CONFLICT (group_id, user_id) DO NOTHING`,
+            [provMemberId, id, provUserId, provName, claimToken]
+          );
+          await client.query('RELEASE SAVEPOINT ensure_prov_member');
+        } catch (provMemErr) {
+          console.warn('Provisional member insert non-fatal warning:', provMemErr);
+          await client.query('ROLLBACK TO SAVEPOINT ensure_prov_member');
+        }
+      }
+
       await client.query('COMMIT');
       return NextResponse.json({ success: true, group: groupRes.rows[0] });
     } catch (dbErr: any) {
@@ -124,14 +171,20 @@ export async function GET(request: NextRequest) {
                    'user_id', gm.user_id,
                    'role', gm.role,
                    'joined_at', gm.joined_at,
+                   'is_unclaimed', COALESCE(gm.is_unclaimed, false),
+                   'provisional_name', gm.provisional_name,
+                   'claim_token', gm.claim_token,
+                   'claimed_by', gm.claimed_by,
+                   'claimed_at', gm.claimed_at,
                    'profile', jsonb_build_object(
                      'id', COALESCE(p.id, gm.user_id),
-                     'full_name', COALESCE(p.full_name, 'Amigo'),
+                     'full_name', COALESCE(gm.provisional_name, p.full_name, 'Amigo'),
                      'avatar_url', p.avatar_url,
                      'email', COALESCE(p.email, ''),
                      'bizum_phone', p.bizum_phone,
                      'is_banned', COALESCE(p.is_banned, false),
-                     'ban_reason', p.ban_reason
+                     'ban_reason', p.ban_reason,
+                     'is_unclaimed', COALESCE(gm.is_unclaimed, false)
                    )
                  )
                ) FILTER (WHERE gm.id IS NOT NULL),

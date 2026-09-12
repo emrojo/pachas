@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
@@ -10,16 +10,18 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { Footer } from '@/components/layout/Footer';
-import { ArrowRight, CheckCircle2, Bell } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Bell, Sparkles, AlertCircle } from 'lucide-react';
 import { GroupMember } from '@/types/database';
 import { subscribeDeviceToPush } from '@/lib/notifications/pushNotificationService';
 
 export default function JoinGroupPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const inviteCode = params?.inviteCode as string;
+  const claimToken = searchParams?.get('claim')?.trim() || null;
 
-  const { groups, joinGroup, currentUser, getGroupMembers } = usePachas();
+  const { groups, joinGroup, currentUser, getGroupMembers, claimMember } = usePachas();
   const { t } = useTranslation();
 
   const [remoteGroup, setRemoteGroup] = useState<any>(null);
@@ -30,12 +32,17 @@ export default function JoinGroupPage() {
   const [enableNotifications, setEnableNotifications] = useState(false);
   const [error, setError] = useState('');
 
+  // Claim specific state
+  const [claimStatus, setClaimStatus] = useState<'idle' | 'checking' | 'available' | 'already_claimed' | 'invalid'>('idle');
+  const [claimProvisionalName, setClaimProvisionalName] = useState('');
+  const [claimedByName, setClaimedByName] = useState('');
+
   // 1. Check local groups first
   const localGroup = groups.find(
     (g) => g.invite_code.toLowerCase() === inviteCode?.toLowerCase()
   );
 
-  // 2. Fetch group info from API if not already in local state
+  // 2. Fetch group info from API and inspect claim token if present
   useEffect(() => {
     let isMounted = true;
     async function fetchInvite() {
@@ -45,6 +52,32 @@ export default function JoinGroupPage() {
       }
       try {
         setIsFetchingGroup(true);
+
+        if (claimToken) {
+          setClaimStatus('checking');
+          try {
+            const claimRes = await fetch(`/api/groups/claim?token=${encodeURIComponent(claimToken)}`);
+            const claimData = await claimRes.json();
+            if (isMounted) {
+              if (claimData.valid && claimData.status === 'available') {
+                setClaimStatus('available');
+                setClaimProvisionalName(claimData.member?.provisional_name || 'Amigo');
+                if (claimData.group) setRemoteGroup(claimData.group);
+              } else if (claimData.status === 'already_claimed') {
+                setClaimStatus('already_claimed');
+                setClaimProvisionalName(claimData.provisional_name || 'Amigo');
+                setClaimedByName(claimData.claimed_by_name || 'otro usuario');
+                if (claimData.group) setRemoteGroup(claimData.group);
+              } else {
+                setClaimStatus('invalid');
+              }
+            }
+          } catch (cErr) {
+            console.warn('Could not inspect claim token:', cErr);
+            if (isMounted) setClaimStatus('invalid');
+          }
+        }
+
         const res = await fetch(`/api/groups/invite/${encodeURIComponent(inviteCode)}`);
         if (res.ok) {
           const data = await res.json();
@@ -64,7 +97,7 @@ export default function JoinGroupPage() {
     return () => {
       isMounted = false;
     };
-  }, [inviteCode]);
+  }, [inviteCode, claimToken]);
 
   const targetGroup = localGroup || remoteGroup;
   const members = localGroup ? getGroupMembers(localGroup.id) : remoteMembers;
@@ -72,7 +105,12 @@ export default function JoinGroupPage() {
   const handleJoinGroup = async () => {
     if (!currentUser) {
       const emailParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('email') : null;
-      const targetUrl = `/join/${inviteCode}${emailParam ? `?email=${encodeURIComponent(emailParam)}` : ''}`;
+      let targetUrl = `/join/${inviteCode}`;
+      const qParams: string[] = [];
+      if (claimToken) qParams.push(`claim=${encodeURIComponent(claimToken)}`);
+      if (emailParam) qParams.push(`email=${encodeURIComponent(emailParam)}`);
+      if (qParams.length > 0) targetUrl += `?${qParams.join('&')}`;
+
       router.push(`/login?redirectTo=${encodeURIComponent(targetUrl)}${emailParam ? `&email=${encodeURIComponent(emailParam)}` : ''}`);
       return;
     }
@@ -85,6 +123,19 @@ export default function JoinGroupPage() {
         await subscribeDeviceToPush();
       }
 
+      // If claiming a provisional member
+      if (claimToken && claimStatus === 'available') {
+        const claimResult = await claimMember(claimToken, enableNotifications);
+        if (claimResult.success) {
+          setIsSuccess(true);
+          setTimeout(() => {
+            router.push(`/groups/${claimResult.groupId}`);
+          }, 1200);
+          return;
+        }
+      }
+
+      // Normal group join
       const group = await joinGroup(inviteCode, enableNotifications);
       if (group) {
         setIsSuccess(true);
@@ -149,6 +200,33 @@ export default function JoinGroupPage() {
                 )}
               </div>
 
+              {/* Claim Notice Banner */}
+              {claimStatus === 'already_claimed' && (
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 text-left space-y-1.5">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>{t('join.claimAlreadyUsedTitle') || 'Enlace único ya utilizado'}</span>
+                  </div>
+                  <p className="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed">
+                    {t('join.claimAlreadyUsedDesc', { name: claimProvisionalName, claimedBy: claimedByName }) ||
+                      `El puesto provisional de "${claimProvisionalName}" ya fue reclamado por ${claimedByName}. Cada enlace solo permite un único reclamo.`}
+                  </p>
+                </div>
+              )}
+
+              {claimStatus === 'available' && (
+                <div className="p-4 rounded-2xl bg-gradient-to-tr from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800 text-left space-y-1.5">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs">
+                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{t('join.claimSlotTitle') || '¡Puesto pre-asignado para ti!'}</span>
+                  </div>
+                  <p className="text-xs text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed">
+                    {t('join.claimSlotDesc', { name: claimProvisionalName }) ||
+                      `Has sido invitado para reclamar el puesto de "${claimProvisionalName}". Al unirte, todos sus gastos asignados pasarán directamente a tu cuenta.`}
+                  </p>
+                </div>
+              )}
+
               {/* Members participating */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <span className="text-xs text-slate-500 block mb-2">
@@ -199,12 +277,14 @@ export default function JoinGroupPage() {
                 </div>
               )}
 
-              {/* Join Button */}
+              {/* Join / Claim Button */}
               <div>
                 {isSuccess ? (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-bold flex items-center justify-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    {t('join.joinedSuccess')}
+                    {claimStatus === 'available'
+                      ? (t('join.claimedSuccess') || '¡Puesto reclamado y unido con éxito!')
+                      : t('join.joinedSuccess')}
                   </div>
                 ) : currentUser ? (
                   <Button
@@ -214,13 +294,22 @@ export default function JoinGroupPage() {
                     isLoading={isLoading}
                     className="w-full shadow-md"
                   >
-                    {t('join.joinGroupBtn')}
+                    {claimStatus === 'available'
+                      ? (t('join.claimAndJoinBtn', { name: claimProvisionalName }) || `Reclamar puesto de ${claimProvisionalName}`)
+                      : t('join.joinGroupBtn')}
                     <ArrowRight className="w-4 h-4 ml-1" />
                   </Button>
                 ) : (
-                  <Link href={`/login?redirectTo=/join/${inviteCode}`} className="block w-full">
+                  <Link
+                    href={`/login?redirectTo=${encodeURIComponent(
+                      `/join/${inviteCode}${claimToken ? `?claim=${claimToken}` : ''}`
+                    )}`}
+                    className="block w-full"
+                  >
                     <Button size="lg" variant="brand" className="w-full shadow-md">
-                      {t('join.loginToJoin')}
+                      {claimStatus === 'available'
+                        ? (t('join.loginToClaim', { name: claimProvisionalName }) || `Inicia sesión para reclamar el puesto de ${claimProvisionalName}`)
+                        : t('join.loginToJoin')}
                       <ArrowRight className="w-4 h-4 ml-1" />
                     </Button>
                   </Link>

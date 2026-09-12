@@ -176,9 +176,21 @@ create table if not exists public.group_members (
     user_id uuid references public.profiles(id) on delete cascade not null,
     role text default 'member' check (role in ('admin', 'member')) not null,
     notifications_enabled boolean default false not null,
+    is_unclaimed boolean default false not null,
+    provisional_name text,
+    claim_token text,
+    claimed_by uuid references public.profiles(id) on delete set null,
+    claimed_at timestamp with time zone,
     joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
     unique(group_id, user_id)
 );
+
+alter table public.group_members add column if not exists is_unclaimed boolean default false not null;
+alter table public.group_members add column if not exists provisional_name text;
+alter table public.group_members add column if not exists claim_token text;
+alter table public.group_members add column if not exists claimed_by uuid references public.profiles(id) on delete set null;
+alter table public.group_members add column if not exists claimed_at timestamp with time zone;
+alter table public.profiles add column if not exists is_unclaimed boolean default false not null;
 
 -- 4. EXPENSES TABLE
 create table if not exists public.expenses (

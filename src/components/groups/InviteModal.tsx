@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Group, Profile, GroupInvitation } from '@/types/database';
+import { Group, Profile, GroupInvitation, GroupMember } from '@/types/database';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
@@ -71,13 +71,34 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
   const [addingContactId, setAddingContactId] = useState<string | null>(null);
   const [contactActionFeedback, setContactActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const [copiedMemberId, setCopiedMemberId] = useState<string | null>(null);
+
   const groupMembers = getGroupMembers(group.id);
+  const unclaimedMembers = groupMembers.filter((m) => m.is_unclaimed && m.claim_token);
   const nonMemberUsers = availableUsers.filter(
     (u) => !groupMembers.some((m) => m.user_id === u.id || m.profile?.email?.toLowerCase() === u.email.toLowerCase())
   );
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://pachas.app';
   const inviteUrl = `${baseUrl}/join/${group.invite_code}`;
+
+  const handleCopyClaimLink = async (member: GroupMember) => {
+    if (!member.claim_token) return;
+    const url = `${baseUrl}/join/${group.invite_code}?claim=${member.claim_token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedMemberId(member.id);
+      confetti({
+        particleCount: 30,
+        spread: 50,
+        origin: { y: 0.7 },
+        colors: ['#10b981', '#34d399', '#f59e0b'],
+      });
+      setTimeout(() => setCopiedMemberId(null), 3000);
+    } catch {
+      alert(`Enlace: ${url}`);
+    }
+  };
 
   useEffect(() => {
     if (isOpen && group?.id) {
@@ -485,6 +506,55 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
             {t('groups.shareWhatsApp')}
           </Button>
         </div>
+
+        {/* Unclaimed Provisional Members Specific Claim Links */}
+        {unclaimedMembers.length > 0 && (
+          <div className="p-4 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  {t('groups.unclaimedClaimLinksTitle') || 'Enlaces únicos de puestos provisionales'}
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {t('groups.unclaimedClaimLinksSubtitle') || 'Envía cada enlace a la persona correspondiente para que reclame su puesto y sus gastos asignados.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {unclaimedMembers.map((m) => {
+                const claimUrl = `${baseUrl}/join/${group.invite_code}?claim=${m.claim_token}`;
+                const isCopied = copiedMemberId === m.id;
+                return (
+                  <div
+                    key={m.id}
+                    className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-200/60 dark:border-amber-800/40 flex items-center justify-between gap-2 shadow-xs"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                        {m.provisional_name || 'Amigo'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[200px]">
+                        {claimUrl}
+                      </span>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant={isCopied ? 'brand' : 'outline'}
+                      onClick={() => handleCopyClaimLink(m)}
+                      className="text-xs h-7 px-2.5 shrink-0 gap-1 font-semibold"
+                    >
+                      {isCopied ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
+                      <span>{isCopied ? t('common.copied') : t('common.copy')}</span>
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Invite by Email */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">

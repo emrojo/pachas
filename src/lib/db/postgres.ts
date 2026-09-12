@@ -70,6 +70,16 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS frozen_reason TEXT;`).catch(() => {});
     await p.query(`ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS freeze_type TEXT DEFAULT 'full';`).catch(() => {});
 
+    // 2b. Unclaimed members columns
+    await p.query(`ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS is_unclaimed BOOLEAN DEFAULT FALSE;`).catch(() => {});
+    await p.query(`ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS provisional_name TEXT;`).catch(() => {});
+    await p.query(`ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS claim_token TEXT;`).catch(() => {});
+    await p.query(`ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS claimed_by UUID;`).catch(() => {});
+    await p.query(`ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP WITH TIME ZONE;`).catch(() => {});
+    await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_unclaimed BOOLEAN DEFAULT FALSE;`).catch(() => {});
+    await p.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_group_members_claim_token ON public.group_members(claim_token) WHERE claim_token IS NOT NULL;`).catch(() => {});
+    await p.query(`CREATE INDEX IF NOT EXISTS idx_group_members_unclaimed ON public.group_members(group_id, is_unclaimed);`).catch(() => {});
+
     // 3. Reports moderation columns
     await p.query(`ALTER TABLE public.content_reports ADD COLUMN IF NOT EXISTS resolution_notes TEXT;`).catch(() => {});
     await p.query(`ALTER TABLE public.content_reports ADD COLUMN IF NOT EXISTS evidence_snapshot JSONB;`).catch(() => {});

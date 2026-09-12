@@ -27,6 +27,7 @@ export interface Profile {
   banned_at?: string | null;
   banned_by?: string | null;
   ban_reason?: string | null;
+  is_unclaimed?: boolean;
   created_at: string;
 }
 
@@ -58,6 +59,11 @@ export interface GroupMember {
   notifications_enabled?: boolean;
   joined_at: string;
   profile?: Profile;
+  is_unclaimed?: boolean;
+  provisional_name?: string | null;
+  claim_token?: string | null;
+  claimed_by?: string | null;
+  claimed_at?: string | null;
 }
 
 export interface GroupInvitation {
