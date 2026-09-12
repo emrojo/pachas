@@ -204,37 +204,37 @@ export default function MobileDashboardPage() {
               <button
                 type="button"
                 onClick={() => setIsGroupSwitcherOpen(!isGroupSwitcherOpen)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-all text-left max-w-full"
+                className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-all text-left max-w-full"
                 title={t('dashboard.switchGroup') || 'Cambiar de grupo'}
               >
                 {activeGroup?.cover_image_url ? (
                   <img
                     src={activeGroup.cover_image_url}
                     alt=""
-                    className="w-6 h-6 rounded-lg object-cover shrink-0"
+                    className="w-7 h-7 rounded-lg object-cover shrink-0"
                   />
                 ) : (
-                  <span className="text-base shrink-0">{activeGroup?.icon_emoji || '🏖️'}</span>
+                  <span className="text-lg shrink-0">{activeGroup?.icon_emoji || '🏖️'}</span>
                 )}
-                <span className="text-xs font-black text-slate-900 dark:text-white truncate">
+                <span className="text-sm font-black text-slate-900 dark:text-white truncate">
                   {activeGroup ? activeGroup.name : t('dashboard.noGroupsTitle') || 'Sin grupos'}
                 </span>
                 {activeGroup && (
                   activeGroup.is_closed ? (
-                    <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   ) : (
-                    <Globe className="w-3 h-3 text-blue-500 shrink-0" />
+                    <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                   )
                 )}
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-auto" />
+                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-auto" />
               </button>
 
               {isGroupSwitcherOpen && (
-                <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
-                  <div className="px-2 py-1 text-[10px] font-black uppercase text-slate-400">
+                <div className="absolute left-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2.5 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-2.5 py-1 text-xs font-black uppercase text-slate-400">
                     {t('dashboard.yourGroups') || 'Tus Grupos'}
                   </div>
-                  <div className="max-h-48 overflow-y-auto space-y-1">
+                  <div className="max-h-52 overflow-y-auto space-y-1">
                     {activeGroups.map((g) => (
                       <button
                         key={g.id}
@@ -243,31 +243,31 @@ export default function MobileDashboardPage() {
                           handleSelectGroup(g.id);
                           setIsGroupSwitcherOpen(false);
                         }}
-                        className={`w-full flex items-center gap-2 p-2 rounded-xl text-left text-xs transition-colors ${
+                        className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-left text-sm transition-colors ${
                           g.id === activeGroup?.id
                             ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold'
-                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium'
                         }`}
                       >
-                        <span className="text-sm shrink-0">{g.icon_emoji || '🏖️'}</span>
+                        <span className="text-base shrink-0">{g.icon_emoji || '🏖️'}</span>
                         <span className="truncate flex-1">{g.name}</span>
                         {g.is_closed ? (
-                          <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         ) : (
-                          <Globe className="w-3 h-3 text-slate-400 shrink-0" />
+                          <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         )}
-                        {g.id === activeGroup?.id && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                        {g.id === activeGroup?.id && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
                       </button>
                     ))}
                   </div>
-                  <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5 mt-1.5 flex gap-1">
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-2 mt-2 flex gap-1.5">
                     <button
                       type="button"
                       onClick={() => {
                         setIsGroupSwitcherOpen(false);
                         setIsCreateGroupOpen(true);
                       }}
-                      className="flex-1 py-1.5 text-center text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg"
+                      className="flex-1 py-2 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-xl"
                     >
                       + {t('nav.newGroup') || 'Nuevo'}
                     </button>
@@ -277,7 +277,7 @@ export default function MobileDashboardPage() {
                         setIsGroupSwitcherOpen(false);
                         setIsJoinGroupOpen(true);
                       }}
-                      className="flex-1 py-1.5 text-center text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                      className="flex-1 py-2 text-center text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl"
                     >
                       {t('nav.joinGroup') || 'Unirse'}
                     </button>
@@ -309,18 +309,18 @@ export default function MobileDashboardPage() {
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 text-xs">
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2.5 z-50 animate-in fade-in slide-in-from-top-2 text-sm">
                     <div className="p-2 border-b border-slate-100 dark:border-slate-800 mb-1">
-                      <div className="font-bold text-slate-900 dark:text-white truncate">
+                      <div className="font-bold text-slate-900 dark:text-white truncate text-sm">
                         {currentUser.full_name || 'Usuario'}
                       </div>
-                      <div className="text-[11px] text-slate-400 truncate">{currentUser.email}</div>
+                      <div className="text-xs text-slate-400 truncate mt-0.5">{currentUser.email}</div>
                     </div>
 
                     <Link
                       href="/profile"
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium"
+                      className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-sm"
                     >
                       <User className="w-4 h-4 text-slate-400" />
                       <span>{t('nav.profile') || 'Mi Perfil'}</span>
@@ -329,27 +329,27 @@ export default function MobileDashboardPage() {
                     <Link
                       href="/dashboard"
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium"
+                      className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-sm"
                     >
                       <ArrowUpRight className="w-4 h-4 text-slate-400" />
                       <span>Dashboard Estándar</span>
                     </Link>
 
                     {isDemoMode && (
-                      <div className="border-t border-slate-100 dark:border-slate-800 pt-1 mt-1">
-                        <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-amber-500" />
+                      <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5 mt-1.5">
+                        <div className="px-2 py-1 text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                           Simular:
                         </div>
-                        <div className="max-h-28 overflow-y-auto space-y-0.5">
+                        <div className="max-h-32 overflow-y-auto space-y-1">
                           {availableUsers.map((u) => (
                             <button
                               key={u.id}
                               type="button"
                               onClick={() => handleSelectUser(u)}
-                              className="w-full flex items-center gap-2 p-1.5 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                              className="w-full flex items-center gap-2.5 p-1.5 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium"
                             >
-                              <Avatar profile={u} size="sm" className="w-5 h-5 text-[9px]" />
+                              <Avatar profile={u} size="sm" className="w-6 h-6 text-[10px]" />
                               <span className="truncate flex-1">{u.full_name}</span>
                             </button>
                           ))}
@@ -357,11 +357,11 @@ export default function MobileDashboardPage() {
                       </div>
                     )}
 
-                    <div className="border-t border-slate-100 dark:border-slate-800 pt-1 mt-1">
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5 mt-1.5">
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
+                        className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium text-sm"
                       >
                         <LogOut className="w-4 h-4" />
                         <span>{t('nav.logout') || 'Cerrar sesión'}</span>
@@ -374,35 +374,35 @@ export default function MobileDashboardPage() {
           </div>
 
           {activeGroup ? (
-            <div className="bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 rounded-2xl p-3.5 text-white shadow-md shadow-emerald-600/15 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 rounded-2xl p-4 text-white shadow-md shadow-emerald-600/15 relative overflow-hidden">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-100 block">
+                  <span className="text-xs uppercase font-extrabold tracking-wider text-emerald-100 block">
                     {t('dashboard.totalGroupSpent') || 'Gasto Total del Grupo'}
                   </span>
-                  <div className="text-xl font-black tracking-tight mt-0.5">
+                  <div className="text-2xl font-black tracking-tight mt-0.5">
                     {formatMoney(totalGroupSpent, activeGroup.base_currency)}
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-100 block">
+                  <span className="text-xs uppercase font-extrabold tracking-wider text-emerald-100 block">
                     Tu Estado
                   </span>
-                  <div className="mt-0.5">
+                  <div className="mt-1">
                     {myNetBalance < 0 ? (
-                      <span className="inline-flex items-center gap-1 bg-rose-500/90 text-white font-black text-xs px-2 py-0.5 rounded-lg shadow-xs">
-                        <TrendingDown className="w-3 h-3" />
+                      <span className="inline-flex items-center gap-1.5 bg-rose-500/90 text-white font-black text-sm px-3 py-1 rounded-xl shadow-xs">
+                        <TrendingDown className="w-3.5 h-3.5" />
                         {t('dashboard.youOweGroup') || 'Debes'} {formatMoney(Math.abs(myNetBalance), activeGroup.base_currency)}
                       </span>
                     ) : myNetBalance > 0 ? (
-                      <span className="inline-flex items-center gap-1 bg-white/20 text-white font-black text-xs px-2 py-0.5 rounded-lg">
-                        <TrendingUp className="w-3 h-3" />
+                      <span className="inline-flex items-center gap-1.5 bg-white/20 text-white font-black text-sm px-3 py-1 rounded-xl">
+                        <TrendingUp className="w-3.5 h-3.5" />
                         {t('dashboard.groupOwesYou') || 'Te deben'} {formatMoney(myNetBalance, activeGroup.base_currency)}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 bg-white/15 text-emerald-50 font-bold text-xs px-2 py-0.5 rounded-lg">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-200" />
+                      <span className="inline-flex items-center gap-1.5 bg-white/15 text-emerald-50 font-bold text-sm px-3 py-1 rounded-xl">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
                         {t('dashboard.userSettled') || 'Al día'}
                       </span>
                     )}
@@ -411,7 +411,7 @@ export default function MobileDashboardPage() {
               </div>
             </div>
           ) : (
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-center text-xs text-slate-500">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-center text-sm text-slate-500 font-medium">
               {t('dashboard.noGroupsTitle') || 'Crea o únete a un grupo para empezar.'}
             </div>
           )}
@@ -442,29 +442,29 @@ export default function MobileDashboardPage() {
             onChange={handleGalleryChange}
           />
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-3.5 shadow-sm space-y-2.5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                <Plus className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <Plus className="w-4 h-4 text-emerald-600" />
                 Registrar Gasto
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">Elige una opción</span>
+              <span className="text-xs text-slate-400 font-medium">Elige una opción</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2.5">
               <button
                 type="button"
                 disabled={!activeGroup}
                 onClick={() => cameraInputRef.current?.click()}
                 className="flex flex-col items-center justify-center p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 active:scale-95 transition-all shadow-2xs group cursor-pointer disabled:opacity-50"
               >
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
-                  <Camera className="w-4 h-4 stroke-[2.5]" />
+                <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
+                  <Camera className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <span className="text-[11px] font-bold text-center leading-tight">
+                <span className="text-xs sm:text-sm font-bold text-center leading-tight">
                   {t('dashboard.scanReceiptCamera') || 'Escanear'}
                 </span>
-                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">Cámara</span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">Cámara</span>
               </button>
 
               <button
@@ -473,13 +473,13 @@ export default function MobileDashboardPage() {
                 onClick={() => galleryInputRef.current?.click()}
                 className="flex flex-col items-center justify-center p-3 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/60 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-teal-800 dark:text-teal-200 active:scale-95 transition-all shadow-2xs group cursor-pointer disabled:opacity-50"
               >
-                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
-                  <Upload className="w-4 h-4 stroke-[2.5]" />
+                <div className="w-11 h-11 rounded-2xl bg-teal-600 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
+                  <Upload className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <span className="text-[11px] font-bold text-center leading-tight">
+                <span className="text-xs sm:text-sm font-bold text-center leading-tight">
                   {t('dashboard.uploadReceiptImage') || 'Subir Foto'}
                 </span>
-                <span className="text-[9px] text-teal-600 dark:text-teal-400 font-medium">Galería</span>
+                <span className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold mt-0.5">Galería</span>
               </button>
 
               <button
@@ -488,39 +488,39 @@ export default function MobileDashboardPage() {
                 onClick={handleOpenManualExpense}
                 className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 active:scale-95 transition-all shadow-2xs group cursor-pointer disabled:opacity-50"
               >
-                <div className="w-9 h-9 rounded-xl bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                <div className="w-11 h-11 rounded-2xl bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-xs">
+                  <Plus className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <span className="text-[11px] font-bold text-center leading-tight">
+                <span className="text-xs sm:text-sm font-bold text-center leading-tight">
                   {t('dashboard.addExpenseManual') || 'A mano'}
                 </span>
-                <span className="text-[9px] text-slate-400 font-medium">Formulario</span>
+                <span className="text-[11px] text-slate-400 font-semibold mt-0.5">Formulario</span>
               </button>
             </div>
           </div>
 
           {activeTab === 'expenses' && (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   {t('dashboard.tabExpenses') || 'Gastos del Grupo'} ({expenses.length})
                 </span>
                 {activeGroup && (
                   <Link
                     href={`/groups/${activeGroup.id}?tab=expenses`}
-                    className="text-[11px] font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
+                    className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
                   >
-                    Ver todos <ChevronRight className="w-3 h-3" />
+                    Ver todos <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 )}
               </div>
 
               {expenses.length === 0 ? (
-                <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
+                <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-sm font-medium">
                   {t('dashboard.noExpensesInGroup') || 'Aún no hay gastos registrados en este grupo.'}
                 </div>
               ) : (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {expenses.slice(0, 10).map((exp) => {
                     const payerUserId = exp.payers?.[0]?.user_id || exp.created_by;
                     const payerMember = members.find((m) => m.user_id === payerUserId);
@@ -530,28 +530,28 @@ export default function MobileDashboardPage() {
                       <div
                         key={exp.id}
                         onClick={() => handleEditExpense(exp)}
-                        className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 hover:border-emerald-400 rounded-2xl flex items-center justify-between gap-2.5 cursor-pointer active:scale-[0.99] transition-all shadow-2xs"
+                        className="p-3 bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 hover:border-emerald-400 rounded-2xl flex items-center justify-between gap-3 cursor-pointer active:scale-[0.99] transition-all shadow-2xs"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm shrink-0">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg shrink-0">
                             {categoryInfo?.emoji || '🧾'}
                           </div>
                           <div className="min-w-0">
-                            <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
+                            <span className="font-bold text-sm text-slate-900 dark:text-white truncate block">
                               {exp.title}
                             </span>
-                            <span className="text-[10px] text-slate-400 truncate block">
-                              {formatDate(exp.expense_date || exp.created_at)} • Pagó <strong className="text-slate-600 dark:text-slate-300">{payerName}</strong>
+                            <span className="text-xs text-slate-400 truncate block mt-0.5">
+                              {formatDate(exp.expense_date || exp.created_at)} • Pagó <strong className="text-slate-600 dark:text-slate-300 font-semibold">{payerName}</strong>
                             </span>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                          <div className="text-sm font-black text-slate-900 dark:text-white font-mono">
                             {formatMoney(exp.amount, activeGroup?.base_currency || 'EUR')}
                           </div>
                           {exp.split_type === 'ITEMIZED' && (
-                            <span className="text-[9px] uppercase font-bold text-emerald-600">Por ítems</span>
+                            <span className="text-[11px] uppercase font-bold text-emerald-600 block mt-0.5">Por ítems</span>
                           )}
                         </div>
                       </div>
@@ -563,30 +563,30 @@ export default function MobileDashboardPage() {
           )}
 
           {activeTab === 'groups' && (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   {t('dashboard.tabGroups') || 'Mis Grupos'} ({activeGroups.length})
                 </span>
-                <div className="flex gap-2">
+                <div className="flex gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsCreateGroupOpen(true)}
-                    className="text-[11px] font-bold text-emerald-600 hover:underline"
+                    className="text-xs font-bold text-emerald-600 hover:underline"
                   >
                     + Nuevo
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsJoinGroupOpen(true)}
-                    className="text-[11px] font-bold text-slate-500 hover:underline"
+                    className="text-xs font-bold text-slate-500 hover:underline"
                   >
                     Unirse
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {activeGroups.map((g) => {
                   const isSelected = g.id === activeGroup?.id;
                   const gMembers = getGroupMembers(g.id);
@@ -597,32 +597,32 @@ export default function MobileDashboardPage() {
                         handleSelectGroup(g.id);
                         setActiveTab('expenses');
                       }}
-                      className={`p-3 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                      className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                         isSelected
                           ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 ring-1 ring-emerald-500 shadow-xs'
                           : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0">
                         {g.cover_image_url ? (
-                          <img src={g.cover_image_url} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0" />
+                          <img src={g.cover_image_url} alt="" className="w-11 h-11 rounded-2xl object-cover shrink-0" />
                         ) : (
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg shrink-0">
+                          <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl shrink-0">
                             {g.icon_emoji || '🏖️'}
                           </div>
                         )}
                         <div className="min-w-0">
-                          <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
+                          <span className="font-bold text-sm text-slate-900 dark:text-white truncate block">
                             {g.name}
                           </span>
-                          <span className="text-[10px] text-slate-400 block">
+                          <span className="text-xs text-slate-400 block mt-0.5">
                             {gMembers.length} miembros • {g.base_currency}
                           </span>
                         </div>
                       </div>
 
                       {isSelected ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                           Activo
                         </span>
                       ) : (
@@ -636,47 +636,47 @@ export default function MobileDashboardPage() {
           )}
 
           {activeTab === 'options' && (
-            <div className="space-y-3">
-              <div className="px-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-3.5">
+              <div className="px-1 text-sm font-bold text-slate-700 dark:text-slate-300">
                 {t('dashboard.tabOptions') || 'Opciones del Grupo'}
               </div>
 
               {activeGroup ? (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <button
                     type="button"
                     onClick={() => setIsInviteOpen(true)}
-                    className="w-full p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-                        <QrCode className="w-4 h-4" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
+                        <QrCode className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">Invitar Amigos</div>
-                        <div className="text-[10px] text-slate-400">Enlace o código QR de acceso</div>
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">Invitar Amigos</div>
+                        <div className="text-xs text-slate-400 mt-0.5">Enlace o código QR de acceso</div>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                   </button>
 
                   {debts.length > 0 ? (
-                    <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/60 space-y-2">
-                      <div className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                        <HandCoins className="w-3.5 h-3.5 text-amber-600" />
+                    <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/60 space-y-2.5">
+                      <div className="text-sm font-bold text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                        <HandCoins className="w-4 h-4 text-amber-600" />
                         Deudas Pendientes ({debts.length})
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {debts.map((d, i) => (
                           <div
                             key={i}
                             onClick={() => setSettlingDebt(d)}
-                            className="p-2 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-between text-xs cursor-pointer hover:shadow-xs border border-amber-100 dark:border-amber-900/40"
+                            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-between text-sm cursor-pointer hover:shadow-xs border border-amber-100 dark:border-amber-900/40"
                           >
-                            <span className="text-[11px] truncate">
-                              <strong>{d.from_profile.full_name}</strong> ➔ {d.to_profile.full_name}
+                            <span className="text-xs font-medium truncate">
+                              <strong className="font-bold">{d.from_profile.full_name}</strong> ➔ {d.to_profile.full_name}
                             </span>
-                            <span className="font-bold text-emerald-600 text-xs shrink-0">
+                            <span className="font-bold text-emerald-600 text-sm shrink-0 ml-2">
                               {formatMoney(d.amount, activeGroup.base_currency)}
                             </span>
                           </div>
@@ -688,39 +688,39 @@ export default function MobileDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setIsEditGroupOpen(true)}
-                    className="w-full p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 flex items-center justify-center">
-                        <Settings className="w-4 h-4" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 flex items-center justify-center shrink-0">
+                        <Settings className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">Ajustes del Grupo</div>
-                        <div className="text-[10px] text-slate-400">Nombre, foto de portada y moneda</div>
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">Ajustes del Grupo</div>
+                        <div className="text-xs text-slate-400 mt-0.5">Nombre, foto de portada y moneda</div>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => exportGroupToPDF(activeGroup, expenses, balances, debts, 'download')}
-                    className="w-full p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center">
-                        <FileDown className="w-4 h-4" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center shrink-0">
+                        <FileDown className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">Descargar Informe PDF</div>
-                        <div className="text-[10px] text-slate-400">Balance y resumen de gastos</div>
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">Descargar Informe PDF</div>
+                        <div className="text-xs text-slate-400 mt-0.5">Balance y resumen de gastos</div>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                   </button>
                 </div>
               ) : (
-                <div className="p-4 text-center text-xs text-slate-400">
+                <div className="p-4 text-center text-sm text-slate-400 font-medium">
                   Selecciona un grupo para ver sus opciones.
                 </div>
               )}
@@ -729,45 +729,45 @@ export default function MobileDashboardPage() {
         </main>
 
         {/* FOOTER: 3 Concise Views Navigation Bar */}
-        <footer className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-3 py-2">
-          <div className="grid grid-cols-3 gap-1">
+        <footer className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-3 py-2.5">
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               type="button"
               onClick={() => setActiveTab('expenses')}
-              className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center py-2 rounded-xl transition-all cursor-pointer ${
                 activeTab === 'expenses'
-                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/60 dark:bg-emerald-950/30'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/70 dark:bg-emerald-950/40'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
               }`}
             >
-              <Receipt className="w-4 h-4" />
-              <span className="text-[10px] mt-0.5">{t('dashboard.tabExpenses') || 'Gastos'}</span>
+              <Receipt className="w-5 h-5" />
+              <span className="text-xs mt-1 leading-none">{t('dashboard.tabExpenses') || 'Gastos'}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('groups')}
-              className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center py-2 rounded-xl transition-all cursor-pointer ${
                 activeTab === 'groups'
-                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/60 dark:bg-emerald-950/30'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/70 dark:bg-emerald-950/40'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
               }`}
             >
-              <Users className="w-4 h-4" />
-              <span className="text-[10px] mt-0.5">{t('dashboard.tabGroups') || 'Grupos'}</span>
+              <Users className="w-5 h-5" />
+              <span className="text-xs mt-1 leading-none">{t('dashboard.tabGroups') || 'Grupos'}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('options')}
-              className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center py-2 rounded-xl transition-all cursor-pointer ${
                 activeTab === 'options'
-                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/60 dark:bg-emerald-950/30'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/70 dark:bg-emerald-950/40'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
               }`}
             >
-              <Settings className="w-4 h-4" />
-              <span className="text-[10px] mt-0.5">{t('dashboard.tabOptions') || 'Opciones'}</span>
+              <Settings className="w-5 h-5" />
+              <span className="text-xs mt-1 leading-none">{t('dashboard.tabOptions') || 'Opciones'}</span>
             </button>
           </div>
         </footer>
