@@ -164,6 +164,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         rawItems.map((it: any) => ({
           id: it.id || generateUUID(),
           description: it.description || '',
+          description_original: it.description_original || undefined,
           price: Number(it.price) || 0,
           assignedUserIds: it.assigned_user_ids || [],
         }))
@@ -448,6 +449,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         ? lineItems.map((it) => ({
             id: it.id,
             description: it.description,
+            description_original: it.description_original || undefined,
             price: it.price,
             assigned_user_ids: it.assignedUserIds,
           }))
@@ -461,6 +463,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         category,
         expenseDate,
         receiptUrl: finalReceiptUrl,
+        receiptTranslatedUrl: pendingScan.translated_image || pendingScan.scanned_data?.receiptTranslatedUrl || undefined,
         splitType: (splitByItems ? 'ITEMIZED' : 'EQUAL') as SplitType,
         items: itemsToSave,
         payers: [{ userId: payerId, amountPaid: parsedAmt }],
@@ -843,6 +846,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         isOpen={Boolean(zoomModalUrl)}
         onClose={() => setZoomModalUrl(null)}
         receiptUrl={zoomModalUrl}
+        receiptTranslatedUrl={pendingScan?.translated_image || pendingScan?.scanned_data?.receiptTranslatedUrl || null}
         title={title || t('expenses.censoredReceipt')}
       />
     </Modal>

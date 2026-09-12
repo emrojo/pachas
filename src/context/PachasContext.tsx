@@ -63,6 +63,8 @@ export interface CreateExpenseInput {
   category: ExpenseCategory;
   expenseDate: string;
   receiptUrl?: string | null;
+  receiptTranslatedUrl?: string | null;
+  receipt_translated_url?: string | null;
   notes?: string;
   splitType: SplitType;
   payers: { userId: string; amountPaid: number }[];
@@ -229,11 +231,15 @@ function sanitizeExpensesForLocalStorage(data: Record<string, Expense[]>): Recor
   const sanitized: Record<string, Expense[]> = {};
   for (const [groupId, list] of Object.entries(data)) {
     sanitized[groupId] = list.map((exp) => {
-      // If receipt_url is a massive base64 image (> 2048 chars), omit in sessionStorage cache
-      if (exp.receipt_url && exp.receipt_url.startsWith('data:') && exp.receipt_url.length > 2048) {
-        return { ...exp, receipt_url: null };
+      let updated = exp;
+      // If receipt_url or receipt_translated_url is a massive base64 image (> 2048 chars), omit in sessionStorage cache
+      if (updated.receipt_url && updated.receipt_url.startsWith('data:') && updated.receipt_url.length > 2048) {
+        updated = { ...updated, receipt_url: null };
       }
-      return exp;
+      if (updated.receipt_translated_url && updated.receipt_translated_url.startsWith('data:') && updated.receipt_translated_url.length > 2048) {
+        updated = { ...updated, receipt_translated_url: null };
+      }
+      return updated;
     });
   }
   return sanitized;
@@ -2137,6 +2143,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       category: input.category,
       expense_date: input.expenseDate,
       receipt_url: input.receiptUrl || null,
+      receipt_translated_url: input.receiptTranslatedUrl || input.receipt_translated_url || null,
       notes: input.notes || null,
       split_type: input.splitType,
       items: input.items || [],
@@ -2179,6 +2186,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             category: newExpense.category,
             expenseDate: newExpense.expense_date,
             receiptUrl: newExpense.receipt_url,
+            receiptTranslatedUrl: newExpense.receipt_translated_url,
+            receipt_translated_url: newExpense.receipt_translated_url,
             notes: newExpense.notes,
             splitType: newExpense.split_type,
             items: newExpense.items,
@@ -2284,7 +2293,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     (async () => {
       try {
         console.log('[QueueScan] 🚀 Procesando ticket en segundo plano:', scanId);
-        const scannedData = await scanReceipt(censoredImageDataUrl);
+        const targetLang = safeGetLocalStorage('pachas_language_v1') || 'es';
+        const scannedData = await scanReceipt(censoredImageDataUrl, targetLang);
         console.log('[QueueScan] 📥 Resultado de IA para scanId:', scanId, scannedData);
 
         const hasDefinitiveData = Boolean(
@@ -2294,6 +2304,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         const updatedScan: PendingReceiptScan = {
           ...newScan,
+          translated_image: scannedData?.receiptTranslatedUrl || null,
           status: 'ready',
           scanned_data: scannedData || undefined,
         };
@@ -2630,6 +2641,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       category: input.category,
       expense_date: input.expenseDate,
       receipt_url: input.receiptUrl !== undefined ? input.receiptUrl : existing.receipt_url,
+      receipt_translated_url:
+        input.receiptTranslatedUrl !== undefined
+          ? input.receiptTranslatedUrl
+          : input.receipt_translated_url !== undefined
+          ? input.receipt_translated_url
+          : existing.receipt_translated_url,
       notes: input.notes !== undefined ? input.notes : existing.notes,
       split_type: input.splitType,
       items: input.items !== undefined ? input.items : existing.items,
@@ -2664,6 +2681,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             category: updatedExpense.category,
             expenseDate: updatedExpense.expense_date,
             receiptUrl: updatedExpense.receipt_url,
+            receiptTranslatedUrl: updatedExpense.receipt_translated_url,
+            receipt_translated_url: updatedExpense.receipt_translated_url,
             notes: updatedExpense.notes,
             splitType: updatedExpense.split_type,
             items: updatedExpense.items,

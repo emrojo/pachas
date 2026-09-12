@@ -901,6 +901,31 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-71.7**: **Internationalization (i18n)**:
   - Synchronized across all 20 languages in `src/locales/*.ts`.
 
+### 🌐 FR-72: Foreign Receipt Multilingual Translation & Dual-Image Preservation
+- **FR-72.1**: **Multimodal OCR Language Detection & Bilingual Parsing**:
+  - The OCR scanning endpoint (`POST /api/ocr/scan`) accepts `targetLanguage` (defaults to user's active UI language code).
+  - Detects receipt language (`detectedLanguage`) and directs Google Gemini 1.5 Flash Vision to extract both the translated line item concept (`description`) and the literal printed text (`description_original`).
+  - Returns normalized bounding boxes (`box_2d: [ymin, xmin, ymax, xmax]`, `originalText`, `translatedText`) for visual inpainting overlay.
+- **FR-72.2**: **Client-Side Canvas AI Lens Visual Overlay (`generateTranslatedReceiptOverlay`)**:
+  - Pure client-side HTML5 `<canvas>` rendering engine mirroring Google Lens / Apple Live Text.
+  - Draws semi-translucent high-contrast bounding boxes with emerald borders directly over foreign text and renders translated typography matching original line heights and widths.
+  - Adds a discrete `🌐 Pachas AI Lens` watermark badge.
+  - Produces an optimized base64 JPEG data URL at zero additional LLM token or external API cost.
+- **FR-72.3**: **Database Schema & Dual-Image / Bilingual Item Persistence**:
+  - Database migration `deploy/init-scripts/19-translated-receipts-and-items.sql` adds `receipt_translated_url TEXT` to `public.expenses` and `description_original VARCHAR(255)` to `public.expense_items`.
+  - Full schema auto-healing in `src/lib/db/postgres.ts`, type models in `src/types/database.ts`, and REST persistence in `POST /api/expenses` and `PUT /api/expenses/[id]`.
+  - Storage safety: `sanitizeExpensesForLocalStorage` in `PachasContext.tsx` strips large base64 strings (>2048 chars) from both `receipt_url` and `receipt_translated_url` when caching in `sessionStorage` to prevent browser `QuotaExceededError`.
+- **FR-72.4**: **Interactive Segmented Receipt Viewer (`ReceiptModal.tsx`)**:
+  - Modal provides an ergonomic segmented pill selector: `[ 📷 Original ]` | `[ 🌐 Traducido ]` whenever a translated receipt exists.
+  - Seamless visual transition preserving zoom and pan coordinates, plus contextual image download naming (`pachas_ticket_traducido_...`).
+  - Visual status chips and badging in `ExpenseCard.tsx` (`🌐 Ticket`), `ReceiptValidationModal.tsx`, and `ExpenseForm.tsx`.
+- **FR-72.5**: **Bilingual Line-Item Presentation (`ItemizedSplitEditor.tsx` & `ExpenseForm.tsx`)**:
+  - Itemized split editor displays the translated description in the primary input and an informative subscript badge: `🌐 Original: [description_original]` whenever the original differs from the translated text.
+  - Facilitates immediate product comprehension for travelers abroad without losing cross-referencing against the physical receipt.
+- **FR-72.6**: **Full 20-Language Internationalization (i18n)**:
+  - All 20 language dictionaries in `src/locales/*.ts` synchronized with keys: `originalReceipt`, `translatedReceipt`, `originalDescription`, `translatedDescription`, `detectedLanguage`, `translatingReceipt`.
+
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -1053,6 +1078,7 @@ This document serves as the official and permanent registry for all **user requi
 | **13/09/2026** | 🔔 Added | **FR-69** | **Production Demo Notifications Database Purge Migration**: Database migration `17-clean-demo-notifications.sql` and deterministic runner integration in `migrator.ts` and `migrator.test.ts` to automatically purge development/mock notifications from `public.notifications` across production databases. |
 | **13/09/2026** | 💰 Added | **FR-70** | **Expense Reimbursement Tracking, Multi-State Visual Badging & Debt Balance Exclusion (`has_paid`)**: Integrated participant reimbursement tracking in the expense editor (`ExpenseForm`) for desktop and mobile (`isMobileView`); visual payment status badges (`✅ Completado`, `🔄 Parcialmente pagado (X/Y)`, `⏳ Por pagar`) across desktop (`ExpenseCard`) and mobile (`/dashboard-mobile`); mathematical exclusion of reimbursed debt from group net balances (`simplifyDebts.ts`), conserving zero-sum equilibrium ($\sum \text{netBalance} = 0$); PostgreSQL schema migration `18-expense-participant-has-paid.sql`; API persistence in `POST /api/expenses` and `PUT /api/expenses/[id]`; and full 20-language i18n synchronization. |
 | **13/09/2026** | 👥 Added | **FR-71** | **Equal Split Mode for Multiple Payers ("A partes iguales")**: Integrated mode switcher tab in `ExpenseForm` when multiple friends paid (`EQUAL` vs `EXACT`); interactive payer selection chips with member avatars; one-click *"Todos"* button; automatic equal share calculation using `calculateSplits(totalAmount, 'EQUAL', selectedPayerIds)` with loss-less penny balancing; live breakdown banner with exact cents; smart auto-detection on edit; contextual accordion header badge (`Varios amigos (X a partes iguales)`); and 20-language i18n synchronization. |
+| **13/09/2026** | 🌐 Added | **FR-72** | **Foreign Receipt Multilingual Translation & Dual-Image Preservation**: Multimodal language detection in `/api/ocr/scan` with bilingual item extraction (`description` translated, `description_original` printed); client-side Canvas AI Lens overlay rendering (`generateTranslatedReceiptOverlay`) producing translated receipt image at zero extra API token cost; database migration `19-translated-receipts-and-items.sql` (`receipt_translated_url`, `description_original`); dual-image segmented toggle in `ReceiptModal` (`[ 📷 Original ]` | `[ 🌐 Traducido ]`); bilingual item labels in `ItemizedSplitEditor`; safe storage sanitization in `PachasContext`; and complete 20-language i18n synchronization. |
 
 
 

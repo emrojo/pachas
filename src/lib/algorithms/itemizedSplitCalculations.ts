@@ -1,9 +1,10 @@
-﻿import { CalculatedSplitResult } from '@/lib/algorithms/splitCalculations';
+import { CalculatedSplitResult } from '@/lib/algorithms/splitCalculations';
 import { formatMoney } from '@/lib/currencies';
 
 export interface LineItemInput {
   id: string;
   description: string;
+  description_original?: string;
   price: number;
   assignedUserIds: string[];
 }

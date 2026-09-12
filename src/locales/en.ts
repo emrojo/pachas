@@ -598,6 +598,12 @@ export const en: TranslationDictionary = {
     confirmSwitchToNormalSplit: "Do you want to return to standard split? The itemized breakdown will be discarded.",
     switchToNormalSplit: "Return to standard split",
     itemizedBalanceMismatch: "The line items sum does not match the invoice total",
+    originalReceipt: 'Original receipt',
+    translatedReceipt: 'Translated receipt',
+    originalDescription: 'Original',
+    translatedDescription: 'Translated',
+    detectedLanguage: 'Detected language',
+    translatingReceipt: 'Translating receipt...',
   },
   balances: {
     title: 'Balances & Debts',

@@ -22,6 +22,7 @@ export interface ReceiptModalProps {
   isOpen: boolean;
   onClose: () => void;
   receiptUrl: string | null;
+  receiptTranslatedUrl?: string | null;
   title: string;
 }
 
@@ -29,10 +30,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   isOpen,
   onClose,
   receiptUrl,
+  receiptTranslatedUrl,
   title,
 }) => {
   const { t } = useTranslation();
 
+  const [activeTab, setActiveTab] = useState<'original' | 'translated'>('original');
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -43,6 +46,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const initialTouchDistanceRef = useRef<number | null>(null);
 
+  const hasTranslated = Boolean(receiptTranslatedUrl);
+  const currentUrl = activeTab === 'translated' && receiptTranslatedUrl ? receiptTranslatedUrl : receiptUrl;
+
   // Reset transform whenever modal opens or image changes
   useEffect(() => {
     if (isOpen) {
@@ -51,10 +57,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       setPosition({ x: 0, y: 0 });
       setIsDragging(false);
       setIsFullscreen(false);
+      if (receiptTranslatedUrl) {
+        setActiveTab('translated');
+      } else {
+        setActiveTab('original');
+      }
     }
-  }, [isOpen, receiptUrl]);
+  }, [isOpen, receiptUrl, receiptTranslatedUrl]);
 
-  if (!receiptUrl) return null;
+  if (!currentUrl) return null;
 
   // Zoom helpers
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.35, 4));
@@ -153,9 +164,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handleOpenNewTab = () => {
-    if (!receiptUrl) return;
+    if (!currentUrl) return;
 
-    if (receiptUrl.startsWith('data:')) {
+    if (currentUrl.startsWith('data:')) {
       const win = window.open('', '_blank');
       if (win) {
         win.document.write(`
@@ -207,9 +218,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </style>
             </head>
             <body>
-              <div class="bar">🧾 ${title || 'Ticket / Comprobante'}</div>
+              <div class="bar">🧾 ${title || 'Ticket / Comprobante'} ${activeTab === 'translated' ? '(Traducido)' : ''}</div>
               <div class="container">
-                <img src="${receiptUrl}" alt="${title || 'Ticket'}" />
+                <img src="${currentUrl}" alt="${title || 'Ticket'}" />
               </div>
             </body>
           </html>
@@ -219,15 +230,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       }
     }
 
-    window.open(receiptUrl, '_blank', 'noopener,noreferrer');
+    window.open(currentUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownload = () => {
-    if (!receiptUrl) return;
+    if (!currentUrl) return;
     const a = document.createElement('a');
-    a.href = receiptUrl;
+    a.href = currentUrl;
     const safeTitle = (title || 'ticket').toLowerCase().replace(/[^a-z0-9]/g, '_');
-    a.download = `pachas_ticket_${safeTitle}.jpg`;
+    const suffix = activeTab === 'translated' ? '_traducido' : '';
+    a.download = `pachas_ticket${suffix}_${safeTitle}.jpg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -242,6 +254,45 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       maxWidth={isFullscreen ? 'full' : 'xl'}
     >
       <div className="flex flex-col items-center gap-3">
+        {/* Toggle between Original and Translated if available */}
+        {hasTranslated && (
+          <div className="w-full flex items-center justify-between p-1.5 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-2 hidden sm:inline">
+              {t('expenses.receiptPhoto') || 'Vista de factura'}:
+            </span>
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('original');
+                  handleReset();
+                }}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'original'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>📷 {t('expenses.originalReceipt') || 'Original'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('translated');
+                  handleReset();
+                }}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'translated'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>🌐 {t('expenses.translatedReceipt') || 'Traducido'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Verification banner */}
         <div className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 text-xs">
           <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
@@ -335,7 +386,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={receiptUrl}
+              src={currentUrl}
               alt={title}
               className="max-h-[50vh] sm:max-h-[58vh] max-w-full object-contain rounded-xl shadow-2xl"
               draggable={false}

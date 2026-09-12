@@ -596,6 +596,12 @@ export const es = {
     confirmSwitchToNormalSplit: "¿Deseas volver al reparto estándar? Se descartará el desglose por productos.",
     switchToNormalSplit: "Volver a reparto estándar",
     itemizedBalanceMismatch: "El desglose no cuadra con el importe total",
+    originalReceipt: 'Ticket original',
+    translatedReceipt: 'Ticket traducido',
+    originalDescription: 'Original',
+    translatedDescription: 'Traducido',
+    detectedLanguage: 'Idioma detectado',
+    translatingReceipt: 'Traduciendo ticket...',
   },
   balances: {
     title: 'Balances y Cuentas',

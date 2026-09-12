@@ -105,6 +105,7 @@ export interface ExpenseItem {
   id: string;
   expense_id?: string;
   description: string;
+  description_original?: string | null;
   price: number;
   assigned_user_ids: string[];
   created_at?: string;
@@ -122,6 +123,7 @@ export interface Expense {
   category: ExpenseCategory;
   expense_date: string;
   receipt_url?: string | null;
+  receipt_translated_url?: string | null;
   notes?: string | null;
   split_type: SplitType;
   latitude?: number | null;
@@ -243,6 +245,7 @@ export interface PendingReceiptScan {
   user_id: string;
   created_at: string;
   original_image: string; // Base64 pre-censored image
+  translated_image?: string | null; // Translated overlay image
   status: 'processing' | 'ready' | 'error';
   error_message?: string;
   scanned_data?: any; // ScannedReceiptData

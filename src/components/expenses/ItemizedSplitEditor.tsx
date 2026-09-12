@@ -170,6 +170,16 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                       placeholder={t('expenses.productDescPlaceholder') || 'Ej: Cerveza, Pizza, Ensalada...'}
                       className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
                     />
+                    {item.description_original && item.description_original.trim() !== item.description.trim() && (
+                      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider shrink-0">
+                          🌐 {t('expenses.originalDescription') || 'Original'}:
+                        </span>
+                        <span className="truncate italic" title={item.description_original}>
+                          {item.description_original}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="w-28 shrink-0 relative">

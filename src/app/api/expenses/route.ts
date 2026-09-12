@@ -29,6 +29,9 @@ export async function POST(request: NextRequest) {
       category = 'other',
       expenseDate = new Date().toISOString().split('T')[0],
       receiptUrl = null,
+      receipt_url = receiptUrl,
+      receiptTranslatedUrl = null,
+      receipt_translated_url = receiptTranslatedUrl,
       notes = null,
       splitType = 'EQUAL',
       latitude = null,
@@ -40,6 +43,8 @@ export async function POST(request: NextRequest) {
       participants = [],
       items = [],
     } = body;
+    const finalReceiptUrl = receipt_url || receiptUrl || null;
+    const finalReceiptTranslatedUrl = receipt_translated_url || receiptTranslatedUrl || null;
 
     if (!cleanGroupId || !title || amount === undefined || amount === null) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
@@ -117,13 +122,13 @@ export async function POST(request: NextRequest) {
         INSERT INTO public.expenses (
           id, group_id, created_by, title, amount, currency,
           exchange_rate, converted_amount, category, expense_date,
-          receipt_url, notes, split_type, latitude, longitude,
+          receipt_url, receipt_translated_url, notes, split_type, latitude, longitude,
           location_name, ocr_status, created_at, updated_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6,
           $7, $8, $9, $10,
-          $11, $12, $13, $14, $15,
-          $16, $17, NOW(), NOW()
+          $11, $12, $13, $14, $15, $16,
+          $17, $18, NOW(), NOW()
         )
         ON CONFLICT (id) DO UPDATE SET
           title = EXCLUDED.title,
@@ -134,6 +139,7 @@ export async function POST(request: NextRequest) {
           category = EXCLUDED.category,
           expense_date = EXCLUDED.expense_date,
           receipt_url = EXCLUDED.receipt_url,
+          receipt_translated_url = EXCLUDED.receipt_translated_url,
           notes = EXCLUDED.notes,
           split_type = EXCLUDED.split_type,
           latitude = EXCLUDED.latitude,
@@ -145,8 +151,7 @@ export async function POST(request: NextRequest) {
       `;
 
       // Insert expense — uses SAVEPOINT so that if the primary INSERT fails due to a
-      // missing column (e.g. ocr_status not yet migrated, code 42703), the transaction
-      // is rolled back to a clean state and the fallback query can run safely.
+      // missing column, the transaction is rolled back to a clean state and fallback query runs.
       await client.query('SAVEPOINT insert_expense');
       try {
         await client.query(insertQuery, [
@@ -160,7 +165,8 @@ export async function POST(request: NextRequest) {
           safeConvertedAmount,
           category,
           cleanDate,
-          receiptUrl,
+          finalReceiptUrl,
+          finalReceiptTranslatedUrl,
           notes,
           splitType,
           latitude,
@@ -171,47 +177,43 @@ export async function POST(request: NextRequest) {
         await client.query('RELEASE SAVEPOINT insert_expense');
       } catch (insertErr: any) {
         await client.query('ROLLBACK TO SAVEPOINT insert_expense');
-        if (insertErr.code === '42703' || String(insertErr.message).includes('ocr_status')) {
-          // Fallback: insert without ocr_status (older schema)
-          await client.query(
-            `INSERT INTO public.expenses (
-              id, group_id, created_by, title, amount, currency,
-              category, expense_date, receipt_url, notes,
-              split_type, latitude, longitude, location_name, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-            ON CONFLICT (id) DO UPDATE SET
-              title = EXCLUDED.title,
-              amount = EXCLUDED.amount,
-              currency = EXCLUDED.currency,
-              category = EXCLUDED.category,
-              expense_date = EXCLUDED.expense_date,
-              receipt_url = EXCLUDED.receipt_url,
-              notes = EXCLUDED.notes,
-              split_type = EXCLUDED.split_type,
-              latitude = EXCLUDED.latitude,
-              longitude = EXCLUDED.longitude,
-              location_name = EXCLUDED.location_name,
-              updated_at = NOW()`,
-            [
-              id,
-              groupId,
-              user.userId,
-              title,
-              dbAmount,
-              currency,
-              category,
-              cleanDate,
-              receiptUrl,
-              notes,
-              splitType,
-              latitude,
-              longitude,
-              locationName,
-            ]
-          );
-        } else {
-          throw insertErr;
-        }
+        // Fallback: insert without receipt_translated_url / ocr_status if older schema
+        await client.query(
+          `INSERT INTO public.expenses (
+            id, group_id, created_by, title, amount, currency,
+            category, expense_date, receipt_url, notes,
+            split_type, latitude, longitude, location_name, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            title = EXCLUDED.title,
+            amount = EXCLUDED.amount,
+            currency = EXCLUDED.currency,
+            category = EXCLUDED.category,
+            expense_date = EXCLUDED.expense_date,
+            receipt_url = EXCLUDED.receipt_url,
+            notes = EXCLUDED.notes,
+            split_type = EXCLUDED.split_type,
+            latitude = EXCLUDED.latitude,
+            longitude = EXCLUDED.longitude,
+            location_name = EXCLUDED.location_name,
+            updated_at = NOW()`,
+          [
+            id,
+            groupId,
+            user.userId,
+            title,
+            dbAmount,
+            currency,
+            category,
+            cleanDate,
+            finalReceiptUrl,
+            notes,
+            splitType,
+            latitude,
+            longitude,
+            locationName,
+          ]
+        );
       }
 
       // 2. Clear and insert payers
@@ -252,13 +254,20 @@ export async function POST(request: NextRequest) {
           for (const it of items) {
             const itemId = it.id && !it.id.startsWith('item-') ? it.id : randomUUID();
             const desc = (it.description || 'Producto').trim();
+            const descOrig = it.description_original ? String(it.description_original).trim() : null;
             const itemPrice = Math.max(0, Number(it.price) || 0);
             const assigned = Array.isArray(it.assigned_user_ids) ? it.assigned_user_ids : [];
             await client.query(
-              `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [itemId, id, desc, itemPrice, assigned]
-            );
+              `INSERT INTO public.expense_items (id, expense_id, description, description_original, price, assigned_user_ids)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [itemId, id, desc, descOrig, itemPrice, assigned]
+            ).catch(async () => {
+              await client.query(
+                `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [itemId, id, desc, itemPrice, assigned]
+              );
+            });
           }
         }
         await client.query('RELEASE SAVEPOINT save_expense_items');
@@ -352,6 +361,7 @@ export async function POST(request: NextRequest) {
                   'id', ei.id,
                   'expense_id', ei.expense_id,
                   'description', ei.description,
+                  'description_original', ei.description_original,
                   'price', ei.price,
                   'assigned_user_ids', ei.assigned_user_ids
                 )) FILTER (WHERE ei.id IS NOT NULL) as items,
@@ -503,6 +513,7 @@ export async function GET(request: NextRequest) {
                'id', ei.id,
                'expense_id', ei.expense_id,
                'description', ei.description,
+               'description_original', ei.description_original,
                'price', ei.price,
                'assigned_user_ids', ei.assigned_user_ids
              )) FILTER (WHERE ei.id IS NOT NULL) as items,

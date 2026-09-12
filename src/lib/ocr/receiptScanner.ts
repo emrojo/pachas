@@ -5,9 +5,16 @@ export interface SensitiveBox {
   label?: string;
 }
 
+export interface TranslatedBox {
+  box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
+  originalText: string;
+  translatedText: string;
+}
+
 export interface ScannedLineItem {
   id?: string;
   description: string;
+  description_original?: string | null;
   price: number;
 }
 
@@ -23,7 +30,10 @@ export interface ScannedReceiptData {
   mapsUrl?: string;
   currency?: string;
   rawText?: string;
+  detectedLanguage?: string;
   sensitiveBoxes?: SensitiveBox[];
+  translatedBoxes?: TranslatedBox[];
+  receiptTranslatedUrl?: string | null;
   items?: ScannedLineItem[];
   confidence: number;
   source?: string;
@@ -262,11 +272,150 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
 }
 
 /**
+ * Renders a visual translated overlay onto the receipt image using HTML5 Canvas,
+ * mirroring Google Lens / Apple Live Text style visual text replacement.
+ */
+export async function generateTranslatedReceiptOverlay(
+  base64Image: string,
+  translatedBoxes: TranslatedBox[]
+): Promise<string | null> {
+  if (typeof window === 'undefined' || !base64Image || !translatedBoxes || translatedBoxes.length === 0) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const maxDim = 1600;
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+
+          // Draw the base receipt
+          ctx.drawImage(img, 0, 0, w, h);
+
+          // Render translated text pills over each detected line item / box
+          for (const box of translatedBoxes) {
+            if (!box.translatedText || !box.box_2d || box.box_2d.length !== 4) continue;
+            const [ymin, xmin, ymax, xmax] = box.box_2d;
+
+            const boxLeft = (xmin / 1000) * w;
+            const boxTop = (ymin / 1000) * h;
+            const boxW = Math.max(20, ((xmax - xmin) / 1000) * w);
+            const boxH = Math.max(14, ((ymax - ymin) / 1000) * h);
+
+            const padX = Math.max(3, boxW * 0.03);
+            const padY = Math.max(2, boxH * 0.08);
+            const rectX = Math.max(0, boxLeft - padX);
+            const rectY = Math.max(0, boxTop - padY);
+            const rectW = Math.min(w - rectX, boxW + padX * 2);
+            const rectH = Math.min(h - rectY, boxH + padY * 2);
+
+            ctx.save();
+            // Semi-opaque pill background with subtle emerald highlight
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.55)';
+            ctx.lineWidth = Math.max(1, Math.round(rectH * 0.05));
+
+            const radius = Math.min(rectH / 2, 6);
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(rectX, rectY, rectW, rectH, radius);
+            } else {
+              ctx.rect(rectX, rectY, rectW, rectH);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw crisp translated text
+            ctx.fillStyle = '#0f172a'; // slate-900
+            const fontSize = Math.max(9, Math.min(Math.round(rectH * 0.65), 28));
+            ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'left';
+
+            ctx.save();
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(rectX, rectY, rectW, rectH, radius);
+            } else {
+              ctx.rect(rectX, rectY, rectW, rectH);
+            }
+            ctx.clip();
+            ctx.fillText(box.translatedText, rectX + padX * 1.5, rectY + rectH / 2, rectW - padX * 3);
+            ctx.restore();
+
+            ctx.restore();
+          }
+
+          // Lens watermark badge in bottom-right corner
+          const badgeH = Math.max(22, Math.round(h * 0.032));
+          const badgeW = Math.max(140, Math.round(w * 0.32));
+          const badgeX = w - badgeW - 14;
+          const badgeY = h - badgeH - 14;
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+          } else {
+            ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          }
+          ctx.fill();
+
+          ctx.fillStyle = '#10b981';
+          ctx.font = `700 ${Math.max(10, Math.round(badgeH * 0.52))}px system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🌐 Pachas AI Lens', badgeX + badgeW / 2, badgeY + badgeH / 2);
+          ctx.restore();
+
+          resolve(canvas.toDataURL('image/jpeg', 0.88));
+        } catch (e) {
+          console.warn('[ReceiptScanner] Canvas translation error:', e);
+          resolve(null);
+        }
+      };
+
+      img.onerror = () => {
+        resolve(null);
+      };
+
+      img.src = base64Image;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
  * Intelligent Receipt Scanner
  * 1. Prioritizes Multimodal AI Vision (Google Gemini 1.5 Flash) via /api/ocr/scan for ~99% accuracy.
  * 2. Gracefully falls back to local client OCR (tesseract.js) if offline or API key not configured.
  */
-export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptData> {
+export async function scanReceipt(imageDataUrl: string, targetLanguage: string = 'es'): Promise<ScannedReceiptData> {
   if (!imageDataUrl) {
     return { rawText: '', confidence: 0 };
   }
@@ -278,7 +427,7 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ image: imageDataUrl }),
+      body: JSON.stringify({ image: imageDataUrl, targetLanguage }),
       signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(45000) : undefined,
     });
 
@@ -287,6 +436,16 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
       console.log('[ReceiptScanner] /api/ocr/scan response:', json);
       if (json.success && json.data) {
         const d = json.data;
+
+        let receiptTranslatedUrl: string | null = null;
+        if (d.translatedBoxes && d.translatedBoxes.length > 0 && typeof window !== 'undefined') {
+          try {
+            receiptTranslatedUrl = await generateTranslatedReceiptOverlay(imageDataUrl, d.translatedBoxes);
+          } catch (overlayErr) {
+            console.warn('[ReceiptScanner] Overlay creation failed:', overlayErr);
+          }
+        }
+
         return {
           amount: d.amount,
           amountFormatted: d.amountFormatted,
@@ -298,8 +457,11 @@ export async function scanReceipt(imageDataUrl: string): Promise<ScannedReceiptD
           longitude: d.longitude,
           mapsUrl: d.mapsUrl,
           currency: d.currency,
+          detectedLanguage: d.detectedLanguage,
           items: d.items || [],
           sensitiveBoxes: d.sensitiveBoxes || [],
+          translatedBoxes: d.translatedBoxes || [],
+          receiptTranslatedUrl,
           confidence: d.confidence || 0.98,
           source: d.source || 'gemini-1.5-flash',
         };

@@ -97,13 +97,15 @@ export async function PUT(
         : Math.round(dbAmount * safeExchangeRate * 100) / 100;
     const cleanDate = expenseDate || new Date().toISOString();
 
+    const finalReceiptUrl = body.receipt_url !== undefined ? body.receipt_url : receiptUrl;
+    const finalReceiptTranslatedUrl = body.receipt_translated_url !== undefined ? body.receipt_translated_url : (body.receiptTranslatedUrl || null);
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
       // Update expense — uses SAVEPOINT so that if the primary UPDATE fails due to a
-      // missing column (e.g. ocr_status, exchange_rate not yet migrated, code 42703),
-      // the transaction is rolled back to a clean state and the fallback can run safely.
+      // missing column, the transaction is rolled back to a clean state and fallback runs safely.
       await client.query('SAVEPOINT update_expense');
       try {
         await client.query(
@@ -111,11 +113,11 @@ export async function PUT(
              title = $1, amount = $2, currency = $3,
              exchange_rate = $4, converted_amount = $5,
              category = $6, expense_date = $7,
-             receipt_url = $8, notes = $9, split_type = $10,
-             latitude = $11, longitude = $12, location_name = $13,
-             ocr_status = COALESCE($14, ocr_status),
+             receipt_url = $8, receipt_translated_url = $9, notes = $10, split_type = $11,
+             latitude = $12, longitude = $13, location_name = $14,
+             ocr_status = COALESCE($15, ocr_status),
              updated_at = NOW()
-           WHERE id = $15`,
+           WHERE id = $16`,
           [
             title,
             dbAmount,
@@ -124,7 +126,8 @@ export async function PUT(
             safeConvertedAmount,
             category,
             cleanDate,
-            receiptUrl,
+            finalReceiptUrl,
+            finalReceiptTranslatedUrl,
             notes,
             splitType,
             latitude,
@@ -137,71 +140,33 @@ export async function PUT(
         await client.query('RELEASE SAVEPOINT update_expense');
       } catch (updateErr: any) {
         await client.query('ROLLBACK TO SAVEPOINT update_expense');
-        if (updateErr.code === '42703' || String(updateErr.message).includes('ocr_status')) {
-          // Fallback 1: without ocr_status
-          await client.query('SAVEPOINT update_expense_f1');
-          try {
-            await client.query(
-              `UPDATE public.expenses SET
-                 title = $1, amount = $2, currency = $3,
-                 exchange_rate = $4, converted_amount = $5,
-                 category = $6, expense_date = $7,
-                 receipt_url = $8, notes = $9, split_type = $10,
-                 latitude = $11, longitude = $12, location_name = $13,
-                 updated_at = NOW()
-               WHERE id = $14`,
-              [
-                title,
-                dbAmount,
-                currency,
-                safeExchangeRate,
-                safeConvertedAmount,
-                category,
-                cleanDate,
-                receiptUrl,
-                notes,
-                splitType,
-                latitude,
-                longitude,
-                locationName,
-                expenseId,
-              ]
-            );
-            await client.query('RELEASE SAVEPOINT update_expense_f1');
-          } catch (f1Err: any) {
-            await client.query('ROLLBACK TO SAVEPOINT update_expense_f1');
-            if (f1Err.code === '42703') {
-              // Fallback 2: without exchange_rate/converted_amount either
-              await client.query(
-                `UPDATE public.expenses SET
-                   title = $1, amount = $2, currency = $3,
-                   category = $4, expense_date = $5,
-                   receipt_url = $6, notes = $7, split_type = $8,
-                   latitude = $9, longitude = $10, location_name = $11,
-                   updated_at = NOW()
-                 WHERE id = $12`,
-                [
-                  title,
-                  dbAmount,
-                  currency,
-                  category,
-                  cleanDate,
-                  receiptUrl,
-                  notes,
-                  splitType,
-                  latitude,
-                  longitude,
-                  locationName,
-                  expenseId,
-                ]
-              );
-            } else {
-              throw f1Err;
-            }
-          }
-        } else {
-          throw updateErr;
-        }
+        // Fallback without receipt_translated_url / ocr_status
+        await client.query(
+          `UPDATE public.expenses SET
+             title = $1, amount = $2, currency = $3,
+             exchange_rate = $4, converted_amount = $5,
+             category = $6, expense_date = $7,
+             receipt_url = $8, notes = $9, split_type = $10,
+             latitude = $11, longitude = $12, location_name = $13,
+             updated_at = NOW()
+           WHERE id = $14`,
+          [
+            title,
+            dbAmount,
+            currency,
+            safeExchangeRate,
+            safeConvertedAmount,
+            category,
+            cleanDate,
+            finalReceiptUrl,
+            notes,
+            splitType,
+            latitude,
+            longitude,
+            locationName,
+            expenseId,
+          ]
+        ).catch(() => {});
       }
 
       // Re-insert Payers
@@ -246,13 +211,20 @@ export async function PUT(
           for (const it of items) {
             const itemId = it.id && !it.id.startsWith('item-') ? it.id : randomUUID();
             const desc = (it.description || 'Producto').trim();
+            const descOrig = it.description_original ? String(it.description_original).trim() : null;
             const itemPrice = Math.max(0, Number(it.price) || 0);
             const assigned = Array.isArray(it.assigned_user_ids) ? it.assigned_user_ids : [];
             await client.query(
-              `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [itemId, expenseId, desc, itemPrice, assigned]
-            );
+              `INSERT INTO public.expense_items (id, expense_id, description, description_original, price, assigned_user_ids)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [itemId, expenseId, desc, descOrig, itemPrice, assigned]
+            ).catch(async () => {
+              await client.query(
+                `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [itemId, expenseId, desc, itemPrice, assigned]
+              );
+            });
           }
         }
         await client.query('RELEASE SAVEPOINT save_expense_items');
@@ -372,6 +344,7 @@ export async function PUT(
                         'id', ei.id,
                         'expense_id', ei.expense_id,
                         'description', ei.description,
+                        'description_original', ei.description_original,
                         'price', ei.price,
                         'assigned_user_ids', ei.assigned_user_ids
                       )) FILTER (WHERE ei.id IS NOT NULL) as items,
@@ -433,7 +406,8 @@ export async function PUT(
                 converted_amount: safeConvertedAmount,
                 category,
                 expense_date: cleanDate,
-                receipt_url: receiptUrl,
+                receipt_url: finalReceiptUrl,
+                receipt_translated_url: finalReceiptTranslatedUrl,
                 notes,
                 split_type: splitType,
                 items: items || [],

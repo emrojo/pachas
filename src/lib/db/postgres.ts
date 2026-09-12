@@ -155,6 +155,10 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     // 8. Expense participants reimbursement tracking (has_paid)
     await p.query(`ALTER TABLE public.expense_participants ADD COLUMN IF NOT EXISTS has_paid BOOLEAN DEFAULT FALSE NOT NULL;`).catch(() => {});
     await p.query(`CREATE INDEX IF NOT EXISTS idx_expense_participants_has_paid ON public.expense_participants(has_paid);`).catch(() => {});
+
+    // 9. Translated receipts and items original description
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS receipt_translated_url TEXT;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS description_original VARCHAR(255);`).catch(() => {});
   } catch (err) {
     console.warn('Schema auto-migration notice:', err);
   }

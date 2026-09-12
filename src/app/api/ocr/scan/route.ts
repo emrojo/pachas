@@ -9,6 +9,12 @@ export interface SensitiveBox {
   label?: string;
 }
 
+export interface TranslatedBox {
+  box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
+  originalText: string;
+  translatedText: string;
+}
+
 export interface VisionScanResult {
   title?: string;
   amount?: number;
@@ -20,8 +26,10 @@ export interface VisionScanResult {
   longitude?: number;
   mapsUrl?: string;
   currency?: string;
+  detectedLanguage?: string;
   sensitiveBoxes?: SensitiveBox[];
-  items?: Array<{ description: string; price: number }>;
+  translatedBoxes?: TranslatedBox[];
+  items?: Array<{ description: string; description_original?: string; price: number }>;
   confidence: number;
   source: string;
 }
@@ -107,11 +115,36 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { image } = body;
+    const { image, targetLanguage = 'es' } = body;
 
     if (!image || typeof image !== 'string') {
       return NextResponse.json({ error: 'Se requiere imagen en formato data URL o base64' }, { status: 400 });
     }
+
+    const LANGUAGE_NAMES: Record<string, string> = {
+      es: 'Español / Spanish',
+      en: 'Inglés / English',
+      fr: 'Francés / French',
+      de: 'Alemán / German',
+      it: 'Italiano / Italian',
+      pt: 'Portugués / Portuguese',
+      ca: 'Catalán / Catalan',
+      gl: 'Gallego / Galician',
+      eu: 'Euskera / Basque',
+      va: 'Valenciano / Catalan',
+      nl: 'Holandés / Dutch',
+      ru: 'Ruso / Russian',
+      zh: 'Chino / Chinese',
+      ja: 'Japonés / Japanese',
+      ar: 'Árabe / Arabic',
+      el: 'Griego / Greek',
+      tr: 'Turco / Turkish',
+      hi: 'Hindi',
+      af: 'Afrikáans / Afrikaans',
+    };
+
+    const userLang = typeof targetLanguage === 'string' && targetLanguage.trim() ? targetLanguage.trim().toLowerCase() : 'es';
+    const targetLangName = LANGUAGE_NAMES[userLang] || userLang;
 
     // 2. Parse MIME type and clean base64 data
     const match = image.match(/^data:([^;]+);base64,(.+)$/);
@@ -122,9 +155,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datos de imagen insuficientes' }, { status: 400 });
     }
 
-    // 3. System prompt for structured receipt extraction with sensitive information detection
+    // 3. System prompt for structured receipt extraction with sensitive information detection and bilingual translation
     const prompt = `Analiza detalladamente esta fotografía de un ticket, factura o recibo de compra (restaurante, supermercado, hotel, transporte, etc.).
-Extrae la información económica clave con máxima precisión y detecta cualquier dato bancario o sensible para su censura. Responde ESTRICTAMENTE en formato JSON válido sin texto adicional.
+El idioma nativo / preferido del usuario es: "${targetLangName}" (código: "${userLang}").
+
+Extrae la información económica clave con máxima precisión, detecta cualquier dato bancario o sensible para su censura, y si el ticket está redactado en un idioma diferente a "${userLang}", realiza la traducción simultánea tanto en los productos como en las cajas visuales de texto para generar una versión traducida. Responde ESTRICTAMENTE en formato JSON válido sin texto adicional.
 
 Esquema JSON requerido:
 {
@@ -135,10 +170,19 @@ Esquema JSON requerido:
   "category": "food" | "shopping" | "transport" | "accommodation" | "activities" | "other",
   "locationName": "Dirección física (calle, número, código postal y/o ciudad) del establecimiento si aparece en el ticket (ej: 'C/ Gran Vía 28, Madrid') o null",
   "currency": "EUR",
+  "detectedLanguage": "es" | "en" | "fr" | "de" | "it" | "pt" | "nl" | "ru" | "zh" | "ja" | "ar" | "el" | "tr" | "hi" | "af" | ...,
   "items": [
     {
-      "description": "Nombre o concepto individual del producto o consumición",
+      "description": "Nombre del producto traducido a ${targetLangName} (si el ticket ya está en ${userLang}, usa el nombre original)",
+      "description_original": "Nombre original exacto impreso en el ticket si es un idioma distinto de ${userLang}, o null si ya estaba en ${userLang}",
       "price": 0.00
+    }
+  ],
+  "translatedBoxes": [
+    {
+      "box_2d": [ymin, xmin, ymax, xmax],
+      "originalText": "Texto original impreso en el ticket",
+      "translatedText": "Traducción fiel y concisa a ${targetLangName}"
     }
   ],
   "sensitiveBoxes": [
@@ -149,26 +193,28 @@ Esquema JSON requerido:
   ]
 }
 
-Reglas críticas de extracción:
+Reglas críticas de extracción y traducción:
 1. amount: Número decimal puro (ej: 42.50). Busca el total final pagado (TOTAL, TOTAL FACTURA, IMPORTE A PAGAR, TOTAL EUR/€). Nunca tomes subtotales ni bases imponibles si hay un total final con impuestos.
 2. amountFormatted: Representación con coma decimal europea (ej: "42,50").
 3. date: Fecha y hora EXACTA en formato ISO "YYYY-MM-DDTHH:mm". Busca activamente la hora y minutos impresos en el ticket (ej: 14:35 o 21:10). Si solo aparece fecha sin hora, usa las 12:00. Si el año no aparece, usa el año actual.
-4. category: Clasifica según el negocio:
-   - "food": restaurantes, bares, cafeterías, tapas, pizzas, comida rápida.
-   - "shopping": supermercados (Mercadona, Carrefour, Lidl, Día), tiendas, farmacias, ropa, compras generales.
-   - "transport": taxis, uber, gasolina/gasolineras (Repsol, Cepsa), billetes de tren, metro, autobús, peajes, parkings, vuelos.
-   - "accommodation": hoteles, hostales, pensiones, airbnb, campings.
-   - "activities": museos, cine, teatro, parques de atracciones, tours, excursiones, espectáculos.
-   - "other": cualquier otro concepto.
+4. category: Clasifica según el negocio ("food", "shopping", "transport", "accommodation", "activities", "other").
 5. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay dirección legible, devuelve null.
 6. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").
-7. items: Lista de productos individuales comprados o consumidos con su precio final desglosado. Si el ticket lista productos (ej: '2x Cerveza 6,00', 'Hamburguesa 12,50', 'Pan 0,95'), extrae cada producto con su nombre limpio y su precio decimal positivo. No incluyas subtotales, propinas globales ni líneas de IVA/impuestos en items. Si no hay desglose legible, devuelve un array vacío: [].
-8. sensitiveBoxes: Coordenadas de cajas delimitadoras normalizadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 que cubran información bancaria o sensible:
+7. detectedLanguage: Código de dos letras ISO 639-1 del idioma principal detectado en el ticket.
+8. items: Lista de productos individuales comprados o consumidos con su precio final desglosado.
+   - Si el idioma del ticket es DIFERENTE al del usuario (${userLang}):
+     * "description": Traduce con precisión y naturalidad el concepto al idioma del usuario (${targetLangName}) para que entienda qué compró.
+     * "description_original": Guarda el nombre original tal y como aparece impreso en el ticket.
+   - Si el idioma del ticket es igual a ${userLang}:
+     * "description": Nombre original del producto.
+     * "description_original": null o el mismo nombre.
+9. translatedBoxes: Si detectedLanguage es DIFERENTE de "${userLang}", proporciona las coordenadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 de las líneas o cajas de texto de los productos, conceptos o encabezados principales del ticket junto con su texto original y su traducción a ${targetLangName}. Esto permite superponer visualmente la traducción sobre el ticket. Si detectedLanguage coincide con "${userLang}", devuelve un array vacío: [].
+10. sensitiveBoxes: Coordenadas de cajas delimitadoras normalizadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 que cubran información bancaria o sensible:
    - Números de tarjeta de crédito/débito (PAN, **** 1234, fecha caducidad, tipo de tarjeta).
    - Datos bancarios, números de cuenta, IBAN, códigos de autorización de datáfono, PINs o firmas.
    - DNI/NIF/CIF del cliente, nombres personales o teléfonos privados del comprador.
    Si no hay información sensible presente en la imagen, devuelve un array vacío: [].
-9. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
+11. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
 
     // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
     const candidateModels = [
@@ -542,16 +588,37 @@ Reglas críticas de extracción:
         });
     };
 
-    const sanitizeItems = (rawItems: any): Array<{ description: string; price: number }> => {
+    const sanitizeTranslatedBoxes = (rawBoxes: any): TranslatedBox[] => {
+      if (!Array.isArray(rawBoxes)) return [];
+      return rawBoxes
+        .filter((b) => b && Array.isArray(b.box_2d) && b.box_2d.length === 4 && (b.translatedText || b.text))
+        .map((b) => {
+          const coords = b.box_2d.map((val: any) => {
+            const num = Number(val);
+            if (isNaN(num)) return 0;
+            return num <= 1.0 && num > 0 ? Math.round(num * 1000) : Math.min(1000, Math.max(0, Math.round(num)));
+          }) as [number, number, number, number];
+          return {
+            box_2d: coords,
+            originalText: String(b.originalText || b.original_text || b.text || '').slice(0, 150),
+            translatedText: String(b.translatedText || b.translated_text || '').slice(0, 150),
+          };
+        })
+        .filter((b) => b.translatedText.length > 0);
+    };
+
+    const sanitizeItems = (rawItems: any): Array<{ description: string; description_original?: string; price: number }> => {
       if (!Array.isArray(rawItems)) return [];
-      const items: Array<{ description: string; price: number }> = [];
+      const items: Array<{ description: string; description_original?: string; price: number }> = [];
       for (const it of rawItems) {
         if (!it || typeof it !== 'object') continue;
         const desc = String(it.description || it.name || it.concept || '').trim();
+        const descOrig = it.description_original ? String(it.description_original).trim().slice(0, 150) : undefined;
         let price = typeof it.price === 'number' ? it.price : parseFloat(String(it.price).replace(',', '.'));
         if (desc && !isNaN(price) && price > 0 && price < 50000) {
           items.push({
             description: desc.slice(0, 150),
+            description_original: descOrig && descOrig !== desc ? descOrig : (descOrig || undefined),
             price: Math.round(price * 100) / 100,
           });
         }
@@ -570,8 +637,10 @@ Reglas críticas de extracción:
       longitude: detectedLongitude,
       mapsUrl: detectedMapsUrl,
       currency: parsed.currency || 'EUR',
+      detectedLanguage: parsed.detectedLanguage ? String(parsed.detectedLanguage).trim().toLowerCase().slice(0, 10) : undefined,
       items: sanitizeItems(parsed.items),
       sensitiveBoxes: sanitizeSensitiveBoxes(parsed.sensitiveBoxes),
+      translatedBoxes: sanitizeTranslatedBoxes(parsed.translatedBoxes),
       confidence: detectedAmount ? 0.98 : 0.7,
       source: successfulModel || 'gemini-1.5-flash',
     };

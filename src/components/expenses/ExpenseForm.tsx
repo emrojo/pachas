@@ -211,6 +211,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const datePickerRef = React.useRef<HTMLInputElement>(null);
   const [notes, setNotes] = useState('');
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [receiptTranslatedUrl, setReceiptTranslatedUrl] = useState<string | null>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [isScanningReceipt, setIsScanningReceipt] = useState(false);
   const [scannedData, setScannedData] = useState<ScannedReceiptData | null>(null);
@@ -345,6 +346,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setExpenseDateTime(toDateTimeLocalValue(targetDateIso));
       setNotes(expenseToEdit.notes || '');
       setReceiptUrl(expenseToEdit.receipt_url || null);
+      setReceiptTranslatedUrl(expenseToEdit.receipt_translated_url || null);
       setSplitType(expenseToEdit.split_type || 'EQUAL');
 
       // Fetch official rate directly using expense's user-specified date
@@ -455,6 +457,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           (expenseToEdit.items || []).map((it) => ({
             id: it.id || generateUUID(),
             description: it.description,
+            description_original: it.description_original || undefined,
             price: Number(it.price) || 0,
             assignedUserIds: it.assigned_user_ids || [],
           }))
@@ -479,6 +482,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setExpenseDateTime(toDateTimeLocalValue(nowIso));
       setNotes('');
       setReceiptUrl(null);
+      setReceiptTranslatedUrl(null);
       setLatitude(null);
       setLongitude(null);
       setLocationName(null);
@@ -714,9 +718,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     // Run OCR scan on censored image
     setIsScanningReceipt(true);
     try {
-      const data = await scanReceipt(censoredDataUrl);
+      const data = await scanReceipt(censoredDataUrl, language || 'es');
       if (data && (data.amount || data.title || data.date || (data.items && data.items.length > 0))) {
         setScannedData(data);
+        if (data.receiptTranslatedUrl) {
+          setReceiptTranslatedUrl(data.receiptTranslatedUrl);
+        }
       }
     } catch (ocrErr) {
       console.warn('OCR scanning failed:', ocrErr);
@@ -727,6 +734,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   const handleApplyScannedData = () => {
     if (!scannedData) return;
+    if (scannedData.receiptTranslatedUrl) {
+      setReceiptTranslatedUrl(scannedData.receiptTranslatedUrl);
+    }
     if (scannedData.title && (!title.trim() || title === t('expenses.expenseTitle'))) {
       setTitle(scannedData.title);
     }
@@ -758,6 +768,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       const parsedItems: LineItemInput[] = scannedData.items.map((it) => ({
         id: generateUUID(),
         description: it.description,
+        description_original: it.description_original || undefined,
         price: it.price,
         assignedUserIds: [], // Empty means shared equally by all group members
       }));
@@ -928,6 +939,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         ? lineItems.map((it) => ({
             id: it.id,
             description: it.description,
+            description_original: it.description_original || undefined,
             price: it.price,
             assigned_user_ids: it.assignedUserIds,
           }))
@@ -943,6 +955,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           category,
           expenseDate: finalIsoDate,
           receiptUrl,
+          receiptTranslatedUrl,
           latitude,
           longitude,
           locationName: sanitizeText(locationName, 150) || null,
@@ -964,6 +977,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           category,
           expenseDate: finalIsoDate,
           receiptUrl,
+          receiptTranslatedUrl,
           latitude,
           longitude,
           locationName: sanitizeText(locationName, 150) || null,
@@ -1409,20 +1423,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 />
               </label>
 
-              {receiptUrl && (
+              {(receiptUrl || receiptTranslatedUrl) && (
                 <>
                   <button
                     type="button"
                     onClick={() => setShowReceiptModal(true)}
-                    className="p-3 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-2xl text-xs font-bold transition-colors shadow-xs shrink-0 cursor-pointer"
+                    className="p-3 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-2xl text-xs font-bold transition-colors shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
                     title={t('expenses.viewReceipt')}
                   >
                     <Eye className="w-4.5 h-4.5" />
+                    {receiptTranslatedUrl && <span className="text-[10px] font-bold">🌐 Traducido</span>}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setReceiptUrl(null);
+                      setReceiptTranslatedUrl(null);
                       setScannedData(null);
                     }}
                     className="p-3 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-2xl text-xs font-bold transition-colors shadow-xs shrink-0 cursor-pointer"
@@ -1433,14 +1449,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 </>
               )}
             </>
-          ) : receiptUrl ? (
+          ) : (receiptUrl || receiptTranslatedUrl) ? (
             <button
               type="button"
               onClick={() => setShowReceiptModal(true)}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-2xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40 text-sm font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/60 transition-colors shadow-xs cursor-pointer"
             >
               <Receipt className="w-4 h-4" />
-              <span>{t('expenses.viewReceipt')}</span>
+              <span>{receiptTranslatedUrl ? `🌐 ${t('expenses.viewReceipt') || 'Ver Ticket'} (Traducido)` : t('expenses.viewReceipt')}</span>
             </button>
           ) : (
             <div className="flex-1 px-3 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-sm text-slate-400 text-center font-medium">
@@ -1971,7 +1987,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         )}
 
         {/* Banner de Ticket Adjunto en la parte superior (si ya se ha subido/capturado) */}
-        {!isReadOnly && receiptUrl && (
+        {!isReadOnly && (receiptUrl || receiptTranslatedUrl) && (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-xs shadow-xs">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -1980,10 +1996,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 </div>
                 <div className="min-w-0">
                   <span className="font-bold text-slate-900 dark:text-slate-100 block truncate">
-                    {t('expenses.receiptAttached')}
+                    {receiptTranslatedUrl ? `🌐 ${t('expenses.translatedReceipt') || 'Ticket traducido'}` : t('expenses.receiptAttached')}
                   </span>
                   <span className="text-[10px] text-slate-500 block">
-                    {t('expenses.receiptAttachedDesc')}
+                    {receiptTranslatedUrl ? 'Original y versión traducida con IA' : t('expenses.receiptAttachedDesc')}
                   </span>
                 </div>
               </div>
@@ -2002,6 +2018,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   type="button"
                   onClick={() => {
                     setReceiptUrl(null);
+                    setReceiptTranslatedUrl(null);
                     setScannedData(null);
                   }}
                   className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
@@ -3026,6 +3043,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         isOpen={showReceiptModal}
         onClose={() => setShowReceiptModal(false)}
         receiptUrl={receiptUrl}
+        receiptTranslatedUrl={receiptTranslatedUrl}
         title={title || expenseToEdit?.title || t('expenses.receiptPhoto')}
       />
 
