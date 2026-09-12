@@ -403,12 +403,12 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+        {/* Action Buttons (Sticky at bottom for mobile reachability) */}
+        <div className="flex gap-3 pt-3 pb-2 sticky bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border-t border-slate-100 dark:border-slate-800 -mx-4 -mb-4 px-4 sm:-mx-6 sm:-mb-6 sm:px-6">
+          <Button type="button" variant="outline" onClick={onClose} className="flex-1 cursor-pointer">
             {t('common.cancel')}
           </Button>
-          <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-xs font-bold gap-1.5">
+          <Button type="submit" variant="brand" isLoading={isLoading} className="flex-1 text-xs font-bold gap-1.5 cursor-pointer">
             <Check className="w-4 h-4" />
             {isLoading && currency !== group.base_currency
               ? t('groups.recalculatingCurrency', { currency })

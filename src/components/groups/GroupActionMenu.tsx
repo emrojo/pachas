@@ -81,13 +81,10 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
   useEffect(() => {
     if (isOpen && isMobile && typeof document !== 'undefined') {
       const originalOverflow = document.body.style.overflow;
-      const originalTouchAction = document.body.style.touchAction;
       document.body.style.overflow = 'hidden';
-      document.body.style.touchAction = 'none';
 
       return () => {
         document.body.style.overflow = originalOverflow;
-        document.body.style.touchAction = originalTouchAction;
       };
     }
   }, [isOpen, isMobile]);
@@ -318,6 +315,22 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
         {t('groups.sectionManage')}
       </div>
 
+      <button
+        type="button"
+        onClick={() => handleAction(onOpenSettings)}
+        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300 rounded-xl transition-colors text-left"
+      >
+        <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <Settings className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <span className="block truncate font-bold">{t('groups.settings')}</span>
+          <span className="block text-[10px] font-normal text-slate-400 truncate">
+            {t('groups.changePhoto')} / Nombre / Divisa
+          </span>
+        </div>
+      </button>
+
       {groupId && (
         <button
           type="button"
@@ -360,22 +373,6 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
           </div>
         </button>
       )}
-
-      <button
-        type="button"
-        onClick={() => handleAction(onOpenSettings)}
-        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-left"
-      >
-        <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
-          <Settings className="w-4 h-4" />
-        </div>
-        <div className="min-w-0">
-          <span className="block truncate">{t('groups.settings')}</span>
-          <span className="block text-[10px] font-normal text-slate-400 truncate">
-            {t('groups.changePhoto')} / Nombre
-          </span>
-        </div>
-      </button>
     </>
   );
 
@@ -459,17 +456,16 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
         {/* Mobile Action Sheet Portal (mounted directly to document.body to lock background scroll) */}
         {isOpen && isMobile && mounted && typeof document !== 'undefined' && createPortal(
           <div className="fixed inset-0 z-50 flex flex-col justify-end">
-            {/* Backdrop: intercepts touches and prevents background page dragging */}
+            {/* Backdrop: intercepts clicks and closes sheet */}
             <div
               className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
               onClick={() => setIsOpen(false)}
-              onTouchMove={(e) => e.preventDefault()}
               aria-hidden="true"
             />
 
             {/* Bottom Sheet Card */}
             <div
-              className="relative z-10 w-full max-w-lg mx-auto bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in slide-in-from-bottom duration-250 ease-out"
+              className="relative z-10 w-full max-w-lg mx-auto bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-250 ease-out"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Grab Handle & Sheet Header */}
@@ -491,10 +487,10 @@ export const GroupActionMenu: React.FC<GroupActionMenuProps> = ({
                 </button>
               </div>
 
-              {/* Scrollable Items Container (strictly contains touch gestures) */}
+              {/* Scrollable Items Container (smooth momentum touch scrolling) */}
               <div
-                className="p-3 space-y-1.5 overflow-y-auto overscroll-contain flex-1 custom-scrollbar pb-8 touch-pan-y"
-                onTouchMove={(e) => e.stopPropagation()}
+                className="p-3 space-y-1.5 overflow-y-auto overscroll-contain flex-1 custom-scrollbar pb-10 touch-pan-y"
+                style={{ WebkitOverflowScrolling: 'touch' }}
               >
                 {renderMenuItems()}
               </div>

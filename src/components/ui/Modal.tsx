@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,12 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidth = 'md',
   showCloseButton = true,
 }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -37,7 +44,7 @@ export const Modal: React.FC<ModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const maxWidthClasses = {
     sm: 'max-w-sm',
@@ -47,37 +54,39 @@ export const Modal: React.FC<ModalProps> = ({
     full: 'max-w-4xl',
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs transition-opacity animate-fade-in">
       {/* Backdrop click area */}
-      <div className="fixed inset-0" onClick={onClose} />
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
       {/* Modal Container */}
       <div
         className={cn(
-          'relative w-full rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl z-10 max-h-[92vh] flex flex-col overflow-hidden',
+          'relative w-full rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl z-10 max-h-[92dvh] sm:max-h-[90vh] flex flex-col overflow-hidden',
           maxWidthClasses[maxWidth]
         )}
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div>
+          <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs">
+            <div className="min-w-0 pr-2">
               {title && (
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate">
                   {title}
                 </h3>
               )}
               {description && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                   {description}
                 </p>
               )}
             </div>
             {showCloseButton && (
               <button
+                type="button"
                 onClick={onClose}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-2 -mr-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                aria-label="Cerrar modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -86,8 +95,16 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto">{children}</div>
+        <div
+          className="p-4 sm:p-6 overflow-y-auto overscroll-contain flex-1 pb-safe touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
+
