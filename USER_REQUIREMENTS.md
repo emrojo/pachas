@@ -771,17 +771,19 @@ This document serves as the official and permanent registry for all **user requi
   - Displays active group cover photo / icon emoji, group name, and active group dropdown switcher.
   - Real-time financial indicators: total group spending and current user's net debt/credit status (*"Debes X €"*, *"Te deben X €"*, or *"Al día"*).
   - Compact utility controls: Language Selector (`variant="compact"`), Buy Me a Coffee donation button (`useDonationUrl`), and User Avatar popover menu with profile, demo switcher, and logout actions.
-- **FR-64.3**: **Tri-Action Expense Creation Hero**:
-  - Prominent mobile control block providing three straightforward creation pathways:
-    1. **Escanear factura**: Camera input (`capture="environment"`) with client-side compression (`validateAndCompressImage`), privacy canvas redaction (`ReceiptRedactionModal`), and background OCR processing (`queueReceiptScan`).
-    2. **Subir imagen**: Photo album/gallery picker following the same privacy and OCR queue pipeline.
+- **FR-64.3**: **Tri-Action Expense Creation Hero & Icon-Only Self-Descriptive Controls**:
+  - Prominent mobile control block providing three straightforward, high-impact creation pathways:
+    1. **Escanear factura**: Mobile camera button (`capture="environment"`) with client-side compression (`validateAndCompressImage`), privacy canvas redaction (`ReceiptRedactionModal`), and background OCR processing (`queueReceiptScan`).
+    2. **Subir imagen**: Photo album/gallery picker button following the same privacy and OCR queue pipeline.
     3. **Añadir a mano**: Immediate trigger opening `ExpenseForm` for manual entry.
+  - **Full-Surface Icon-Only Design**: Buttons are strictly icon-only without text labels (`Camera`, `Upload`, `Plus` with large `w-10 h-10 sm:w-11 sm:h-11` stroke icons occupying the button surface), tactile gradients, responsive touch hitboxes (`h-20 sm:h-24`), and native accessibility (`title` and `aria-label` attributes).
   - In-queue pending receipts banner integration (`PendingScansBanner`).
-- **FR-64.4**: **Tri-View Concise Footer Navigation**:
-  - Fixed mobile bottom navigation enabling instant switching between three concise views:
-    1. **Gastos (`expenses`)**: Streamlined list of group expenses with payer name, amount, date, and 1-click edit modal.
-    2. **Grupos (`groups`)**: Compact overview of user's active groups with 1-tap switching between groups, plus create (`CreateGroupModal`) and join (`JoinGroupModal`) actions.
-    3. **Opciones (`options`)**: Essential group management tools (Invite friends via `InviteModal`, settle debts via `SettleModal`, edit group via `EditGroupModal`, and export PDF/CSV reports).
+- **FR-64.4**: **Tri-View Concise Footer Navigation & Enlarged Mobile Typography**:
+  - **Prominent Icon-Only Bottom Navigation**: Fixed bottom navigation bar featuring 3 strictly icon-only tabs (`Receipt`, `Users`, `Settings` with `w-7 h-7 sm:w-8 sm:h-8` stroke icons, `h-14` touch targets, active emerald indicator pills, and accessible `aria-label`/`title` tooltips) enabling instant switching between views:
+    1. **Gastos (`expenses`)**: Streamlined list of group expenses with enlarged typography (`text-base font-bold` titles, `text-sm` dates/payers, `text-base sm:text-lg font-black font-mono` amounts) and 1-click edit modal.
+    2. **Grupos (`groups`)**: Compact overview of user's active groups with 1-tap switching between groups, enlarged text and badges (`text-base` group titles, `text-sm` member counts, `text-sm` active badge), plus create (`CreateGroupModal`) and join (`JoinGroupModal`) actions.
+    3. **Opciones (`options`)**: Essential group management tools with scaled typography (`text-base` action titles, `text-sm` descriptions) for invite friends, settle debts, group settings, and PDF export.
+  - **Enlarged High-Contrast Mobile Typography**: High-contrast, scaled typography optimized for fast glance reading on mobile screens across all components (header, group switcher, balance card, hero headers, list items, and modal triggers).
 - **FR-64.5**: **Full Internationalization & Automated Testing**:
   - Complete 20-language translation support in `src/locales/` (`mobileTitle`, `totalGroupSpent`, `youOweGroup`, `groupOwesYou`, `userSettled`, `scanReceiptCamera`, `uploadReceiptImage`, `addExpenseManual`, etc.).
   - Automated test suite in [`src/app/(dashboard)/dashboard-mobile/mobileDashboard.test.ts`](file:///d:/Projects/pachas/src/app/(dashboard)/dashboard-mobile/mobileDashboard.test.ts).
