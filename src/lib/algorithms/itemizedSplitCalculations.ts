@@ -35,12 +35,19 @@ export interface ItemizedSplitCalculationResult {
   errorMessage?: string;
 }
 
+export interface ItemizedSplitOptions {
+  taxIncluded?: boolean;
+  taxAmount?: number;
+}
+
 /**
  * Calculates itemized expense splits based on line items with quantities,
  * proportional user consumption, and tax breakdown.
  * 
  * Rules:
  * 1. Total to split per line item = Base Price (`price`) + Tax Amount (`tax_amount`).
+ *    If taxes are excluded and added at the bottom, tax is proportionally distributed
+ *    across users based on their net consumption.
  * 2. Every line item must be 100% distributed before saving:
  *    Sum of user assigned units must equal item `quantity`.
  * 3. User pays: (units_user / total_quantity) * line_item_total.
@@ -50,7 +57,8 @@ export function calculateItemizedSplits(
   totalAmount: number,
   items: LineItemInput[],
   allGroupMemberIds: string[],
-  currencyCode: string = 'EUR'
+  currencyCode: string = 'EUR',
+  options?: ItemizedSplitOptions
 ): ItemizedSplitCalculationResult {
   const round2 = (val: number) => Math.round(val * 100) / 100;
 
@@ -189,6 +197,28 @@ export function calculateItemizedSplits(
       userCentsMap[uid] = (userCentsMap[uid] || 0) + userTotal;
       userNetCentsMap[uid] = (userNetCentsMap[uid] || 0) + userNet;
       userTaxCentsMap[uid] = (userTaxCentsMap[uid] || 0) + userTax;
+    });
+  }
+
+  // If taxes are excluded and added at the bottom, distribute them proportionally to each user's net consumption
+  if (options?.taxIncluded === false && (options?.taxAmount ?? 0) > 0 && totalTaxCents === 0 && totalNetCents > 0) {
+    const bottomTaxCents = Math.round(options.taxAmount! * 100);
+    totalTaxCents = bottomTaxCents;
+    totalItemCents = totalNetCents + bottomTaxCents;
+
+    const netActiveUsers = Object.keys(userNetCentsMap).filter((uid) => (userNetCentsMap[uid] || 0) > 0);
+    let distributedBottomTaxCents = 0;
+
+    netActiveUsers.forEach((uid, idx) => {
+      const isLast = idx === netActiveUsers.length - 1;
+      const userNet = userNetCentsMap[uid] || 0;
+      const userTax = isLast
+        ? bottomTaxCents - distributedBottomTaxCents
+        : Math.round(bottomTaxCents * (userNet / totalNetCents));
+
+      distributedBottomTaxCents += userTax;
+      userTaxCentsMap[uid] = userTax;
+      userCentsMap[uid] = userNet + userTax;
     });
   }
 

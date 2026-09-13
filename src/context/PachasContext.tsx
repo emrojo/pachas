@@ -2101,7 +2101,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           assignedShares: it.assigned_shares,
         })),
         allMembers,
-        input.currency
+        input.currency,
+        {
+          taxIncluded: input.tax_included ?? input.taxIncluded,
+          taxAmount: input.tax_amount ?? input.taxAmount,
+        }
       );
       splitResults = itemized.results;
     } else {
@@ -2625,7 +2629,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           assignedShares: it.assigned_shares,
         })),
         allMembers,
-        input.currency
+        input.currency,
+        {
+          taxIncluded: input.tax_included ?? input.taxIncluded,
+          taxAmount: input.tax_amount ?? input.taxAmount,
+        }
       );
       splitResults = itemized.results;
     } else {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { usePachas } from '@/context/PachasContext';
 import { useTranslation } from '@/context/LanguageContext';
 import { Modal } from '@/components/ui/Modal';
@@ -28,11 +28,14 @@ import {
   CreditCard,
   Building,
   ZoomIn,
+  CheckCircle2,
+  Calculator,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ReceiptModal } from './ReceiptModal';
 import { ItemizedSplitEditor } from './ItemizedSplitEditor';
 import { LineItemInput, calculateItemizedSplits } from '@/lib/algorithms/itemizedSplitCalculations';
+import { auditAndReconcileReceipt, ReceiptAuditReport } from '@/lib/ocr/receiptMathAuditor';
 import { generateUUID } from '@/lib/id';
 
 export interface ReceiptValidationModalProps {
@@ -129,6 +132,31 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
   const [taxIncluded, setTaxIncluded] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const parsedTotalAmount = parseEuropeanAmount(amountStr);
+  const auditReport: ReceiptAuditReport = useMemo(() => {
+    return auditAndReconcileReceipt({
+      amount: parsedTotalAmount,
+      subtotal,
+      tax_name: taxName,
+      tax_amount: taxAmount,
+      tax_rate: taxRate,
+      tax_included: taxIncluded,
+      items: lineItems.map((it) => ({
+        id: it.id,
+        description: it.description,
+        description_original: it.description_original,
+        price: it.price,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        tax_name: it.tax_name || taxName,
+        tax_rate: it.tax_rate !== undefined ? it.tax_rate : taxRate,
+        tax_amount: it.tax_amount,
+        assigned_user_ids: it.assignedUserIds,
+        assigned_shares: it.assignedShares,
+      })),
+    });
+  }, [parsedTotalAmount, subtotal, taxName, taxAmount, taxRate, taxIncluded, lineItems]);
 
   // Canvas extra redaction states
   const baseImageRef = useRef<HTMLImageElement | null>(null);
@@ -454,7 +482,10 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
       }
 
       const allMemberIds = members.map((m) => m.user_id);
-      const splitCheck = calculateItemizedSplits(parsedAmt, lineItems, allMemberIds, currency);
+      const splitCheck = calculateItemizedSplits(parsedAmt, lineItems, allMemberIds, currency, {
+        taxIncluded,
+        taxAmount,
+      });
       if (!splitCheck.isBalanced) {
         setError(
           t('expenses.itemizedSumMismatch', {
@@ -709,6 +740,119 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               </div>
             </div>
 
+            {/* Receipt Mathematical Audit & Tax Consistency Card */}
+            {lineItems.length > 0 && (
+              <div
+                className={`p-3.5 rounded-2xl border transition-all ${
+                  auditReport.isConsistent
+                    ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60'
+                    : 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`p-1.5 rounded-lg ${
+                        auditReport.isConsistent
+                          ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400'
+                      }`}
+                    >
+                      {auditReport.isConsistent ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : (
+                        <Calculator className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        {auditReport.isConsistent
+                          ? (taxIncluded ? t('expenses.auditBalancedIncluded') : t('expenses.auditBalancedExcluded'))
+                          : t('expenses.auditDiscrepancyTitle')}
+                      </h4>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                        {auditReport.summaryMessage}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggle tax included / excluded */}
+                  <div className="inline-flex rounded-lg p-0.5 bg-slate-200/70 dark:bg-slate-800 shrink-0 text-[10px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setTaxIncluded(true)}
+                      className={`px-2 py-1 rounded-md transition-colors ${
+                        taxIncluded
+                          ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {t('expenses.taxIncludedShort') || 'IVA inc.'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTaxIncluded(false)}
+                      className={`px-2 py-1 rounded-md transition-colors ${
+                        !taxIncluded
+                          ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {t('expenses.taxExcludedShort') || '+ IVA'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Subtotals & Taxes breakdown preview */}
+                <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 grid grid-cols-3 gap-2 text-center text-[11px]">
+                  <div className="bg-white/60 dark:bg-slate-900/40 p-1.5 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
+                    <span className="block text-[10px] text-slate-500 uppercase font-semibold">
+                      {taxIncluded ? (t('expenses.itemsTotal') || 'Total ítems') : (t('expenses.subtotal') || 'Subtotal')}
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {auditReport.itemsSum.toFixed(2)} {currency}
+                    </span>
+                  </div>
+
+                  <div className="bg-white/60 dark:bg-slate-900/40 p-1.5 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
+                    <span className="block text-[10px] text-slate-500 uppercase font-semibold">
+                      {taxName || 'Impuestos'} ({taxIncluded ? 'incl.' : '+ extra'})
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {auditReport.taxAmount.toFixed(2)} {currency}
+                    </span>
+                  </div>
+
+                  <div className="bg-white/60 dark:bg-slate-900/40 p-1.5 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
+                    <span className="block text-[10px] text-slate-500 uppercase font-semibold">
+                      {t('expenses.calculatedTotal') || 'Calculado'}
+                    </span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {auditReport.calculatedTotal.toFixed(2)} {currency}
+                    </span>
+                  </div>
+                </div>
+
+                {/* If discrepancy, offer one-click quick fix button to square receipt */}
+                {!auditReport.isConsistent && auditReport.calculatedTotal > 0 && (
+                  <div className="mt-2.5 pt-2 border-t border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                      {t('expenses.auditDiscrepancyHelp') || '¿Deseas cuadrar el total con la suma calculada?'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAmountStr(auditReport.calculatedTotal.toFixed(2).replace('.', ','))}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-xs transition-colors shrink-0 cursor-pointer"
+                    >
+                      {t('expenses.auditAdjustTotal')
+                        ? t('expenses.auditAdjustTotal').replace('{amount}', `${auditReport.calculatedTotal.toFixed(2)} ${currency}`)
+                        : `Ajustar a ${auditReport.calculatedTotal.toFixed(2)} ${currency}`}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Date & Time (DD/MM/YYYY) */}
             <div className="grid grid-cols-2 gap-3">
               <Input
@@ -819,6 +963,8 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   totalInvoiceAmount={parseEuropeanAmount(amountStr)}
                   currency={currency}
                   defaultTaxName={taxName}
+                  taxIncluded={taxIncluded}
+                  taxAmount={taxAmount}
                   onBalanceChange={setIsItemsBalanced}
                 />
               ) : (

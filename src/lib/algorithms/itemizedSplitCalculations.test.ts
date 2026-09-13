@@ -128,4 +128,36 @@ describe('Itemized Split Calculations Engine', () => {
     expect(res.itemsTotal).toBe(0);
     expect(res.results).toEqual([]);
   });
+
+  it('proportionally allocates bottom tax when tax is excluded from item prices', () => {
+    // User 1 consumed 30€ (75%), User 2 consumed 10€ (25%). Total net = 40€
+    // Tax at the bottom = 4€ (10%). Invoice total = 44€
+    const items: LineItemInput[] = [
+      { id: '1', description: 'Plato principal', price: 30.0, quantity: 1, assignedUserIds: ['user-1'] },
+      { id: '2', description: 'Entrante', price: 10.0, quantity: 1, assignedUserIds: ['user-2'] },
+    ];
+
+    const res = calculateItemizedSplits(44.0, items, members, 'EUR', {
+      taxIncluded: false,
+      taxAmount: 4.0,
+    });
+
+    expect(res.isBalanced).toBe(true);
+    expect(res.itemsNetTotal).toBe(40.0);
+    expect(res.itemsTaxTotal).toBe(4.0);
+    expect(res.itemsTotal).toBe(44.0);
+
+    const u1 = res.results.find((r) => r.userId === 'user-1');
+    const u2 = res.results.find((r) => r.userId === 'user-2');
+
+    // User 1: 30 net + 3 tax = 33
+    expect(u1?.netOwed).toBe(30.0);
+    expect(u1?.taxOwed).toBe(3.0);
+    expect(u1?.amountOwed).toBe(33.0);
+
+    // User 2: 10 net + 1 tax = 11
+    expect(u2?.netOwed).toBe(10.0);
+    expect(u2?.taxOwed).toBe(1.0);
+    expect(u2?.amountOwed).toBe(11.0);
+  });
 });

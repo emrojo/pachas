@@ -35,6 +35,8 @@ export interface ItemizedSplitEditorProps {
   isReadOnly?: boolean;
   onBalanceChange?: (isBalanced: boolean, diff: number) => void;
   defaultTaxName?: string;
+  taxIncluded?: boolean;
+  taxAmount?: number;
 }
 
 export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
@@ -48,6 +50,8 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
   isReadOnly = false,
   onBalanceChange,
   defaultTaxName,
+  taxIncluded = true,
+  taxAmount = 0,
 }) => {
   const { t, language } = useTranslation();
 
@@ -62,8 +66,8 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
   const presetTaxRates = useMemo(() => getPresetTaxRates(currency), [currency]);
 
   const calc = useMemo(() => {
-    return calculateItemizedSplits(targetTotal, items, memberIds, currency);
-  }, [targetTotal, items, memberIds, currency]);
+    return calculateItemizedSplits(targetTotal, items, memberIds, currency, { taxIncluded, taxAmount });
+  }, [targetTotal, items, memberIds, currency, taxIncluded, taxAmount]);
 
   useEffect(() => {
     if (onBalanceChange) {

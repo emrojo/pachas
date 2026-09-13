@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { requireActiveUser } from '@/lib/auth/userAuth';
 import { ExpenseCategory } from '@/types/database';
+import { ScannedLineItem } from '@/lib/ocr/receiptScanner';
+import { ReceiptAuditReport, auditAndReconcileReceipt } from '@/lib/ocr/receiptMathAuditor';
 
 export interface SensitiveBox {
   box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
@@ -34,18 +36,10 @@ export interface VisionScanResult {
   detectedLanguage?: string;
   sensitiveBoxes?: SensitiveBox[];
   translatedBoxes?: TranslatedBox[];
-  items?: Array<{
-    description: string;
-    description_original?: string;
-    price: number; // Base net price
-    quantity?: number;
-    unit_price?: number;
-    tax_name?: string;
-    tax_rate?: number;
-    tax_amount?: number;
-  }>;
+  items?: ScannedLineItem[];
   confidence: number;
   source: string;
+  audit?: ReceiptAuditReport;
 }
 
 const VALID_CATEGORIES: ExpenseCategory[] = [
@@ -222,14 +216,19 @@ Reglas críticas de extracción y traducción:
 2. amountFormatted: Representación con coma decimal europea (ej: "42,50").
 3. Impuestos y Desglose:
    - "tax_name": Nombre del impuesto identificado en la factura ("IVA" en España/países hispanos, "VAT" en Reino Unido, "TVA" en Francia, "Sales Tax" en EE.UU., etc.).
-   - "tax_included": Booleano. Si los precios de los productos ya tienen el impuesto incluido (común en tickets de restaurantes/comercios de España y Europa), pon true. Si los precios de los productos son base imponible neta y el impuesto se calcula y añade al final de la factura (común en facturas B2B o EE.UU.), pon false.
+   - "tax_included": Booleano FUNDAMENTAL. Identifica con precisión matemática:
+     * Si los precios de los productos ya tienen el impuesto incluido (común en tickets de restaurantes/comercios de España y Europa donde la suma de productos coincide directamente con el total del ticket), pon true.
+     * Si los precios de los productos son base imponible neta y el impuesto se calcula y añade al final de la factura (común en facturas B2B o EE.UU. donde Subtotal + Impuestos = Total), pon false.
    - "tax_rate": Porcentaje general del impuesto si se especifica (ej: 21, 10, 4).
    - "tax_amount": Importe total de impuestos abonados en la factura.
-   - "subtotal": Base imponible total antes de impuestos (si aparece o amount - tax_amount).
+   - "subtotal": Base imponible total antes de impuestos. Si "tax_included": true, subtotal = amount - tax_amount. Si "tax_included": false, subtotal = suma de items.
 4. items: Lista de productos individuales comprados o consumidos:
    - "quantity": Número de unidades del producto (ej: 1, 2, 3, etc.). Si el ticket indica "2x Cerveza" o en la columna cantidad hay un 3, pon 3. Por defecto 1.
-   - "unit_price": Precio de cada unidad individual si se muestra o calcula.
-   - "price": Base imponible neta del producto (sin impuesto). Si el precio del producto en el ticket ya incluía impuesto ("tax_included": true), desglósalo calculando su base imponible ("price") y su cuota de impuesto ("tax_amount"). Si el ticket no incluía impuestos, "price" es el precio indicado y calcula el "tax_amount" correspondiente según su "tax_rate".
+   - "unit_price": Precio de cada unidad individual.
+   - "price": Importe total de la línea impreso en el ticket (quantity * unit_price).
+   - VERIFICACIÓN MATEMÁTICA OBLIGATORIA:
+     * Si "tax_included": true -> la suma de los "price" de todos los items DEBE ser igual a "amount" (tolerancia de céntimos).
+     * Si "tax_included": false -> la suma de los "price" de todos los items DEBE ser igual a "subtotal", y "subtotal" + "tax_amount" DEBE ser igual a "amount".
    - "tax_rate": Porcentaje de impuesto de ese producto en particular (ej: 10% para alimentación, 21% para bebidas alcohólicas/general).
    - "tax_amount": Cuota de impuesto abonada por ese producto.
    - Si el idioma del ticket es DIFERENTE al del usuario (${userLang}):
@@ -729,6 +728,25 @@ Reglas críticas de extracción y traducción:
       source: successfulModel || 'gemini-1.5-flash',
     };
 
+    const audit = auditAndReconcileReceipt({
+      amount: result.amount,
+      subtotal: result.subtotal,
+      tax_name: result.tax_name,
+      tax_amount: result.tax_amount,
+      tax_rate: result.tax_rate,
+      tax_included: result.tax_included,
+      items: result.items,
+    });
+
+    result.tax_included = audit.taxIncluded;
+    result.subtotal = audit.subtotal;
+    result.tax_amount = audit.taxAmount;
+    if (audit.reconciledItems.length > 0) {
+      result.items = audit.reconciledItems;
+    }
+    result.audit = audit;
+
+    console.log(`[Gemini OCR] 📊 Auditoría matemática: Consistente=${audit.isConsistent}, ImpuestosIncluidos=${audit.taxIncluded}, SumaItems=${audit.itemsSum}€, Total=${audit.totalAmount}€, Descuadre=${audit.discrepancy}€`);
     console.log(`[Gemini 1.5 Flash] ✨ Resultado extraído con éxito: Comercio="${result.title}", Total=${result.amount}€, Fecha=${result.date}, Categoría=${result.category}, Ubicación="${result.locationName || 'N/A'}", GPS=${result.latitude ? `${result.latitude},${result.longitude}` : 'No'}`);
 
     return NextResponse.json({

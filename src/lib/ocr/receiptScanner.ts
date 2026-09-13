@@ -1,4 +1,5 @@
 import { ExpenseCategory } from '@/types/database';
+import { ReceiptAuditReport, auditAndReconcileReceipt } from './receiptMathAuditor';
 
 export interface SensitiveBox {
   box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
@@ -21,6 +22,8 @@ export interface ScannedLineItem {
   tax_name?: string;
   tax_rate?: number;
   tax_amount?: number;
+  assigned_user_ids?: string[];
+  assigned_shares?: Record<string, number>;
 }
 
 export interface ScannedReceiptData {
@@ -47,6 +50,7 @@ export interface ScannedReceiptData {
   items?: ScannedLineItem[];
   confidence: number;
   source?: string;
+  audit?: ReceiptAuditReport;
 }
 
 /**
@@ -330,7 +334,7 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
   if (detectedLocation) score += 0.10;
   if (detectedCategory) score += 0.10;
 
-  return {
+  const baseResult: ScannedReceiptData = {
     amount: detectedAmount,
     amountFormatted: detectedAmountStr,
     subtotal: detectedSubtotal,
@@ -345,6 +349,17 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
     rawText,
     items: detectedItems.length > 0 ? detectedItems : undefined,
     confidence: Math.round(score * 100) / 100,
+  };
+
+  const audit = auditAndReconcileReceipt(baseResult);
+
+  return {
+    ...baseResult,
+    tax_included: audit.taxIncluded,
+    subtotal: audit.subtotal,
+    tax_amount: audit.taxAmount,
+    items: audit.reconciledItems.length > 0 ? audit.reconciledItems : undefined,
+    audit,
   };
 }
 

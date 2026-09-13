@@ -59,6 +59,7 @@ import {
   Plus,
   FileText,
   MessageSquare,
+  Pencil,
 } from 'lucide-react';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
@@ -67,6 +68,9 @@ import { ReceiptRedactionModal } from '@/components/expenses/ReceiptRedactionMod
 import { scanReceipt, ScannedReceiptData } from '@/lib/ocr/receiptScanner';
 import { ItemizedSplitEditor } from '@/components/expenses/ItemizedSplitEditor';
 import { LineItemInput, calculateItemizedSplits } from '@/lib/algorithms/itemizedSplitCalculations';
+import { detectExpenseChanges, ExpenseChangeDiff } from '@/lib/algorithms/expenseChangeDetector';
+import { ConfirmExpenseChangesModal } from '@/components/expenses/ConfirmExpenseChangesModal';
+import { CreateExpenseInput } from '@/context/PachasContext';
 import { generateUUID } from '@/lib/id';
 
 // Helper to parse date string into { dateStr: "DD/MM/YYYY", timeStr: "HH:mm", isoDate: "YYYY-MM-DD" }
@@ -178,11 +182,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const isGroupAdminUser = currentUser ? (isGroupAdmin ? isGroupAdmin(groupId) : false) : false;
   const isAppAdminUser = currentUser?.role === 'admin';
   const canEdit = isCreator || isGroupAdminUser || isAppAdminUser;
+
+  // Viewing mode vs active edit mode:
+  // When opening an existing expense (expenseToEdit), it opens in read-only mode by default.
+  // The user must explicitly click "Editar gasto" to enter active edit mode.
+  const [isEditing, setIsEditing] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState<ExpenseChangeDiff[]>([]);
+  const [pendingUpdateData, setPendingUpdateData] = useState<CreateExpenseInput | null>(null);
+  const [isConfirmChangesModalOpen, setIsConfirmChangesModalOpen] = useState(false);
+  const [isConfirmingSave, setIsConfirmingSave] = useState(false);
+  const [infoNotice, setInfoNotice] = useState<string | null>(null);
+
   const isReadOnly =
     explicitReadOnly !== undefined
       ? explicitReadOnly
       : expenseToEdit
-      ? !canEdit
+      ? !isEditing
       : false;
 
   const creatorProfile = expenseToEdit
@@ -326,165 +341,209 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     }
   };
 
+  const populateFromExpense = (expense: Expense, isViewMode: boolean = true) => {
+    const numAmount = Number(expense.amount) || 0;
+    const expCurrency = expense.currency || baseCurrency;
+    const targetDateIso = expense.expense_date || getCurrentDateTimeISOWithTimezone();
+
+    setTitle(expense.title || '');
+    setAmountStr(numAmount.toFixed(2).replace('.', ','));
+    setCurrency(expCurrency);
+    const rawRate = Number(expense.exchange_rate);
+    const rate =
+      rawRate && !isNaN(rawRate) && rawRate > 0
+        ? rawRate
+        : getDefaultExchangeRate(expCurrency);
+    setExchangeRateStr(rate.toFixed(4).replace('.', ','));
+    setCategory(expense.category || 'food');
+    const dt = splitEuropeanDateTime(targetDateIso);
+    setDateDisplayStr(dt.dateStr);
+    setTimeDisplayStr(dt.timeStr);
+    setExpenseDateTime(toDateTimeLocalValue(targetDateIso));
+    setNotes(expense.notes || '');
+    setReceiptUrl(expense.receipt_url || null);
+    setReceiptTranslatedUrl(expense.receipt_translated_url || null);
+    setSplitType(expense.split_type || 'EQUAL');
+
+    // Fetch official rate directly using expense's user-specified date
+    if (expCurrency !== baseCurrency && !isViewMode) {
+      fetchOfficialRate(expCurrency, targetDateIso);
+    } else {
+      setRateSourceInfo(null);
+    }
+
+    // Auto expand accordions in read-only mode to see all details immediately
+    if (isViewMode) {
+      setIsWhoPaidOpen(true);
+      setIsSplitOpen(true);
+      setIsCategoryOpen(true);
+      setIsDateTimeOpen(true);
+      setIsLocationOpen(Boolean(expense.location_name || expense.latitude));
+      setIsNotesOpen(Boolean(expense.notes));
+      setIsReceiptSectionOpen(Boolean(expense.receipt_url));
+      setIsCommentsOpen(true);
+    } else if (isMobileView) {
+      setIsWhoPaidOpen(false);
+      setIsSplitOpen(false);
+      setIsCategoryOpen(false);
+      setIsDateTimeOpen(false);
+      setIsLocationOpen(Boolean(expense.location_name || expense.latitude));
+      setIsNotesOpen(Boolean(expense.notes));
+      setIsReceiptSectionOpen(Boolean(expense.receipt_url));
+      setIsCommentsOpen(false);
+    } else {
+      setIsWhoPaidOpen(false);
+      setIsSplitOpen(false);
+      setIsCategoryOpen(true);
+      setIsDateTimeOpen(true);
+      setIsLocationOpen(true);
+      setIsNotesOpen(true);
+      setIsReceiptSectionOpen(true);
+      setIsCommentsOpen(true);
+    }
+
+    // Populate location
+    setLatitude(expense.latitude !== null && expense.latitude !== undefined ? Number(expense.latitude) : null);
+    setLongitude(expense.longitude !== null && expense.longitude !== undefined ? Number(expense.longitude) : null);
+    setLocationName(expense.location_name || null);
+
+    // Populate payers
+    if (expense.payers && expense.payers.length > 1) {
+      setIsMultiPayer(true);
+      const map: Record<string, string> = {};
+      const pIds = expense.payers.map((p) => p.user_id);
+      setSelectedPayerIds(pIds);
+
+      const amounts = expense.payers.map((p) => Number(p.amount_paid) || 0);
+      const minAmt = Math.min(...amounts);
+      const maxAmt = Math.max(...amounts);
+      const isBasicallyEqual = Math.abs(maxAmt - minAmt) <= 0.02;
+      setMultiPayerMode(isBasicallyEqual ? 'EQUAL' : 'EXACT');
+
+      expense.payers.forEach((p) => {
+        const amt = Number(p.amount_paid) || 0;
+        map[p.user_id] = amt.toFixed(2).replace('.', ',');
+      });
+      setCustomPayers(map);
+    } else if (expense.payers && expense.payers.length === 1) {
+      setIsMultiPayer(false);
+      setMultiPayerMode('EQUAL');
+      setSinglePayerId(expense.payers[0].user_id);
+      setSelectedPayerIds([expense.payers[0].user_id]);
+    } else {
+      setIsMultiPayer(false);
+      setMultiPayerMode('EQUAL');
+      setSinglePayerId(expense.created_by);
+      setSelectedPayerIds([expense.created_by]);
+    }
+
+    // Populate participants
+    if (expense.participants && expense.participants.length > 0) {
+      setSelectedParticipants(expense.participants.map((p) => p.user_id));
+      const customMap: Record<string, { exact?: number; percentage?: number; shares?: number }> = {};
+      const stringInputs: Record<string, string> = {};
+      expense.participants.forEach((p) => {
+        customMap[p.user_id] = {
+          exact: p.amount_owed !== undefined && p.amount_owed !== null ? Number(p.amount_owed) : undefined,
+          percentage: p.percentage !== undefined && p.percentage !== null ? Number(p.percentage) : undefined,
+          shares: p.shares !== undefined && p.shares !== null ? Number(p.shares) : undefined,
+        };
+        if (expense.split_type === 'EXACT' && p.amount_owed !== undefined && p.amount_owed !== null) {
+          stringInputs[p.user_id] = String(p.amount_owed).replace('.', ',');
+        } else if (expense.split_type === 'PERCENTAGE' && p.percentage !== undefined && p.percentage !== null) {
+          stringInputs[p.user_id] = String(p.percentage).replace('.', ',');
+        } else if (expense.split_type === 'SHARES' && p.shares !== undefined && p.shares !== null) {
+          stringInputs[p.user_id] = String(p.shares);
+        }
+      });
+      setCustomSplits(customMap);
+      setCustomSplitInputs(stringInputs);
+      const reimbursed = expense.participants
+        .filter((p) => Boolean(p.has_paid))
+        .map((p) => p.user_id);
+      setReimbursedParticipantIds(reimbursed);
+    } else {
+      setReimbursedParticipantIds([]);
+    }
+
+    setTaxName(expense.tax_name || 'IVA');
+    setTaxAmount(typeof expense.tax_amount === 'number' ? expense.tax_amount : 0);
+    setTaxRate(typeof expense.tax_rate === 'number' ? expense.tax_rate : undefined);
+    setSubtotal(typeof expense.subtotal === 'number' ? expense.subtotal : undefined);
+    setTaxIncluded(typeof expense.tax_included === 'boolean' ? expense.tax_included : true);
+
+    // Populate itemized line items if present
+    if (expense.split_type === 'ITEMIZED' || (expense.items && expense.items.length > 0)) {
+      setSplitByItems(true);
+      setLineItems(
+        (expense.items || []).map((it) => ({
+          id: it.id || generateUUID(),
+          description: it.description,
+          description_original: it.description_original || undefined,
+          price: Number(it.price) || 0,
+          quantity: Math.max(1, Number(it.quantity) || 1),
+          unitPrice: typeof it.unit_price === 'number' ? it.unit_price : undefined,
+          taxName: it.tax_name || expense.tax_name || undefined,
+          taxRate: typeof it.tax_rate === 'number' ? it.tax_rate : undefined,
+          taxAmount: typeof it.tax_amount === 'number' ? it.tax_amount : undefined,
+          assignedUserIds: it.assigned_user_ids || [],
+          assignedShares: it.assigned_shares || {},
+        }))
+      );
+    } else {
+      setSplitByItems(false);
+      setLineItems([]);
+    }
+  };
+
+  const handleStartEditing = () => {
+    setIsEditing(true);
+    setInfoNotice(null);
+    setErrorMessage('');
+    if (currency !== baseCurrency) {
+      const finalIsoDate = combineEuropeanDateTimeToISO(dateDisplayStr, timeDisplayStr);
+      fetchOfficialRate(currency, finalIsoDate);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (!expenseToEdit) return;
+    populateFromExpense(expenseToEdit, true);
+    setIsEditing(false);
+    setErrorMessage('');
+    setInfoNotice(null);
+  };
+
+  const handleExecuteUpdateExpense = async () => {
+    if (!expenseToEdit || !pendingUpdateData) return;
+    try {
+      setIsConfirmingSave(true);
+      await updateExpense(groupId, expenseToEdit.id, pendingUpdateData);
+      setIsConfirmChangesModalOpen(false);
+      setPendingUpdateData(null);
+      setPendingChanges([]);
+      onClose();
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al actualizar el gasto');
+      setIsConfirmChangesModalOpen(false);
+    } finally {
+      setIsConfirmingSave(false);
+    }
+  };
+
   // Initialize or populate form when opening or changing expenseToEdit
   useEffect(() => {
     if (!isOpen) return;
 
+    setIsEditing(false);
+    setIsConfirmChangesModalOpen(false);
+    setPendingChanges([]);
+    setPendingUpdateData(null);
+
     if (expenseToEdit) {
-      const numAmount = Number(expenseToEdit.amount) || 0;
-      const expCurrency = expenseToEdit.currency || baseCurrency;
-      const targetDateIso = expenseToEdit.expense_date || getCurrentDateTimeISOWithTimezone();
-
-      setTitle(expenseToEdit.title || '');
-      setAmountStr(numAmount.toFixed(2).replace('.', ','));
-      setCurrency(expCurrency);
-      const rawRate = Number(expenseToEdit.exchange_rate);
-      const rate =
-        rawRate && !isNaN(rawRate) && rawRate > 0
-          ? rawRate
-          : getDefaultExchangeRate(expCurrency);
-      setExchangeRateStr(rate.toFixed(4).replace('.', ','));
-      setCategory(expenseToEdit.category || 'food');
-      const dt = splitEuropeanDateTime(targetDateIso);
-      setDateDisplayStr(dt.dateStr);
-      setTimeDisplayStr(dt.timeStr);
-      setExpenseDateTime(toDateTimeLocalValue(targetDateIso));
-      setNotes(expenseToEdit.notes || '');
-      setReceiptUrl(expenseToEdit.receipt_url || null);
-      setReceiptTranslatedUrl(expenseToEdit.receipt_translated_url || null);
-      setSplitType(expenseToEdit.split_type || 'EQUAL');
-
-      // Fetch official rate directly using expense's user-specified date
-      if (expCurrency !== baseCurrency && !isReadOnly) {
-        fetchOfficialRate(expCurrency, targetDateIso);
-      } else {
-        setRateSourceInfo(null);
-      }
-
-      // Auto expand accordions in read-only mode to see all details immediately
-      if (isReadOnly) {
-        setIsWhoPaidOpen(true);
-        setIsSplitOpen(true);
-        setIsCategoryOpen(true);
-        setIsDateTimeOpen(true);
-        setIsLocationOpen(Boolean(expenseToEdit.location_name || expenseToEdit.latitude));
-        setIsNotesOpen(Boolean(expenseToEdit.notes));
-        setIsReceiptSectionOpen(Boolean(expenseToEdit.receipt_url));
-        setIsCommentsOpen(true);
-      } else if (isMobileView) {
-        setIsWhoPaidOpen(false);
-        setIsSplitOpen(false);
-        setIsCategoryOpen(false);
-        setIsDateTimeOpen(false);
-        setIsLocationOpen(Boolean(expenseToEdit.location_name || expenseToEdit.latitude));
-        setIsNotesOpen(Boolean(expenseToEdit.notes));
-        setIsReceiptSectionOpen(Boolean(expenseToEdit.receipt_url));
-        setIsCommentsOpen(false);
-      } else {
-        setIsWhoPaidOpen(false);
-        setIsSplitOpen(false);
-        setIsCategoryOpen(true);
-        setIsDateTimeOpen(true);
-        setIsLocationOpen(true);
-        setIsNotesOpen(true);
-        setIsReceiptSectionOpen(true);
-        setIsCommentsOpen(true);
-      }
-
-      // Populate location
-      setLatitude(expenseToEdit.latitude !== null && expenseToEdit.latitude !== undefined ? Number(expenseToEdit.latitude) : null);
-      setLongitude(expenseToEdit.longitude !== null && expenseToEdit.longitude !== undefined ? Number(expenseToEdit.longitude) : null);
-      setLocationName(expenseToEdit.location_name || null);
-
-      // Populate payers
-      if (expenseToEdit.payers && expenseToEdit.payers.length > 1) {
-        setIsMultiPayer(true);
-        const map: Record<string, string> = {};
-        const pIds = expenseToEdit.payers.map((p) => p.user_id);
-        setSelectedPayerIds(pIds);
-
-        const amounts = expenseToEdit.payers.map((p) => Number(p.amount_paid) || 0);
-        const minAmt = Math.min(...amounts);
-        const maxAmt = Math.max(...amounts);
-        const isBasicallyEqual = Math.abs(maxAmt - minAmt) <= 0.02;
-        setMultiPayerMode(isBasicallyEqual ? 'EQUAL' : 'EXACT');
-
-        expenseToEdit.payers.forEach((p) => {
-          const amt = Number(p.amount_paid) || 0;
-          map[p.user_id] = amt.toFixed(2).replace('.', ',');
-        });
-        setCustomPayers(map);
-      } else if (expenseToEdit.payers && expenseToEdit.payers.length === 1) {
-        setIsMultiPayer(false);
-        setMultiPayerMode('EQUAL');
-        setSinglePayerId(expenseToEdit.payers[0].user_id);
-        setSelectedPayerIds([expenseToEdit.payers[0].user_id]);
-      } else {
-        setIsMultiPayer(false);
-        setMultiPayerMode('EQUAL');
-        setSinglePayerId(expenseToEdit.created_by);
-        setSelectedPayerIds([expenseToEdit.created_by]);
-      }
-
-      // Populate participants
-      if (expenseToEdit.participants && expenseToEdit.participants.length > 0) {
-        setSelectedParticipants(expenseToEdit.participants.map((p) => p.user_id));
-        const customMap: Record<string, { exact?: number; percentage?: number; shares?: number }> = {};
-        const stringInputs: Record<string, string> = {};
-        expenseToEdit.participants.forEach((p) => {
-          customMap[p.user_id] = {
-            exact: p.amount_owed !== undefined && p.amount_owed !== null ? Number(p.amount_owed) : undefined,
-            percentage: p.percentage !== undefined && p.percentage !== null ? Number(p.percentage) : undefined,
-            shares: p.shares !== undefined && p.shares !== null ? Number(p.shares) : undefined,
-          };
-          if (expenseToEdit.split_type === 'EXACT' && p.amount_owed !== undefined && p.amount_owed !== null) {
-            stringInputs[p.user_id] = String(p.amount_owed).replace('.', ',');
-          } else if (expenseToEdit.split_type === 'PERCENTAGE' && p.percentage !== undefined && p.percentage !== null) {
-            stringInputs[p.user_id] = String(p.percentage).replace('.', ',');
-          } else if (expenseToEdit.split_type === 'SHARES' && p.shares !== undefined && p.shares !== null) {
-            stringInputs[p.user_id] = String(p.shares);
-          }
-        });
-        setCustomSplits(customMap);
-        setCustomSplitInputs(stringInputs);
-        const reimbursed = expenseToEdit.participants
-          .filter((p) => Boolean(p.has_paid))
-          .map((p) => p.user_id);
-        setReimbursedParticipantIds(reimbursed);
-      } else {
-        setReimbursedParticipantIds([]);
-      }
-
-      setTaxName(expenseToEdit.tax_name || 'IVA');
-      setTaxAmount(typeof expenseToEdit.tax_amount === 'number' ? expenseToEdit.tax_amount : 0);
-      setTaxRate(typeof expenseToEdit.tax_rate === 'number' ? expenseToEdit.tax_rate : undefined);
-      setSubtotal(typeof expenseToEdit.subtotal === 'number' ? expenseToEdit.subtotal : undefined);
-      setTaxIncluded(typeof expenseToEdit.tax_included === 'boolean' ? expenseToEdit.tax_included : true);
-
-      // Populate itemized line items if present
-      if (expenseToEdit.split_type === 'ITEMIZED' || (expenseToEdit.items && expenseToEdit.items.length > 0)) {
-        setSplitByItems(true);
-        setLineItems(
-          (expenseToEdit.items || []).map((it) => ({
-            id: it.id || generateUUID(),
-            description: it.description,
-            description_original: it.description_original || undefined,
-            price: Number(it.price) || 0,
-            quantity: Math.max(1, Number(it.quantity) || 1),
-            unitPrice: typeof it.unit_price === 'number' ? it.unit_price : undefined,
-            taxName: it.tax_name || expenseToEdit.tax_name || undefined,
-            taxRate: typeof it.tax_rate === 'number' ? it.tax_rate : undefined,
-            taxAmount: typeof it.tax_amount === 'number' ? it.tax_amount : undefined,
-            assignedUserIds: it.assigned_user_ids || [],
-            assignedShares: it.assigned_shares || {},
-          }))
-        );
-      } else {
-        setSplitByItems(false);
-        setLineItems([]);
-      }
+      populateFromExpense(expenseToEdit, true);
     } else {
-
       // New expense defaults
       const defaultUserId = currentUser?.id || members[0]?.user_id || '';
       const nowIso = getCurrentDateTimeISOWithTimezone();
@@ -540,7 +599,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setIsSplitOpen(false);
       setRateSourceInfo(null);
     }
-  }, [isOpen, expenseToEdit, members, currentUser?.id, baseCurrency, isReadOnly, isMobileView]);
+  }, [isOpen, expenseToEdit, members, currentUser?.id, baseCurrency, isMobileView]);
 
 
   const handleCurrencyChange = (newCurrency: string) => {
@@ -1010,7 +1069,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         : undefined;
 
       if (expenseToEdit) {
-        await updateExpense(groupId, expenseToEdit.id, {
+        const updateData: CreateExpenseInput = {
           groupId,
           title: sanitizeText(title, 120),
           amount: totalAmount,
@@ -1035,7 +1094,21 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           selectedParticipantIds: activeParticipants,
           splitCustomInputs: customSplits,
           reimbursedParticipantIds,
-        });
+        };
+
+        const diffs = detectExpenseChanges(expenseToEdit, updateData, { members, currency });
+        if (diffs.length === 0) {
+          setInfoNotice(t('expenses.noChangesDetectedDesc') || 'No se han detectado cambios respecto al gasto original.');
+          setIsEditing(false);
+          setIsLoading(false);
+          return;
+        }
+
+        setPendingUpdateData(updateData);
+        setPendingChanges(diffs);
+        setIsConfirmChangesModalOpen(true);
+        setIsLoading(false);
+        return;
       } else {
         await addExpense({
           groupId,
@@ -1878,26 +1951,79 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="font-extrabold text-slate-900 dark:text-white block">
-                  {t('expenses.readOnlyBanner', { name: creatorProfile?.full_name || t('common.someone') })}
+                  {canEdit && expenseToEdit
+                    ? t('expenses.readOnlyViewMode') || 'Modo sólo lectura'
+                    : t('expenses.readOnlyBanner', { name: creatorProfile?.full_name || t('common.someone') })}
                 </span>
+                {canEdit && expenseToEdit && (
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                    {t('expenses.readOnlyViewHelp') || 'Pulsa "Editar gasto" si deseas realizar modificaciones.'}
+                  </span>
+                )}
               </div>
             </div>
+            {canEdit && expenseToEdit && (
+              <Button
+                type="button"
+                size="sm"
+                variant="brand"
+                onClick={handleStartEditing}
+                className="font-bold flex items-center gap-1.5 text-xs py-1.5 px-3 shrink-0 shadow-xs"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>{t('expenses.editExpenseBtn') || 'Editar gasto'}</span>
+              </Button>
+            )}
           </div>
         )}
 
-        {/* Banner de Edición como Administrador */}
-        {!isReadOnly && expenseToEdit && !isCreator && (isGroupAdminUser || isAppAdminUser) && (
-          <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-between gap-3 text-xs">
+        {/* Banner de Modo Edición Activo */}
+        {!isReadOnly && expenseToEdit && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800/60 flex items-center justify-between gap-3 text-xs shadow-xs">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 flex items-center justify-center text-base shrink-0">
-                🛡️
+                ✏️
               </div>
               <div className="min-w-0">
-                <span className="font-extrabold text-emerald-900 dark:text-emerald-200 block">
-                  {t('expenses.adminEditingNotice', { name: creatorProfile?.full_name || t('common.someone') })}
+                <span className="font-extrabold text-emerald-950 dark:text-emerald-100 block">
+                  {t('expenses.editModeActive') || 'Modo edición activo'}
+                </span>
+                <span className="text-[11px] text-emerald-700/90 dark:text-emerald-300/80 block mt-0.5">
+                  {!isCreator && (isGroupAdminUser || isAppAdminUser)
+                    ? t('expenses.adminEditingNotice', { name: creatorProfile?.full_name || t('common.someone') })
+                    : t('expenses.editModeNotice') || 'Modifica los campos necesarios. Se te pedirán confirmaciones antes de guardar.'}
                 </span>
               </div>
             </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleCancelEdit}
+              className="font-bold flex items-center gap-1.5 text-xs py-1.5 px-3 shrink-0 bg-white/80 dark:bg-slate-900/80"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>{t('expenses.cancelEdit') || 'Cancelar edición'}</span>
+            </Button>
+          </div>
+        )}
+
+        {/* Banner de Notificación Informativa */}
+        {infoNotice && (
+          <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 flex items-center justify-between gap-3 text-xs text-blue-900 dark:text-blue-200">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-sm shrink-0">
+                ℹ️
+              </div>
+              <span className="font-medium min-w-0">{infoNotice}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInfoNotice(null)}
+              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 p-1 shrink-0 font-bold"
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -3031,12 +3157,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               )}
               <Button
                 type="button"
-                variant="brand"
+                variant="outline"
                 onClick={onClose}
-                className={`flex-1 font-bold shadow-md shadow-emerald-600/20 ${isMobileView ? 'py-3.5 text-base rounded-2xl' : 'text-sm'}`}
+                className={isMobileView ? 'py-3.5 px-5 text-base rounded-2xl font-bold' : 'text-sm px-4'}
               >
-                {t('expenses.closeDetail')}
+                {t('common.close')}
               </Button>
+              {expenseToEdit && canEdit && (
+                <Button
+                  type="button"
+                  variant="brand"
+                  onClick={handleStartEditing}
+                  className={`flex-1 font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 ${isMobileView ? 'py-3.5 text-base rounded-2xl' : 'text-sm'}`}
+                >
+                  <Pencil className="w-4 h-4" />
+                  <span>{t('expenses.editExpenseBtn') || 'Editar gasto'}</span>
+                </Button>
+              )}
             </div>
           ) : expenseToEdit ? (
             <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
@@ -3057,10 +3194,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={onClose}
+                  onClick={handleCancelEdit}
                   className={isMobileView ? 'px-4 py-3 text-sm sm:text-base rounded-2xl font-bold' : 'px-4'}
                 >
-                  {t('common.cancel')}
+                  {t('expenses.cancelEdit') || t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
@@ -3130,6 +3267,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           onConfirmRedaction={handleConfirmPreCensored}
         />
       )}
+
+      <ConfirmExpenseChangesModal
+        isOpen={isConfirmChangesModalOpen}
+        onClose={() => setIsConfirmChangesModalOpen(false)}
+        onConfirm={handleExecuteUpdateExpense}
+        changes={pendingChanges}
+        isLoading={isConfirmingSave}
+      />
     </Modal>
   );
 };

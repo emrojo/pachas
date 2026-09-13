@@ -925,6 +925,48 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-72.6**: **Full 20-Language Internationalization (i18n)**:
   - All 20 language dictionaries in `src/locales/*.ts` synchronized with keys: `originalReceipt`, `translatedReceipt`, `originalDescription`, `translatedDescription`, `detectedLanguage`, `translatingReceipt`.
 
+### 🍕 FR-73: Itemized Line-Item Multi-Quantity Allocation, Stepper Controls & Remainder Assignment ("Asignar resto")
+- **FR-73.1**: **Multi-Quantity Support for Expense Line Items (`quantity >= 1`)**:
+  - In itemized split mode (`ItemizedSplitEditor.tsx`), items can represent multiple units of the same product (e.g., 3 Beers, 2 Pizzas) with total price, quantity, and calculated unit price.
+  - Database schema migration `deploy/init-scripts/20-expense-items-quantity-and-tax.sql` persists `quantity NUMERIC(10, 2) DEFAULT 1 NOT NULL`, `unit_price NUMERIC(12, 2)`, and `assigned_shares JSONB DEFAULT '{}'::jsonb`.
+- **FR-73.2**: **Ergonomic Tactile Stepper Controls (`-` / `+`)**:
+  - In the member assignment drawer, users do not need to manually type numeric inputs. Dedicated circular stepper buttons allow increasing (`+`) or decreasing (`-`) assigned unit quantities per friend with instantaneous UI feedback.
+- **FR-73.3**: **Proportional Cost Distribution**:
+  - A user who consumed $u$ units of an item with total quantity $Q$ and total price $P$ pays $(u / Q) \times P$. Cents are distributed deterministically across participants without penny loss or truncation.
+- **FR-73.4**: **Mandatory 100% Quantity Distribution**:
+  - Validates that $\sum \text{assigned units} = \text{total quantity}$ before allowing the expense to be saved. Prevents partially assigned or unallocated units from creating accounting deficits.
+- **FR-73.5**: **One-Click Remainder Allocation ("Asignar resto")**:
+  - An interactive button appears whenever there are unassigned units for a line item, allowing the user to assign all remaining units to a designated friend with a single tap.
+
+### 🧾 FR-74: International Tax/VAT Processing (Tax Included vs Excluded) & Mathematical Invoice Audit Engine
+- **FR-74.1**: **Flexible Multi-Country Tax Architecture (Beyond Spain's IVA)**:
+  - System supports arbitrary tax terminology and jurisdictions (e.g., IVA, VAT, Sales Tax, GST, TVQ, MwSt, TVA) customizable per receipt with `tax_name`, `tax_rate`, `tax_amount`, and `subtotal`.
+- **FR-74.2**: **Tax Included vs Tax Excluded Detection (`tax_included`)**:
+  - Distinguishes whether prices printed on the receipt already include tax (`tax_included: true`) or if taxes are added at the bottom of the invoice (`tax_included: false`).
+  - When taxes are included, line item splits represent gross amounts directly. When taxes are added at the bottom, the tax amount is distributed among participants proportionally to their net subtotal consumption.
+- **FR-74.3**: **Mathematical Invoice Audit Engine (`src/lib/ocr/receiptMathAuditor.ts`)**:
+  - Automatically verifies invoice consistency:
+    - *Included model*: $\sum \text{items} = \text{total}$
+    - *Excluded model*: $\sum \text{items} + \text{tax} = \text{total}$
+  - Detects rounding discrepancies or misreads and reports explicit audit diagnostics.
+- **FR-74.4**: **Discrepancy Warning & 1-Click Auto-Square (`ReceiptValidationModal.tsx`)**:
+  - Displays a visual status banner: green badge when the invoice squares perfectly, or an amber discrepancy notice with a one-click **"Ajustar total a X,XX €"** action to balance the expense.
+
+### 🛡️ FR-75: Default Read-Only Expense Viewing Mode, Controlled Edit Activation & Modification Diff Confirmation Dialog
+- **FR-75.1**: **Default Read-Only View on Expense Inspection**:
+  - Opening any existing registered expense to view details always defaults to read-only view mode (`isReadOnly = true`), preventing accidental keystrokes, unintended field edits, or unexpected recalculations.
+  - Features a prominent read-only banner with an explicit **"✏️ Editar gasto"** button (in the top header and footer) for authorized members.
+- **FR-75.2**: **Controlled Edit Mode Activation & Reversion**:
+  - Clicking "Editar gasto" transitions the form into active editing mode (`isEditing = true`), showing an active editing banner and a **"Cancelar edición"** button.
+  - Clicking "Cancelar edición" immediately reverts all modified fields back to the original database values without closing the modal or submitting changes.
+- **FR-75.3**: **Granular Change Detection Engine (`src/lib/algorithms/expenseChangeDetector.ts`)**:
+  - Deterministic comparison engine comparing original `Expense` with updated payload across all dimensions: Title, Amount, Currency, Category, Date/Time, Payers, Split Type, Participants, Items, Notes, Location, and Receipt attachments.
+- **FR-75.4**: **Visual Change Confirmation Dialog (`src/components/expenses/ConfirmExpenseChangesModal.tsx`)**:
+  - Upon clicking "Guardar cambios", if any difference is detected, a confirmation modal is presented before committing to the database.
+  - Each modified field is rendered as a comparative card showing the **Anterior (Original)** value (struck through in soft rose) and the **Nuevo (Modificado)** value (highlighted in emerald), accompanied by a warning indicating that group debts and balances will be updated.
+- **FR-75.5**: **Friendly No-Op Feedback**:
+  - If "Guardar cambios" is pressed without making any modifications, the system informs the user via an informative notice banner (*"No se han detectado cambios respecto al gasto original"*) and cleanly exits edit mode without executing redundant API calls or database writes.
+
 
 ---
 
@@ -1079,6 +1121,9 @@ This document serves as the official and permanent registry for all **user requi
 | **13/09/2026** | 💰 Added | **FR-70** | **Expense Reimbursement Tracking, Multi-State Visual Badging & Debt Balance Exclusion (`has_paid`)**: Integrated participant reimbursement tracking in the expense editor (`ExpenseForm`) for desktop and mobile (`isMobileView`); visual payment status badges (`✅ Completado`, `🔄 Parcialmente pagado (X/Y)`, `⏳ Por pagar`) across desktop (`ExpenseCard`) and mobile (`/dashboard-mobile`); mathematical exclusion of reimbursed debt from group net balances (`simplifyDebts.ts`), conserving zero-sum equilibrium ($\sum \text{netBalance} = 0$); PostgreSQL schema migration `18-expense-participant-has-paid.sql`; API persistence in `POST /api/expenses` and `PUT /api/expenses/[id]`; and full 20-language i18n synchronization. |
 | **13/09/2026** | 👥 Added | **FR-71** | **Equal Split Mode for Multiple Payers ("A partes iguales")**: Integrated mode switcher tab in `ExpenseForm` when multiple friends paid (`EQUAL` vs `EXACT`); interactive payer selection chips with member avatars; one-click *"Todos"* button; automatic equal share calculation using `calculateSplits(totalAmount, 'EQUAL', selectedPayerIds)` with loss-less penny balancing; live breakdown banner with exact cents; smart auto-detection on edit; contextual accordion header badge (`Varios amigos (X a partes iguales)`); and 20-language i18n synchronization. |
 | **13/09/2026** | 🌐 Added | **FR-72** | **Foreign Receipt Multilingual Translation & Dual-Image Preservation**: Multimodal language detection in `/api/ocr/scan` with bilingual item extraction (`description` translated, `description_original` printed); client-side Canvas AI Lens overlay rendering (`generateTranslatedReceiptOverlay`) producing translated receipt image at zero extra API token cost; database migration `19-translated-receipts-and-items.sql` (`receipt_translated_url`, `description_original`); dual-image segmented toggle in `ReceiptModal` (`[ 📷 Original ]` | `[ 🌐 Traducido ]`); bilingual item labels in `ItemizedSplitEditor`; safe storage sanitization in `PachasContext`; and complete 20-language i18n synchronization. |
+| **13/09/2026** | 🍕 Added | **FR-73** | **Itemized Line-Item Multi-Quantity Allocation, Stepper Controls & Remainder Assignment ("Asignar resto")**: Supports items with quantity > 1 in `ItemizedSplitEditor`, tactile `+` / `-` stepper buttons instead of manual typing, proportional pricing per consumed unit, mandatory 100% quantity distribution, 1-click "Asignar resto" for remaining units, database migration `20-expense-items-quantity-and-tax.sql` (`quantity`, `unit_price`, `assigned_shares`), unit tests, and 20-language i18n synchronization. |
+| **13/09/2026** | 🧾 Added | **FR-74** | **International Tax/VAT Processing (Tax Included vs Excluded) & Mathematical Invoice Audit Engine**: Multi-country tax flexibility (`tax_name`, `tax_rate`, `tax_amount`, `subtotal`), tax included vs excluded apportioning, automatic mathematical consistency auditor (`receiptMathAuditor.ts`), discrepancy alert banner with 1-click "Ajustar total" in `ReceiptValidationModal`, and 20-language i18n synchronization. |
+| **13/09/2026** | 🛡️ Added | **FR-75** | **Default Read-Only Expense Viewing Mode, Controlled Edit Activation & Modification Diff Confirmation Dialog**: Existing expenses open strictly in read-only mode by default with dedicated `[✏️ Editar gasto]` action; controlled editing activation with `[Cancelar edición]` clean state reversion; change detection engine (`expenseChangeDetector.ts`) analyzing 12 financial and metadata dimensions; visual before-and-after confirmation dialog (`ConfirmExpenseChangesModal.tsx`) showing modified fields; friendly no-op detection banner; and 20-language i18n synchronization. |
 
 
 
