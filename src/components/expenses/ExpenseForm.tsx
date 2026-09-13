@@ -16,7 +16,7 @@ import {
   parseEuropeanAmount,
   formatNumber,
 } from '@/lib/currencies';
-import { SplitType, ExpenseCategory, Expense } from '@/types/database';
+import { SplitType, ExpenseCategory, Expense, InvoiceType } from '@/types/database';
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
 import { getHistoricalExchangeRate, ExchangeRateResult } from '@/lib/currencies/exchangeRateService';
@@ -285,6 +285,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [taxRate, setTaxRate] = useState<number | undefined>(undefined);
   const [subtotal, setSubtotal] = useState<number | undefined>(undefined);
   const [taxIncluded, setTaxIncluded] = useState(true);
+  const [invoiceType, setInvoiceType] = useState<InvoiceType>('simplified');
+  const [taxLegislation, setTaxLegislation] = useState('EU_DIRECTIVE_2006_112');
+  const [isEurope, setIsEurope] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -471,6 +474,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setTaxRate(typeof expense.tax_rate === 'number' ? expense.tax_rate : undefined);
     setSubtotal(typeof expense.subtotal === 'number' ? expense.subtotal : undefined);
     setTaxIncluded(typeof expense.tax_included === 'boolean' ? expense.tax_included : true);
+    setInvoiceType(expense.invoice_type || 'simplified');
+    setTaxLegislation(expense.tax_legislation || 'EU_DIRECTIVE_2006_112');
+    setIsEurope(expense.is_europe !== false);
 
     // Populate itemized line items if present
     if (expense.split_type === 'ITEMIZED' || (expense.items && expense.items.length > 0)) {
@@ -481,6 +487,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           description: it.description,
           description_original: it.description_original || undefined,
           price: Number(it.price) || 0,
+          net_price: typeof it.net_price === 'number' ? it.net_price : undefined,
           quantity: Math.max(1, Number(it.quantity) || 1),
           unit_price: typeof it.unit_price === 'number' ? it.unit_price : undefined,
           tax_name: it.tax_name || expense.tax_name || undefined,
@@ -861,12 +868,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     if (typeof scannedData.tax_included === 'boolean') {
       setTaxIncluded(scannedData.tax_included);
     }
+    if (scannedData.invoice_type) {
+      setInvoiceType(scannedData.invoice_type);
+    }
+    if (scannedData.tax_legislation) {
+      setTaxLegislation(scannedData.tax_legislation);
+    }
+    if (typeof scannedData.is_europe === 'boolean') {
+      setIsEurope(scannedData.is_europe);
+    }
     if (scannedData.items && scannedData.items.length > 0) {
       const parsedItems: LineItemInput[] = scannedData.items.map((it) => ({
         id: generateUUID(),
         description: it.description,
         description_original: it.description_original || undefined,
         price: it.price,
+        net_price: typeof it.net_price === 'number' ? it.net_price : undefined,
         quantity: Math.max(1, Number(it.quantity) || 1),
         unit_price: typeof it.unit_price === 'number' ? it.unit_price : undefined,
         tax_name: it.tax_name || scannedData.tax_name || undefined,
@@ -1063,6 +1080,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             description: it.description,
             description_original: it.description_original || undefined,
             price: it.price,
+            net_price: it.net_price,
             quantity: it.quantity || 1,
             unit_price: it.unit_price !== undefined && it.unit_price !== null ? it.unit_price : (it.quantity ? Math.round((it.price / it.quantity) * 100) / 100 : it.price),
             tax_name: it.tax_name || taxName || undefined,
@@ -1086,6 +1104,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           taxRate: taxRate,
           subtotal: subtotal || undefined,
           taxIncluded: taxIncluded,
+          invoiceType,
+          invoice_type: invoiceType,
+          taxLegislation,
+          tax_legislation: taxLegislation,
+          isEurope,
+          is_europe: isEurope,
           category,
           expenseDate: finalIsoDate,
           receiptUrl,
@@ -1127,6 +1151,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           taxRate: taxRate,
           subtotal: subtotal || undefined,
           taxIncluded: taxIncluded,
+          invoiceType,
+          invoice_type: invoiceType,
+          taxLegislation,
+          tax_legislation: taxLegislation,
+          isEurope,
+          is_europe: isEurope,
           category,
           expenseDate: finalIsoDate,
           receiptUrl,
@@ -2829,6 +2859,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     defaultTaxName={taxName}
                     taxIncluded={taxIncluded}
                     taxAmount={taxAmount}
+                    invoiceType={invoiceType}
+                    taxLegislation={taxLegislation}
+                    isEurope={isEurope}
                     isReadOnly={isReadOnly}
                     onBalanceChange={setIsItemsBalanced}
                   />

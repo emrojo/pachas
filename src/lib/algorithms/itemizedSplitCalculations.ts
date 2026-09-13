@@ -5,7 +5,8 @@ export interface LineItemInput {
   id: string;
   description: string;
   description_original?: string;
-  price: number; // Net base price
+  price: number; // Price of line item (PVP if tax_included, Net if not)
+  net_price?: number; // Base net price without tax
   quantity?: number; // Total units (default 1)
   unit_price?: number | null;
   tax_name?: string; // 'IVA', 'VAT', 'Tax'

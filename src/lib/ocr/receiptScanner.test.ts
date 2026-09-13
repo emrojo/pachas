@@ -31,11 +31,15 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
     expect(data.tax_amount).toBe(4.39);
     expect(data.subtotal).toBe(42.91);
     expect(data.tax_name).toBe('IVA');
+    expect(data.invoice_type).toBe('simplified');
+    expect(data.is_europe).toBe(true);
+    expect(data.tax_legislation).toBe('EU_DIRECTIVE_2006_112');
     expect(data.items).toBeDefined();
     expect(data.items?.length).toBe(4);
     expect(data.items?.[0]).toEqual({
       description: 'PAELLA MIXTA',
       price: 32.0,
+      net_price: 29.09,
       quantity: 2,
       unit_price: 16.0,
       tax_name: 'IVA',
@@ -46,6 +50,7 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
     expect(data.items?.[1]).toEqual({
       description: 'ENSALADA VERDE',
       price: 7.5,
+      net_price: 6.82,
       quantity: 1,
       unit_price: 7.5,
       tax_name: 'IVA',
@@ -74,11 +79,15 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
     expect(data.date).toBe('2026-07-15T19:10');
     expect(data.title).toBe('Supermercado Mercadona');
     expect(data.category).toBe('shopping');
+    expect(data.invoice_type).toBe('simplified');
+    expect(data.is_europe).toBe(true);
+    expect(data.tax_legislation).toBe('EU_DIRECTIVE_2006_112');
     expect(data.items).toBeDefined();
     expect(data.items?.length).toBe(4);
     expect(data.items?.[0]).toEqual({
       description: 'LECHE ENTERA',
       price: 1.2,
+      net_price: 1.2,
       quantity: 1,
       unit_price: 1.2,
       tax_name: 'IVA',

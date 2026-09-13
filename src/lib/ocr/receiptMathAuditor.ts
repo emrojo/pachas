@@ -1,5 +1,6 @@
 import { ScannedLineItem, ScannedReceiptData } from '@/lib/ocr/receiptScanner';
-import { TaxBracketSummary } from '@/lib/taxes';
+import { TaxBracketSummary, detectEuropeanJurisdiction } from '@/lib/taxes';
+import { InvoiceType } from '@/types/database';
 
 export type ReceiptAuditStatus =
   | 'balanced_included' // Taxes are included in item prices (sum of items == total)
@@ -22,6 +23,9 @@ export interface ReceiptAuditReport {
   isConsistent: boolean;
   taxIncluded: boolean;
   itemsPriceIncludesTax: boolean;
+  invoiceType?: InvoiceType;
+  taxLegislation?: string;
+  isEurope?: boolean;
   taxName: string;
   taxRate?: number;
   taxAmount: number;
@@ -326,6 +330,16 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
 
   itemsSum = round2(itemsSum);
 
+  // Resolve European jurisdiction, invoice type and applicable legislation
+  const jurisdiction = detectEuropeanJurisdiction({
+    currency: data.currency,
+    rawText: data.rawText,
+    invoiceType: data.invoice_type,
+  });
+  const isEurope = typeof data.is_europe === 'boolean' ? data.is_europe : jurisdiction.isEurope;
+  const invoiceType: InvoiceType = data.invoice_type || jurisdiction.invoiceType;
+  const taxLegislation = data.tax_legislation || jurisdiction.legislation;
+
   // If no items are present, audit cannot compare item sums
   if (reconciledItems.length === 0) {
     if (subtotal === 0 && taxAmount > 0 && totalAmount > taxAmount) {
@@ -335,6 +349,9 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
       isConsistent: totalAmount > 0,
       taxIncluded: initialTaxIncluded,
       itemsPriceIncludesTax: initialTaxIncluded,
+      invoiceType,
+      taxLegislation,
+      isEurope,
       taxName,
       taxRate: rawTaxRate,
       taxAmount,
@@ -353,6 +370,9 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
   }
 
   // 2. Identify tax inclusion hypothesis and consistency
+  // Special European rule: on a "Factura Simplificada" (ticket), product prices MUST include VAT by law
+  const isEuSimplified = isEurope && invoiceType === 'simplified';
+
   // Hypothesis A: Item prices include taxes (retail PVP): sum(items) ≈ totalAmount
   const diffIncluded = round2(Math.abs(itemsSum - totalAmount));
 
@@ -368,7 +388,25 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
   let discrepancy = 0;
   let summaryMessage = '';
 
-  if (diffIncluded <= 0.05 && diffIncluded <= diffNetWithTax) {
+  if (isEuSimplified) {
+    // Law mandates VAT included in displayed prices on simplified invoices in Europe
+    finalTaxIncluded = true;
+    itemsPriceIncludesTax = true;
+    discrepancy = round2(itemsSum - totalAmount);
+
+    if (diffIncluded <= 0.05) {
+      status = 'balanced_included';
+      summaryMessage = `Factura Simplificada europea cuadrada: Los precios mostrados ya incluyen ${taxName} por ley (${totalAmount.toFixed(2)} €).`;
+    } else {
+      status = 'discrepancy';
+      summaryMessage = `Aviso en Factura Simplificada: La suma de productos con IVA (${itemsSum.toFixed(2)} €) difiere del total (${totalAmount.toFixed(2)} €) en ${Math.abs(discrepancy).toFixed(2)} €.`;
+      warnings.push(`Existe una diferencia de ${Math.abs(discrepancy).toFixed(2)} € entre los productos leídos y el total del ticket.`);
+    }
+
+    if (subtotal === 0 || Math.abs((subtotal + taxAmount) - totalAmount) > 0.05) {
+      subtotal = round2(totalAmount - taxAmount);
+    }
+  } else if (diffIncluded <= 0.05 && diffIncluded <= diffNetWithTax) {
     // Definitive: Both total and item prices have tax included
     finalTaxIncluded = true;
     itemsPriceIncludesTax = true;
@@ -471,7 +509,7 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
     }
   }
 
-  // 5. Calculate and verify item tax_amount for each product
+  // 5. Calculate and verify item tax_amount and net_price for each product
   let calculatedItemsTaxSum = 0;
   for (const it of reconciledItemsList) {
     const rate = typeof it.tax_rate === 'number' ? round2(it.tax_rate) : rawTaxRate || 0;
@@ -480,14 +518,17 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
     it.tax_included = itemsPriceIncludesTax;
 
     if (itemsPriceIncludesTax) {
-      // Product price includes tax: cuota = price - price / (1 + rate / 100)
+      // Product price includes tax (PVP): net_price = round2(price / (1 + rate / 100))
       if (rate > 0) {
-        it.tax_amount = round2(it.price - (it.price / (1 + rate / 100)));
+        it.net_price = round2(it.price / (1 + rate / 100));
+        it.tax_amount = round2(it.price - it.net_price);
       } else {
+        it.net_price = it.price;
         it.tax_amount = 0;
       }
     } else {
-      // Product price is net base: cuota = price * (rate / 100)
+      // Product price is net base: net_price = price
+      it.net_price = it.price;
       if (rate > 0) {
         it.tax_amount = round2(it.price * (rate / 100));
       } else {
@@ -501,8 +542,16 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
   // If invoice taxAmount was missing or 0, deduce it from reconciled items
   if (taxAmount === 0 && calculatedItemsTaxSum > 0) {
     taxAmount = calculatedItemsTaxSum;
-    if (subtotal === 0) {
-      subtotal = itemsPriceIncludesTax ? round2(totalAmount - taxAmount) : itemsSum;
+  }
+
+  const itemsNetSum = round2(reconciledItemsList.reduce((acc, it) => acc + (it.net_price || 0), 0));
+  if (itemsPriceIncludesTax) {
+    if (subtotal === 0 || subtotal === totalAmount || Math.abs((subtotal + taxAmount) - totalAmount) > 0.05) {
+      subtotal = itemsNetSum > 0 ? itemsNetSum : round2(totalAmount - taxAmount);
+    }
+  } else {
+    if (subtotal === 0 || Math.abs(subtotal - itemsSum) > 0.05) {
+      subtotal = itemsSum;
     }
   }
 
@@ -527,6 +576,9 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
     isConsistent,
     taxIncluded: finalTaxIncluded,
     itemsPriceIncludesTax,
+    invoiceType,
+    taxLegislation,
+    isEurope,
     taxName,
     taxRate: rawTaxRate,
     taxAmount,

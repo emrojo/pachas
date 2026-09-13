@@ -5,6 +5,8 @@
  * for receipts both with tax included (retail/Europe) and tax added at the end (US/wholesale).
  */
 
+import { InvoiceType } from '@/types/database';
+
 export interface TaxBreakdown {
   netPrice: number;    // Base imponible (without tax)
   taxAmount: number;   // Cuota de impuesto
@@ -344,6 +346,136 @@ export function calculateTaxBreakdown(
 }
 
 /**
+ * Set of European ISO country codes (EU-27 + UK, EEA, EFTA, microstates, etc.)
+ */
+export const EUROPEAN_COUNTRY_CODES = new Set([
+  // EU-27
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
+  'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
+  // Non-EU European, EFTA, microstates, UK
+  'GB', 'UK', 'CH', 'NO', 'IS', 'LI', 'AD', 'MC', 'SM', 'VA', 'AL', 'BA', 'ME', 'MK', 'RS', 'MD', 'UA',
+]);
+
+/**
+ * Set of common European currencies
+ */
+export const EUROPEAN_CURRENCIES = new Set([
+  'EUR', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'BGN', 'ISK',
+]);
+
+/**
+ * Returns true if the ISO country code represents a European territory.
+ */
+export function isEuropeanCountry(countryCode?: string): boolean {
+  if (!countryCode) return false;
+  return EUROPEAN_COUNTRY_CODES.has(countryCode.trim().toUpperCase());
+}
+
+/**
+ * Returns true if the currency code represents a European currency.
+ */
+export function isEuropeanCurrency(currency?: string): boolean {
+  if (!currency) return false;
+  return EUROPEAN_CURRENCIES.has(currency.trim().toUpperCase());
+}
+
+/**
+ * Resolves the applicable tax legislation code based on country and European status.
+ */
+export function getApplicableLegislation(options: {
+  isEurope?: boolean;
+  countryCode?: string;
+  currency?: string;
+}): string {
+  const code = options.countryCode?.trim().toUpperCase();
+  const cur = options.currency?.trim().toUpperCase();
+  const isEu = options.isEurope ?? (isEuropeanCountry(code) || isEuropeanCurrency(cur));
+
+  if (!isEu) {
+    if (code === 'US' || cur === 'USD') return 'US_SALES_TAX';
+    return 'NON_EU';
+  }
+
+  if (code === 'ES' || (!code && cur === 'EUR')) {
+    return 'ES_RD_1619_2012'; // Real Decreto 1619/2012 de Facturación (España)
+  }
+
+  if (code === 'GB' || code === 'UK' || cur === 'GBP') {
+    return 'UK_VAT_ACT_1994'; // Value Added Tax Act 1994 (UK)
+  }
+
+  return 'EU_DIRECTIVE_2006_112'; // Directiva 2006/112/CE del Consejo de la UE
+}
+
+/**
+ * Detects whether an establishment/receipt belongs to a European jurisdiction,
+ * determining the legal framework and invoice classification.
+ */
+export function detectEuropeanJurisdiction(options: {
+  currency?: string;
+  countryCode?: string;
+  rawText?: string;
+  invoiceType?: InvoiceType;
+}): {
+  isEurope: boolean;
+  legislation: string;
+  invoiceType: InvoiceType;
+  countryCode?: string;
+} {
+  const code = options.countryCode?.trim().toUpperCase();
+  const cur = options.currency?.trim().toUpperCase();
+  const text = (options.rawText || '').toLowerCase();
+
+  let isEu = false;
+  let resolvedCountry = code;
+
+  if (code && isEuropeanCountry(code)) {
+    isEu = true;
+  } else if (cur && isEuropeanCurrency(cur)) {
+    isEu = true;
+  } else if (
+    text.includes('españa') || text.includes('spain') ||
+    text.includes('madrid') || text.includes('barcelona') ||
+    text.includes('valencia') || text.includes('sevilla') ||
+    text.includes('nif:') || text.includes('cif:') ||
+    text.includes('factura simplificada') || text.includes('iva incluido')
+  ) {
+    isEu = true;
+    if (!resolvedCountry) resolvedCountry = 'ES';
+  } else if (
+    text.includes('france') || text.includes('deutschland') || text.includes('italia') ||
+    text.includes('paris') || text.includes('berlin') || text.includes('roma') ||
+    text.includes('tva') || text.includes('mwst')
+  ) {
+    isEu = true;
+  }
+
+  const legislation = getApplicableLegislation({
+    isEurope: isEu,
+    countryCode: resolvedCountry,
+    currency: cur,
+  });
+
+  let invType: InvoiceType = options.invoiceType || (isEu ? 'simplified' : 'standard');
+
+  if (!options.invoiceType && isEu) {
+    // If text contains explicit customer tax ID or mentions full invoice, treat as full
+    const hasBuyerData = (
+      (text.includes('cliente:') || text.includes('datos del cliente') || text.includes('factura ordinaria') || text.includes('factura completa') || text.includes('destinatario:')) &&
+      (text.includes('nif') || text.includes('cif') || text.includes('vat id'))
+    );
+    invType = hasBuyerData ? 'full' : 'simplified';
+  }
+
+  return {
+    isEurope: isEu,
+    legislation,
+    invoiceType: invType,
+    countryCode: resolvedCountry,
+  };
+}
+
+/**
  * Builds structured tax bracket context and product classification rules
  * to inject directly into the multimodal AI vision prompt.
  */
@@ -379,6 +511,19 @@ export function getCountryTaxPromptContext(currency?: string, language?: string)
     context += `  • ${info.countryName} (${info.taxName}): tramos [${ratesStr}].\n`;
   }
 
+  context += `\n--- NORMATIVA EUROPEA: FACTURA SIMPLIFICADA VS FACTURA COMPLETA ---\n`;
+  context += `1. Jurisdicción Europea (is_europe): Identifica si el establecimiento emisor está en Europa (España, Francia, Alemania, Italia, etc.) por la dirección, CIF/NIF, ciudad o moneda (EUR, GBP, etc.).\n`;
+  context += `2. Tipo de Factura (invoice_type):\n`;
+  context += `   - "simplified": Ticket de caja, TPV o factura simplificada expedida al consumidor final sin NIF/CIF ni datos fiscales completos del cliente comprador.\n`;
+  context += `     ¡IMPERATIVO LEGAL EN EUROPA!: En una Factura Simplificada, TODOS los precios unitarios e importes mostrados de los productos YA INCLUYEN EL IVA POR LEY (Art. 7.1.f RD 1619/2012 / Directiva 2006/112/CE / Ley de Consumidores). Por tanto: tax_included=true para todos los productos, y su precio neto sin IVA se deduce decrementando el impuesto.\n`;
+  context += `   - "full": Factura completa u ordinaria (B2B o con datos fiscales del comprador: NIF/CIF, razón social y domicilio fiscal). Puede detallar bases imponibles netas antes de impuestos o precios con IVA.\n`;
+  context += `   - "standard" / "other": Facturas de fuera de Europa (ej. EE.UU. donde el Sales Tax se añade al final).\n`;
+  context += `3. Legislación aplicable (tax_legislation):\n`;
+  context += `   - "ES_RD_1619_2012" si el emisor es de España.\n`;
+  context += `   - "EU_DIRECTIVE_2006_112" si es de otro país de la Unión Europea.\n`;
+  context += `   - "UK_VAT_ACT_1994" si es de Reino Unido.\n`;
+  context += `   - "US_SALES_TAX" si es de Estados Unidos.\n`;
+  context += `   - "NON_EU" para otros países.\n`;
   context += `----------------------------------------------------------`;
   return context;
 }

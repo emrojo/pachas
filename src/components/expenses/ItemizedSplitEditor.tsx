@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '@/context/LanguageContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatMoney, parseEuropeanAmount, formatNumber } from '@/lib/currencies';
-import { Profile } from '@/types/database';
+import { Profile, InvoiceType } from '@/types/database';
 import { generateUUID } from '@/lib/id';
 import { resolveTaxLabel, getPresetTaxRates, calculateTaxBreakdown } from '@/lib/taxes';
 import {
@@ -37,6 +37,9 @@ export interface ItemizedSplitEditorProps {
   defaultTaxName?: string;
   taxIncluded?: boolean;
   taxAmount?: number;
+  invoiceType?: InvoiceType;
+  taxLegislation?: string;
+  isEurope?: boolean;
 }
 
 export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
@@ -52,6 +55,9 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
   defaultTaxName,
   taxIncluded = true,
   taxAmount = 0,
+  invoiceType = 'simplified',
+  taxLegislation,
+  isEurope = true,
 }) => {
   const { t, language } = useTranslation();
 
@@ -80,6 +86,7 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
       id: generateUUID(),
       description: '',
       price: 0,
+      net_price: 0,
       quantity: 1,
       tax_name: activeTaxLabel,
       tax_rate: presetTaxRates.includes(10) ? 10 : presetTaxRates[presetTaxRates.length - 1] || 0,
@@ -102,13 +109,15 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
       const merged = { ...it, ...updates };
       const isTaxInc = merged.tax_included !== undefined ? merged.tax_included : taxIncluded;
 
-      // Recompute tax_amount if price or tax_rate changed
+      // Recompute tax_amount and net_price if price or tax_rate changed
       if (updates.price !== undefined || updates.tax_rate !== undefined) {
         const rate = merged.tax_rate || 0;
         const price = merged.price || 0;
         if (isTaxInc) {
-          merged.tax_amount = rate > 0 ? Math.round((price - (price / (1 + rate / 100))) * 100) / 100 : 0;
+          merged.net_price = rate > 0 ? Math.round((price / (1 + rate / 100)) * 100) / 100 : price;
+          merged.tax_amount = Math.round((price - merged.net_price) * 100) / 100;
         } else {
+          merged.net_price = price;
           merged.tax_amount = rate > 0 ? Math.round(price * (rate / 100) * 100) / 100 : 0;
         }
       }
@@ -209,6 +218,14 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                 {activeTaxLabel} {taxIncluded ? 'incluido' : 'no incluido'}
               </span>
+              {isEurope && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                  title={taxLegislation || (invoiceType === 'simplified' ? 'Art. 7.1.f RD 1619/2012 / Directiva 2006/112/CE: Precios con IVA incluido por ley' : 'Directiva 2006/112/CE')}
+                >
+                  🇪🇺 {invoiceType === 'simplified' ? 'Factura Simplificada' : 'Factura Completa'}
+                </span>
+              )}
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t('expenses.splitItemsSubtitle') || 'Asigna con los pulsadores (+) y (-) cuántas unidades tomó cada uno. Todo debe quedar repartido.'}
@@ -254,10 +271,16 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
             const isFullyAssigned = assignedUnits === qty;
             const isOverAssigned = assignedUnits > qty;
 
-            const netPrice = Math.max(0, Number(item.price) || 0);
+            const isTaxInc = item.tax_included !== undefined ? item.tax_included : taxIncluded;
+            const linePrice = Math.max(0, Number(item.price) || 0);
             const taxRate = Math.max(0, Number(item.tax_rate) || 0);
-            const taxAmount = Math.max(0, Number(item.tax_amount) || Math.round(netPrice * (taxRate / 100) * 100) / 100);
-            const lineTotal = Math.round((netPrice + taxAmount) * 100) / 100;
+            const netPrice = item.net_price !== undefined
+              ? item.net_price
+              : (isTaxInc ? (taxRate > 0 ? Math.round((linePrice / (1 + taxRate / 100)) * 100) / 100 : linePrice) : linePrice);
+            const taxAmount = item.tax_amount !== undefined
+              ? item.tax_amount
+              : (isTaxInc ? Math.round((linePrice - netPrice) * 100) / 100 : Math.round(netPrice * (taxRate / 100) * 100) / 100);
+            const lineTotal = isTaxInc ? linePrice : Math.round((netPrice + taxAmount) * 100) / 100;
             const unitPriceWithTax = Math.round((lineTotal / qty) * 100) / 100;
 
             return (

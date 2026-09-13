@@ -173,6 +173,10 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12, 2) DEFAULT 0 NOT NULL;`).catch(() => {});
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_included BOOLEAN DEFAULT TRUE NOT NULL;`).catch(() => {});
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS assigned_shares JSONB DEFAULT '{}'::jsonb NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS invoice_type VARCHAR(30) DEFAULT 'simplified' NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS tax_legislation VARCHAR(50) DEFAULT 'EU_DIRECTIVE_2006_112';`).catch(() => {});
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS is_europe BOOLEAN DEFAULT TRUE NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS net_price NUMERIC(12, 2) DEFAULT NULL;`).catch(() => {});
   } catch (err) {
     console.warn('Schema auto-migration notice:', err);
   }

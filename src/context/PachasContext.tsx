@@ -13,6 +13,7 @@ import {
   SimplifiedDebt,
   SplitType,
   ExpenseCategory,
+  InvoiceType,
   PaymentMethod,
   ExpenseComment,
   GroupMessage,
@@ -47,7 +48,7 @@ import {
   SyncAction,
 } from '@/lib/sync/syncManager';
 import { recalculateAllExpensesForNewBaseCurrency } from '@/lib/currencies/exchangeRateService';
-import { formatMoney } from '@/lib/currencies';
+import { getCurrencyByCode, formatMoney } from '@/lib/currencies';
 import { scanReceipt } from '@/lib/ocr/receiptScanner';
 import { getCurrentDateTimeISOWithTimezone } from '@/lib/utils';
 import { generateUUID } from '@/lib/id';
@@ -84,6 +85,12 @@ export interface CreateExpenseInput {
   subtotal?: number | null;
   taxIncluded?: boolean;
   tax_included?: boolean;
+  invoiceType?: InvoiceType;
+  invoice_type?: InvoiceType;
+  taxLegislation?: string;
+  tax_legislation?: string;
+  isEurope?: boolean;
+  is_europe?: boolean;
   items?: ExpenseItem[];
 }
 
@@ -2209,6 +2216,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       tax_rate: input.tax_rate ?? input.taxRate ?? null,
       subtotal: input.subtotal ?? null,
       tax_included: input.tax_included ?? input.taxIncluded ?? true,
+      invoice_type: input.invoice_type || input.invoiceType || 'simplified',
+      tax_legislation: input.tax_legislation || input.taxLegislation || 'EU_DIRECTIVE_2006_112',
+      is_europe: input.is_europe ?? input.isEurope ?? true,
       category: input.category,
       expense_date: input.expenseDate,
       receipt_url: input.receiptUrl || null,
@@ -2248,6 +2258,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             taxRate: newExpense.tax_rate,
             subtotal: newExpense.subtotal,
             taxIncluded: newExpense.tax_included,
+            invoice_type: newExpense.invoice_type,
+            tax_legislation: newExpense.tax_legislation,
+            is_europe: newExpense.is_europe,
             category: newExpense.category,
             expenseDate: newExpense.expense_date,
             receiptUrl: newExpense.receipt_url,
@@ -2719,6 +2732,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       tax_rate: input.tax_rate !== undefined ? input.tax_rate : input.taxRate !== undefined ? input.taxRate : existing.tax_rate,
       subtotal: input.subtotal !== undefined ? input.subtotal : existing.subtotal,
       tax_included: input.tax_included !== undefined ? input.tax_included : input.taxIncluded !== undefined ? input.taxIncluded : (existing.tax_included !== false),
+      invoice_type: input.invoice_type !== undefined ? input.invoice_type : input.invoiceType !== undefined ? input.invoiceType : existing.invoice_type,
+      tax_legislation: input.tax_legislation !== undefined ? input.tax_legislation : input.taxLegislation !== undefined ? input.taxLegislation : existing.tax_legislation,
+      is_europe: input.is_europe !== undefined ? input.is_europe : input.isEurope !== undefined ? input.isEurope : existing.is_europe,
       category: input.category,
       expense_date: input.expenseDate,
       receipt_url: input.receiptUrl !== undefined ? input.receiptUrl : existing.receipt_url,
@@ -2768,6 +2784,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             subtotal: updatedExpense.subtotal,
             tax_included: updatedExpense.tax_included,
             taxIncluded: updatedExpense.tax_included,
+            invoice_type: updatedExpense.invoice_type,
+            tax_legislation: updatedExpense.tax_legislation,
+            is_europe: updatedExpense.is_europe,
             category: updatedExpense.category,
             expenseDate: updatedExpense.expense_date,
             receiptUrl: updatedExpense.receipt_url,

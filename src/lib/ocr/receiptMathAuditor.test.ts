@@ -201,5 +201,97 @@ describe('Receipt Math Auditor and Tax Inclusion Engine', () => {
     expect(pizza?.tax_amount).toBeCloseTo(1.36, 2);
     expect(gin?.tax_amount).toBeCloseTo(1.74, 2);
   });
+
+  it('enforces European simplified invoice rule: sets taxIncluded=true, computes net_price by decrementing tax', () => {
+    // Ticket in Spain: Factura Simplificada with two dishes at 11.00 € each (10% IVA)
+    const report = auditAndReconcileReceipt({
+      amount: 22.00,
+      currency: 'EUR',
+      invoice_type: 'simplified',
+      is_europe: true,
+      tax_name: 'IVA',
+      tax_rate: 10,
+      items: [
+        { description: 'Menu del dia', price: 11.00, tax_rate: 10 },
+        { description: 'Plato combinado', price: 11.00, tax_rate: 10 },
+      ],
+    });
+
+    expect(report.isConsistent).toBe(true);
+    expect(report.taxIncluded).toBe(true);
+    expect(report.itemsPriceIncludesTax).toBe(true);
+    expect(report.isEurope).toBe(true);
+    expect(report.invoiceType).toBe('simplified');
+    expect(report.taxLegislation).toBe('ES_RD_1619_2012');
+
+    // 11.00 € with 10% IVA has net_price = 10.00 € and tax_amount = 1.00 €
+    expect(report.reconciledItems[0].net_price).toBe(10.00);
+    expect(report.reconciledItems[0].tax_amount).toBe(1.00);
+    expect(report.reconciledItems[0].tax_included).toBe(true);
+
+    expect(report.reconciledItems[1].net_price).toBe(10.00);
+    expect(report.reconciledItems[1].tax_amount).toBe(1.00);
+    expect(report.reconciledItems[1].tax_included).toBe(true);
+
+    expect(report.subtotal).toBe(20.00);
+    expect(report.taxAmount).toBe(2.00);
+  });
+
+  it('calculates net_price across multiple tax brackets (4%, 10%, 21%) on a simplified invoice', () => {
+    const report = auditAndReconcileReceipt({
+      amount: 24.14,
+      currency: 'EUR',
+      invoice_type: 'simplified',
+      is_europe: true,
+      tax_name: 'IVA',
+      items: [
+        { description: 'Pan', price: 1.04, tax_rate: 4 },
+        { description: 'Pizza', price: 11.00, tax_rate: 10 },
+        { description: 'Vino', price: 12.10, tax_rate: 21 },
+      ],
+    });
+
+    expect(report.isConsistent).toBe(true);
+    expect(report.taxIncluded).toBe(true);
+
+    // Pan: 1.04 / 1.04 = 1.00
+    expect(report.reconciledItems[0].net_price).toBe(1.00);
+    expect(report.reconciledItems[0].tax_amount).toBe(0.04);
+
+    // Pizza: 11.00 / 1.10 = 10.00
+    expect(report.reconciledItems[1].net_price).toBe(10.00);
+    expect(report.reconciledItems[1].tax_amount).toBe(1.00);
+
+    // Vino: 12.10 / 1.21 = 10.00
+    expect(report.reconciledItems[2].net_price).toBe(10.00);
+    expect(report.reconciledItems[2].tax_amount).toBe(2.10);
+
+    expect(report.subtotal).toBe(21.00);
+    expect(report.taxAmount).toBe(3.14);
+  });
+
+  it('handles full invoice with net prices before tax', () => {
+    const report = auditAndReconcileReceipt({
+      amount: 121.00,
+      currency: 'EUR',
+      invoice_type: 'full',
+      is_europe: true,
+      tax_name: 'IVA',
+      tax_rate: 21,
+      tax_amount: 21.00,
+      subtotal: 100.00,
+      tax_included: false,
+      items: [
+        { description: 'Consultoría TI', price: 100.00, tax_rate: 21 },
+      ],
+    });
+
+    expect(report.isConsistent).toBe(true);
+    expect(report.taxIncluded).toBe(false);
+    expect(report.invoiceType).toBe('full');
+    expect(report.reconciledItems[0].net_price).toBe(100.00);
+    expect(report.reconciledItems[0].tax_amount).toBe(21.00);
+    expect(report.reconciledItems[0].tax_included).toBe(false);
+  });
 });
 

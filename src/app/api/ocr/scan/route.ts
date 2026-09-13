@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { requireActiveUser } from '@/lib/auth/userAuth';
-import { ExpenseCategory } from '@/types/database';
+import { ExpenseCategory, InvoiceType } from '@/types/database';
 import { ScannedLineItem } from '@/lib/ocr/receiptScanner';
 import { ReceiptAuditReport, auditAndReconcileReceipt } from '@/lib/ocr/receiptMathAuditor';
-import { TaxBracketSummary, getCountryTaxPromptContext } from '@/lib/taxes';
+import { TaxBracketSummary, getCountryTaxPromptContext, detectEuropeanJurisdiction } from '@/lib/taxes';
 
 export interface SensitiveBox {
   box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
@@ -27,6 +27,9 @@ export interface VisionScanResult {
   tax_amount?: number;
   tax_rate?: number;
   tax_included?: boolean;
+  invoice_type?: InvoiceType;
+  tax_legislation?: string;
+  is_europe?: boolean;
   tax_breakdown?: TaxBracketSummary[];
   items_price_includes_tax?: boolean;
   date?: string; // YYYY-MM-DDTHH:mm
@@ -196,6 +199,9 @@ Esquema JSON requerido:
       "total_amount": 27.50
     }
   ],
+  "is_europe": true,
+  "invoice_type": "simplified" | "full" | "standard" | "other",
+  "tax_legislation": "ES_RD_1619_2012" | "EU_DIRECTIVE_2006_112" | "UK_VAT_ACT_1994" | "US_SALES_TAX" | "NON_EU",
   "date": "YYYY-MM-DDTHH:mm",
   "category": "food" | "shopping" | "transport" | "accommodation" | "activities" | "other",
   "locationName": "Dirección física (calle, número, código postal y/o ciudad) del establecimiento si aparece en el ticket (ej: 'C/ Gran Vía 28, Madrid') o null",
@@ -232,7 +238,13 @@ Esquema JSON requerido:
 Reglas críticas de extracción y cálculo de impuestos:
 1. amount: Número decimal puro (ej: 42.50). Es el TOTAL FINAL efectivamente pagado por el cliente (TOTAL, TOTAL FACTURA, IMPORTE A PAGAR, TOTAL EUR/€). Nunca tomes subtotales ni bases imponibles si hay un total final con impuestos.
 2. amountFormatted: Representación con coma decimal europea (ej: "42,50").
-3. Identificación del IVA en el Total y en los Precios:
+3. Identificación del IVA, Jurisdicción y Tipo de Factura:
+   - "is_europe": Booleano. true si el comercio está radicado en Europa (España, Francia, Alemania, Italia, UK, etc.) por su dirección, CIF/NIF o divisa (EUR, GBP).
+   - "invoice_type":
+     * "simplified": Ticket de caja / Factura Simplificada emitida a consumidor final sin datos fiscales del comprador. ¡ATENCIÓN!: En Europa, por ley (RD 1619/2012 / Directiva 2006/112/CE), todos los precios mostrados por producto ya incluyen el IVA (tax_included=true).
+     * "full": Factura Completa u Ordinaria con identificación formal del cliente (NIF/CIF, nombre/razón social y domicilio fiscal).
+     * "standard" / "other": Facturas no europeas.
+   - "tax_legislation": "ES_RD_1619_2012" si el establecimiento es español, "EU_DIRECTIVE_2006_112" para el resto de Europa, "UK_VAT_ACT_1994" para Reino Unido, "US_SALES_TAX" para EEUU, "NON_EU" otros.
    - "tax_name": Nombre del impuesto identificado ("IVA" en España/países hispanos, "VAT" en Reino Unido, "TVA" en Francia, "MwSt" en Alemania, etc.).
    - "tax_included": Booleano FUNDAMENTAL. Indica si la cantidad total del ticket ("amount") ya incluye los impuestos. En tickets de consumo en España y Europa siempre es true.
    - "items_price_includes_tax": Booleano FUNDAMENTAL sobre las líneas de productos:
@@ -760,6 +772,15 @@ Reglas críticas de extracción y cálculo de impuestos:
     const detectedItemsPriceIncludesTax = typeof parsed.items_price_includes_tax === 'boolean' ? parsed.items_price_includes_tax : undefined;
     const detectedTaxBreakdown = sanitizeTaxBreakdown(parsed.tax_breakdown);
 
+    const rawInvType = typeof parsed.invoice_type === 'string' ? parsed.invoice_type.trim().toLowerCase() : undefined;
+    const detectedInvoiceType: InvoiceType | undefined = (
+      rawInvType === 'simplified' || rawInvType === 'full' || rawInvType === 'standard' || rawInvType === 'other'
+    ) ? rawInvType as InvoiceType : undefined;
+    const detectedIsEurope: boolean | undefined = typeof parsed.is_europe === 'boolean' ? parsed.is_europe : undefined;
+    const detectedTaxLegislation: string | undefined = typeof parsed.tax_legislation === 'string' && parsed.tax_legislation.trim()
+      ? parsed.tax_legislation.trim().toUpperCase()
+      : undefined;
+
     const result: VisionScanResult = {
       title: cleanTitle(parsed.title),
       amount: detectedAmount,
@@ -769,6 +790,9 @@ Reglas críticas de extracción y cálculo de impuestos:
       tax_amount: detectedTaxAmount,
       tax_rate: detectedTaxRate,
       tax_included: detectedTaxIncluded,
+      invoice_type: detectedInvoiceType,
+      tax_legislation: detectedTaxLegislation,
+      is_europe: detectedIsEurope,
       tax_breakdown: detectedTaxBreakdown.length > 0 ? detectedTaxBreakdown : undefined,
       items_price_includes_tax: detectedItemsPriceIncludesTax,
       date: normalizeOcrDateTime(parsed.date, rawContent),
@@ -793,12 +817,20 @@ Reglas críticas de extracción y cálculo de impuestos:
       tax_amount: result.tax_amount,
       tax_rate: result.tax_rate,
       tax_included: result.tax_included,
+      invoice_type: result.invoice_type,
+      tax_legislation: result.tax_legislation,
+      is_europe: result.is_europe,
+      currency: result.currency,
+      rawText: rawContent,
       tax_breakdown: result.tax_breakdown,
       items: result.items,
     });
 
     result.tax_included = audit.taxIncluded;
     result.items_price_includes_tax = audit.itemsPriceIncludesTax;
+    result.invoice_type = audit.invoiceType;
+    result.tax_legislation = audit.taxLegislation;
+    result.is_europe = audit.isEurope;
     result.subtotal = audit.subtotal;
     result.tax_amount = audit.taxAmount;
     result.tax_breakdown = audit.taxBreakdown;
@@ -807,7 +839,7 @@ Reglas críticas de extracción y cálculo de impuestos:
     }
     result.audit = audit;
 
-    console.log(`[Gemini OCR] 📊 Auditoría matemática: Consistente=${audit.isConsistent}, ImpuestosIncluidos=${audit.taxIncluded}, SumaItems=${audit.itemsSum}€, Total=${audit.totalAmount}€, Descuadre=${audit.discrepancy}€`);
+    console.log(`[Gemini OCR] 📊 Auditoría matemática: Consistente=${audit.isConsistent}, Tipo=${audit.invoiceType}, Europa=${audit.isEurope}, Ley=${audit.taxLegislation}, ImpuestosIncluidos=${audit.taxIncluded}, SumaItems=${audit.itemsSum}€, Total=${audit.totalAmount}€, Descuadre=${audit.discrepancy}€`);
     console.log(`[Gemini 1.5 Flash] ✨ Resultado extraído con éxito: Comercio="${result.title}", Total=${result.amount}€, Fecha=${result.date}, Categoría=${result.category}, Ubicación="${result.locationName || 'N/A'}", GPS=${result.latitude ? `${result.latitude},${result.longitude}` : 'No'}`);
 
     return NextResponse.json({

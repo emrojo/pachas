@@ -1,4 +1,4 @@
-import { ExpenseCategory } from '@/types/database';
+import { ExpenseCategory, InvoiceType } from '@/types/database';
 import { TaxBracketSummary } from '@/lib/taxes';
 import { ReceiptAuditReport, auditAndReconcileReceipt } from './receiptMathAuditor';
 
@@ -17,7 +17,8 @@ export interface ScannedLineItem {
   id?: string;
   description: string;
   description_original?: string | null;
-  price: number; // Base net price
+  price: number; // Line item price (PVP if tax_included=true, net if tax_included=false)
+  net_price?: number; // Base net price without tax
   quantity?: number; // Total units
   unit_price?: number | null;
   tax_name?: string;
@@ -36,6 +37,9 @@ export interface ScannedReceiptData {
   tax_amount?: number;
   tax_rate?: number;
   tax_included?: boolean;
+  invoice_type?: InvoiceType;
+  tax_legislation?: string;
+  is_europe?: boolean;
   tax_breakdown?: TaxBracketSummary[];
   items_price_includes_tax?: boolean;
   date?: string; // YYYY-MM-DDTHH:mm
@@ -330,6 +334,18 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
     }
   }
 
+  // 8. DETECT INVOICE TYPE & EUROPEAN JURISDICTION
+  let detectedInvoiceType: InvoiceType = 'simplified';
+  if (/(?:factura\s+(?:completa|ordinaria)|tax\s+invoice|full\s+invoice)/i.test(rawText)) {
+    detectedInvoiceType = 'full';
+  } else if (/(?:factura\s+simplificada|simplificada|ticket|recibo|simplifiee|einfache)/i.test(rawText)) {
+    detectedInvoiceType = 'simplified';
+  }
+
+  const isEuropeText = /(?:€|eur|iva|tva|mwst|espana|españa|madrid|barcelona|france|deutschland|italia|portugal)/i.test(rawText);
+  const detectedIsEurope = isEuropeText || detectedTaxName === 'IVA' || detectedTaxName === 'VAT' || detectedTaxName === 'TVA' || detectedTaxName === 'MwSt';
+  const detectedLegislation = detectedIsEurope ? 'EU_DIRECTIVE_2006_112' : undefined;
+
   // Calculate confidence score (0 to 1)
   let score = 0;
   if (detectedAmount) score += 0.40;
@@ -346,6 +362,9 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
     tax_amount: detectedTaxAmount,
     tax_rate: detectedTaxRate,
     tax_included: detectedTaxIncluded,
+    invoice_type: detectedInvoiceType,
+    tax_legislation: detectedLegislation,
+    is_europe: detectedIsEurope,
     date: detectedDate,
     title: detectedTitle,
     category: detectedCategory,
@@ -359,6 +378,9 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
 
   return {
     ...baseResult,
+    invoice_type: audit.invoiceType || baseResult.invoice_type,
+    tax_legislation: audit.taxLegislation || baseResult.tax_legislation,
+    is_europe: audit.isEurope !== undefined ? audit.isEurope : baseResult.is_europe,
     tax_included: audit.taxIncluded,
     subtotal: audit.subtotal,
     tax_amount: audit.taxAmount,

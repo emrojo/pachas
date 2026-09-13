@@ -104,6 +104,9 @@ export async function PUT(
     const finalTaxRate = body.tax_rate !== null && body.tax_rate !== undefined ? Number(body.tax_rate) : (body.taxRate !== null && body.taxRate !== undefined ? Number(body.taxRate) : null);
     const finalSubtotal = body.subtotal !== null && body.subtotal !== undefined ? Number(body.subtotal) : null;
     const finalTaxIncluded = typeof body.tax_included === 'boolean' ? body.tax_included : (typeof body.taxIncluded === 'boolean' ? body.taxIncluded : true);
+    const finalInvoiceType = body.invoice_type || body.invoiceType || 'simplified';
+    const finalTaxLegislation = body.tax_legislation || body.taxLegislation || 'EU_DIRECTIVE_2006_112';
+    const finalIsEurope = typeof body.is_europe === 'boolean' ? body.is_europe : (typeof body.isEurope === 'boolean' ? body.isEurope : true);
 
     const client = await pool.connect();
     try {
@@ -122,8 +125,9 @@ export async function PUT(
              latitude = $12, longitude = $13, location_name = $14,
              ocr_status = COALESCE($15, ocr_status),
              tax_name = $16, tax_amount = $17, tax_rate = $18, subtotal = $19, tax_included = $20,
+             invoice_type = $21, tax_legislation = $22, is_europe = $23,
              updated_at = NOW()
-           WHERE id = $21`,
+           WHERE id = $24`,
           [
             title,
             dbAmount,
@@ -145,6 +149,9 @@ export async function PUT(
             finalTaxRate,
             finalSubtotal,
             finalTaxIncluded,
+            finalInvoiceType,
+            finalTaxLegislation,
+            finalIsEurope,
             expenseId,
           ]
         );
@@ -232,23 +239,34 @@ export async function PUT(
             const assigned = Array.isArray(it.assigned_user_ids) ? it.assigned_user_ids : [];
             const assignedShares = it.assigned_shares || (it.assignedShares ? it.assignedShares : {});
             const itemTaxIncluded = it.tax_included !== undefined ? Boolean(it.tax_included) : Boolean(finalTaxIncluded);
+            const itemNetPrice = it.net_price !== undefined && it.net_price !== null
+              ? Number(it.net_price)
+              : (itemTaxIncluded ? (itemTaxRate > 0 ? Math.round((itemPrice / (1 + itemTaxRate / 100)) * 100) / 100 : itemPrice) : itemPrice);
 
             await client.query(
               `INSERT INTO public.expense_items (
-                id, expense_id, description, description_original, price,
+                id, expense_id, description, description_original, price, net_price,
                 quantity, unit_price, tax_name, tax_rate, tax_amount, tax_included,
                 assigned_user_ids, assigned_shares
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-              [itemId, expenseId, desc, descOrig, itemPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, itemTaxIncluded, assigned, JSON.stringify(assignedShares)]
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+              [itemId, expenseId, desc, descOrig, itemPrice, itemNetPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, itemTaxIncluded, assigned, JSON.stringify(assignedShares)]
             ).catch(async () => {
               await client.query(
                 `INSERT INTO public.expense_items (
                   id, expense_id, description, description_original, price,
-                  quantity, unit_price, tax_name, tax_rate, tax_amount,
+                  quantity, unit_price, tax_name, tax_rate, tax_amount, tax_included,
                   assigned_user_ids, assigned_shares
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-                [itemId, expenseId, desc, descOrig, itemPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, assigned, JSON.stringify(assignedShares)]
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                [itemId, expenseId, desc, descOrig, itemPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, itemTaxIncluded, assigned, JSON.stringify(assignedShares)]
               ).catch(async () => {
+                await client.query(
+                  `INSERT INTO public.expense_items (
+                    id, expense_id, description, description_original, price,
+                    quantity, unit_price, tax_name, tax_rate, tax_amount,
+                    assigned_user_ids, assigned_shares
+                  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                  [itemId, expenseId, desc, descOrig, itemPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, assigned, JSON.stringify(assignedShares)]
+                ).catch(async () => {
                 await client.query(
                   `INSERT INTO public.expense_items (id, expense_id, description, description_original, price, assigned_user_ids)
                    VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -262,9 +280,10 @@ export async function PUT(
                 });
               });
             });
-          }
+          });
         }
-        await client.query('RELEASE SAVEPOINT save_expense_items');
+      }
+      await client.query('RELEASE SAVEPOINT save_expense_items');
       } catch (itemsErr) {
         console.warn('Expense items non-fatal update error:', itemsErr);
         await client.query('ROLLBACK TO SAVEPOINT save_expense_items');
@@ -664,6 +683,9 @@ export async function GET(
         exchange_rate: Number(expense.exchange_rate || 1),
         latitude: expense.latitude ? Number(expense.latitude) : null,
         longitude: expense.longitude ? Number(expense.longitude) : null,
+        invoice_type: expense.invoice_type || 'simplified',
+        tax_legislation: expense.tax_legislation || 'EU_DIRECTIVE_2006_112',
+        is_europe: expense.is_europe !== false,
         payers: payersRes.rows.map((p) => ({
           ...p,
           amount_paid: Number(p.amount_paid),
@@ -675,6 +697,7 @@ export async function GET(
         items: itemsRes.rows.map((it) => ({
           ...it,
           price: Number(it.price),
+          net_price: it.net_price !== null && it.net_price !== undefined ? Number(it.net_price) : null,
           quantity: it.quantity ? Number(it.quantity) : 1,
           unit_price: it.unit_price !== null && it.unit_price !== undefined ? Number(it.unit_price) : null,
           tax_name: it.tax_name || 'IVA',

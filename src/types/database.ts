@@ -101,12 +101,15 @@ export interface ExpenseParticipant {
   profile?: Profile;
 }
 
+export type InvoiceType = 'simplified' | 'full' | 'standard' | 'other';
+
 export interface ExpenseItem {
   id: string;
   expense_id?: string;
   description: string;
   description_original?: string | null;
   price: number; // Price of the item (PVP if tax_included=true, net base if tax_included=false)
+  net_price?: number; // Price without tax (base imponible)
   quantity?: number; // Defaults to 1
   unit_price?: number | null;
   tax_name?: string; // e.g. 'IVA', 'VAT', 'Tax'
@@ -132,6 +135,9 @@ export interface Expense {
   tax_rate?: number | null;
   subtotal?: number | null;
   tax_included?: boolean;
+  invoice_type?: InvoiceType;
+  tax_legislation?: string;
+  is_europe?: boolean;
   category: ExpenseCategory;
   expense_date: string;
   receipt_url?: string | null;

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { CATEGORIES } from '@/lib/categories';
 import { SUPPORTED_CURRENCIES, formatMoney, parseEuropeanAmount } from '@/lib/currencies';
-import { ExpenseCategory, PendingReceiptScan, SplitType } from '@/types/database';
+import { ExpenseCategory, PendingReceiptScan, SplitType, InvoiceType } from '@/types/database';
 import {
   ShieldAlert,
   Check,
@@ -60,9 +60,9 @@ function splitEuropeanDateTime(rawIsoOrDate?: string | null): { dateStr: string;
     const y = isoMatch[1];
     const m = isoMatch[2];
     const d = isoMatch[3];
-    const h = isoMatch[4] || pad(now.getHours());
-    const min = isoMatch[5] || pad(now.getMinutes());
-    return { dateStr: `${d}/${m}/${y}`, timeStr: `${h}:${min}` };
+    const hh = isoMatch[4] || '12';
+    const mm = isoMatch[5] || '00';
+    return { dateStr: `${d}/${m}/${y}`, timeStr: `${hh}:${mm}` };
   }
 
   const euMatch = str.match(/^(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})(?:[T\s](\d{2}):(\d{2}))?/);
@@ -80,13 +80,15 @@ function splitEuropeanDateTime(rawIsoOrDate?: string | null): { dateStr: string;
 }
 
 function combineEuropeanDateTimeToISO(dateStr: string, timeStr: string): string {
-  const parts = (dateStr || '').trim().split(/[\/\.-]/);
-  let d = 1, m = 1, y = new Date().getFullYear();
-  if (parts.length >= 3) {
-    d = parseInt(parts[0], 10) || 1;
-    m = parseInt(parts[1], 10) || 1;
-    y = parseInt(parts[2], 10) || y;
-    if (y < 100) y += 2000;
+  const dParts = dateStr.trim().split(/[/.-]/);
+  let y = new Date().getFullYear();
+  let m = new Date().getMonth() + 1;
+  let d = new Date().getDate();
+
+  if (dParts.length >= 3) {
+    d = parseInt(dParts[0], 10) || d;
+    m = parseInt(dParts[1], 10) || m;
+    y = parseInt(dParts[2], 10) || y;
   }
   const tParts = (timeStr || '12:00').trim().split(':');
   const hh = parseInt(tParts[0], 10) || 0;
@@ -130,6 +132,9 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
   const [taxRate, setTaxRate] = useState<number | undefined>(undefined);
   const [subtotal, setSubtotal] = useState<number | undefined>(undefined);
   const [taxIncluded, setTaxIncluded] = useState(true);
+  const [invoiceType, setInvoiceType] = useState<InvoiceType>('simplified');
+  const [taxLegislation, setTaxLegislation] = useState<string | undefined>(undefined);
+  const [isEurope, setIsEurope] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -142,6 +147,9 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
       tax_amount: taxAmount,
       tax_rate: taxRate,
       tax_included: taxIncluded,
+      invoice_type: invoiceType,
+      tax_legislation: taxLegislation,
+      is_europe: isEurope,
       items: lineItems.map((it) => ({
         id: it.id,
         description: it.description,
@@ -149,6 +157,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         price: it.price,
         quantity: it.quantity,
         unit_price: it.unit_price,
+        net_price: it.net_price,
         tax_name: it.tax_name || taxName,
         tax_rate: it.tax_rate !== undefined ? it.tax_rate : taxRate,
         tax_amount: it.tax_amount,
@@ -156,7 +165,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         assigned_shares: it.assignedShares,
       })),
     });
-  }, [parsedTotalAmount, subtotal, taxName, taxAmount, taxRate, taxIncluded, lineItems]);
+  }, [parsedTotalAmount, subtotal, taxName, taxAmount, taxRate, taxIncluded, invoiceType, taxLegislation, isEurope, lineItems]);
 
   // Canvas extra redaction states
   const baseImageRef = useRef<HTMLImageElement | null>(null);
@@ -182,6 +191,15 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     setTaxRate(typeof data.tax_rate === 'number' ? data.tax_rate : undefined);
     setSubtotal(typeof data.subtotal === 'number' ? data.subtotal : undefined);
     setTaxIncluded(typeof data.tax_included === 'boolean' ? data.tax_included : true);
+    if (data.invoice_type) {
+      setInvoiceType(data.invoice_type);
+    }
+    if (data.tax_legislation) {
+      setTaxLegislation(data.tax_legislation);
+    }
+    if (typeof data.is_europe === 'boolean') {
+      setIsEurope(data.is_europe);
+    }
 
     const dt = splitEuropeanDateTime(data.date);
     setDateDisplayStr(dt.dateStr);
@@ -204,6 +222,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
           description: it.description || '',
           description_original: it.description_original || undefined,
           price: Number(it.price) || 0,
+          net_price: typeof it.net_price === 'number' ? it.net_price : undefined,
           quantity: Math.max(1, Number(it.quantity) || 1),
           unit_price: typeof it.unit_price === 'number' ? it.unit_price : null,
           tax_name: it.tax_name || data.tax_name || 'IVA',
@@ -513,6 +532,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             description: it.description,
             description_original: it.description_original || undefined,
             price: it.price,
+            net_price: it.net_price,
             quantity: it.quantity || 1,
             unit_price: it.unit_price !== undefined && it.unit_price !== null ? it.unit_price : (it.quantity ? Math.round((it.price / it.quantity) * 100) / 100 : it.price),
             tax_name: it.tax_name || taxName || undefined,
@@ -533,6 +553,12 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         tax_rate: taxRate,
         subtotal: subtotal || undefined,
         tax_included: taxIncluded,
+        invoiceType,
+        invoice_type: invoiceType,
+        taxLegislation,
+        tax_legislation: taxLegislation,
+        isEurope,
+        is_europe: isEurope,
         category,
         expenseDate,
         receiptUrl: finalReceiptUrl,
@@ -965,6 +991,9 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   defaultTaxName={taxName}
                   taxIncluded={taxIncluded}
                   taxAmount={taxAmount}
+                  invoiceType={invoiceType}
+                  taxLegislation={taxLegislation}
+                  isEurope={isEurope}
                   onBalanceChange={setIsItemsBalanced}
                 />
               ) : (
