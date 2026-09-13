@@ -30,6 +30,8 @@ import {
   ZoomIn,
   CheckCircle2,
   Calculator,
+  X,
+  Loader2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ReceiptModal } from './ReceiptModal';
@@ -43,6 +45,7 @@ export interface ReceiptValidationModalProps {
   onClose: () => void;
   pendingScan: PendingReceiptScan | null;
   groupId: string;
+  isMobileView?: boolean;
 }
 
 // European date helper
@@ -103,9 +106,25 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
   onClose,
   pendingScan,
   groupId,
+  isMobileView,
 }) => {
   const { getGroup, getGroupMembers, currentUser, confirmPendingScan, dismissPendingScan } = usePachas();
   const { t } = useTranslation();
+
+  const [isMobile, setIsMobile] = useState(Boolean(isMobileView));
+
+  useEffect(() => {
+    if (isMobileView !== undefined) {
+      setIsMobile(isMobileView);
+      return;
+    }
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [isMobileView]);
 
   const group = getGroup(groupId);
   const members = getGroupMembers(groupId);
@@ -605,11 +624,11 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
       <form onSubmit={handleConfirmAndCreate} className="space-y-5">
         {/* DISCLAIMER DE PRIVACIDAD & RESPONSABILIDAD */}
         <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1.5 shadow-xs">
-          <div className="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400">
-            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex items-center gap-2 font-black text-xs sm:text-sm uppercase tracking-wider text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400 shrink-0" />
             <span>{t('expenses.privacyDisclaimerTitle')}</span>
           </div>
-          <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+          <p className="text-xs sm:text-sm leading-relaxed text-slate-700 dark:text-slate-300">
             {t('expenses.privacyDisclaimerText')}
           </p>
         </div>
@@ -620,7 +639,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
           <div className="lg:col-span-5 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                <Receipt className="w-4 h-4 text-emerald-600" />
                 {t('expenses.censoredReceipt')}
               </span>
 
@@ -634,53 +653,58 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                       setZoomModalUrl(canvas.toDataURL('image/jpeg', 0.95));
                     }
                   }}
-                  className="px-2 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors border border-slate-200/60 dark:border-slate-700/60 shadow-2xs"
+                  className={`${isMobile ? 'w-11 h-11 justify-center' : 'px-2 py-1.5 gap-1'} rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 flex items-center transition-all border border-slate-200/60 dark:border-slate-700/60 shadow-2xs active:scale-95`}
                   title={t('expenses.zoomAndEnlarge')}
+                  aria-label={t('expenses.zoomAndEnlarge')}
                 >
-                  <ZoomIn className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-[11px]">{t('expenses.zoomAndEnlarge')}</span>
+                  <ZoomIn className={`${isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} text-emerald-600 dark:text-emerald-400`} />
+                  {!isMobile && <span className="text-[11px]">{t('expenses.zoomAndEnlarge')}</span>}
                 </button>
 
-                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
+                <div className={`${isMobile ? 'h-6' : 'h-4'} w-px bg-slate-200 dark:bg-slate-700 mx-0.5`} />
 
                 <button
                   type="button"
                   onClick={() => setDrawMode('brush')}
-                  className={`p-1.5 rounded-lg text-xs font-bold ${
-                    drawMode === 'brush' ? 'bg-black text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
+                  className={`${isMobile ? 'w-11 h-11' : 'p-1.5'} flex items-center justify-center rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                    drawMode === 'brush' ? 'bg-black text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                   }`}
                   title={t('expenses.blackMarker')}
+                  aria-label={t('expenses.blackMarker')}
                 >
-                  <Paintbrush className="w-3.5 h-3.5" />
+                  <Paintbrush className={isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setDrawMode('box')}
-                  className={`p-1.5 rounded-lg text-xs font-bold ${
-                    drawMode === 'box' ? 'bg-black text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
+                  className={`${isMobile ? 'w-11 h-11' : 'p-1.5'} flex items-center justify-center rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                    drawMode === 'box' ? 'bg-black text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                   }`}
                   title={t('expenses.redactionBox')}
+                  aria-label={t('expenses.redactionBox')}
                 >
-                  <Square className="w-3.5 h-3.5" />
+                  <Square className={isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setDrawMode('eraser')}
-                  className={`p-1.5 rounded-lg text-xs font-bold ${
-                    drawMode === 'eraser' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
+                  className={`${isMobile ? 'w-11 h-11' : 'p-1.5'} flex items-center justify-center rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                    drawMode === 'eraser' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                   }`}
                   title={t('expenses.redactionEraser')}
+                  aria-label={t('expenses.redactionEraser')}
                 >
-                  <Eraser className="w-3.5 h-3.5" />
+                  <Eraser className={isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} />
                 </button>
                 <button
                   type="button"
                   onClick={handleUndo}
                   disabled={history.length <= 1}
-                  className="p-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 disabled:opacity-40"
+                  className={`${isMobile ? 'w-11 h-11' : 'p-1.5'} flex items-center justify-center rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 transition-all active:scale-95`}
                   title={t('expenses.undoRedaction')}
+                  aria-label={t('expenses.undoRedaction')}
                 >
-                  <Undo2 className="w-3.5 h-3.5" />
+                  <Undo2 className={isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} />
                 </button>
               </div>
             </div>
@@ -706,22 +730,23 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                     setZoomModalUrl(canvas.toDataURL('image/jpeg', 0.95));
                   }
                 }}
-                className="absolute bottom-3 right-3 px-2.5 py-1 rounded-xl bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-bold flex items-center gap-1.5 hover:bg-emerald-600 transition-colors shadow-lg border border-white/10"
+                className={`absolute bottom-3 right-3 ${isMobile ? 'w-11 h-11 rounded-xl justify-center' : 'px-2.5 py-1 rounded-xl gap-1.5'} bg-slate-900/85 backdrop-blur-xs text-white text-[11px] font-bold flex items-center hover:bg-emerald-600 transition-colors shadow-lg border border-white/10 active:scale-95`}
                 title={t('expenses.zoomHD')}
+                aria-label={t('expenses.zoomHD')}
               >
-                <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
-                <span>🔍 {t('expenses.zoomHD')}</span>
+                <ZoomIn className={`${isMobile ? 'w-5 h-5 text-emerald-400' : 'w-3.5 h-3.5 text-emerald-400'}`} />
+                {!isMobile && <span>{t('expenses.zoomHD')}</span>}
               </button>
             </div>
             
             {/* Color Legend */}
-            <div className="flex flex-wrap items-center justify-center gap-3 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-800 text-[11px]">
+            <div className={`flex flex-wrap items-center justify-center gap-3 p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-800 ${isMobile ? 'text-xs' : 'text-[11px]'}`}>
               <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
-                <span className="w-3 h-3 rounded-xs bg-black border border-slate-600 shrink-0 inline-block shadow-2xs" />
+                <span className="w-3.5 h-3.5 rounded-xs bg-black border border-slate-600 shrink-0 inline-block shadow-2xs" />
                 <span>{t('expenses.legendYourRedaction')}</span>
               </div>
               <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
-                <span className="w-3 h-3 rounded-xs bg-slate-600 border border-slate-500 shrink-0 inline-block shadow-2xs" />
+                <span className="w-3.5 h-3.5 rounded-xs bg-slate-600 border border-slate-500 shrink-0 inline-block shadow-2xs" />
                 <span>{t('expenses.legendAiRedaction')}</span>
               </div>
             </div>
@@ -730,32 +755,51 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
           {/* Right Column: Extracted Fields Review */}
           <div className="lg:col-span-7 space-y-4">
             {/* Title / Merchant */}
-            <Input
-              label={t('expenses.expenseTitle')}
-              placeholder={t('expenses.expenseTitlePlaceholder')}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                {t('expenses.expenseTitle')}
+              </label>
+              <input
+                type="text"
+                placeholder={t('expenses.expenseTitlePlaceholder')}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 ${
+                  isMobile ? 'py-3 text-base font-bold' : 'py-2 text-sm'
+                } text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-hidden transition-all shadow-xs`}
+              />
+            </div>
 
             {/* Amount & Currency */}
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label={t('expenses.amount')}
-                placeholder={t('expenses.amountPlaceholder')}
-                value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
-                required
-              />
+            <div className="grid grid-cols-12 gap-3 items-end">
+              <div className="col-span-8">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                  {t('expenses.amount')}
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder={t('expenses.amountPlaceholder')}
+                  value={amountStr}
+                  onChange={(e) => setAmountStr(e.target.value)}
+                  required
+                  className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 font-mono font-black text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500 outline-hidden transition-all shadow-xs ${
+                    isMobile ? 'text-3xl py-2.5 tracking-tight' : 'text-xl py-2 font-bold'
+                  }`}
+                />
+              </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              <div className="col-span-4">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
                   {t('common.currency')}
                 </label>
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white"
+                  className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-hidden transition-all shadow-xs ${
+                    isMobile ? 'py-3.5 text-base' : 'py-2 text-sm'
+                  }`}
                 >
                   {SUPPORTED_CURRENCIES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -769,45 +813,45 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             {/* Receipt Mathematical Audit & Tax Consistency Card */}
             {lineItems.length > 0 && (
               <div
-                className={`p-3.5 rounded-2xl border transition-all ${
+                className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
                   auditReport.isConsistent
                     ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60'
                     : 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 sm:gap-2.5">
                     <div
-                      className={`p-1.5 rounded-lg ${
+                      className={`p-2 rounded-xl shrink-0 ${
                         auditReport.isConsistent
                           ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400'
                           : 'bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400'
                       }`}
                     >
                       {auditReport.isConsistent ? (
-                        <CheckCircle2 className="w-4 h-4" />
+                        <CheckCircle2 className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
                       ) : (
-                        <Calculator className="w-4 h-4" />
+                        <Calculator className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
                       )}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <h4 className={`${isMobile ? 'text-sm' : 'text-xs'} font-bold text-slate-900 dark:text-white flex items-center gap-1.5`}>
                         {auditReport.isConsistent
                           ? (taxIncluded ? t('expenses.auditBalancedIncluded') : t('expenses.auditBalancedExcluded'))
                           : t('expenses.auditDiscrepancyTitle')}
                       </h4>
-                      <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                      <p className={`${isMobile ? 'text-xs' : 'text-[11px]'} text-slate-600 dark:text-slate-400 mt-0.5 leading-snug`}>
                         {auditReport.summaryMessage}
                       </p>
                     </div>
                   </div>
 
                   {/* Toggle tax included / excluded */}
-                  <div className="inline-flex rounded-lg p-0.5 bg-slate-200/70 dark:bg-slate-800 shrink-0 text-[10px] font-semibold">
+                  <div className="inline-flex rounded-xl p-1 bg-slate-200/70 dark:bg-slate-800 shrink-0 text-xs font-semibold">
                     <button
                       type="button"
                       onClick={() => setTaxIncluded(true)}
-                      className={`px-2 py-1 rounded-md transition-colors ${
+                      className={`px-2.5 py-1.5 rounded-lg transition-all ${
                         taxIncluded
                           ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -818,7 +862,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setTaxIncluded(false)}
-                      className={`px-2 py-1 rounded-md transition-colors ${
+                      className={`px-2.5 py-1.5 rounded-lg transition-all ${
                         !taxIncluded
                           ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -830,30 +874,30 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                 </div>
 
                 {/* Subtotals & Taxes breakdown preview */}
-                <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 grid grid-cols-3 gap-2 text-center text-[11px]">
-                  <div className="bg-white/60 dark:bg-slate-900/40 p-1.5 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
-                    <span className="block text-[10px] text-slate-500 uppercase font-semibold">
+                <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-800/60 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="bg-white/60 dark:bg-slate-900/40 p-2 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                    <span className="block text-[11px] text-slate-500 uppercase font-semibold">
                       {taxIncluded ? (t('expenses.itemsTotal') || 'Total ítems') : (t('expenses.subtotal') || 'Subtotal')}
                     </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">
                       {auditReport.itemsSum.toFixed(2)} {currency}
                     </span>
                   </div>
 
-                  <div className="bg-white/60 dark:bg-slate-900/40 p-1.5 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
-                    <span className="block text-[10px] text-slate-500 uppercase font-semibold">
+                  <div className="bg-white/60 dark:bg-slate-900/40 p-2 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                    <span className="block text-[11px] text-slate-500 uppercase font-semibold truncate">
                       {taxName || 'Impuestos'} ({taxIncluded ? 'incl.' : '+ extra'})
                     </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">
                       {auditReport.taxAmount.toFixed(2)} {currency}
                     </span>
                   </div>
 
-                  <div className="bg-white/60 dark:bg-slate-900/40 p-1.5 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
-                    <span className="block text-[10px] text-slate-500 uppercase font-semibold">
+                  <div className="bg-white/60 dark:bg-slate-900/40 p-2 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                    <span className="block text-[11px] text-slate-500 uppercase font-semibold truncate">
                       {t('expenses.calculatedTotal') || 'Calculado'}
                     </span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm">
                       {auditReport.calculatedTotal.toFixed(2)} {currency}
                     </span>
                   </div>
@@ -861,14 +905,14 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
 
                 {/* If discrepancy, offer one-click quick fix button to square receipt */}
                 {!auditReport.isConsistent && auditReport.calculatedTotal > 0 && (
-                  <div className="mt-2.5 pt-2 border-t border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                  <div className="mt-3 pt-2.5 border-t border-amber-200 dark:border-amber-800/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                    <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">
                       {t('expenses.auditDiscrepancyHelp') || '¿Deseas cuadrar el total con la suma calculada?'}
                     </span>
                     <button
                       type="button"
                       onClick={() => setAmountStr(auditReport.calculatedTotal.toFixed(2).replace('.', ','))}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-xs transition-colors shrink-0 cursor-pointer"
+                      className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-xs transition-colors shrink-0 cursor-pointer text-center active:scale-95"
                     >
                       {t('expenses.auditAdjustTotal')
                         ? t('expenses.auditAdjustTotal').replace('{amount}', `${auditReport.calculatedTotal.toFixed(2)} ${currency}`)
@@ -881,19 +925,35 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
 
             {/* Date & Time (DD/MM/YYYY) */}
             <div className="grid grid-cols-2 gap-3">
-              <Input
-                label={t('common.date')}
-                placeholder="DD/MM/AAAA"
-                value={dateDisplayStr}
-                onChange={(e) => setDateDisplayStr(e.target.value)}
-                required
-              />
-              <Input
-                label={t('expenses.dateTime')}
-                placeholder="14:30"
-                value={timeDisplayStr}
-                onChange={(e) => setTimeDisplayStr(e.target.value)}
-              />
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                  {t('common.date')}
+                </label>
+                <input
+                  type="text"
+                  placeholder="DD/MM/AAAA"
+                  value={dateDisplayStr}
+                  onChange={(e) => setDateDisplayStr(e.target.value)}
+                  required
+                  className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 ${
+                    isMobile ? 'py-3 text-base' : 'py-2 text-sm'
+                  } text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-hidden transition-all shadow-xs font-medium`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                  {t('expenses.dateTime')}
+                </label>
+                <input
+                  type="text"
+                  placeholder="14:30"
+                  value={timeDisplayStr}
+                  onChange={(e) => setTimeDisplayStr(e.target.value)}
+                  className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 ${
+                    isMobile ? 'py-3 text-base' : 'py-2 text-sm'
+                  } text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-hidden transition-all shadow-xs font-medium`}
+                />
+              </div>
             </div>
 
             {/* Category */}
@@ -901,19 +961,23 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
                 {t('expenses.category')}
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className={`grid ${isMobile ? 'grid-cols-3 gap-2.5' : 'grid-cols-3 gap-2'}`}>
                 {Object.values(CATEGORIES).map((cat) => (
                   <button
                     key={cat.id}
                     type="button"
                     onClick={() => setCategory(cat.id)}
-                    className={`p-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all ${
+                    className={`${
+                      isMobile
+                        ? 'py-3 px-2 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-1.5'
+                        : 'p-2 rounded-xl text-xs font-bold flex items-center gap-1.5'
+                    } border transition-all active:scale-95 ${
                       category === cat.id
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500 ring-1 ring-emerald-500'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500 ring-1 ring-emerald-500 shadow-xs'
                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <span>{cat.emoji}</span>
+                    <span className={isMobile ? 'text-2xl' : 'text-base'}>{cat.emoji}</span>
                     <span className="truncate">{cat.label.split(' ')[0]}</span>
                   </button>
                 ))}
@@ -928,7 +992,9 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
               <select
                 value={payerId}
                 onChange={(e) => setPayerId(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white"
+                className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-hidden transition-all shadow-xs ${
+                  isMobile ? 'py-3 text-base' : 'py-2 text-sm'
+                }`}
               >
                 {members.map((m) => (
                   <option key={m.user_id} value={m.user_id}>
@@ -964,16 +1030,16 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                         }
                       }
                     }}
-                    className="text-[11px] font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    className={`${isMobile ? 'text-xs' : 'text-[11px]'} font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer`}
                   >
-                    <Sparkles className="w-3 h-3 text-emerald-500" />
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
                     <span>{splitByItems ? (t('expenses.switchToNormalSplit') || 'Reparto estándar') : t('expenses.splitByItemsToggle')}</span>
                   </button>
                   {!splitByItems && (
                     <button
                       type="button"
                       onClick={() => setSelectedParticipants(members.map((m) => m.user_id))}
-                      className="text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer"
+                      className={`${isMobile ? 'text-xs' : 'text-[11px]'} font-bold text-emerald-600 hover:underline cursor-pointer`}
                     >
                       {t('expenses.selectAll')}
                     </button>
@@ -997,7 +1063,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   onBalanceChange={setIsItemsBalanced}
                 />
               ) : (
-                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div className={`flex flex-wrap gap-2 ${isMobile ? 'max-h-36 p-2' : 'max-h-28 p-1.5'} overflow-y-auto bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800`}>
                   {members.map((m) => {
                     const isSelected = selectedParticipants.includes(m.user_id);
                     return (
@@ -1005,14 +1071,14 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                         key={m.user_id}
                         type="button"
                         onClick={() => handleToggleParticipant(m.user_id)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 active:scale-95 ${
                           isSelected
                             ? 'bg-emerald-600 text-white shadow-xs'
                             : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                         }`}
                       >
-                        <Avatar profile={m.profile} size="sm" className="w-4 h-4 text-[8px]" />
-                        <span className="truncate max-w-[100px]">{m.profile?.full_name?.split(' ')[0] || t('common.friend')}</span>
+                        <Avatar profile={m.profile} size="sm" className="w-5 h-5 text-[9px]" />
+                        <span className="truncate max-w-[120px]">{m.profile?.full_name?.split(' ')[0] || t('common.friend')}</span>
                       </button>
                     );
                   })}
@@ -1023,40 +1089,83 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-semibold">
+          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs sm:text-sm text-rose-700 dark:text-rose-300 font-semibold">
             {error}
           </div>
         )}
 
         {/* Action Buttons */}
         <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleDismiss}
-            disabled={isSubmitting}
-            className="text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900"
-          >
-            <Trash2 className="w-4 h-4 mr-1" />
-            {t('expenses.discardReceipt')}
-          </Button>
+          {isMobile ? (
+            <>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                disabled={isSubmitting}
+                className="w-12 h-12 flex items-center justify-center rounded-2xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-300 dark:border-rose-900 bg-rose-50/40 dark:bg-rose-950/20 active:scale-95 shrink-0 transition-all cursor-pointer"
+                title={t('expenses.discardReceipt')}
+                aria-label={t('expenses.discardReceipt')}
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
 
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              {t('common.close')}
-            </Button>
-            <Button
-              type="submit"
-              variant="brand"
-              isLoading={isSubmitting}
-              disabled={isSubmitting || (splitByItems && !isItemsBalanced)}
-              title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
-              className="text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20"
-            >
-              <Check className="w-4 h-4" />
-              {t('expenses.confirmAndCreateExpense')}
-            </Button>
-          </div>
+              <div className="flex items-center gap-2.5 flex-1">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  className="w-12 h-12 flex items-center justify-center rounded-2xl text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 shrink-0 transition-all cursor-pointer"
+                  title={t('common.close')}
+                  aria-label={t('common.close')}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || (splitByItems && !isItemsBalanced)}
+                  title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
+                  className="flex-1 py-3.5 px-4 rounded-2xl font-black text-sm sm:text-base text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Check className="w-5 h-5" />
+                  )}
+                  <span>{t('expenses.confirmAndCreateExpense')}</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDismiss}
+                disabled={isSubmitting}
+                className="text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900"
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                {t('expenses.discardReceipt')}
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                  {t('common.close')}
+                </Button>
+                <Button
+                  type="submit"
+                  variant="brand"
+                  isLoading={isSubmitting}
+                  disabled={isSubmitting || (splitByItems && !isItemsBalanced)}
+                  title={splitByItems && !isItemsBalanced ? (t('expenses.itemizedBalanceMismatch') || 'El desglose no cuadra con el importe total') : undefined}
+                  className="text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20"
+                >
+                  <Check className="w-4 h-4" />
+                  {t('expenses.confirmAndCreateExpense')}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </form>
 

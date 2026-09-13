@@ -827,6 +827,7 @@ export default function MobileDashboardPage() {
           onClose={() => setValidatingScan(null)}
           pendingScan={validatingScan}
           groupId={activeGroup.id}
+          isMobileView={true}
         />
       )}
 
