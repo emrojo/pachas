@@ -2863,6 +2863,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     taxLegislation={taxLegislation}
                     isEurope={isEurope}
                     isReadOnly={isReadOnly}
+                    isMobileView={isMobileView}
                     onBalanceChange={setIsItemsBalanced}
                   />
                 </div>

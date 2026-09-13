@@ -1060,6 +1060,8 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   invoiceType={invoiceType}
                   taxLegislation={taxLegislation}
                   isEurope={isEurope}
+                  isTaxReadOnly={true}
+                  isMobileView={isMobile}
                   onBalanceChange={setIsItemsBalanced}
                 />
               ) : (

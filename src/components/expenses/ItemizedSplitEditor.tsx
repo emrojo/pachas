@@ -40,6 +40,8 @@ export interface ItemizedSplitEditorProps {
   invoiceType?: InvoiceType;
   taxLegislation?: string;
   isEurope?: boolean;
+  isTaxReadOnly?: boolean;
+  isMobileView?: boolean;
 }
 
 export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
@@ -58,8 +60,25 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
   invoiceType = 'simplified',
   taxLegislation,
   isEurope = true,
+  isTaxReadOnly = false,
+  isMobileView,
 }) => {
   const { t, language } = useTranslation();
+
+  const [isMobile, setIsMobile] = useState(Boolean(isMobileView));
+
+  useEffect(() => {
+    if (isMobileView !== undefined) {
+      setIsMobile(isMobileView);
+      return;
+    }
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [isMobileView]);
 
   const targetTotal = totalInvoiceAmount !== undefined ? totalInvoiceAmount : totalAmount;
   const updateItems = onChange || onChangeItems || (() => {});
@@ -227,8 +246,10 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                 </span>
               )}
             </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t('expenses.splitItemsSubtitle') || 'Asigna con los pulsadores (+) y (-) cuántas unidades tomó cada uno. Todo debe quedar repartido.'}
+            <p className={`${isMobile ? 'text-xs font-medium' : 'text-xs'} text-slate-500 dark:text-slate-400`}>
+              {isMobile
+                ? 'Reparte las unidades (+ / -) hasta cuadrar el total.'
+                : (t('expenses.splitItemsSubtitle') || 'Asigna con los pulsadores (+) y (-) cuántas unidades tomó cada uno. Todo debe quedar repartido.')}
             </p>
           </div>
         </div>
@@ -237,9 +258,11 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
           <button
             type="button"
             onClick={handleAddItem}
-            className="inline-flex items-center justify-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 hover:bg-emerald-200/70 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-xl transition-all shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
+            className={`inline-flex items-center justify-center gap-1 ${
+              isMobile ? 'text-xs sm:text-sm px-3.5 py-2' : 'text-xs px-3 py-1.5'
+            } font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 hover:bg-emerald-200/70 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 rounded-xl transition-all shadow-xs shrink-0 self-start sm:self-auto cursor-pointer active:scale-95`}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className={isMobile ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
             <span>{t('expenses.addProduct') || 'Añadir producto'}</span>
           </button>
         )}
@@ -286,7 +309,7 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
             return (
               <div
                 key={item.id || idx}
-                className="p-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-white dark:bg-slate-900/80 shadow-xs space-y-3 transition-all hover:border-emerald-500/30"
+                className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800/80 bg-white dark:bg-slate-900/80 shadow-xs space-y-3 transition-all hover:border-emerald-500/30"
               >
                 {/* Row 1: Description, Quantity Stepper, Price & Delete */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -298,7 +321,9 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                       value={item.description}
                       onChange={(e) => handleUpdateItem(idx, { description: e.target.value })}
                       placeholder={t('expenses.productDescPlaceholder') || 'Ej: Cerveza, Pizza, Ensalada...'}
-                      className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                      className={`w-full ${
+                        isMobile ? 'text-sm sm:text-base font-bold px-3.5 py-2.5 rounded-xl' : 'text-xs font-semibold px-2.5 py-1.5 rounded-lg'
+                      } border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all`}
                     />
                     {item.description_original && item.description_original.trim() !== item.description.trim() && (
                       <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
@@ -315,18 +340,20 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                   {/* Right: Quantity Stepper + Net Price + Delete */}
                   <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                     {/* Quantity Stepper (100% Táctil sin teclado) */}
-                    <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5 shadow-2xs">
+                    <div className="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5 shadow-2xs">
                       <button
                         type="button"
                         disabled={isReadOnly || qty <= 1}
                         onClick={() => handleItemQuantityChange(idx, -1)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 transition-all cursor-pointer"
+                        className={`${
+                          isMobile ? 'w-9 h-9' : 'w-6 h-6'
+                        } rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 transition-all cursor-pointer active:scale-95`}
                         title="Disminuir cantidad"
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus className={isMobile ? 'w-4 h-4' : 'w-3 h-3'} />
                       </button>
 
-                      <div className="px-2 text-xs font-black tabular-nums text-slate-900 dark:text-white min-w-[34px] text-center">
+                      <div className={`${isMobile ? 'px-2.5 text-sm sm:text-base' : 'px-2 text-xs'} font-black tabular-nums text-slate-900 dark:text-white min-w-[36px] text-center`}>
                         {qty} <span className="text-[10px] font-semibold text-slate-400">ud.</span>
                       </div>
 
@@ -334,15 +361,17 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                         type="button"
                         disabled={isReadOnly}
                         onClick={() => handleItemQuantityChange(idx, 1)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                        className={`${
+                          isMobile ? 'w-9 h-9' : 'w-6 h-6'
+                        } rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer active:scale-95`}
                         title="Aumentar cantidad"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className={isMobile ? 'w-4 h-4' : 'w-3 h-3'} />
                       </button>
                     </div>
 
                     {/* Net Price Input */}
-                    <div className="w-28 relative">
+                    <div className={`${isMobile ? 'w-32' : 'w-28'} relative`}>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -359,9 +388,11 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                           handleUpdateItem(idx, { price: parsed });
                         }}
                         placeholder="0,00"
-                        className="w-full text-xs font-black tabular-nums text-right pr-7 pl-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                        className={`w-full ${
+                          isMobile ? 'text-sm sm:text-base py-2 pl-3 pr-8 rounded-xl' : 'text-xs py-1.5 pl-2 pr-7 rounded-lg'
+                        } font-black tabular-nums text-right border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none`}
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
                         {currency}
                       </span>
                     </div>
@@ -370,44 +401,60 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveItem(idx)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors shrink-0 cursor-pointer"
+                        className={`${
+                          isMobile ? 'w-9 h-9' : 'p-1.5'
+                        } flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors shrink-0 cursor-pointer active:scale-95`}
                         title={t('common.delete') || 'Eliminar'}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className={isMobile ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Row 2: Tax Breakdown Bar & Tax Rate Presets */}
+                {/* Row 2: Tax Breakdown Bar & Non-editable / Preset Chips */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60 text-xs">
-                  {/* Tax Rate Preset Chips (One-touch) */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      {activeTaxLabel}:
-                    </span>
-                    {presetTaxRates.map((r) => {
-                      const isSelected = taxRate === r;
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          disabled={isReadOnly}
-                          onClick={() => handleUpdateItem(idx, { tax_rate: r })}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all border ${
-                            isSelected
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                          } ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`}
-                        >
-                          {r}%
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {isTaxReadOnly ? (
+                    /* Non-editable informational text: Desglose con IVA */
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Desglose con {activeTaxLabel}:
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                        {activeTaxLabel} {taxRate}%
+                      </span>
+                    </div>
+                  ) : (
+                    /* Tax Rate Preset Chips (Interactive when isTaxReadOnly is false) */
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        {activeTaxLabel}:
+                      </span>
+                      {presetTaxRates.map((r) => {
+                        const isSelected = taxRate === r;
+                        return (
+                          <button
+                            key={r}
+                            type="button"
+                            disabled={isReadOnly}
+                            onClick={() => handleUpdateItem(idx, { tax_rate: r })}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all border ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                            } ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                          >
+                            {r}%
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Calculated Breakdown Pill: Base + Tax = Total */}
-                  <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-slate-100/80 dark:bg-slate-800/60 px-2 py-0.8 rounded-lg text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                  <div className={`inline-flex items-center gap-1.5 ${
+                    isMobile ? 'text-xs' : 'text-[11px]'
+                  } font-semibold bg-slate-100/80 dark:bg-slate-800/60 px-2.5 py-1 rounded-xl text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60`}>
                     <span>Base: <strong className="text-slate-900 dark:text-white tabular-nums">{formatMoney(netPrice, currency)}</strong></span>
                     <span className="text-slate-400">+</span>
                     <span>{activeTaxLabel} ({taxRate}%): <strong className="text-slate-900 dark:text-white tabular-nums">{formatMoney(taxAmount, currency)}</strong></span>
@@ -426,35 +473,35 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                 {/* Row 3: Member Units Assignment (100% Táctil sin teclado) */}
                 <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">
+                    <span className="text-xs uppercase font-black tracking-wider text-slate-400">
                       {t('expenses.assignedTo') || 'Reparto por persona'}:
                     </span>
 
-                    {/* Distribution Status Badge */}
+                    {/* Distribution Status Badge (Resumido en móvil) */}
                     <div>
                       {isFullyAssigned && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Todas asignadas ({assignedUnits}/{qty})</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{isMobile ? `Listo (${assignedUnits}/${qty})` : `Todas asignadas (${assignedUnits}/${qty})`}</span>
                         </span>
                       )}
                       {!isFullyAssigned && remainingUnits > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 animate-pulse">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>Quedan {remainingUnits} por asignar ({assignedUnits}/{qty})</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 animate-pulse">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <span>{isMobile ? `Faltan ${remainingUnits} (${assignedUnits}/${qty})` : `Quedan ${remainingUnits} por asignar (${assignedUnits}/${qty})`}</span>
                         </span>
                       )}
                       {isOverAssigned && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>Exceso: {assignedUnits - qty} de más</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <span>{isMobile ? `+${assignedUnits - qty} de más` : `Exceso: ${assignedUnits - qty} de más`}</span>
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Member interactive stepper chips */}
-                  <div className="flex flex-wrap items-center gap-2">
+                  {/* Member interactive stepper chips - Ampliados en móvil */}
+                  <div className={`flex flex-wrap items-center ${isMobile ? 'gap-2.5' : 'gap-2'}`}>
                     {members.map((m) => {
                       const userUnits = shares[m.user_id] || 0;
                       const hasAssigned = userUnits > 0;
@@ -464,10 +511,12 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                       return (
                         <div
                           key={m.user_id}
-                          className={`inline-flex items-center gap-1.5 p-1 pl-1.5 rounded-xl text-xs transition-all border ${
+                          className={`inline-flex items-center ${
+                            isMobile ? 'min-h-[44px] p-2 pl-2.5 rounded-2xl gap-2 text-sm' : 'p-1 pl-1.5 rounded-xl gap-1.5 text-xs'
+                          } transition-all border ${
                             hasAssigned
-                              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-100 shadow-2xs'
-                              : 'bg-slate-100/90 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 border-slate-200/70 dark:border-slate-700/70'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 text-emerald-950 dark:text-emerald-100 shadow-xs ring-1 ring-emerald-500/20'
+                              : 'bg-slate-100/90 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/80'
                           }`}
                         >
                           <button
@@ -481,26 +530,28 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                                 handleUpdateItem(idx, { assignedShares: { [m.user_id]: 1 }, assignedUserIds: [m.user_id] });
                               }
                             }}
-                            className="inline-flex items-center gap-1.5 cursor-pointer"
+                            className="inline-flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
                           >
-                            <Avatar profile={m.profile} size="sm" className="w-4 h-4 text-[9px]" />
-                            <span className="font-semibold truncate max-w-[85px]">{name}</span>
+                            <Avatar profile={m.profile} size="sm" className={isMobile ? 'w-6 h-6 text-[10px]' : 'w-4 h-4 text-[9px]'} />
+                            <span className={`font-bold truncate ${isMobile ? 'max-w-[110px] text-xs sm:text-sm' : 'max-w-[85px] text-xs'}`}>{name}</span>
                           </button>
 
                           {/* Stepper controls inside the chip */}
                           {hasAssigned ? (
-                            <div className="inline-flex items-center gap-1 ml-0.5">
+                            <div className="inline-flex items-center gap-1.5 ml-0.5">
                               <button
                                 type="button"
                                 disabled={isReadOnly}
                                 onClick={() => handleUserUnitsChange(idx, m.user_id, -1)}
-                                className="w-4.5 h-4.5 rounded flex items-center justify-center bg-white dark:bg-slate-800 text-slate-600 hover:text-rose-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-2xs transition-all cursor-pointer"
+                                className={`${
+                                  isMobile ? 'w-7 h-7 rounded-lg' : 'w-4.5 h-4.5 rounded'
+                                } flex items-center justify-center bg-white dark:bg-slate-800 text-slate-600 hover:text-rose-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-2xs transition-all cursor-pointer active:scale-90`}
                                 title="Restar 1 unidad"
                               >
-                                <Minus className="w-2.5 h-2.5" />
+                                <Minus className={isMobile ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'} />
                               </button>
 
-                              <span className="font-black text-xs tabular-nums text-emerald-700 dark:text-emerald-300 px-0.5">
+                              <span className={`font-black ${isMobile ? 'text-sm' : 'text-xs'} tabular-nums text-emerald-700 dark:text-emerald-300 px-1`}>
                                 {userUnits}
                               </span>
 
@@ -508,13 +559,15 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                                 type="button"
                                 disabled={isReadOnly || remainingUnits <= 0}
                                 onClick={() => handleUserUnitsChange(idx, m.user_id, 1)}
-                                className="w-4.5 h-4.5 rounded flex items-center justify-center bg-white dark:bg-slate-800 text-slate-600 hover:text-emerald-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 shadow-2xs transition-all cursor-pointer"
+                                className={`${
+                                  isMobile ? 'w-7 h-7 rounded-lg' : 'w-4.5 h-4.5 rounded'
+                                } flex items-center justify-center bg-white dark:bg-slate-800 text-slate-600 hover:text-emerald-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 shadow-2xs transition-all cursor-pointer active:scale-90`}
                                 title="Sumar 1 unidad"
                               >
-                                <Plus className="w-2.5 h-2.5" />
+                                <Plus className={isMobile ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'} />
                               </button>
 
-                              <span className="text-[10px] font-bold text-slate-400 tabular-nums ml-0.5">
+                              <span className={`${isMobile ? 'text-xs' : 'text-[10px]'} font-bold text-slate-400 tabular-nums ml-0.5`}>
                                 ({formatMoney(userShareCost, currency)})
                               </span>
                             </div>
@@ -524,7 +577,7 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                               type="button"
                               disabled={isReadOnly || remainingUnits <= 0}
                               onClick={() => handleUserUnitsChange(idx, m.user_id, 1)}
-                              className="px-1 text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
+                              className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-1 text-[10px]'} font-bold text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer active:scale-95`}
                               title="Asignar 1 unidad a este amigo"
                             >
                               +1
@@ -536,10 +589,12 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                             <button
                               type="button"
                               onClick={() => handleAssignRemainingToUser(idx, m.user_id)}
-                              className="ml-1 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer shrink-0"
+                              className={`ml-1 ${
+                                isMobile ? 'text-[10px] px-2 py-1' : 'text-[9px] px-1.5 py-0.5'
+                              } font-black uppercase rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer shrink-0 active:scale-95`}
                               title={`Asignar todas las ${remainingUnits} unidades restantes a ${name}`}
                             >
-                              +{remainingUnits} resto
+                              +{remainingUnits} {isMobile ? 'resto' : 'resto'}
                             </button>
                           )}
                         </div>
@@ -555,7 +610,7 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
 
       {/* Balancing & Tax Reconciliation Card */}
       <div
-        className={`p-4 rounded-xl border-2 transition-all shadow-xs ${
+        className={`p-3.5 sm:p-4 rounded-2xl border-2 transition-all shadow-xs ${
           calc.isBalanced
             ? 'bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600/70 text-emerald-950 dark:text-emerald-100'
             : 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-400 dark:border-amber-600/70 text-amber-950 dark:text-amber-100'
@@ -564,7 +619,7 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div
-              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
                 calc.isBalanced ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
               }`}
             >
@@ -575,16 +630,16 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
               )}
             </div>
             <div>
-              <div className="flex items-center gap-2 text-xs font-bold">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-bold">
                 <span>
                   {calc.isBalanced
-                    ? t('expenses.ticketBalanced') || '¡Factura e impuestos cuadrados al 100%!'
+                    ? (isMobile ? '¡Cuadrado al 100%!' : (t('expenses.ticketBalanced') || '¡Factura e impuestos cuadrados al 100%!'))
                     : calc.hasUnassignedItems
-                    ? 'Hay productos con unidades sin repartir'
-                    : t('expenses.ticketUnbalancedTitle') || 'Descuadre en los productos'}
+                    ? (isMobile ? 'Hay unidades sin repartir' : 'Hay productos con unidades sin repartir')
+                    : (isMobile ? 'Descuadre en factura' : (t('expenses.ticketUnbalancedTitle') || 'Descuadre en los productos'))}
                 </span>
                 <span
-                  className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                  className={`text-xs font-black px-2 py-0.5 rounded-lg ${
                     calc.isBalanced
                       ? 'bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-900 dark:text-emerald-100'
                       : 'bg-amber-200/60 dark:bg-amber-800/60 text-amber-900 dark:text-amber-100'
@@ -595,21 +650,20 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                     : `${calc.difference > 0 ? '+' : '-'}${formatMoney(Math.abs(calc.difference), currency)}`}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+              <p className={`${isMobile ? 'text-xs' : 'text-[11px]'} text-slate-600 dark:text-slate-300 mt-0.5 leading-snug`}>
                 {calc.isBalanced
-                  ? 'Todos los productos y sus impuestos están completamente distribuidos y coinciden con el total.'
-                  : calc.errorMessage ||
-                    'Ajusta las cantidades y productos para que el 100% quede asignado y coincida con el total de la factura.'}
+                  ? (isMobile ? 'Todo asignado correctamente.' : 'Todos los productos y sus impuestos están completamente distribuidos y coinciden con el total.')
+                  : (isMobile ? (calc.hasUnassignedItems ? 'Reparte todas las unidades con (+).' : 'Cuadra los importes con el total.') : (calc.errorMessage || 'Ajusta las cantidades y productos para que el 100% quede asignado y coincida con el total de la factura.'))}
               </p>
             </div>
           </div>
 
           {/* Totals Summary: Base + Taxes = Total */}
           <div className="text-right shrink-0 self-end sm:self-auto space-y-0.5">
-            <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               Base: {formatMoney(calc.itemsNetTotal, currency)} + {activeTaxLabel}: {formatMoney(calc.itemsTaxTotal, currency)}
             </div>
-            <div className="text-xs sm:text-sm font-black tabular-nums">
+            <div className="text-sm sm:text-base font-black tabular-nums">
               <span className={calc.isBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
                 {formatMoney(calc.itemsTotal, currency)}
               </span>
@@ -624,8 +678,8 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
         {/* Live calculated share per participant breakdown */}
         {calc.results.length > 0 && (
           <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-800/60">
-            <div className="text-[10px] uppercase font-black tracking-wider text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <span>{t('expenses.breakdownPreview') || 'Total a pagar por amigo (Base + Impuesto)'}:</span>
+            <div className="text-xs uppercase font-black tracking-wider text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+              <span>{t('expenses.breakdownPreview') || 'Total a pagar por amigo'}:</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {calc.results.map((res) => {
@@ -633,13 +687,13 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
                 return (
                   <div
                     key={res.userId}
-                    className="inline-flex items-center gap-1.5 bg-white/90 dark:bg-slate-900/80 px-2.5 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-800 shadow-2xs"
+                    className="inline-flex items-center gap-1.5 bg-white/90 dark:bg-slate-900/80 px-2.5 py-1 rounded-xl text-xs sm:text-sm border border-slate-200 dark:border-slate-800 shadow-2xs font-medium"
                   >
                     <span className="font-semibold text-slate-700 dark:text-slate-200">{name}:</span>
                     <span className="font-black tabular-nums text-emerald-700 dark:text-emerald-300">
                       {formatMoney(res.amountOwed, currency)}
                     </span>
-                    {res.netOwed !== undefined && res.taxOwed !== undefined && res.taxOwed > 0 && (
+                    {!isMobile && res.netOwed !== undefined && res.taxOwed !== undefined && res.taxOwed > 0 && (
                       <span className="text-[10px] text-slate-400 tabular-nums">
                         (Base {formatMoney(res.netOwed, currency)} + {activeTaxLabel} {formatMoney(res.taxOwed, currency)})
                       </span>
