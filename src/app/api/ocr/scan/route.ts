@@ -210,7 +210,8 @@ Esquema JSON requerido:
       "price": 0.00,
       "tax_name": "IVA" | "VAT" | "Tax",
       "tax_rate": 10.0,
-      "tax_amount": 0.00
+      "tax_amount": 0.00,
+      "tax_included": true | false
     }
   ],
   "translatedBoxes": [
@@ -259,6 +260,7 @@ Reglas críticas de extracción y cálculo de impuestos:
      * "tax_amount": Cuota de impuesto abonada por ese producto:
        - Si items_price_includes_tax es true: tax_amount = price - (price / (1 + tax_rate / 100)).
        - Si items_price_includes_tax es false: tax_amount = price * (tax_rate / 100).
+     * "tax_included": Booleano que indica si el precio de este producto ya incluye impuestos (true si es PVP minorista, false si es base neta). REGLA FUNDAMENTAL DE UNIFORMIDAD: En una misma factura, si un producto tiene el IVA incluido en su precio, TODOS los productos de esa factura lo tienen incluido; si uno no lo tiene, NINGUNO lo tiene. Por lo tanto, coincide de forma homogénea con "items_price_includes_tax" para el 100% de los productos.
    - Si el idioma del ticket es DIFERENTE al del usuario (${userLang}):
      * "description": Traduce con precisión y naturalidad el concepto a ${targetLangName}.
      * "description_original": Guarda el nombre original tal y como aparece impreso en el ticket.
@@ -678,6 +680,7 @@ Reglas críticas de extracción y cálculo de impuestos:
       tax_name?: string;
       tax_rate?: number;
       tax_amount?: number;
+      tax_included?: boolean;
     }> => {
       if (!Array.isArray(rawItems)) return [];
       const items: Array<{
@@ -689,6 +692,7 @@ Reglas críticas de extracción y cálculo de impuestos:
         tax_name?: string;
         tax_rate?: number;
         tax_amount?: number;
+        tax_included?: boolean;
       }> = [];
 
       for (const it of rawItems) {
@@ -709,6 +713,7 @@ Reglas críticas de extracción y cálculo de impuestos:
         const taxRate = typeof it.tax_rate === 'number' ? Math.round(it.tax_rate * 100) / 100 : undefined;
         const taxAmount = typeof it.tax_amount === 'number' ? Math.round(it.tax_amount * 100) / 100 : undefined;
         const taxName = typeof it.tax_name === 'string' ? it.tax_name.trim().slice(0, 20) : undefined;
+        const taxIncluded = typeof it.tax_included === 'boolean' ? it.tax_included : undefined;
 
         if (desc && !isNaN(price) && price > 0 && price < 50000) {
           items.push({
@@ -720,6 +725,7 @@ Reglas críticas de extracción y cálculo de impuestos:
             tax_name: taxName,
             tax_rate: taxRate,
             tax_amount: taxAmount,
+            tax_included: taxIncluded,
           });
         }
       }

@@ -84,6 +84,7 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
       tax_name: activeTaxLabel,
       tax_rate: presetTaxRates.includes(10) ? 10 : presetTaxRates[presetTaxRates.length - 1] || 0,
       tax_amount: 0,
+      tax_included: taxIncluded,
       assignedUserIds: [],
       assignedShares: {},
     };
@@ -99,17 +100,22 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
     const next = items.map((it, i) => {
       if (i !== index) return it;
       const merged = { ...it, ...updates };
+      const isTaxInc = merged.tax_included !== undefined ? merged.tax_included : taxIncluded;
 
       // Recompute tax_amount if price or tax_rate changed
       if (updates.price !== undefined || updates.tax_rate !== undefined) {
         const rate = merged.tax_rate || 0;
         const price = merged.price || 0;
-        merged.tax_amount = Math.round(price * (rate / 100) * 100) / 100;
+        if (isTaxInc) {
+          merged.tax_amount = rate > 0 ? Math.round((price - (price / (1 + rate / 100))) * 100) / 100 : 0;
+        } else {
+          merged.tax_amount = rate > 0 ? Math.round(price * (rate / 100) * 100) / 100 : 0;
+        }
       }
 
       // Recompute unit price
       const qty = Math.max(1, merged.quantity || 1);
-      const totalLine = (merged.price || 0) + (merged.tax_amount || 0);
+      const totalLine = isTaxInc ? (merged.price || 0) : ((merged.price || 0) + (merged.tax_amount || 0));
       merged.unit_price = Math.round((totalLine / qty) * 100) / 100;
 
       return merged;
@@ -199,6 +205,9 @@ export const ItemizedSplitEditor: React.FC<ItemizedSplitEditorProps> = ({
               <span>{t('expenses.itemsTableTitle') || 'Desglose de productos y tasas'}</span>
               <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 {items.length} {items.length === 1 ? 'producto' : 'productos'}
+              </span>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                {activeTaxLabel} {taxIncluded ? 'incluido' : 'no incluido'}
               </span>
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">

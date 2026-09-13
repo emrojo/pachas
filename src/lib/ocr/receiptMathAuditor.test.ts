@@ -26,6 +26,7 @@ describe('Receipt Math Auditor and Tax Inclusion Engine', () => {
     expect(report.itemsSum).toBe(47.30);
     expect(report.totalAmount).toBe(47.30);
     expect(report.subtotal).toBe(43.00);
+    expect(report.reconciledItems.every((it) => it.tax_included === true)).toBe(true);
   });
 
   it('correctly identifies tax added at end when items sum equals subtotal', () => {
@@ -50,6 +51,7 @@ describe('Receipt Math Auditor and Tax Inclusion Engine', () => {
     expect(report.taxAmount).toBe(21.00);
     expect(report.totalAmount).toBe(121.00);
     expect(report.discrepancy).toBe(0);
+    expect(report.reconciledItems.every((it) => it.tax_included === false)).toBe(true);
   });
 
   it('auto-corrects tax_included if AI wrongly marked tax_included=true but numbers prove tax is added at end', () => {

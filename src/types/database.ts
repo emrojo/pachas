@@ -106,12 +106,13 @@ export interface ExpenseItem {
   expense_id?: string;
   description: string;
   description_original?: string | null;
-  price: number; // Base net price of the item
+  price: number; // Price of the item (PVP if tax_included=true, net base if tax_included=false)
   quantity?: number; // Defaults to 1
   unit_price?: number | null;
   tax_name?: string; // e.g. 'IVA', 'VAT', 'Tax'
   tax_rate?: number; // e.g. 21, 10, 4, 0
   tax_amount?: number; // Tax amount corresponding to this item
+  tax_included?: boolean; // Whether price includes tax
   assigned_user_ids: string[];
   assigned_shares?: Record<string, number>; // e.g. { "user_1": 2, "user_2": 1 }
   created_at?: string;

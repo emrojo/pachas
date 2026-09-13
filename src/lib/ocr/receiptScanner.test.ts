@@ -41,6 +41,7 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
       tax_name: 'IVA',
       tax_rate: 10,
       tax_amount: 2.91,
+      tax_included: true,
     });
     expect(data.items?.[1]).toEqual({
       description: 'ENSALADA VERDE',
@@ -50,6 +51,7 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
       tax_name: 'IVA',
       tax_rate: 10,
       tax_amount: 0.68,
+      tax_included: true,
     });
   });
 
@@ -82,6 +84,7 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
       tax_name: 'IVA',
       tax_rate: 0,
       tax_amount: 0,
+      tax_included: true,
     });
   });
 

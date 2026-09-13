@@ -171,6 +171,7 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_name TEXT DEFAULT 'IVA' NOT NULL;`).catch(() => {});
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) DEFAULT 0 NOT NULL;`).catch(() => {});
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12, 2) DEFAULT 0 NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_included BOOLEAN DEFAULT TRUE NOT NULL;`).catch(() => {});
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS assigned_shares JSONB DEFAULT '{}'::jsonb NOT NULL;`).catch(() => {});
   } catch (err) {
     console.warn('Schema auto-migration notice:', err);

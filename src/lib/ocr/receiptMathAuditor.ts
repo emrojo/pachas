@@ -312,6 +312,7 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
       tax_name: itemTaxName,
       tax_rate: itemTaxRate,
       tax_amount: itemTaxAmount,
+      tax_included: typeof it.tax_included === 'boolean' ? it.tax_included : undefined,
     };
 
     if (it.id) reconciledItem.id = it.id;
@@ -404,8 +405,17 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
   } else {
     // Discrepancy detected between items and total
     status = 'discrepancy';
-    finalTaxIncluded = initialTaxIncluded;
-    itemsPriceIncludesTax = initialTaxIncluded;
+    const itemWithTaxFlag = rawItems.find((it) => typeof it?.tax_included === 'boolean');
+    if (itemWithTaxFlag && typeof itemWithTaxFlag.tax_included === 'boolean') {
+      itemsPriceIncludesTax = itemWithTaxFlag.tax_included;
+      finalTaxIncluded = itemWithTaxFlag.tax_included;
+    } else if (typeof data.items_price_includes_tax === 'boolean') {
+      itemsPriceIncludesTax = data.items_price_includes_tax;
+      finalTaxIncluded = data.items_price_includes_tax;
+    } else {
+      finalTaxIncluded = initialTaxIncluded;
+      itemsPriceIncludesTax = initialTaxIncluded;
+    }
 
     if (finalTaxIncluded) {
       discrepancy = round2(itemsSum - totalAmount);
@@ -467,6 +477,7 @@ export function auditAndReconcileReceipt(data: Partial<ScannedReceiptData>): Rec
     const rate = typeof it.tax_rate === 'number' ? round2(it.tax_rate) : rawTaxRate || 0;
     it.tax_rate = rate;
     it.tax_name = it.tax_name || taxName;
+    it.tax_included = itemsPriceIncludesTax;
 
     if (itemsPriceIncludesTax) {
       // Product price includes tax: cuota = price - price / (1 + rate / 100)

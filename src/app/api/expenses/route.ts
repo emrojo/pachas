@@ -289,25 +289,35 @@ export async function POST(request: NextRequest) {
             const itemTaxAmount = Math.max(0, Number(it.tax_amount) || 0);
             const assigned = Array.isArray(it.assigned_user_ids) ? it.assigned_user_ids : [];
             const assignedShares = it.assigned_shares || (it.assignedShares ? it.assignedShares : {});
+            const itemTaxIncluded = it.tax_included !== undefined ? Boolean(it.tax_included) : Boolean(finalTaxIncluded);
 
             await client.query(
               `INSERT INTO public.expense_items (
                 id, expense_id, description, description_original, price,
-                quantity, unit_price, tax_name, tax_rate, tax_amount,
+                quantity, unit_price, tax_name, tax_rate, tax_amount, tax_included,
                 assigned_user_ids, assigned_shares
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-              [itemId, id, desc, descOrig, itemPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, assigned, JSON.stringify(assignedShares)]
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+              [itemId, id, desc, descOrig, itemPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, itemTaxIncluded, assigned, JSON.stringify(assignedShares)]
             ).catch(async () => {
               await client.query(
-                `INSERT INTO public.expense_items (id, expense_id, description, description_original, price, assigned_user_ids)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [itemId, id, desc, descOrig, itemPrice, assigned]
+                `INSERT INTO public.expense_items (
+                  id, expense_id, description, description_original, price,
+                  quantity, unit_price, tax_name, tax_rate, tax_amount,
+                  assigned_user_ids, assigned_shares
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                [itemId, id, desc, descOrig, itemPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, assigned, JSON.stringify(assignedShares)]
               ).catch(async () => {
                 await client.query(
-                  `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
-                   VALUES ($1, $2, $3, $4, $5)`,
-                  [itemId, id, desc, itemPrice, assigned]
-                );
+                  `INSERT INTO public.expense_items (id, expense_id, description, description_original, price, assigned_user_ids)
+                   VALUES ($1, $2, $3, $4, $5, $6)`,
+                  [itemId, id, desc, descOrig, itemPrice, assigned]
+                ).catch(async () => {
+                  await client.query(
+                    `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [itemId, id, desc, itemPrice, assigned]
+                  );
+                });
               });
             });
           }
@@ -410,6 +420,7 @@ export async function POST(request: NextRequest) {
                   'tax_name', COALESCE(ei.tax_name, 'IVA'),
                   'tax_rate', COALESCE(ei.tax_rate, 0),
                   'tax_amount', COALESCE(ei.tax_amount, 0),
+                  'tax_included', COALESCE(ei.tax_included, true),
                   'assigned_user_ids', ei.assigned_user_ids,
                   'assigned_shares', COALESCE(ei.assigned_shares, '{}'::jsonb)
                 )) FILTER (WHERE ei.id IS NOT NULL) as items,
@@ -578,6 +589,7 @@ export async function GET(request: NextRequest) {
                 'tax_name', COALESCE(ei.tax_name, 'IVA'),
                 'tax_rate', COALESCE(ei.tax_rate, 0),
                 'tax_amount', COALESCE(ei.tax_amount, 0),
+                'tax_included', COALESCE(ei.tax_included, true),
                 'assigned_user_ids', ei.assigned_user_ids,
                 'assigned_shares', COALESCE(ei.assigned_shares, '{}'::jsonb)
               )) FILTER (WHERE ei.id IS NOT NULL) as items,

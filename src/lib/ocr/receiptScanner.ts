@@ -23,6 +23,7 @@ export interface ScannedLineItem {
   tax_name?: string;
   tax_rate?: number;
   tax_amount?: number;
+  tax_included?: boolean;
   assigned_user_ids?: string[];
   assigned_shares?: Record<string, number>;
 }

@@ -482,10 +482,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           description_original: it.description_original || undefined,
           price: Number(it.price) || 0,
           quantity: Math.max(1, Number(it.quantity) || 1),
-          unitPrice: typeof it.unit_price === 'number' ? it.unit_price : undefined,
-          taxName: it.tax_name || expense.tax_name || undefined,
-          taxRate: typeof it.tax_rate === 'number' ? it.tax_rate : undefined,
-          taxAmount: typeof it.tax_amount === 'number' ? it.tax_amount : undefined,
+          unit_price: typeof it.unit_price === 'number' ? it.unit_price : undefined,
+          tax_name: it.tax_name || expense.tax_name || undefined,
+          tax_rate: typeof it.tax_rate === 'number' ? it.tax_rate : undefined,
+          tax_amount: typeof it.tax_amount === 'number' ? it.tax_amount : undefined,
+          tax_included: typeof it.tax_included === 'boolean' ? it.tax_included : (expense.tax_included ?? true),
           assignedUserIds: it.assigned_user_ids || [],
           assignedShares: it.assigned_shares || {},
         }))
@@ -871,6 +872,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         tax_name: it.tax_name || scannedData.tax_name || undefined,
         tax_rate: typeof it.tax_rate === 'number' ? it.tax_rate : undefined,
         tax_amount: typeof it.tax_amount === 'number' ? it.tax_amount : undefined,
+        tax_included: typeof it.tax_included === 'boolean' ? it.tax_included : (scannedData.tax_included ?? true),
         assignedUserIds: [],
         assignedShares: {},
       }));
@@ -956,7 +958,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       }
 
       const allMemberIds = members.map((m) => m.user_id);
-      const splitCheck = calculateItemizedSplits(totalAmount, lineItems, allMemberIds, currency);
+      const splitCheck = calculateItemizedSplits(totalAmount, lineItems, allMemberIds, currency, {
+        taxIncluded,
+        taxAmount,
+      });
       if (!splitCheck.isBalanced) {
         setErrorMessage(
           t('expenses.itemizedSumMismatch', {
@@ -1063,6 +1068,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             tax_name: it.tax_name || taxName || undefined,
             tax_rate: it.tax_rate !== undefined ? it.tax_rate : taxRate,
             tax_amount: it.tax_amount,
+            tax_included: typeof it.tax_included === 'boolean' ? it.tax_included : (taxIncluded !== undefined ? taxIncluded : true),
             assigned_user_ids: it.assignedUserIds,
             assigned_shares: it.assignedShares,
           }))

@@ -11,6 +11,7 @@ export interface LineItemInput {
   tax_name?: string; // 'IVA', 'VAT', 'Tax'
   tax_rate?: number; // e.g. 21, 10, 4, 0
   tax_amount?: number; // Total tax for this line item
+  tax_included?: boolean; // Whether price includes tax (PVP vs Net)
   assignedUserIds: string[];
   assignedShares?: Record<string, number>; // user_id -> quantity of units consumed
 }
@@ -102,21 +103,73 @@ export function calculateItemizedSplits(
     userTaxCentsMap[id] = 0;
   }
 
-  // Process each line item
-  for (const item of items) {
-    const rawNetPrice = Math.max(0, Number(item.price) || 0);
-    const rawTaxAmount = Math.max(
-      0,
-      item.tax_amount !== undefined && item.tax_amount !== null
-        ? Number(item.tax_amount) || 0
-        : item.tax_rate
-        ? round2(rawNetPrice * (Number(item.tax_rate) / 100))
-        : 0
+  // 1. Determine invoice tax inclusion policy (uniform across all line items)
+  let invoiceTaxIncluded: boolean;
+  const itemWithExplicitFlag = items.find((it) => typeof it?.tax_included === 'boolean');
+
+  if (itemWithExplicitFlag && typeof itemWithExplicitFlag.tax_included === 'boolean') {
+    invoiceTaxIncluded = itemWithExplicitFlag.tax_included;
+  } else if (typeof options?.taxIncluded === 'boolean') {
+    invoiceTaxIncluded = options.taxIncluded;
+  } else {
+    // Infer from price sums vs totalAmount
+    const sumRawPrices = round2(items.reduce((acc, it) => acc + Math.max(0, Number(it.price) || 0), 0));
+    const sumRawTaxes = round2(
+      items.reduce((acc, it) => {
+        if (typeof it.tax_amount === 'number' && !isNaN(it.tax_amount)) {
+          return acc + Math.max(0, it.tax_amount);
+        }
+        if (typeof it.tax_rate === 'number' && it.tax_rate > 0) {
+          const p = Math.max(0, Number(it.price) || 0);
+          return acc + round2(p * (it.tax_rate / 100));
+        }
+        return acc;
+      }, 0)
     );
 
-    const netCents = Math.round(rawNetPrice * 100);
-    const taxCents = Math.round(rawTaxAmount * 100);
-    const itemTotalCents = netCents + taxCents;
+    const diffIncluded = Math.abs(sumRawPrices - totalAmount);
+    const diffExcluded = Math.abs((sumRawPrices + sumRawTaxes) - totalAmount);
+
+    if (diffIncluded <= 0.05 && diffIncluded <= diffExcluded) {
+      invoiceTaxIncluded = true;
+    } else if (diffExcluded <= 0.05) {
+      invoiceTaxIncluded = false;
+    } else {
+      // Default to taxIncluded = true (European retail norm)
+      invoiceTaxIncluded = true;
+    }
+  }
+
+  // Process each line item
+  for (const item of items) {
+    const rawPrice = Math.max(0, Number(item.price) || 0);
+    const itemTaxIncluded = typeof item.tax_included === 'boolean' ? item.tax_included : invoiceTaxIncluded;
+
+    let rawTaxAmount = 0;
+    if (typeof item.tax_amount === 'number' && !isNaN(item.tax_amount)) {
+      rawTaxAmount = Math.max(0, item.tax_amount);
+    } else if (item.tax_rate && Number(item.tax_rate) > 0) {
+      const rate = Number(item.tax_rate);
+      if (itemTaxIncluded) {
+        rawTaxAmount = round2(rawPrice - (rawPrice / (1 + rate / 100)));
+      } else {
+        rawTaxAmount = round2(rawPrice * (rate / 100));
+      }
+    }
+
+    let netCents = 0;
+    let taxCents = 0;
+    let itemTotalCents = 0;
+
+    if (itemTaxIncluded) {
+      itemTotalCents = Math.round(rawPrice * 100);
+      taxCents = Math.min(itemTotalCents, Math.round(rawTaxAmount * 100));
+      netCents = Math.max(0, itemTotalCents - taxCents);
+    } else {
+      netCents = Math.round(rawPrice * 100);
+      taxCents = Math.round(rawTaxAmount * 100);
+      itemTotalCents = netCents + taxCents;
+    }
 
     totalNetCents += netCents;
     totalTaxCents += taxCents;
@@ -201,8 +254,8 @@ export function calculateItemizedSplits(
   }
 
   // If taxes are excluded and added at the bottom, distribute them proportionally to each user's net consumption
-  if (options?.taxIncluded === false && (options?.taxAmount ?? 0) > 0 && totalTaxCents === 0 && totalNetCents > 0) {
-    const bottomTaxCents = Math.round(options.taxAmount! * 100);
+  if (invoiceTaxIncluded === false && (options?.taxAmount ?? 0) > 0 && totalTaxCents === 0 && totalNetCents > 0) {
+    const bottomTaxCents = Math.round((options?.taxAmount || 0) * 100);
     totalTaxCents = bottomTaxCents;
     totalItemCents = totalNetCents + bottomTaxCents;
 

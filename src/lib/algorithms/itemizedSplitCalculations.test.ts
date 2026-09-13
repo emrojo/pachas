@@ -160,4 +160,43 @@ describe('Itemized Split Calculations Engine', () => {
     expect(u2?.taxOwed).toBe(1.0);
     expect(u2?.amountOwed).toBe(11.0);
   });
+
+  it('correctly calculates splits when line item prices already include tax (PVP retail)', () => {
+    // Retail receipt: 2 Beers for 6.00€ (with 10% IVA included) + 1 Pizza for 12.00€ (with 10% IVA included) = 18.00€
+    const items: LineItemInput[] = [
+      {
+        id: '1',
+        description: '2x Cervezas',
+        price: 6.0, // PVP with IVA
+        tax_rate: 10,
+        tax_included: true,
+        quantity: 2,
+        assignedUserIds: ['user-1', 'user-2'],
+        assignedShares: { 'user-1': 1, 'user-2': 1 },
+      },
+      {
+        id: '2',
+        description: 'Pizza',
+        price: 12.0, // PVP with IVA
+        tax_rate: 10,
+        quantity: 1, // Will inherit tax_included=true by invoice uniformity
+        assignedUserIds: ['user-1'],
+        assignedShares: { 'user-1': 1 },
+      },
+    ];
+
+    const res = calculateItemizedSplits(18.0, items, members, 'EUR');
+    expect(res.isBalanced).toBe(true);
+    expect(res.itemsTotal).toBe(18.0);
+    expect(res.difference).toBe(0);
+
+    const u1 = res.results.find((r) => r.userId === 'user-1');
+    const u2 = res.results.find((r) => r.userId === 'user-2');
+
+    // User 1: 3€ (1 beer) + 12€ (pizza) = 15€
+    expect(u1?.amountOwed).toBe(15.0);
+    // User 2: 3€ (1 beer) = 3€
+    expect(u2?.amountOwed).toBe(3.0);
+    expect((u1?.amountOwed || 0) + (u2?.amountOwed || 0)).toBe(18.0);
+  });
 });
