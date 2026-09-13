@@ -799,7 +799,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     // Run OCR scan on censored image
     setIsScanningReceipt(true);
     try {
-      const data = await scanReceipt(censoredDataUrl, language || 'es');
+      const data = await scanReceipt(censoredDataUrl, language || 'es', currency);
       if (data && (data.amount || data.title || data.date || (data.items && data.items.length > 0))) {
         setScannedData(data);
         if (data.receiptTranslatedUrl) {
@@ -2080,6 +2080,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       🧾 {t('expenses.itemizedDetected', { count: scannedData.items.length }) || `${scannedData.items.length} productos detectados`}
                     </span>
                   )}
+                  {scannedData.tax_amount !== undefined && scannedData.tax_amount > 0 && (
+                    <span className="font-medium text-emerald-800 dark:text-emerald-200">
+                      🏷️ {scannedData.tax_name || 'IVA'} {scannedData.tax_included ? 'inc.' : 'no inc.'} ({scannedData.tax_amount.toFixed(2)} {currency}
+                      {scannedData.tax_breakdown && scannedData.tax_breakdown.length > 1
+                        ? ` • ${scannedData.tax_breakdown.map((b) => `${b.tax_rate}%`).join(', ')}`
+                        : typeof scannedData.tax_rate === 'number'
+                        ? ` • ${scannedData.tax_rate}%`
+                        : ''}
+                      )
+                    </span>
+                  )}
+                  {scannedData.audit?.isConsistent && (
+                    <span className="font-bold text-teal-700 dark:text-teal-300">
+                      ✓ Cuadrada
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -2805,6 +2821,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     totalInvoiceAmount={totalAmount}
                     currency={currency}
                     defaultTaxName={taxName}
+                    taxIncluded={taxIncluded}
+                    taxAmount={taxAmount}
                     isReadOnly={isReadOnly}
                     onBalanceChange={setIsItemsBalanced}
                   />

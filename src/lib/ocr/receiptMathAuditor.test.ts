@@ -138,4 +138,66 @@ describe('Receipt Math Auditor and Tax Inclusion Engine', () => {
     expect(report.discrepancy).toBe(0);
     expect(report.itemsSum).toBe(10.00);
   });
+
+  it('reconciles multi-bracket taxes (e.g. Spain 10% food + 21% alcohol) and verifies base matches', () => {
+    // 10% bracket (food): Paella 20.00€ + Ensalada 10.00€ = 30.00€ (Base: 27.27€, Cuota: 2.73€)
+    // 21% bracket (alcohol): Cerveza 6.00€ + Copa 10.00€ = 16.00€ (Base: 13.22€, Cuota: 2.78€)
+    // Total: 46.00€, Tax total: 5.51€
+    const report = auditAndReconcileReceipt({
+      amount: 46.00,
+      tax_name: 'IVA',
+      tax_included: true,
+      tax_amount: 5.51,
+      tax_breakdown: [
+        { tax_rate: 10, total_amount: 30.00, base_amount: 27.27, tax_amount: 2.73 },
+        { tax_rate: 21, total_amount: 16.00, base_amount: 13.22, tax_amount: 2.78 },
+      ],
+      items: [
+        { description: 'Paella Valenciana', price: 20.00, quantity: 1, tax_rate: 10 },
+        { description: 'Ensalada Mixta', price: 10.00, quantity: 1, tax_rate: 10 },
+        { description: 'Cerveza Doble', price: 6.00, quantity: 2, tax_rate: 21 },
+        { description: 'Copa Ginebra', price: 10.00, quantity: 1, tax_rate: 21 },
+      ],
+    });
+
+    expect(report.isConsistent).toBe(true);
+    expect(report.taxIncluded).toBe(true);
+    expect(report.itemsPriceIncludesTax).toBe(true);
+    expect(report.taxBreakdownBalanced).toBe(true);
+    expect(report.reconciledItems[0].tax_rate).toBe(10);
+    expect(report.reconciledItems[0].tax_amount).toBeGreaterThan(0);
+    expect(report.reconciledItems[2].tax_rate).toBe(21);
+    expect(report.reconciledItems[2].tax_amount).toBeGreaterThan(0);
+  });
+
+  it('infers missing tax rates for items using receipt tax breakdown targets', () => {
+    // Total is 25.00€
+    // Breakdown: 10% bracket total: 15.00€; 21% bracket total: 10.00€
+    // Two items: Pizza 15.00€ (tax_rate missing), Gin Tonic 10.00€ (tax_rate missing)
+    const report = auditAndReconcileReceipt({
+      amount: 25.00,
+      tax_name: 'IVA',
+      tax_included: true,
+      tax_breakdown: [
+        { tax_rate: 10, total_amount: 15.00 },
+        { tax_rate: 21, total_amount: 10.00 },
+      ],
+      items: [
+        { description: 'Pizza 4 Quesos', price: 15.00 }, // missing tax_rate
+        { description: 'Gin Tonic', price: 10.00 },      // missing tax_rate
+      ],
+    });
+
+    expect(report.isConsistent).toBe(true);
+    expect(report.taxBreakdownBalanced).toBe(true);
+
+    const pizza = report.reconciledItems.find((it) => it.description.includes('Pizza'));
+    const gin = report.reconciledItems.find((it) => it.description.includes('Gin'));
+
+    expect(pizza?.tax_rate).toBe(10);
+    expect(gin?.tax_rate).toBe(21);
+    expect(pizza?.tax_amount).toBeCloseTo(1.36, 2);
+    expect(gin?.tax_amount).toBeCloseTo(1.74, 2);
+  });
 });
+

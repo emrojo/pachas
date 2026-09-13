@@ -1,4 +1,5 @@
 import { ExpenseCategory } from '@/types/database';
+import { TaxBracketSummary } from '@/lib/taxes';
 import { ReceiptAuditReport, auditAndReconcileReceipt } from './receiptMathAuditor';
 
 export interface SensitiveBox {
@@ -34,6 +35,8 @@ export interface ScannedReceiptData {
   tax_amount?: number;
   tax_rate?: number;
   tax_included?: boolean;
+  tax_breakdown?: TaxBracketSummary[];
+  items_price_includes_tax?: boolean;
   date?: string; // YYYY-MM-DDTHH:mm
   title?: string;
   category?: ExpenseCategory;
@@ -507,7 +510,11 @@ export async function generateTranslatedReceiptOverlay(
  * 1. Prioritizes Multimodal AI Vision (Google Gemini 1.5 Flash) via /api/ocr/scan for ~99% accuracy.
  * 2. Gracefully falls back to local client OCR (tesseract.js) if offline or API key not configured.
  */
-export async function scanReceipt(imageDataUrl: string, targetLanguage: string = 'es'): Promise<ScannedReceiptData> {
+export async function scanReceipt(
+  imageDataUrl: string,
+  targetLanguage: string = 'es',
+  currency?: string
+): Promise<ScannedReceiptData> {
   if (!imageDataUrl) {
     return { rawText: '', confidence: 0 };
   }
@@ -519,7 +526,7 @@ export async function scanReceipt(imageDataUrl: string, targetLanguage: string =
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ image: imageDataUrl, targetLanguage }),
+      body: JSON.stringify({ image: imageDataUrl, targetLanguage, currency }),
       signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(45000) : undefined,
     });
 
@@ -541,6 +548,13 @@ export async function scanReceipt(imageDataUrl: string, targetLanguage: string =
         return {
           amount: d.amount,
           amountFormatted: d.amountFormatted,
+          subtotal: d.subtotal,
+          tax_name: d.tax_name,
+          tax_amount: d.tax_amount,
+          tax_rate: d.tax_rate,
+          tax_included: d.tax_included,
+          tax_breakdown: d.tax_breakdown,
+          items_price_includes_tax: d.items_price_includes_tax,
           date: d.date,
           title: d.title,
           category: d.category,
@@ -548,7 +562,7 @@ export async function scanReceipt(imageDataUrl: string, targetLanguage: string =
           latitude: d.latitude,
           longitude: d.longitude,
           mapsUrl: d.mapsUrl,
-          currency: d.currency,
+          currency: d.currency || currency,
           detectedLanguage: d.detectedLanguage,
           items: d.items || [],
           sensitiveBoxes: d.sensitiveBoxes || [],
@@ -556,6 +570,7 @@ export async function scanReceipt(imageDataUrl: string, targetLanguage: string =
           receiptTranslatedUrl,
           confidence: d.confidence || 0.98,
           source: d.source || 'gemini-1.5-flash',
+          audit: d.audit,
         };
       } else if (json.fallback && json.rawText) {
         console.log('[ReceiptScanner] 📝 Extrayendo datos desde rawText del servidor...');

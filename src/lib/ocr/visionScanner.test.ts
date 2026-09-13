@@ -113,4 +113,47 @@ describe('Intelligent Receipt Vision Scanner', () => {
     expect(getGeminiApiKey()).toBe('test-key-123');
     delete process.env.GEMINI_API_KEY;
   });
+
+  it('correctly propagates tax_included, tax_breakdown, and item tax fields', async () => {
+    const mockTaxResponse = {
+      success: true,
+      data: {
+        title: 'Supermercado Central',
+        amount: 23.50,
+        amountFormatted: '23,50',
+        subtotal: 21.00,
+        tax_name: 'IVA',
+        tax_rate: 10,
+        tax_amount: 2.50,
+        tax_included: true,
+        items_price_includes_tax: true,
+        tax_breakdown: [
+          { tax_rate: 10, base_amount: 15.00, tax_amount: 1.50, total_amount: 16.50 },
+          { tax_rate: 21, base_amount: 5.79, tax_amount: 1.21, total_amount: 7.00 },
+        ],
+        items: [
+          { description: 'Alimentos', price: 16.50, tax_rate: 10, tax_amount: 1.50 },
+          { description: 'Champú', price: 7.00, tax_rate: 21, tax_amount: 1.21 },
+        ],
+        confidence: 0.98,
+        source: 'gemini-1.5-flash',
+      },
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockTaxResponse,
+    });
+
+    const result = await scanReceipt('data:image/jpeg;base64,sample...', 'es', 'EUR');
+
+    expect(result.tax_name).toBe('IVA');
+    expect(result.tax_included).toBe(true);
+    expect(result.tax_amount).toBe(2.50);
+    expect(result.tax_breakdown).toHaveLength(2);
+    expect(result.items?.[0].tax_rate).toBe(10);
+    expect(result.items?.[1].tax_rate).toBe(21);
+    expect(result.items_price_includes_tax).toBe(true);
+  });
 });
+

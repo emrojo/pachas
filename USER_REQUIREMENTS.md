@@ -951,6 +951,15 @@ This document serves as the official and permanent registry for all **user requi
   - Detects rounding discrepancies or misreads and reports explicit audit diagnostics.
 - **FR-74.4**: **Discrepancy Warning & 1-Click Auto-Square (`ReceiptValidationModal.tsx`)**:
   - Displays a visual status banner: green badge when the invoice squares perfectly, or an amber discrepancy notice with a one-click **"Ajustar total a X,XX €"** action to balance the expense.
+- **FR-74.5**: **Country Tax Brackets Context & Product Classification Prompt Injection (`src/lib/taxes.ts` & `/api/ocr/scan`)**:
+  - Maps receipt currency or language to national fiscal jurisdictions (e.g., Spain, Germany, France, Italy, Portugal, UK, US) and injects structured tax brackets and product categorization rules into the Google Gemini Vision prompt (e.g., 4% super-reduced staples, 10% hospitality/food, 21% standard goods/services in Spain).
+- **FR-74.6**: **Line-Item Tax Inclusion Differentiation (`items_price_includes_tax`)**:
+  - Distinguishes whether receipt line item prices are tax-inclusive (`items_price_includes_tax: true`) or tax-exclusive net amounts (`items_price_includes_tax: false`), comparing $\sum \text{items}$ against `total` vs `subtotal` or `total - tax` to prevent double-taxation and accounting discrepancies.
+- **FR-74.7**: **Receipt Tax Breakdown Extraction & Multi-Bracket Combinatorial Reconciler (`src/lib/ocr/receiptMathAuditor.ts`)**:
+  - Extracts multi-tier tax brackets from receipts (`tax_breakdown: [{ rate, base, amount }]`).
+  - Implements a combinatorial search and greedy reconciliation engine to deduce missing or ambiguous tax rates per item based on ticket bracket bases and product heuristics, computing exact per-item `tax_amount` and adjusting single-penny rounding differences against invoice totals.
+- **FR-74.8**: **UI & Split Engine Propagation (`ExpenseForm.tsx`, `receiptScanner.ts`)**:
+  - Passes transaction currency to OCR scanning, preserves and propagates tax rate, tax breakdown, and mathematical audit data from API responses, displays contextual tax status badges in the OCR detection banner (`🏷️ IVA inc. • 10%, 21% • ✓ Cuadrada`), and forwards tax parameters to the itemized split editor.
 
 ### 🛡️ FR-75: Default Read-Only Expense Viewing Mode, Controlled Edit Activation & Modification Diff Confirmation Dialog
 - **FR-75.1**: **Default Read-Only View on Expense Inspection**:
@@ -1149,6 +1158,7 @@ This document serves as the official and permanent registry for all **user requi
 | **13/09/2026** | 🧾 Added | **FR-74** | **International Tax/VAT Processing (Tax Included vs Excluded) & Mathematical Invoice Audit Engine**: Multi-country tax flexibility (`tax_name`, `tax_rate`, `tax_amount`, `subtotal`), tax included vs excluded apportioning, automatic mathematical consistency auditor (`receiptMathAuditor.ts`), discrepancy alert banner with 1-click "Ajustar total" in `ReceiptValidationModal`, and 20-language i18n synchronization. |
 | **13/09/2026** | 🛡️ Added | **FR-75** | **Default Read-Only Expense Viewing Mode, Controlled Edit Activation & Modification Diff Confirmation Dialog**: Existing expenses open strictly in read-only mode by default with dedicated `[✏️ Editar gasto]` action; controlled editing activation with `[Cancelar edición]` clean state reversion; change detection engine (`expenseChangeDetector.ts`) analyzing 12 financial and metadata dimensions; visual before-and-after confirmation dialog (`ConfirmExpenseChangesModal.tsx`) showing modified fields; friendly no-op detection banner; and 20-language i18n synchronization. |
 | **13/09/2026** | 🎭 Added | **FR-76** | **Application Administrator Impersonation Mode ("Modo Impersonate")**: Authorized impersonation of any user by system admins (`isAppAdmin`), secure JWT switching and `pachas_impersonator` cookie tracking, admin impersonation action buttons in `/admin?tab=users` and `AdminEditUserModal`, confirmation modal, global top sticky warning banner (`ImpersonationBanner.tsx`), seamless 1-click admin restoration without re-login, dedicated unit test suite, and 20-language i18n synchronization. |
+| **13/09/2026** | 🧾 Enhanced | **FR-74.5 - FR-74.8** | **Multi-Bracket Tax Reconciliation, Country Prompt Fiscal Context & Product Tax Rate Inference**: Injected country-specific VAT brackets (Spain, Germany, France, etc.) and category guidelines into Gemini OCR prompt; differentiated item tax inclusion (`items_price_includes_tax`); built combinatorial reconciliation algorithm in `receiptMathAuditor.ts` mapping items to multi-tier tax brackets (`tax_breakdown`) and computing exact per-item `tax_amount`; forwarded tax metadata and detection badges in `ExpenseForm.tsx` and `receiptScanner.ts`. |
 
 
 
