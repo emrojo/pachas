@@ -56,12 +56,13 @@ export const AdminEditUserModal: React.FC<AdminEditUserModalProps> = ({
   onClose,
   onUserUpdated,
 }) => {
-  const { adminUpdateUser, currentUser } = usePachas();
+  const { adminUpdateUser, currentUser, impersonateUser } = usePachas();
   const { t } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<'details' | 'groups'>('details');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImpersonatingSubmitting, setIsImpersonatingSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -459,23 +460,61 @@ export const AdminEditUserModal: React.FC<AdminEditUserModalProps> = ({
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <Button type="button" variant="outline" size="sm" onClick={onClose}>
-                {t('common.cancel') || 'Cancelar'}
-              </Button>
-              <Button type="submit" variant="primary" size="sm" disabled={isSaving}>
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    {t('common.loading') || 'Guardando...'}
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5 mr-1.5" />
-                    {t('common.save') || 'Guardar Cambios'}
-                  </>
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                {userId && currentUser?.id !== userId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isSaving || isImpersonatingSubmitting}
+                    onClick={async () => {
+                      try {
+                        setIsImpersonatingSubmitting(true);
+                        const success = await impersonateUser(userId);
+                        if (!success) {
+                          alert(t('common.error') || 'Error al iniciar impersonación');
+                          setIsImpersonatingSubmitting(false);
+                        }
+                      } catch {
+                        setIsImpersonatingSubmitting(false);
+                      }
+                    }}
+                    className="text-xs font-bold text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    title={t('admin.impersonateUserDesc') || 'Navegar como este usuario'}
+                  >
+                    {isImpersonatingSubmitting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                        {t('common.loading') || 'Iniciando...'}
+                      </>
+                    ) : (
+                      <>
+                        🎭 {t('admin.impersonateUser') || 'Impersonar'}
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSaving || isImpersonatingSubmitting}>
+                  {t('common.cancel') || 'Cancelar'}
+                </Button>
+                <Button type="submit" variant="primary" size="sm" disabled={isSaving || isImpersonatingSubmitting}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                      {t('common.loading') || 'Guardando...'}
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 mr-1.5" />
+                      {t('common.save') || 'Guardar Cambios'}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         ) : (

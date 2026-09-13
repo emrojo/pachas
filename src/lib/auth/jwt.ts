@@ -3,6 +3,8 @@ export interface JwtPayload {
   email: string;
   role?: string;
   full_name?: string;
+  impersonator_admin_id?: string;
+  impersonator_admin_email?: string;
   exp: number;
   iat: number;
   aud?: string;

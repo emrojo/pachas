@@ -51,6 +51,7 @@ import {
   GitCommit,
   Copy,
   ExternalLink,
+  Loader2,
 } from 'lucide-react';
 
 interface MetricsData {
@@ -192,6 +193,7 @@ export default function AdminBackofficePage() {
     banUser,
     unbanUser,
     sendSupportMessage,
+    impersonateUser,
   } = usePachas();
   const { t } = useTranslation();
 
@@ -227,12 +229,32 @@ export default function AdminBackofficePage() {
   const [banReasonInput, setBanReasonInput] = useState('Infracción de las normas de convivencia / conducta inapropiada');
   const [isBanSubmitting, setIsBanSubmitting] = useState(false);
 
+  // Impersonate States
+  const [confirmImpersonateTarget, setConfirmImpersonateTarget] = useState<any | null>(null);
+  const [isImpersonatingSubmitting, setIsImpersonatingSubmitting] = useState(false);
+
   // Admin User & Group Members Modals
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [managingGroup, setManagingGroup] = useState<{ id: string; name: string; icon_emoji?: string } | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleConfirmImpersonate = async () => {
+    if (!confirmImpersonateTarget) return;
+    try {
+      setIsImpersonatingSubmitting(true);
+      const success = await impersonateUser(confirmImpersonateTarget.id);
+      if (!success) {
+        alert(t('common.error') || 'Error al iniciar impersonación');
+        setIsImpersonatingSubmitting(false);
+        setConfirmImpersonateTarget(null);
+      }
+    } catch {
+      setIsImpersonatingSubmitting(false);
+      setConfirmImpersonateTarget(null);
+    }
+  };
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
   const [diagnosticsResult, setDiagnosticsResult] = useState<any[] | null>(null);
 
@@ -1438,7 +1460,19 @@ export default function AdminBackofficePage() {
                               {new Date(u.created_at).toLocaleDateString('es-ES')}
                             </td>
                             <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isSelf || isImpersonatingSubmitting}
+                                  onClick={() => setConfirmImpersonateTarget(u)}
+                                  className="text-[11px] font-bold px-2 py-1 h-auto text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                                  title={isSelf ? (t('admin.cannotImpersonateSelf') || 'No puedes impersonarte a ti mismo') : (t('admin.impersonateUserDesc') || 'Navegar como este usuario')}
+                                >
+                                  🎭 {t('admin.impersonateUser') || 'Impersonar'}
+                                </Button>
+
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -2913,6 +2947,63 @@ export default function AdminBackofficePage() {
                 className="font-bold"
               >
                 Guardar y Notificar
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Confirm Impersonate Modal */}
+      {confirmImpersonateTarget && (
+        <Modal
+          isOpen={Boolean(confirmImpersonateTarget)}
+          onClose={() => !isImpersonatingSubmitting && setConfirmImpersonateTarget(null)}
+          title={t('admin.confirmImpersonateTitle') || '¿Iniciar modo impersonación?'}
+        >
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+              <span className="text-2xl shrink-0">🎭</span>
+              <div className="text-xs space-y-1">
+                <p className="font-bold text-slate-900 dark:text-white">
+                  {t('admin.confirmImpersonateDesc')
+                    ? t('admin.confirmImpersonateDesc')
+                        .replace('{{name}}', confirmImpersonateTarget.full_name || confirmImpersonateTarget.email)
+                        .replace('{{email}}', confirmImpersonateTarget.email)
+                    : `Navegarás la aplicación con la identidad y permisos de ${confirmImpersonateTarget.full_name || confirmImpersonateTarget.email}.`}
+                </p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  Podrás volver a tu sesión de administrador en cualquier momento pulsando el botón en la barra superior.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isImpersonatingSubmitting}
+                onClick={() => setConfirmImpersonateTarget(null)}
+              >
+                {t('common.cancel') || 'Cancelar'}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={isImpersonatingSubmitting}
+                onClick={handleConfirmImpersonate}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs"
+              >
+                {isImpersonatingSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    {t('common.loading') || 'Iniciando...'}
+                  </>
+                ) : (
+                  <>
+                    🎭 {t('admin.confirmImpersonateBtn') || 'Iniciar Impersonación'}
+                  </>
+                )}
               </Button>
             </div>
           </div>

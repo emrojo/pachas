@@ -81,6 +81,17 @@ export const fr: TranslationDictionary = {
     noMembersInGroup: 'Il n\'y a aucun membre dans ce groupe.',
     unclaimedUserBadge: 'Non réclamé',
     unclaimedAccount: 'Compte provisoire',
+    impersonateUser: "Incarner",
+    impersonateUserDesc: "Se connecter et naviguer en tant que cet utilisateur",
+    confirmImpersonateTitle: "Activer le mode imitation ?",
+    confirmImpersonateDesc: "Vous naviguerez sur l’application avec l’identité, les groupes et les permissions de {{name}} ({{email}}). Vous pourrez revenir à votre session administrateur à tout moment.",
+    confirmImpersonateBtn: "Démarrer l’imitation",
+    impersonatingBannerTitle: "Mode imitation actif",
+    impersonatingBannerSubtitle: "Navigation en tant que {{name}} ({{email}}). Session d’origine : {{adminEmail}}.",
+    stopImpersonating: "Quitter l’imitation",
+    exitingImpersonation: "Restauration de la session admin...",
+    cannotImpersonateSelf: "Vous ne pouvez pas vous incarner vous-même",
+    impersonateSuccess: "Incarnation de {{name}}",
   },
 
   common: {

@@ -81,6 +81,17 @@ export const de: TranslationDictionary = {
     noMembersInGroup: 'In dieser Gruppe gibt es keine Mitglieder.',
     unclaimedUserBadge: 'Nicht beansprucht',
     unclaimedAccount: 'Vorläufiges Konto',
+    impersonateUser: "Identität annehmen",
+    impersonateUserDesc: "Als dieser Benutzer anmelden und navigieren",
+    confirmImpersonateTitle: "Identitätsübernahme starten?",
+    confirmImpersonateDesc: "Sie navigieren in der Anwendung mit der Identität, den Gruppen und Rechten von {{name}} ({{email}}). Sie können jederzeit zu Ihrer Admin-Sitzung zurückkehren.",
+    confirmImpersonateBtn: "Identitätsübernahme starten",
+    impersonatingBannerTitle: "Identitätsübernahme aktiv",
+    impersonatingBannerSubtitle: "Navigieren als {{name}} ({{email}}). Ursprüngliche Sitzung: {{adminEmail}}.",
+    stopImpersonating: "Identitätsübernahme beenden",
+    exitingImpersonation: "Admin-Sitzung wiederherstellen...",
+    cannotImpersonateSelf: "Sie können nicht Ihre eigene Identität annehmen",
+    impersonateSuccess: "Identität von {{name}} übernommen",
   },
 
   common: {

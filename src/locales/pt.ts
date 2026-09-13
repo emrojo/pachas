@@ -81,6 +81,17 @@ export const pt: TranslationDictionary = {
     noMembersInGroup: 'Não há membros neste grupo.',
     unclaimedUserBadge: 'Não reclamado',
     unclaimedAccount: 'Conta provisória',
+    impersonateUser: "Personificar",
+    impersonateUserDesc: "Iniciar sessão e navegar como este utilizador",
+    confirmImpersonateTitle: "Iniciar modo de personificação?",
+    confirmImpersonateDesc: "Irá navegar na aplicação com a identidade, grupos e permissões de {{name}} ({{email}}). Pode regressar à sua sessão de administrador a qualquer momento.",
+    confirmImpersonateBtn: "Iniciar Personificação",
+    impersonatingBannerTitle: "Modo de Personificação Ativo",
+    impersonatingBannerSubtitle: "A navegar como {{name}} ({{email}}). Sessão original: {{adminEmail}}.",
+    stopImpersonating: "Sair da personificação",
+    exitingImpersonation: "A restaurar sessão de admin...",
+    cannotImpersonateSelf: "Não se pode personificar a si mesmo",
+    impersonateSuccess: "A personificar {{name}}",
   },
 
   common: {

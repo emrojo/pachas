@@ -967,6 +967,30 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-75.5**: **Friendly No-Op Feedback**:
   - If "Guardar cambios" is pressed without making any modifications, the system informs the user via an informative notice banner (*"No se han detectado cambios respecto al gasto original"*) and cleanly exits edit mode without executing redundant API calls or database writes.
 
+### 🎭 FR-76: Application Administrator Impersonation Mode ("Modo Impersonate")
+- **FR-76.1**: **Authorized Impersonation Initiation**:
+  - Only authenticated Application Administrators (`isAppAdmin(currentUser)`) possess authority to impersonate other registered users.
+  - Non-administrators or unauthorized requests to `/api/admin/impersonate` are strictly rejected with HTTP 403 Forbidden.
+  - Self-impersonation is strictly prevented with HTTP 400 Bad Request.
+- **FR-76.2**: **Admin Console Impersonation Controls**:
+  - Integrated explicit **"🎭 Impersonar"** action button on each user row in `/admin?tab=users`.
+  - Added **"🎭 Impersonar"** action button in `AdminEditUserModal` footer.
+  - Pre-impersonation confirmation dialog explaining that the admin will browse as the target user and can return to their admin session at any time.
+- **FR-76.3**: **Seamless Session Switching via Dual Tokens & Cookies**:
+  - `POST /api/admin/impersonate` issues a target user JWT (`sb-access-token`), stores a verifiable `pachas_impersonator` cookie tracking the original admin's session, and sets `pachas_demo_user` cookie for local dev/demo environments.
+  - The JWT payload retains `impersonator_admin_id` and `impersonator_admin_email` claims for server-side auditing and authorization.
+  - Client reloads fresh data for the impersonated user (viewing their groups, balances, expenses, notifications, mobile view, and permissions).
+- **FR-76.4**: **Persistent Top Impersonation Banner (`ImpersonationBanner.tsx`)**:
+  - Mounted globally in `(dashboard)/layout.tsx` above all dashboard views.
+  - Displays high-contrast styling with target user identity: *"Modo Impersonación Activo • [Nombre] ([email])"*, noting the admin's original identity.
+  - Provides a 1-click **"🚪 Salir de la impersonación"** button with loading state.
+- **FR-76.5**: **Instant Admin Session Restoration**:
+  - `DELETE /api/admin/impersonate` clears the impersonation cookie and restores the original administrator's JWT cookie.
+  - Seamlessly returns the administrator to `/admin?tab=users` without requiring re-authentication.
+  - `logout()` and `resetLocalDatabase()` clean all impersonation state, cookies, and session storage.
+- **FR-76.6**: **Automated Unit Testing & 20-Language Internationalization**:
+  - Dedicated unit test suite in `src/app/api/admin/impersonate/route.test.ts` (covering non-admin 403, self-impersonation 400, session establishment, session deletion, and status checking).
+  - Synchronized translation keys across all 20 supported languages in `src/locales/`.
 
 ---
 
@@ -1124,6 +1148,7 @@ This document serves as the official and permanent registry for all **user requi
 | **13/09/2026** | 🍕 Added | **FR-73** | **Itemized Line-Item Multi-Quantity Allocation, Stepper Controls & Remainder Assignment ("Asignar resto")**: Supports items with quantity > 1 in `ItemizedSplitEditor`, tactile `+` / `-` stepper buttons instead of manual typing, proportional pricing per consumed unit, mandatory 100% quantity distribution, 1-click "Asignar resto" for remaining units, database migration `20-expense-items-quantity-and-tax.sql` (`quantity`, `unit_price`, `assigned_shares`), unit tests, and 20-language i18n synchronization. |
 | **13/09/2026** | 🧾 Added | **FR-74** | **International Tax/VAT Processing (Tax Included vs Excluded) & Mathematical Invoice Audit Engine**: Multi-country tax flexibility (`tax_name`, `tax_rate`, `tax_amount`, `subtotal`), tax included vs excluded apportioning, automatic mathematical consistency auditor (`receiptMathAuditor.ts`), discrepancy alert banner with 1-click "Ajustar total" in `ReceiptValidationModal`, and 20-language i18n synchronization. |
 | **13/09/2026** | 🛡️ Added | **FR-75** | **Default Read-Only Expense Viewing Mode, Controlled Edit Activation & Modification Diff Confirmation Dialog**: Existing expenses open strictly in read-only mode by default with dedicated `[✏️ Editar gasto]` action; controlled editing activation with `[Cancelar edición]` clean state reversion; change detection engine (`expenseChangeDetector.ts`) analyzing 12 financial and metadata dimensions; visual before-and-after confirmation dialog (`ConfirmExpenseChangesModal.tsx`) showing modified fields; friendly no-op detection banner; and 20-language i18n synchronization. |
+| **13/09/2026** | 🎭 Added | **FR-76** | **Application Administrator Impersonation Mode ("Modo Impersonate")**: Authorized impersonation of any user by system admins (`isAppAdmin`), secure JWT switching and `pachas_impersonator` cookie tracking, admin impersonation action buttons in `/admin?tab=users` and `AdminEditUserModal`, confirmation modal, global top sticky warning banner (`ImpersonationBanner.tsx`), seamless 1-click admin restoration without re-login, dedicated unit test suite, and 20-language i18n synchronization. |
 
 
 

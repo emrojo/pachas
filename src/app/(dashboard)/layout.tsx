@@ -7,6 +7,7 @@ import { useTranslation } from '@/context/LanguageContext';
 
 import { PwaRegistrar } from '@/components/pwa/PwaRegistrar';
 import { OfflineBanner } from '@/components/pwa/OfflineBanner';
+import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner';
 import { SupportChatModal } from '@/components/support/SupportChatModal';
 import { NotificationBubbleToast } from '@/components/notifications/NotificationBubbleToast';
 import { Card } from '@/components/ui/Card';
@@ -74,6 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <>
         <PwaRegistrar />
         <OfflineBanner />
+        <ImpersonationBanner />
         {children}
         <SupportChatModal
           isOpen={isSupportModalOpen}

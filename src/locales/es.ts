@@ -79,6 +79,17 @@ export const es = {
     noMembersInGroup: 'No hay miembros en este grupo.',
     unclaimedUserBadge: 'Sin reclamar',
     unclaimedAccount: 'Cuenta provisional',
+    impersonateUser: 'Impersonar',
+    impersonateUserDesc: 'Iniciar sesión y navegar como este usuario',
+    confirmImpersonateTitle: '¿Iniciar modo impersonación?',
+    confirmImpersonateDesc: 'Navegarás la aplicación con la identidad, grupos y permisos de {{name}} ({{email}}). Podrás volver a tu sesión de administrador en cualquier momento.',
+    confirmImpersonateBtn: 'Iniciar Impersonación',
+    impersonatingBannerTitle: 'Modo Impersonación Activo',
+    impersonatingBannerSubtitle: 'Navegando como {{name}} ({{email}}). Sesión original: {{adminEmail}}.',
+    stopImpersonating: 'Salir de la impersonación',
+    exitingImpersonation: 'Restaurando sesión admin...',
+    cannotImpersonateSelf: 'No puedes impersonarte a ti mismo',
+    impersonateSuccess: 'Impersonando a {{name}}',
   },
 
   common: {

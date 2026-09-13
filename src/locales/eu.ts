@@ -81,6 +81,17 @@ export const eu: TranslationDictionary = {
     noMembersInGroup: 'Ez dago kiderik talde honetan.',
     unclaimedUserBadge: 'Erreklamatu gabe',
     unclaimedAccount: 'Behin-behineko kontua',
+    impersonateUser: "Ordeztu",
+    impersonateUserDesc: "Hasi saioa eta arakatu erabiltzaile gisa",
+    confirmImpersonateTitle: "Ordezkatze modua hasi?",
+    confirmImpersonateDesc: "Aplikazioa {{name}} ({{email}}) gisa erabiliko duzu. Edozein unetan itzul zaitezke zure administratzaile saiora.",
+    confirmImpersonateBtn: "Hasi Ordezkatzea",
+    impersonatingBannerTitle: "Ordezkatze Modua Aktibo",
+    impersonatingBannerSubtitle: "{{name}} ({{email}}) gisa arakatzen. Jatorrizko saioa: {{adminEmail}}.",
+    stopImpersonating: "Irten ordezkatzetik",
+    exitingImpersonation: "Administratzaile saioa leheneratzen...",
+    cannotImpersonateSelf: "Ezin duzu zure burua ordezkatu",
+    impersonateSuccess: "{{name}} ordezkatzen",
   },
 
   common: {

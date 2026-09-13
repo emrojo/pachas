@@ -94,6 +94,10 @@ interface PachasContextType {
   isCurrentUserAdmin: boolean;
   isGroupAdmin: (groupId: string, userId?: string) => boolean;
   isDemoMode: boolean;
+  isImpersonating: boolean;
+  impersonatorAdmin: Profile | null;
+  impersonateUser: (targetUserId: string) => Promise<boolean>;
+  stopImpersonating: () => Promise<boolean>;
   groups: Group[];
   isLoading: boolean;
   createGroup: (
@@ -233,6 +237,7 @@ const STORAGE_KEYS = {
   GROUP_MESSAGES: 'pachas_group_messages_v2',
   NOTIFICATIONS: 'pachas_notifications_v2',
   SUPPORT_MESSAGES: 'pachas_support_messages_v2',
+  IMPERSONATOR_ADMIN: 'pachas_impersonator_admin_v2',
 };
 
 // Helper to strip heavy base64 strings from objects before saving to sessionStorage to prevent QuotaExceededError
@@ -316,6 +321,17 @@ export function safeSetLocalStorage(key: string, value: string): void {
 export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { setLanguage } = useTranslation();
   const [currentUser, _setCurrentUser] = useState<Profile | null>(null);
+  const [impersonatorAdmin, setImpersonatorAdmin] = useState<Profile | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEYS.IMPERSONATOR_ADMIN);
+        return saved ? JSON.parse(saved) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
   const [availableUsers, setAvailableUsers] = useState<Profile[]>(DEMO_USERS);
   const [groups, setGroups] = useState<Group[]>([]);
   const [members, setMembers] = useState<Record<string, GroupMember[]>>({});
@@ -632,6 +648,23 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (isMounted) {
             _setCurrentUser(activeProfile);
           }
+
+          // Check active impersonation status from server
+          try {
+            const impRes = await fetch('/api/admin/impersonate');
+            if (impRes.ok) {
+              const impData = await impRes.json();
+              if (impData.isImpersonating && impData.adminUser && isMounted) {
+                setImpersonatorAdmin(impData.adminUser);
+                safeSetLocalStorage(STORAGE_KEYS.IMPERSONATOR_ADMIN, JSON.stringify(impData.adminUser));
+              } else if (isMounted) {
+                setImpersonatorAdmin(null);
+                if (typeof window !== 'undefined') {
+                  sessionStorage.removeItem(STORAGE_KEYS.IMPERSONATOR_ADMIN);
+                }
+              }
+            }
+          } catch {}
 
           let loadedGroups: Group[] = [];
           let loadedMembers: Record<string, GroupMember[]> = {};
@@ -3167,10 +3200,13 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     try {
       sessionStorage.removeItem(STORAGE_KEYS.USER);
+      sessionStorage.removeItem(STORAGE_KEYS.IMPERSONATOR_ADMIN);
       document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = 'sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = 'pachas_demo_user=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'pachas_impersonator=; path=/; max-age=0; SameSite=Lax';
     } catch (e) {}
+    setImpersonatorAdmin(null);
     sessionStorage.setItem('justLoggedOut', 'true');
     _setCurrentUser(null);
   };
@@ -3193,6 +3229,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setComments({});
     setGroupMessages({});
     setAvailableUsers(DEMO_USERS);
+    setImpersonatorAdmin(null);
     _setCurrentUser(null);
   };
 
@@ -4268,6 +4305,60 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return false;
   };
 
+  const impersonateUser = async (targetUserId: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Failed to impersonate user:', data.error);
+        return false;
+      }
+      const data = await res.json();
+      if (data.adminUser && data.targetUser) {
+        setImpersonatorAdmin(data.adminUser);
+        safeSetLocalStorage(STORAGE_KEYS.IMPERSONATOR_ADMIN, JSON.stringify(data.adminUser));
+        _setCurrentUser(data.targetUser);
+        safeSetLocalStorage(STORAGE_KEYS.USER, JSON.stringify(data.targetUser));
+        window.location.href = '/dashboard';
+        return true;
+      }
+    } catch (err) {
+      console.error('Error during impersonation:', err);
+    }
+    return false;
+  };
+
+  const stopImpersonating = async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/admin/impersonate', {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Failed to stop impersonation:', data.error);
+        return false;
+      }
+      const data = await res.json();
+      setImpersonatorAdmin(null);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(STORAGE_KEYS.IMPERSONATOR_ADMIN);
+      }
+      if (data.restoredUser) {
+        _setCurrentUser(data.restoredUser);
+        safeSetLocalStorage(STORAGE_KEYS.USER, JSON.stringify(data.restoredUser));
+      }
+      window.location.href = '/admin?tab=users';
+      return true;
+    } catch (err) {
+      console.error('Error stopping impersonation:', err);
+    }
+    return false;
+  };
+
   return (
     <PachasContext.Provider
       value={{
@@ -4277,6 +4368,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isCurrentUserAdmin,
         isGroupAdmin: isUserGroupAdmin,
         isDemoMode,
+        isImpersonating: Boolean(impersonatorAdmin),
+        impersonatorAdmin,
+        impersonateUser,
+        stopImpersonating,
         availableUsers,
         createLocalUser,
         deleteLocalUser,

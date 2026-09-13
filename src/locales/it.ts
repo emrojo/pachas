@@ -81,6 +81,17 @@ export const it: TranslationDictionary = {
     noMembersInGroup: 'Non ci sono membri in questo gruppo.',
     unclaimedUserBadge: 'Non riscattato',
     unclaimedAccount: 'Account provvisorio',
+    impersonateUser: "Impersona",
+    impersonateUserDesc: "Accedi e naviga come questo utente",
+    confirmImpersonateTitle: "Avviare la modalità impersonificazione?",
+    confirmImpersonateDesc: "Navigherai nell’applicazione con l’identità, i gruppi e i permessi di {{name}} ({{email}}). Potrai tornare alla tua sessione admin in qualsiasi momento.",
+    confirmImpersonateBtn: "Avvia Impersonificazione",
+    impersonatingBannerTitle: "Modalità Impersonificazione Attiva",
+    impersonatingBannerSubtitle: "Navigando come {{name}} ({{email}}). Sessione originale: {{adminEmail}}.",
+    stopImpersonating: "Esci dall’impersonificazione",
+    exitingImpersonation: "Ripristino sessione admin...",
+    cannotImpersonateSelf: "Non puoi impersonare te stesso",
+    impersonateSuccess: "Impersonando {{name}}",
   },
 
   common: {

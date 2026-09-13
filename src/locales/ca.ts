@@ -81,6 +81,17 @@ export const ca: TranslationDictionary = {
     noMembersInGroup: 'No hi ha membres en aquest grup.',
     unclaimedUserBadge: 'Sense reclamar',
     unclaimedAccount: 'Compte provisional',
+    impersonateUser: "Impersonar",
+    impersonateUserDesc: "Iniciar sessió i navegar com aquest usuari",
+    confirmImpersonateTitle: "Vols iniciar el mode impersonació?",
+    confirmImpersonateDesc: "Navegaràs per l’aplicació amb la identitat, grups i permisos de {{name}} ({{email}}). Podràs tornar a la teva sessió d’administrador en qualsevol moment.",
+    confirmImpersonateBtn: "Iniciar Impersonació",
+    impersonatingBannerTitle: "Mode Impersonació Actiu",
+    impersonatingBannerSubtitle: "Navegant com {{name}} ({{email}}). Sessió original: {{adminEmail}}.",
+    stopImpersonating: "Sortir de la impersonació",
+    exitingImpersonation: "Restaurant sessió admin...",
+    cannotImpersonateSelf: "No et pots impersonar a tu mateix",
+    impersonateSuccess: "Impersonant {{name}}",
   },
 
   common: {

@@ -10,6 +10,7 @@ export interface AuthenticatedUser {
   isAdmin: boolean;
   isBanned: boolean;
   banReason?: string;
+  impersonatedBy?: { adminId: string; adminEmail: string };
 }
 
 export interface UserAuthResult {
@@ -37,6 +38,7 @@ export async function requireActiveUser(
   let userId: string | undefined;
   let userEmail: string | undefined;
   let userRole: 'admin' | 'member' = 'member';
+  let impersonatedBy: { adminId: string; adminEmail: string } | undefined;
 
   // 1. Try JWT verification
   if (token) {
@@ -45,6 +47,12 @@ export async function requireActiveUser(
       userId = payload.sub;
       userEmail = payload.email;
       userRole = (payload.role === 'admin' || isServerAdmin(payload.email, payload.sub, payload.role)) ? 'admin' : 'member';
+      if (payload.impersonator_admin_id && payload.impersonator_admin_email) {
+        impersonatedBy = {
+          adminId: payload.impersonator_admin_id,
+          adminEmail: payload.impersonator_admin_email,
+        };
+      }
     }
   }
 
@@ -150,6 +158,7 @@ export async function requireActiveUser(
       isAdmin,
       isBanned,
       banReason,
+      impersonatedBy,
     },
     isBanned,
     banReason,

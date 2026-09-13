@@ -81,6 +81,17 @@ export const gl: TranslationDictionary = {
     noMembersInGroup: 'Non hai membros neste grupo.',
     unclaimedUserBadge: 'Sen reclamar',
     unclaimedAccount: 'Conta provisional',
+    impersonateUser: "Impersonar",
+    impersonateUserDesc: "Iniciar sesión e navegar como este usuario",
+    confirmImpersonateTitle: "¿Iniciar modo impersonación?",
+    confirmImpersonateDesc: "Navegarás pola aplicación coa identidade, grupos e permisos de {{name}} ({{email}}). Poderás volver á túa sesión de administrador en calquera momento.",
+    confirmImpersonateBtn: "Iniciar Impersonación",
+    impersonatingBannerTitle: "Modo Impersonación Activo",
+    impersonatingBannerSubtitle: "Navegando como {{name}} ({{email}}). Sesión orixinal: {{adminEmail}}.",
+    stopImpersonating: "Saír da impersonación",
+    exitingImpersonation: "Restaurando sesión admin...",
+    cannotImpersonateSelf: "Non podes impersonarte a ti mesmo",
+    impersonateSuccess: "Impersonando a {{name}}",
   },
 
   common: {

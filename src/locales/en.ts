@@ -81,6 +81,17 @@ export const en: TranslationDictionary = {
     noMembersInGroup: 'There are no members in this group.',
     unclaimedUserBadge: 'Unclaimed',
     unclaimedAccount: 'Provisional account',
+    impersonateUser: 'Impersonate',
+    impersonateUserDesc: 'Log in and browse as this user',
+    confirmImpersonateTitle: 'Start impersonation mode?',
+    confirmImpersonateDesc: 'You will browse the application with the identity, groups, and permissions of {{name}} ({{email}}). You can return to your admin session at any time.',
+    confirmImpersonateBtn: 'Start Impersonation',
+    impersonatingBannerTitle: 'Impersonation Mode Active',
+    impersonatingBannerSubtitle: 'Browsing as {{name}} ({{email}}). Original session: {{adminEmail}}.',
+    stopImpersonating: 'Exit impersonation',
+    exitingImpersonation: 'Restoring admin session...',
+    cannotImpersonateSelf: 'You cannot impersonate yourself',
+    impersonateSuccess: 'Impersonating {{name}}',
   },
 
   common: {
