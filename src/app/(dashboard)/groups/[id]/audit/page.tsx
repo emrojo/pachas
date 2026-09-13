@@ -75,6 +75,7 @@ export default function GroupAuditPage() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [calculatorExpr, setCalculatorExpr] = useState<string>('');
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
+  const [isMobileCalculatorOpen, setIsMobileCalculatorOpen] = useState(false);
 
   // Fallback to first member if currentUser not in group
   const activeUserId = useMemo(() => {
@@ -90,6 +91,17 @@ export default function GroupAuditPage() {
   const targetMember = useMemo(() => {
     return members.find((m) => m.user_id === activeUserId);
   }, [members, activeUserId]);
+
+  const targetProfile = useMemo(() => {
+    return (
+      targetMember?.profile || {
+        id: activeUserId,
+        email: '',
+        full_name: `Usuario ${activeUserId.substring(0, 4)}`,
+        created_at: '',
+      }
+    );
+  }, [targetMember, activeUserId]);
 
   const auditSteps: AuditStep[] = useMemo(() => {
     if (!group || !activeUserId) return [];
@@ -107,6 +119,11 @@ export default function GroupAuditPage() {
   const totalSteps = auditSteps.length;
   const progressPercent = totalSteps > 1 ? (currentStepIndex / (totalSteps - 1)) * 100 : 100;
   const wizardAnchorRef = useRef<HTMLDivElement>(null);
+
+  const lastStep = auditSteps[auditSteps.length - 1];
+  const targetPaid = lastStep?.runningPaid ?? 0;
+  const targetConsumed = lastStep?.runningConsumed ?? 0;
+  const targetNet = lastStep?.runningNet ?? 0;
 
   const scrollToWizardTop = () => {
     if (wizardAnchorRef.current) {
@@ -192,58 +209,123 @@ export default function GroupAuditPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-4 sm:py-6 space-y-6">
         {/* Back Link & Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <Link
-              href={`/groups/${group.id}`}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 mb-2 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              {t('audit.backToGroup')} ({group.name})
-            </Link>
+        <div>
+          <Link
+            href={`/groups/${group.id}`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 mb-2 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {t('audit.backToGroup')} ({group.name})
+          </Link>
 
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
-                <CalcIcon className="w-5 h-5" />
-              </div>
-              <span>{t('audit.title')}</span>
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {t('audit.subtitle')}
-            </p>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+              <CalcIcon className="w-5 h-5" />
+            </div>
+            <span>{t('audit.title')}</span>
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {t('audit.subtitle')}
+          </p>
+        </div>
 
-          {/* Member Selector Dropdown */}
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 shadow-xs">
-            <span className="text-xs font-bold text-slate-400 pl-2 hidden sm:inline">
+        {/* Member Carousel Selector (Mockup 3) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
               {t('audit.selectMember')}
             </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {members.map((m) => {
-                const isSelected = m.user_id === activeUserId;
-                const profile = m.profile || {
-                  id: m.user_id,
-                  email: '',
-                  full_name: `Usuario ${m.user_id.substring(0, 4)}`,
-                  created_at: '',
-                };
+            <span className="text-xs text-slate-400 font-medium">
+              {members.length} {members.length === 1 ? 'miembro' : 'miembros'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 px-1 -mx-1">
+            {members.map((m) => {
+              const isSelected = m.user_id === activeUserId;
+              const profile = m.profile || {
+                id: m.user_id,
+                email: '',
+                full_name: `Usuario ${m.user_id.substring(0, 4)}`,
+                created_at: '',
+              };
+              const isYou = currentUser?.id === m.user_id;
 
-                return (
-                  <button
-                    key={m.user_id}
-                    type="button"
-                    onClick={() => handleSelectMember(m.user_id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                    }`}
-                  >
+              return (
+                <button
+                  key={m.user_id}
+                  type="button"
+                  onClick={() => handleSelectMember(m.user_id)}
+                  className={`flex items-center gap-2.5 min-h-[48px] px-3.5 py-2 rounded-2xl border text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer active:scale-95 ${
+                    isSelected
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/25 ring-2 ring-emerald-500/40'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80'
+                  }`}
+                >
+                  <div className="relative shrink-0">
                     <Avatar profile={profile} size="sm" />
-                    <span>{profile.full_name?.split(' ')[0]}</span>
-                  </button>
-                );
-              })}
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 ${
+                        isSelected
+                          ? 'bg-emerald-300 border-emerald-600'
+                          : 'bg-slate-400 border-white dark:border-slate-900'
+                      }`}
+                    />
+                  </div>
+                  <span className="truncate max-w-[110px]">
+                    {isYou ? 'Tú' : profile.full_name?.split(' ')[0]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Hero Member Balance Card (Mockup 3) */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-3.5">
+            <div className="relative shrink-0">
+              <Avatar profile={targetProfile} size="lg" />
+              <span
+                className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${
+                  targetNet > 0.009 ? 'bg-emerald-500' : targetNet < -0.009 ? 'bg-rose-500' : 'bg-slate-400'
+                }`}
+              />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+                {targetProfile.full_name}
+              </h2>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+                {targetNet > 0.009
+                  ? `${targetProfile.full_name.split(' ')[0]} debe recibir`
+                  : targetNet < -0.009
+                  ? `${targetProfile.full_name.split(' ')[0]} debe pagar`
+                  : `${targetProfile.full_name.split(' ')[0]} está al día`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 pt-1 border-t border-slate-100 dark:border-slate-800">
+            <span
+              className={`text-3xl sm:text-4xl font-mono font-black tracking-tight ${
+                targetNet > 0.009
+                  ? 'text-emerald-500'
+                  : targetNet < -0.009
+                  ? 'text-rose-500'
+                  : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              {targetNet > 0.009 ? '+' : ''}
+              {formatMoney(targetNet, group.base_currency)}
+            </span>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
+                {t('audit.youPaid')}: {formatMoney(targetPaid, group.base_currency)}
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 shadow-2xs">
+                {t('audit.youConsumed')}: {formatMoney(targetConsumed, group.base_currency)}
+              </span>
             </div>
           </div>
         </div>
@@ -308,15 +390,15 @@ export default function GroupAuditPage() {
                 {/* PRIMARY CONTROL: Wizard Navigation Buttons Above Description */}
                 <div className="bg-slate-50/90 dark:bg-slate-800/80 p-2.5 sm:p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-700/80 shadow-xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-3">
                   {/* Both Previous and Next / Restart buttons side-by-side */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={handlePrevStep}
                       disabled={currentStepIndex === 0}
-                      className="gap-1 sm:gap-1.5 h-9 sm:h-11 px-2.5 sm:px-4 text-xs sm:text-sm font-bold"
+                      className="gap-1.5 min-h-[44px] px-3.5 sm:px-4 text-xs sm:text-sm font-bold rounded-2xl"
                     >
-                      <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                      <ChevronLeft className="w-4 h-4 shrink-0" />
                       <span>{t('audit.prevStep')}</span>
                     </Button>
 
@@ -325,9 +407,9 @@ export default function GroupAuditPage() {
                         type="button"
                         variant="brand"
                         onClick={handleRestart}
-                        className="gap-1 sm:gap-1.5 h-9 sm:h-11 px-2.5 sm:px-4 text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/25"
+                        className="gap-1.5 min-h-[44px] px-3.5 sm:px-4 text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/25 rounded-2xl"
                       >
-                        <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <RotateCcw className="w-4 h-4 shrink-0" />
                         <span>{t('audit.restart')}</span>
                       </Button>
                     ) : (
@@ -335,17 +417,17 @@ export default function GroupAuditPage() {
                         type="button"
                         variant="brand"
                         onClick={handleNextStep}
-                        className="gap-1 sm:gap-1.5 h-9 sm:h-11 px-2.5 sm:px-4 text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/25"
+                        className="gap-1.5 min-h-[44px] px-3.5 sm:px-4 text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/25 rounded-2xl"
                       >
                         <span>{t('audit.nextStep')}</span>
-                        <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <ChevronRight className="w-4 h-4 shrink-0" />
                       </Button>
                     )}
                   </div>
 
                   {/* Step counter & jump to end */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 px-2 sm:px-2.5 py-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shadow-2xs">
                       <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{currentStepIndex + 1}</span>
                       <span className="opacity-40">/</span>
                       <span>{totalSteps}</span>
@@ -356,7 +438,7 @@ export default function GroupAuditPage() {
                         type="button"
                         variant="ghost"
                         onClick={handleJumpToEnd}
-                        className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hidden sm:inline-flex"
+                        className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 min-h-[44px]"
                       >
                         {t('audit.jumpToEnd')}
                       </Button>
@@ -517,10 +599,11 @@ export default function GroupAuditPage() {
                       <button
                         type="button"
                         onClick={() => setViewingExpense(currentStep.relatedExpense!)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-all flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer active:scale-95"
+                        className="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-all flex items-center justify-center gap-2 shrink-0 shadow-2xs cursor-pointer active:scale-95"
+                        title={t('audit.viewExpenseDetail') || 'Ver gasto en detalle'}
                       >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>{t('audit.viewExpenseDetail') || 'Ver gasto en detalle'}</span>
+                        <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="hidden sm:inline">{t('audit.viewExpenseDetail') || 'Ver gasto en detalle'}</span>
                       </button>
                     </div>
                   )}
@@ -787,10 +870,79 @@ export default function GroupAuditPage() {
                 )}
               </div>
             )}
+
+            {/* Mobile Collapsible Virtual Calculator (Accordion) */}
+            <div className="lg:hidden space-y-4 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsMobileCalculatorOpen((prev) => !prev)}
+                className="w-full min-h-[48px] rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border-slate-300 dark:border-slate-700 shadow-xs"
+              >
+                <CalcIcon className="w-4 h-4 text-emerald-600" />
+                <span>{isMobileCalculatorOpen ? 'Ocultar calculadora virtual' : 'Abrir calculadora virtual 🧮'}</span>
+              </Button>
+
+              {isMobileCalculatorOpen && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <VirtualCalculator initialExpression={calculatorExpr} />
+                  <Card className="space-y-3.5">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                      <HandCoins className="w-4 h-4 text-emerald-600" />
+                      <span>{t('audit.financialSummary')}</span>
+                    </h4>
+
+                    <div className="space-y-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">{t('audit.totalSpentInTrip')}</span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {formatMoney(
+                            expenses.reduce((s, e) => s + (e.converted_amount || e.amount), 0),
+                            group.base_currency
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">{t('audit.totalPaidByYou')}</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          {formatMoney(currentStep?.runningPaid || 0, group.base_currency)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">{t('audit.totalConsumedByYou')}</span>
+                        <span className="font-bold text-rose-600 dark:text-rose-400">
+                          {formatMoney(currentStep?.runningConsumed || 0, group.base_currency)}
+                        </span>
+                      </div>
+
+                      <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <span className="font-extrabold text-slate-900 dark:text-white">
+                          {t('audit.verifiedBalance')}
+                        </span>
+                        <span
+                          className={`font-black text-sm ${
+                            (currentStep?.runningNet || 0) > 0.009
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : (currentStep?.runningNet || 0) < -0.009
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          {(currentStep?.runningNet || 0) > 0 ? '+' : ''}
+                          {formatMoney(currentStep?.runningNet || 0, group.base_currency)}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* RIGHT COLUMN: Interactive Virtual Calculator & Summary Card (5 Cols on desktop) */}
-          <div className="lg:col-span-5 space-y-5 sticky top-20">
+          {/* RIGHT COLUMN: Interactive Virtual Calculator & Summary Card (5 Cols on desktop, hidden on mobile) */}
+          <div className="hidden lg:block lg:col-span-5 space-y-5 sticky top-20">
             <VirtualCalculator initialExpression={calculatorExpr} />
 
             {/* Live Financial Summary */}

@@ -228,18 +228,18 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col pb-24 md:pb-12">
       <Navbar onCreateGroupClick={() => setIsCreateOpen(true)} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-8 space-y-6">
-        {/* Header Hero Banner with gradient */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-6 text-white shadow-lg shadow-emerald-600/15 relative overflow-hidden">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5 sm:py-8 space-y-5">
+        {/* Header Hero Banner with gradient (Mockup 4) */}
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-5 sm:p-6 text-white shadow-lg shadow-emerald-600/15 relative overflow-hidden">
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white flex items-center justify-center shadow-md shadow-black/10 shrink-0">
                 <Bell className="w-6 h-6" />
               </div>
-              <div>
-                <div className="flex items-center gap-2.5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                    {t('notifications.centerTitle') || 'Centro de Notificaciones'}
+                    {t('notifications.centerTitle') || 'Notificaciones'}
                   </h1>
                   {unreadNotificationsCount > 0 && (
                     <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-bold shadow-xs">
@@ -254,50 +254,51 @@ export default function NotificationsPage() {
             </div>
 
             {/* Global actions */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
               {showDemoSeeds && (
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={seedDemoNotifications}
-                  className="text-xs font-bold gap-1.5 shadow-xs"
+                  className="min-h-[44px] px-3.5 py-2 text-xs font-bold gap-1.5 shadow-xs rounded-2xl"
                   title={t('notifications.loadExamples') || 'Cargar notificaciones de ejemplo'}
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{t('notifications.loadExamples') || 'Cargar ejemplos'}</span>
+                  <span className="hidden sm:inline">{t('notifications.loadExamples') || 'Cargar ejemplos'}</span>
                 </Button>
               )}
 
               {unreadNotificationsCount > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
+                  type="button"
                   onClick={markAllNotificationsAsRead}
-                  className="text-xs font-bold gap-1.5 bg-white/15 hover:bg-white/25 text-white border-white/30"
+                  className="min-w-[44px] min-h-[44px] px-3.5 py-2 rounded-2xl bg-white/20 hover:bg-white/30 active:scale-95 text-white border border-white/30 flex items-center justify-center gap-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title={t('notifications.markAllRead') || 'Marcar todas leídas'}
+                  aria-label={t('notifications.markAllRead') || 'Marcar todas leídas'}
                 >
                   <CheckCheck className="w-4 h-4 text-emerald-200" />
-                  <span>{t('notifications.markAllRead') || 'Marcar todas leídas'}</span>
-                </Button>
+                  <span className="hidden sm:inline">{t('notifications.markAllRead') || 'Marcar todas leídas'}</span>
+                </button>
               )}
 
               {notifications.some((n) => n.read) && (
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
+                  type="button"
                   onClick={handleClearRead}
-                  className="text-xs font-bold gap-1.5 bg-white/15 hover:bg-white/25 text-white border-white/30"
+                  className="min-w-[44px] min-h-[44px] px-3.5 py-2 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 text-white border border-white/30 flex items-center justify-center gap-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
                   title={t('notifications.clearRead') || 'Limpiar notificaciones leídas'}
+                  aria-label={t('notifications.clearRead') || 'Limpiar leídas'}
                 >
                   <Trash2 className="w-4 h-4 text-rose-200" />
-                  <span>{t('notifications.clearRead') || 'Limpiar leídas'}</span>
-                </Button>
+                  <span className="hidden sm:inline">{t('notifications.clearRead') || 'Limpiar leídas'}</span>
+                </button>
               )}
             </div>
           </div>
         </div>
 
         {/* WhatsApp Bubble Settings Card */}
-        <div className="bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-3xl p-5 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-3xl p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#128c7e] to-[#25D366] text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
@@ -321,9 +322,9 @@ export default function NotificationsPage() {
                 type="button"
                 onClick={handleToggleSound}
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border',
+                  'inline-flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 rounded-2xl text-xs font-bold transition-all border cursor-pointer active:scale-95',
                   soundEnabled
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 shadow-2xs'
                     : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 )}
                 title={t('notifications.soundEnabled') || 'Sonido de aviso'}
@@ -336,7 +337,7 @@ export default function NotificationsPage() {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
             {/* Duration Selector */}
-            <div className="space-y-1.5 flex-1">
+            <div className="space-y-2 flex-1">
               <div className="flex items-center gap-2">
                 <Timer className="w-3.5 h-3.5 text-emerald-600" />
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -346,7 +347,7 @@ export default function NotificationsPage() {
                   {bubbleDuration === 0 ? (t('notifications.durationManual') || 'Manual (Sin auto-cierre)') : `${bubbleDuration}s`}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {[
                   { label: '3s', val: 3 },
                   { label: '5s ⭐', val: 5 },
@@ -359,7 +360,7 @@ export default function NotificationsPage() {
                     type="button"
                     onClick={() => handleUpdateDuration(item.val)}
                     className={cn(
-                      'px-2.5 py-1 text-xs font-bold rounded-lg border transition-all',
+                      'min-h-[40px] px-3.5 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer active:scale-95',
                       bubbleDuration === item.val
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-500'
@@ -407,19 +408,19 @@ export default function NotificationsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('notifications.searchPlaceholder') || 'Buscar por título, texto o grupo...'}
-            className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+            className="w-full pl-10 pr-4 py-3 text-xs sm:text-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
           />
         </div>
 
-        {/* Tabs Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+        {/* Tabs Bar (Mockup 4: Horizontal Pill Filters) */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-0.5">
           <button
             type="button"
             onClick={() => setActiveTab('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            className={`min-h-[42px] px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer active:scale-95 ${
               activeTab === 'all'
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-2 ring-emerald-500/40'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80'
             }`}
           >
             {t('notifications.all') || 'Todas'} ({notifications.length})
@@ -428,16 +429,16 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setActiveTab('unread')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+            className={`min-h-[42px] px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all shrink-0 flex items-center gap-2 cursor-pointer active:scale-95 ${
               activeTab === 'unread'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/25 ring-2 ring-rose-500/40'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80'
             }`}
           >
             <span>{t('notifications.unread') || 'No leídas'}</span>
             {unreadNotificationsCount > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                activeTab === 'unread' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400'
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeTab === 'unread' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400'
               }`}>
                 {unreadNotificationsCount}
               </span>
@@ -447,10 +448,10 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setActiveTab('payments')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+            className={`min-h-[42px] px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 ${
               activeTab === 'payments'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-2 ring-emerald-500/40'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80'
             }`}
           >
             <span>💳 {t('notifications.payments') || 'Pagos y Validaciones'}</span>
@@ -459,10 +460,10 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setActiveTab('comments')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+            className={`min-h-[42px] px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 ${
               activeTab === 'comments'
-                ? 'bg-sky-600 text-white shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25 ring-2 ring-sky-500/40'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80'
             }`}
           >
             <span>💬 {t('notifications.commentsTab') || 'Comentarios'}</span>
@@ -471,10 +472,10 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setActiveTab('groups')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+            className={`min-h-[42px] px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 ${
               activeTab === 'groups'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-500/40'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80'
             }`}
           >
             <span>🌴 {t('notifications.groupsTab') || 'Grupos y Roles'}</span>
@@ -490,30 +491,30 @@ export default function NotificationsPage() {
               key={notif.id}
               className={`p-4 sm:p-5 rounded-3xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group ${
                 notif.read
-                  ? 'bg-white dark:bg-slate-900/80 border-slate-200/80 dark:border-slate-800/80 shadow-2xs opacity-85 hover:opacity-100'
-                  : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/60 shadow-sm'
+                  ? 'bg-white dark:bg-slate-900/80 border-slate-200/80 dark:border-slate-800/80 shadow-2xs opacity-90 hover:opacity-100'
+                  : 'bg-emerald-50/50 dark:bg-emerald-950/25 border-emerald-200/80 dark:border-emerald-900/60 shadow-sm'
               }`}
             >
-              <div className="flex items-start gap-3.5 min-w-0">
+              <div className="flex items-start gap-3.5 min-w-0 flex-1">
                 {/* Icon Badge */}
-                <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 shadow-2xs shrink-0 mt-0.5">
+                <div className="w-11 h-11 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 shadow-2xs flex items-center justify-center shrink-0 mt-0.5">
                   {getNotificationIcon(notif.type)}
                 </div>
 
-                <div className="space-y-1 min-w-0">
+                <div className="space-y-1.5 min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                    <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
                       {notif.title}
                     </span>
 
                     {notif.group_name && (
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-semibold">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-semibold">
                         🌴 {notif.group_name}
                       </span>
                     )}
 
                     {!notif.read && (
-                      <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" title="No leída" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 ring-2 ring-emerald-500/30" title="No leída" />
                     )}
                   </div>
 
@@ -521,42 +522,42 @@ export default function NotificationsPage() {
                     {notif.message}
                   </p>
 
-                  <div className="flex items-center gap-2 pt-0.5 text-[11px] text-slate-400 font-mono">
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
                     <span>{formatDate(notif.created_at, 'dd/MM/yyyy HH:mm')}</span>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center pt-2 sm:pt-0">
+              <div className="flex items-center justify-end sm:justify-start gap-2 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 dark:border-slate-800/80">
                 <Button
                   size="sm"
                   variant={notif.type === 'receipt_pending' ? 'brand' : 'outline'}
                   onClick={() => handleAction(notif)}
-                  className="text-xs font-bold gap-1.5 px-3 py-1.5 shadow-2xs"
+                  className="min-h-[44px] px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold gap-2 shadow-xs"
                 >
                   <span>{getActionLabel(notif.type)}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-4 h-4 shrink-0" />
                 </Button>
 
                 {!notif.read && (
                   <button
                     type="button"
                     onClick={() => markNotificationAsRead(notif.id)}
-                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-colors"
+                    className="min-w-[44px] min-h-[44px] p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
                     title="Marcar como leída"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
+                    <CheckCircle2 className="w-5 h-5" />
                   </button>
                 )}
 
                 <button
                   type="button"
                   onClick={() => deleteNotification(notif.id)}
-                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                  className="min-w-[44px] min-h-[44px] p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
                   title="Eliminar notificación"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
