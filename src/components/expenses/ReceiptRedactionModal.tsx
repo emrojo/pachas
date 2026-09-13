@@ -24,6 +24,7 @@ export interface ReceiptRedactionModalProps {
   onClose: () => void;
   imageSrc: string;
   onConfirmRedaction: (censoredDataUrl: string) => void | Promise<void>;
+  isMobileView?: boolean;
 }
 
 type DrawMode = 'brush' | 'box' | 'eraser' | 'pan';
@@ -34,8 +35,24 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
   onClose,
   imageSrc,
   onConfirmRedaction,
+  isMobileView,
 }) => {
   const { t } = useTranslation();
+
+  const [isMobile, setIsMobile] = useState(Boolean(isMobileView));
+
+  useEffect(() => {
+    if (isMobileView !== undefined) {
+      setIsMobile(isMobileView);
+      return;
+    }
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [isMobileView]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -340,180 +357,374 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
     >
       <div className="space-y-4">
         {/* Info Banner */}
-        <div className="p-3.5 rounded-2xl bg-slate-900 text-white border border-slate-800 flex items-start gap-3 shadow-sm">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0">
-            <Shield className="w-4 h-4" />
+        <div className={`rounded-2xl bg-slate-900 text-white border border-slate-800 flex items-start gap-3.5 shadow-sm ${
+          isMobile ? 'p-4' : 'p-3.5'
+        }`}>
+          <div className={`rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0 ${
+            isMobile ? 'w-10 h-10 mt-0.5' : 'w-8 h-8'
+          }`}>
+            <Shield className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
           </div>
-          <div className="space-y-0.5 min-w-0">
-            <h4 className="text-xs font-bold text-amber-300">
+          <div className="space-y-1 min-w-0 flex-1">
+            <h4 className={`font-bold text-amber-300 ${
+              isMobile ? 'text-sm sm:text-base' : 'text-xs'
+            }`}>
               {t('expenses.privacyGuaranteed')}
             </h4>
-            <p className="text-[11px] text-slate-300 leading-relaxed">
+            <p className={`text-slate-200 leading-relaxed font-normal ${
+              isMobile ? 'text-xs sm:text-sm' : 'text-[11px] text-slate-300'
+            }`}>
               {t('expenses.redactionInstructions')}
             </p>
           </div>
         </div>
 
-        {/* Toolbar Complete */}
-        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700">
-          {/* Drawing Tool Modes */}
-          <div className="flex flex-wrap items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setDrawMode('brush')}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                drawMode === 'brush'
-                  ? 'bg-black text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-              }`}
-              title={t('expenses.blackMarker')}
-            >
-              <Paintbrush className="w-3.5 h-3.5" />
-              <span>{t('expenses.toolBrush')}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDrawMode('box')}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                drawMode === 'box'
-                  ? 'bg-black text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-              }`}
-              title={t('expenses.redactionBox')}
-            >
-              <Square className="w-3.5 h-3.5" />
-              <span>{t('expenses.toolBox')}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDrawMode('eraser')}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                drawMode === 'eraser'
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-              }`}
-              title={t('expenses.redactionEraser')}
-            >
-              <Eraser className="w-3.5 h-3.5 text-rose-300" />
-              <span>{t('expenses.toolEraser')}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDrawMode('pan')}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                drawMode === 'pan'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-              }`}
-              title={t('expenses.toolPan')}
-            >
-              <Hand className="w-3.5 h-3.5" />
-              <span>{t('expenses.toolPan')}</span>
-            </button>
-          </div>
-
-          {/* Stroke Widths */}
-          {(drawMode === 'brush' || drawMode === 'eraser') && (
-            <div className="flex items-center gap-1 bg-white dark:bg-slate-700 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
-              <span className="text-[10px] font-bold text-slate-400 px-1">{t('expenses.brushSizeLabel')}</span>
+        {/* Toolbar - Mobile Dedicated (Large Icon-Only Controls) vs Desktop */}
+        {isMobile ? (
+          <div className="space-y-2.5 p-3 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200/90 dark:border-slate-700">
+            {/* Row 1: Primary Mode Tools (Large 48px Icon-Only Buttons) */}
+            <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => setBrushSize('sm')}
-                className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
-                  brushSize === 'sm' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
+                onClick={() => setDrawMode('brush')}
+                className={`h-12 flex items-center justify-center rounded-2xl transition-all active:scale-95 cursor-pointer ${
+                  drawMode === 'brush'
+                    ? 'bg-black text-white shadow-md ring-2 ring-emerald-500/80'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-50'
                 }`}
+                title={t('expenses.blackMarker')}
+                aria-label={t('expenses.blackMarker')}
               >
-                {t('expenses.brushSizeFine')}
+                <Paintbrush className="w-6 h-6 stroke-[2.2]" />
               </button>
+
               <button
                 type="button"
-                onClick={() => setBrushSize('md')}
-                className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
-                  brushSize === 'md' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
+                onClick={() => setDrawMode('box')}
+                className={`h-12 flex items-center justify-center rounded-2xl transition-all active:scale-95 cursor-pointer ${
+                  drawMode === 'box'
+                    ? 'bg-black text-white shadow-md ring-2 ring-emerald-500/80'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-50'
                 }`}
+                title={t('expenses.redactionBox')}
+                aria-label={t('expenses.redactionBox')}
               >
-                {t('expenses.brushSizeMedium')}
+                <Square className="w-6 h-6 stroke-[2.2]" />
               </button>
+
               <button
                 type="button"
-                onClick={() => setBrushSize('lg')}
-                className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
-                  brushSize === 'lg' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
+                onClick={() => setDrawMode('eraser')}
+                className={`h-12 flex items-center justify-center rounded-2xl transition-all active:scale-95 cursor-pointer ${
+                  drawMode === 'eraser'
+                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                    : 'bg-white dark:bg-slate-700 text-rose-500 dark:text-rose-400 border border-slate-200 dark:border-slate-600 hover:bg-rose-50 dark:hover:bg-rose-950/30'
                 }`}
+                title={t('expenses.redactionEraser')}
+                aria-label={t('expenses.redactionEraser')}
               >
-                {t('expenses.brushSizeThick')}
+                <Eraser className="w-6 h-6 stroke-[2.2]" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDrawMode('pan')}
+                className={`h-12 flex items-center justify-center rounded-2xl transition-all active:scale-95 cursor-pointer ${
+                  drawMode === 'pan'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-50'
+                }`}
+                title={t('expenses.toolPan')}
+                aria-label={t('expenses.toolPan')}
+              >
+                <Hand className="w-6 h-6 stroke-[2.2]" />
               </button>
             </div>
-          )}
 
-          {/* Zoom Controls & Undo/Clear */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-1 bg-white dark:bg-slate-700 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
-              <button
-                type="button"
-                onClick={handleZoomOut}
-                disabled={zoom <= 1}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-40 text-slate-700 dark:text-slate-300"
-                title="Reducir zoom"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
+            {/* Row 2: Secondary Controls: Visual Brush Size Dots OR Zoom & Undo/Clear Actions */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/80 dark:border-slate-700/80">
+              {/* Visual Brush Size Selector (Only Dots, No Text) */}
+              {(drawMode === 'brush' || drawMode === 'eraser') ? (
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-700/80 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
+                  <button
+                    type="button"
+                    onClick={() => setBrushSize('sm')}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all active:scale-95 cursor-pointer ${
+                      brushSize === 'sm'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                    title={t('expenses.brushSizeFine')}
+                    aria-label={t('expenses.brushSizeFine')}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-current block" />
+                  </button>
 
-              <span className="text-[10px] font-mono font-bold min-w-[36px] text-center text-slate-700 dark:text-slate-300">
-                {Math.round(zoom * 100)}%
-              </span>
+                  <button
+                    type="button"
+                    onClick={() => setBrushSize('md')}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all active:scale-95 cursor-pointer ${
+                      brushSize === 'md'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                    title={t('expenses.brushSizeMedium')}
+                    aria-label={t('expenses.brushSizeMedium')}
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full bg-current block" />
+                  </button>
 
-              <button
-                type="button"
-                onClick={handleZoomIn}
-                disabled={zoom >= 3.5}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-40 text-slate-700 dark:text-slate-300"
-                title="Aumentar zoom"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setBrushSize('lg')}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all active:scale-95 cursor-pointer ${
+                      brushSize === 'lg'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                    title={t('expenses.brushSizeThick')}
+                    aria-label={t('expenses.brushSizeThick')}
+                  >
+                    <span className="w-5 h-5 rounded-full bg-current block" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium px-2">
+                  <Move className="w-4 h-4 text-emerald-500" />
+                  <span>{drawMode === 'pan' ? 'Arrastra para mover' : 'Dibuja recuadros'}</span>
+                </div>
+              )}
 
-              {zoom > 1 && (
+              {/* Mobile Zoom & Undo/Trash Icon Buttons */}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <div className="flex items-center gap-1 bg-white dark:bg-slate-700/80 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
+                  <button
+                    type="button"
+                    onClick={handleZoomOut}
+                    disabled={zoom <= 1}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-30 text-slate-700 dark:text-slate-300 active:scale-95 cursor-pointer"
+                    title="Reducir zoom"
+                    aria-label="Reducir zoom"
+                  >
+                    <ZoomOut className="w-4 h-4 stroke-[2.2]" />
+                  </button>
+
+                  <span className="text-xs font-mono font-bold min-w-[32px] text-center text-slate-700 dark:text-slate-200">
+                    {Math.round(zoom * 100)}%
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleZoomIn}
+                    disabled={zoom >= 3.5}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-30 text-slate-700 dark:text-slate-300 active:scale-95 cursor-pointer"
+                    title="Aumentar zoom"
+                    aria-label="Aumentar zoom"
+                  >
+                    <ZoomIn className="w-4 h-4 stroke-[2.2]" />
+                  </button>
+
+                  {zoom > 1 && (
+                    <button
+                      type="button"
+                      onClick={handleResetZoom}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 dark:text-emerald-400 active:scale-95 cursor-pointer"
+                      title="Restablecer zoom"
+                      aria-label="Restablecer zoom"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
                 <button
                   type="button"
-                  onClick={handleResetZoom}
-                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300"
-                  title="Restablecer zoom al 100%"
+                  disabled={history.length <= 1}
+                  onClick={handleUndo}
+                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all cursor-pointer"
+                  title="Deshacer último trazo"
+                  aria-label="Deshacer último trazo"
                 >
-                  <RefreshCw className="w-3 h-3" />
+                  <Undo2 className="w-5 h-5 stroke-[2.2]" />
                 </button>
-              )}
+
+                <button
+                  type="button"
+                  disabled={history.length <= 1}
+                  onClick={handleClearAll}
+                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-slate-200 dark:border-slate-600 disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all cursor-pointer"
+                  title="Limpiar todas las censuras"
+                  aria-label="Limpiar todas las censuras"
+                >
+                  <Trash2 className="w-5 h-5 stroke-[2.2]" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Desktop Toolbar (with text labels + icons) */
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+            {/* Drawing Tool Modes */}
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setDrawMode('brush')}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  drawMode === 'brush'
+                    ? 'bg-black text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+                title={t('expenses.blackMarker')}
+              >
+                <Paintbrush className="w-3.5 h-3.5" />
+                <span>{t('expenses.toolBrush')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDrawMode('box')}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  drawMode === 'box'
+                    ? 'bg-black text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+                title={t('expenses.redactionBox')}
+              >
+                <Square className="w-3.5 h-3.5" />
+                <span>{t('expenses.toolBox')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDrawMode('eraser')}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  drawMode === 'eraser'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+                title={t('expenses.redactionEraser')}
+              >
+                <Eraser className="w-3.5 h-3.5 text-rose-300" />
+                <span>{t('expenses.toolEraser')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDrawMode('pan')}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  drawMode === 'pan'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+                title={t('expenses.toolPan')}
+              >
+                <Hand className="w-3.5 h-3.5" />
+                <span>{t('expenses.toolPan')}</span>
+              </button>
             </div>
 
-            <button
-              type="button"
-              disabled={history.length <= 1}
-              onClick={handleUndo}
-              className="p-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 disabled:opacity-40 disabled:pointer-events-none transition-all"
-              title="Deshacer último trazo"
-            >
-              <Undo2 className="w-4 h-4" />
-            </button>
+            {/* Stroke Widths */}
+            {(drawMode === 'brush' || drawMode === 'eraser') && (
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-700 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
+                <span className="text-[10px] font-bold text-slate-400 px-1">{t('expenses.brushSizeLabel')}</span>
+                <button
+                  type="button"
+                  onClick={() => setBrushSize('sm')}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                    brushSize === 'sm' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {t('expenses.brushSizeFine')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBrushSize('md')}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                    brushSize === 'md' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {t('expenses.brushSizeMedium')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBrushSize('lg')}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                    brushSize === 'lg' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {t('expenses.brushSizeThick')}
+                </button>
+              </div>
+            )}
 
-            <button
-              type="button"
-              disabled={history.length <= 1}
-              onClick={handleClearAll}
-              className="p-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-700 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 disabled:pointer-events-none transition-all"
-              title="Limpiar todas las censuras"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {/* Zoom Controls & Undo/Clear */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-700 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
+                <button
+                  type="button"
+                  onClick={handleZoomOut}
+                  disabled={zoom <= 1}
+                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-40 text-slate-700 dark:text-slate-300"
+                  title="Reducir zoom"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="text-[10px] font-mono font-bold min-w-[36px] text-center text-slate-700 dark:text-slate-300">
+                  {Math.round(zoom * 100)}%
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleZoomIn}
+                  disabled={zoom >= 3.5}
+                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-40 text-slate-700 dark:text-slate-300"
+                  title="Aumentar zoom"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+
+                {zoom > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleResetZoom}
+                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300"
+                    title="Restablecer zoom al 100%"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                disabled={history.length <= 1}
+                onClick={handleUndo}
+                className="p-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 disabled:opacity-40 disabled:pointer-events-none transition-all"
+                title="Deshacer último trazo"
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                disabled={history.length <= 1}
+                onClick={handleClearAll}
+                className="p-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-700 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 disabled:pointer-events-none transition-all"
+                title="Limpiar todas las censuras"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Canvas Workspace with Zoom & Pan */}
         <div
           ref={containerRef}
-          className="relative max-h-[55vh] h-[50vh] sm:h-[55vh] overflow-hidden rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center p-2 select-none touch-none shadow-inner"
+          className={`relative overflow-hidden rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center p-2 select-none touch-none shadow-inner ${
+            isMobile ? 'h-[50vh] max-h-[52vh]' : 'max-h-[55vh] h-[50vh] sm:h-[55vh]'
+          }`}
         >
           <div
             style={{
@@ -553,8 +764,14 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
         </div>
 
         {/* Bottom Actions */}
-        <div className="flex items-center justify-between gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isProcessing}>
+        <div className={`flex items-center justify-between gap-3 ${isMobile ? 'pt-3' : 'pt-2'}`}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isProcessing}
+            className={isMobile ? 'py-3.5 px-5 text-sm sm:text-base font-bold rounded-2xl' : undefined}
+          >
             {t('common.cancel')}
           </Button>
 
@@ -563,9 +780,11 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
             variant="brand"
             isLoading={isProcessing}
             onClick={handleConfirm}
-            className="text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20"
+            className={`font-bold gap-2 bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20 active:scale-95 ${
+              isMobile ? 'py-3.5 px-6 text-sm sm:text-base font-black rounded-2xl flex-1' : 'text-xs'
+            }`}
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
             <span>{t('expenses.processInBackground')} 🚀</span>
           </Button>
         </div>

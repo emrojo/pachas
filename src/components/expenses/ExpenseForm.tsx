@@ -3321,6 +3321,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           isOpen={!!preCensorImage}
           onClose={() => setPreCensorImage(null)}
           imageSrc={preCensorImage}
+          isMobileView={isMobileView}
           onConfirmRedaction={handleConfirmPreCensored}
         />
       )}

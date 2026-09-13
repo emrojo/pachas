@@ -806,6 +806,7 @@ export default function MobileDashboardPage() {
           isOpen={!!redactionImage}
           onClose={() => setRedactionImage(null)}
           imageSrc={redactionImage}
+          isMobileView={true}
           onConfirmRedaction={async (censoredDataUrl) => {
             await queueReceiptScan(activeGroup.id, censoredDataUrl);
             setRedactionImage(null);
