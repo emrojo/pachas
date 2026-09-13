@@ -257,6 +257,17 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 </div>
               )}
 
+              {/* Tax pill */}
+              {expense.tax_amount && Number(expense.tax_amount) > 0 ? (
+                <div
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded-md border border-violet-200/80 dark:border-violet-800/80"
+                  title={`${expense.tax_name || 'IVA'}: ${formatMoney(expense.tax_amount, expense.currency)}${expense.tax_rate ? ` (${expense.tax_rate}%)` : ''}`}
+                >
+                  <span>{expense.tax_name || 'IVA'}</span>
+                  <span className="tabular-nums font-bold">{formatMoney(expense.tax_amount, expense.currency)}</span>
+                </div>
+              ) : null}
+
               {/* Location pill (clickable) */}
               {hasLocation && (
                 <button

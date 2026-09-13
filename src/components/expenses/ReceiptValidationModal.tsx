@@ -32,7 +32,7 @@ import {
 import confetti from 'canvas-confetti';
 import { ReceiptModal } from './ReceiptModal';
 import { ItemizedSplitEditor } from './ItemizedSplitEditor';
-import { LineItemInput } from '@/lib/algorithms/itemizedSplitCalculations';
+import { LineItemInput, calculateItemizedSplits } from '@/lib/algorithms/itemizedSplitCalculations';
 import { generateUUID } from '@/lib/id';
 
 export interface ReceiptValidationModalProps {
@@ -122,6 +122,11 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
   const [splitByItems, setSplitByItems] = useState(false);
   const [lineItems, setLineItems] = useState<LineItemInput[]>([]);
   const [isItemsBalanced, setIsItemsBalanced] = useState(true);
+  const [taxName, setTaxName] = useState('IVA');
+  const [taxAmount, setTaxAmount] = useState(0);
+  const [taxRate, setTaxRate] = useState<number | undefined>(undefined);
+  const [subtotal, setSubtotal] = useState<number | undefined>(undefined);
+  const [taxIncluded, setTaxIncluded] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -144,6 +149,11 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     setAmountStr(data.amountFormatted || (typeof data.amount === 'number' ? String(data.amount) : ''));
     setCurrency(data.currency || group?.base_currency || 'EUR');
     setCategory(data.category || 'food');
+    setTaxName(data.tax_name || 'IVA');
+    setTaxAmount(typeof data.tax_amount === 'number' ? data.tax_amount : 0);
+    setTaxRate(typeof data.tax_rate === 'number' ? data.tax_rate : undefined);
+    setSubtotal(typeof data.subtotal === 'number' ? data.subtotal : undefined);
+    setTaxIncluded(typeof data.tax_included === 'boolean' ? data.tax_included : true);
 
     const dt = splitEuropeanDateTime(data.date);
     setDateDisplayStr(dt.dateStr);
@@ -166,7 +176,13 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
           description: it.description || '',
           description_original: it.description_original || undefined,
           price: Number(it.price) || 0,
+          quantity: Math.max(1, Number(it.quantity) || 1),
+          unit_price: typeof it.unit_price === 'number' ? it.unit_price : null,
+          tax_name: it.tax_name || data.tax_name || 'IVA',
+          tax_rate: typeof it.tax_rate === 'number' ? it.tax_rate : (typeof data.tax_rate === 'number' ? data.tax_rate : 0),
+          tax_amount: typeof it.tax_amount === 'number' ? it.tax_amount : 0,
           assignedUserIds: it.assigned_user_ids || [],
+          assignedShares: it.assigned_shares || {},
         }))
       );
       setSplitByItems(true);
@@ -421,15 +437,30 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
           setError(t('expenses.itemizedPricePositive') || 'El precio de todos los productos debe ser mayor que 0.');
           return;
         }
+        const itemQty = item.quantity || 1;
+        const assignedTotal = (item.assignedShares && Object.keys(item.assignedShares).length > 0)
+          ? Object.values(item.assignedShares).reduce((a, b) => a + b, 0)
+          : (item.assignedUserIds?.length || 0);
+        if (assignedTotal !== itemQty) {
+          setError(
+            t('expenses.itemizedQuantityUnassignedError', {
+              item: item.description,
+              assigned: assignedTotal,
+              total: itemQty,
+            }) || `El producto "${item.description}" tiene ${assignedTotal} de ${itemQty} unidades asignadas. Debe distribuirse al 100%.`
+          );
+          return;
+        }
       }
-      const sumItems = lineItems.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
-      const diff = Math.round((parsedAmt - sumItems) * 100) / 100;
-      if (Math.abs(diff) > 0.01) {
+
+      const allMemberIds = members.map((m) => m.user_id);
+      const splitCheck = calculateItemizedSplits(parsedAmt, lineItems, allMemberIds, currency);
+      if (!splitCheck.isBalanced) {
         setError(
           t('expenses.itemizedSumMismatch', {
-            itemsTotal: formatMoney(sumItems, currency),
+            itemsTotal: formatMoney(splitCheck.itemsTotal, currency),
             invoiceTotal: formatMoney(parsedAmt, currency),
-          }) || `La suma de los productos (${formatMoney(sumItems, currency)}) no coincide con el total (${formatMoney(parsedAmt, currency)}).`
+          }) || `La suma de los productos (${formatMoney(splitCheck.itemsTotal, currency)}) no coincide con el total (${formatMoney(parsedAmt, currency)}).`
         );
         return;
       }
@@ -451,7 +482,13 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
             description: it.description,
             description_original: it.description_original || undefined,
             price: it.price,
+            quantity: it.quantity || 1,
+            unit_price: it.unit_price !== undefined && it.unit_price !== null ? it.unit_price : (it.quantity ? Math.round((it.price / it.quantity) * 100) / 100 : it.price),
+            tax_name: it.tax_name || taxName || undefined,
+            tax_rate: it.tax_rate !== undefined ? it.tax_rate : taxRate,
+            tax_amount: it.tax_amount,
             assigned_user_ids: it.assignedUserIds,
+            assigned_shares: it.assignedShares,
           }))
         : undefined;
 
@@ -460,6 +497,11 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         title: title.trim(),
         amount: parsedAmt,
         currency,
+        tax_name: taxName || undefined,
+        tax_amount: taxAmount || 0,
+        tax_rate: taxRate,
+        subtotal: subtotal || undefined,
+        tax_included: taxIncluded,
         category,
         expenseDate,
         receiptUrl: finalReceiptUrl,
@@ -776,6 +818,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                   members={members}
                   totalInvoiceAmount={parseEuropeanAmount(amountStr)}
                   currency={currency}
+                  defaultTaxName={taxName}
                   onBalanceChange={setIsItemsBalanced}
                 />
               ) : (

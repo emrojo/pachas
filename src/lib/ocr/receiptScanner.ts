@@ -15,12 +15,22 @@ export interface ScannedLineItem {
   id?: string;
   description: string;
   description_original?: string | null;
-  price: number;
+  price: number; // Base net price
+  quantity?: number; // Total units
+  unit_price?: number | null;
+  tax_name?: string;
+  tax_rate?: number;
+  tax_amount?: number;
 }
 
 export interface ScannedReceiptData {
   amount?: number;
   amountFormatted?: string;
+  subtotal?: number;
+  tax_name?: string;
+  tax_amount?: number;
+  tax_rate?: number;
+  tax_included?: boolean;
   date?: string; // YYYY-MM-DDTHH:mm
   title?: string;
   category?: ExpenseCategory;
@@ -223,7 +233,50 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
     }
   }
 
-  // 6. EXTRACT LINE ITEMS (heuristic fallback)
+  // 6. EXTRACT TAX INFO (IVA / VAT / Tax)
+  let detectedTaxName = 'IVA';
+  let detectedTaxRate: number | undefined;
+  let detectedTaxAmount: number | undefined;
+  let detectedSubtotal: number | undefined;
+  let detectedTaxIncluded = true;
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    // Check tax name mentions
+    if (lower.includes('vat')) detectedTaxName = 'VAT';
+    else if (lower.includes('tva')) detectedTaxName = 'TVA';
+    else if (lower.includes('mwst')) detectedTaxName = 'MwSt';
+    else if (lower.includes('sales tax')) detectedTaxName = 'Sales Tax';
+
+    // Check tax percentage: e.g. "IVA 21%", "IVA 10%", "IVA (10%):", "VAT 20%"
+    const rateMatch = line.match(/(?:iva|vat|tax|tva|mwst)\s*[:=\(]?\s*(\d{1,2}(?:[,\.]\d{1,2})?)\s*%/i);
+    if (rateMatch && !detectedTaxRate) {
+      const r = parseFloat(rateMatch[1].replace(',', '.'));
+      if (!isNaN(r) && r > 0 && r <= 50) {
+        detectedTaxRate = r;
+      }
+    }
+
+    // Check tax amount: e.g. "CUOTA IVA: 4,20" or "IVA (10%): 4,39" or "IVA: 2.10 €"
+    const taxAmtMatch = line.match(/(?:cuota|impuesto|iva|vat|tax|tva)\s*(?:\([^\)]+\))?\s*[:=]?\s*(\d{1,4}[,\.]\d{2})\s*(?:€|eur|\$)?/i);
+    if (taxAmtMatch && !detectedTaxAmount && !lower.includes('incluido')) {
+      const ta = parseFloat(taxAmtMatch[1].replace(',', '.'));
+      if (!isNaN(ta) && ta > 0 && (!detectedAmount || ta < detectedAmount)) {
+        detectedTaxAmount = ta;
+      }
+    }
+
+    // Check subtotal / base imponible: e.g. "BASE: 20,00" or "BASE IMPONIBLE: 42,91" or "SUBTOTAL: 20.00"
+    const baseMatch = line.match(/(?:base(?:\s+imponible)?|subtotal|neto|net)\s*[:=]?\s*(\d{1,4}[,\.]\d{2})/i);
+    if (baseMatch && !detectedSubtotal) {
+      const sb = parseFloat(baseMatch[1].replace(',', '.'));
+      if (!isNaN(sb) && sb > 0 && (!detectedAmount || sb < detectedAmount)) {
+        detectedSubtotal = sb;
+      }
+    }
+  }
+
+  // 7. EXTRACT LINE ITEMS (heuristic fallback)
   const detectedItems: ScannedLineItem[] = [];
   const itemLineRegex = /^([a-zA-Z0-9\s\.\/\-\*\(\)]{2,50}?)\s+[:=]?\s*(\d{1,4}[,\.]\d{2})\s*(?:€|eur)?$/i;
   const nonItemKeywords = [
@@ -239,12 +292,31 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
 
     const match = trimmed.match(itemLineRegex);
     if (match && match[1] && match[2]) {
-      const desc = match[1].trim();
-      const pr = parseFloat(match[2].replace(',', '.'));
-      if (desc.length >= 2 && !isNaN(pr) && pr > 0 && pr < 10000) {
+      let desc = match[1].trim();
+      const totalPrice = parseFloat(match[2].replace(',', '.'));
+      if (desc.length >= 2 && !isNaN(totalPrice) && totalPrice > 0 && totalPrice < 10000) {
+        // Detect quantity prefix, e.g. "2x Cerveza" or "3 * Bocadillo"
+        let quantity = 1;
+        const qtyPrefixMatch = desc.match(/^(\d{1,3})\s*(?:[xX\*]|\s+)\s*(.+)$/);
+        if (qtyPrefixMatch) {
+          const parsedQty = parseInt(qtyPrefixMatch[1], 10);
+          if (!isNaN(parsedQty) && parsedQty > 0 && parsedQty <= 99) {
+            quantity = parsedQty;
+            desc = qtyPrefixMatch[2].trim();
+          }
+        }
+
+        const rate = detectedTaxRate || 0;
+        const unitPrice = Math.round((totalPrice / quantity) * 100) / 100;
+
         detectedItems.push({
           description: desc,
-          price: Math.round(pr * 100) / 100,
+          price: totalPrice,
+          quantity,
+          unit_price: unitPrice,
+          tax_name: detectedTaxName,
+          tax_rate: rate,
+          tax_amount: 0,
         });
       }
     }
@@ -261,6 +333,11 @@ export function parseReceiptText(rawText: string): ScannedReceiptData {
   return {
     amount: detectedAmount,
     amountFormatted: detectedAmountStr,
+    subtotal: detectedSubtotal,
+    tax_name: detectedTaxName,
+    tax_amount: detectedTaxAmount,
+    tax_rate: detectedTaxRate,
+    tax_included: detectedTaxIncluded,
     date: detectedDate,
     title: detectedTitle,
     category: detectedCategory,

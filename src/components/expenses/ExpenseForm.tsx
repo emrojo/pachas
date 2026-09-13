@@ -66,7 +66,7 @@ import { ExpenseCommentsSection } from '@/components/expenses/ExpenseCommentsSec
 import { ReceiptRedactionModal } from '@/components/expenses/ReceiptRedactionModal';
 import { scanReceipt, ScannedReceiptData } from '@/lib/ocr/receiptScanner';
 import { ItemizedSplitEditor } from '@/components/expenses/ItemizedSplitEditor';
-import { LineItemInput } from '@/lib/algorithms/itemizedSplitCalculations';
+import { LineItemInput, calculateItemizedSplits } from '@/lib/algorithms/itemizedSplitCalculations';
 import { generateUUID } from '@/lib/id';
 
 // Helper to parse date string into { dateStr: "DD/MM/YYYY", timeStr: "HH:mm", isoDate: "YYYY-MM-DD" }
@@ -265,6 +265,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [wantItemizedSplit, setWantItemizedSplit] = useState(false);
   const [lineItems, setLineItems] = useState<LineItemInput[]>([]);
   const [isItemsBalanced, setIsItemsBalanced] = useState(true);
+  const [taxName, setTaxName] = useState('IVA');
+  const [taxAmount, setTaxAmount] = useState(0);
+  const [taxRate, setTaxRate] = useState<number | undefined>(undefined);
+  const [subtotal, setSubtotal] = useState<number | undefined>(undefined);
+  const [taxIncluded, setTaxIncluded] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -450,6 +455,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         setReimbursedParticipantIds([]);
       }
 
+      setTaxName(expenseToEdit.tax_name || 'IVA');
+      setTaxAmount(typeof expenseToEdit.tax_amount === 'number' ? expenseToEdit.tax_amount : 0);
+      setTaxRate(typeof expenseToEdit.tax_rate === 'number' ? expenseToEdit.tax_rate : undefined);
+      setSubtotal(typeof expenseToEdit.subtotal === 'number' ? expenseToEdit.subtotal : undefined);
+      setTaxIncluded(typeof expenseToEdit.tax_included === 'boolean' ? expenseToEdit.tax_included : true);
+
       // Populate itemized line items if present
       if (expenseToEdit.split_type === 'ITEMIZED' || (expenseToEdit.items && expenseToEdit.items.length > 0)) {
         setSplitByItems(true);
@@ -459,7 +470,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             description: it.description,
             description_original: it.description_original || undefined,
             price: Number(it.price) || 0,
+            quantity: Math.max(1, Number(it.quantity) || 1),
+            unitPrice: typeof it.unit_price === 'number' ? it.unit_price : undefined,
+            taxName: it.tax_name || expenseToEdit.tax_name || undefined,
+            taxRate: typeof it.tax_rate === 'number' ? it.tax_rate : undefined,
+            taxAmount: typeof it.tax_amount === 'number' ? it.tax_amount : undefined,
             assignedUserIds: it.assigned_user_ids || [],
+            assignedShares: it.assigned_shares || {},
           }))
         );
       } else {
@@ -477,6 +494,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setCurrency(baseCurrency);
       setExchangeRateStr('1,0000');
       setCategory('food');
+      setTaxName('IVA');
+      setTaxAmount(0);
+      setTaxRate(undefined);
+      setSubtotal(undefined);
+      setTaxIncluded(true);
       setDateDisplayStr(dt.dateStr);
       setTimeDisplayStr(dt.timeStr);
       setExpenseDateTime(toDateTimeLocalValue(nowIso));
@@ -764,13 +786,34 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       setLatitude(scannedData.latitude);
       setLongitude(scannedData.longitude);
     }
+    if (scannedData.tax_name) {
+      setTaxName(scannedData.tax_name);
+    }
+    if (typeof scannedData.tax_amount === 'number') {
+      setTaxAmount(scannedData.tax_amount);
+    }
+    if (typeof scannedData.tax_rate === 'number') {
+      setTaxRate(scannedData.tax_rate);
+    }
+    if (typeof scannedData.subtotal === 'number') {
+      setSubtotal(scannedData.subtotal);
+    }
+    if (typeof scannedData.tax_included === 'boolean') {
+      setTaxIncluded(scannedData.tax_included);
+    }
     if (scannedData.items && scannedData.items.length > 0) {
       const parsedItems: LineItemInput[] = scannedData.items.map((it) => ({
         id: generateUUID(),
         description: it.description,
         description_original: it.description_original || undefined,
         price: it.price,
-        assignedUserIds: [], // Empty means shared equally by all group members
+        quantity: Math.max(1, Number(it.quantity) || 1),
+        unit_price: typeof it.unit_price === 'number' ? it.unit_price : undefined,
+        tax_name: it.tax_name || scannedData.tax_name || undefined,
+        tax_rate: typeof it.tax_rate === 'number' ? it.tax_rate : undefined,
+        tax_amount: typeof it.tax_amount === 'number' ? it.tax_amount : undefined,
+        assignedUserIds: [],
+        assignedShares: {},
       }));
       setLineItems(parsedItems);
       if (wantItemizedSplit) {
@@ -837,15 +880,30 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           setErrorMessage(t('expenses.itemizedPricePositive') || 'El precio de todos los productos debe ser mayor que 0.');
           return;
         }
+        const itemQty = item.quantity || 1;
+        const assignedTotal = (item.assignedShares && Object.keys(item.assignedShares).length > 0)
+          ? Object.values(item.assignedShares).reduce((a, b) => a + b, 0)
+          : (item.assignedUserIds?.length || 0);
+        if (assignedTotal !== itemQty) {
+          setErrorMessage(
+            t('expenses.itemizedQuantityUnassignedError', {
+              item: item.description,
+              assigned: assignedTotal,
+              total: itemQty,
+            }) || `El producto "${item.description}" tiene ${assignedTotal} de ${itemQty} unidades asignadas. Debe distribuirse al 100%.`
+          );
+          return;
+        }
       }
-      const sumItems = lineItems.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
-      const diff = Math.round((totalAmount - sumItems) * 100) / 100;
-      if (Math.abs(diff) > 0.01) {
+
+      const allMemberIds = members.map((m) => m.user_id);
+      const splitCheck = calculateItemizedSplits(totalAmount, lineItems, allMemberIds, currency);
+      if (!splitCheck.isBalanced) {
         setErrorMessage(
           t('expenses.itemizedSumMismatch', {
-            itemsTotal: formatMoney(sumItems, currency),
+            itemsTotal: formatMoney(splitCheck.itemsTotal, currency),
             invoiceTotal: formatMoney(totalAmount, currency),
-          }) || `La suma de los productos (${formatMoney(sumItems, currency)}) no coincide con el total (${formatMoney(totalAmount, currency)}).`
+          }) || `La suma de los productos (${formatMoney(splitCheck.itemsTotal, currency)}) no coincide con el total (${formatMoney(totalAmount, currency)}).`
         );
         return;
       }
@@ -941,7 +999,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             description: it.description,
             description_original: it.description_original || undefined,
             price: it.price,
+            quantity: it.quantity || 1,
+            unit_price: it.unit_price !== undefined && it.unit_price !== null ? it.unit_price : (it.quantity ? Math.round((it.price / it.quantity) * 100) / 100 : it.price),
+            tax_name: it.tax_name || taxName || undefined,
+            tax_rate: it.tax_rate !== undefined ? it.tax_rate : taxRate,
+            tax_amount: it.tax_amount,
             assigned_user_ids: it.assignedUserIds,
+            assigned_shares: it.assignedShares,
           }))
         : undefined;
 
@@ -952,6 +1016,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           amount: totalAmount,
           currency,
           exchangeRate,
+          taxName: taxName || undefined,
+          taxAmount: taxAmount || 0,
+          taxRate: taxRate,
+          subtotal: subtotal || undefined,
+          taxIncluded: taxIncluded,
           category,
           expenseDate: finalIsoDate,
           receiptUrl,
@@ -974,6 +1043,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           amount: totalAmount,
           currency,
           exchangeRate,
+          taxName: taxName || undefined,
+          taxAmount: taxAmount || 0,
+          taxRate: taxRate,
+          subtotal: subtotal || undefined,
+          taxIncluded: taxIncluded,
           category,
           expenseDate: finalIsoDate,
           receiptUrl,
@@ -2604,6 +2678,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                     members={members}
                     totalInvoiceAmount={totalAmount}
                     currency={currency}
+                    defaultTaxName={taxName}
                     isReadOnly={isReadOnly}
                     onBalanceChange={setIsItemsBalanced}
                   />

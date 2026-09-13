@@ -75,6 +75,15 @@ export interface CreateExpenseInput {
   longitude?: number | null;
   locationName?: string | null;
   ocr_status?: 'processing' | 'completed' | 'failed' | null;
+  taxName?: string;
+  tax_name?: string;
+  taxAmount?: number;
+  tax_amount?: number;
+  taxRate?: number | null;
+  tax_rate?: number | null;
+  subtotal?: number | null;
+  taxIncluded?: boolean;
+  tax_included?: boolean;
   items?: ExpenseItem[];
 }
 
@@ -2081,8 +2090,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         input.items.map((it) => ({
           id: it.id,
           description: it.description,
+          description_original: it.description_original || undefined,
           price: it.price,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          tax_name: it.tax_name,
+          tax_rate: it.tax_rate,
+          tax_amount: it.tax_amount,
           assignedUserIds: it.assigned_user_ids || [],
+          assignedShares: it.assigned_shares,
         })),
         allMembers,
         input.currency
@@ -2131,6 +2147,17 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     });
 
+    const convertedPayers = input.payers.map((p) => ({
+      id: generateUUID(),
+      expense_id: expenseId,
+      user_id: p.userId,
+      amount_paid: p.amountPaid,
+      profile:
+        memberProfiles.get(p.userId) ||
+        availableUsers.find((u) => u.id === p.userId) ||
+        (currentUser && p.userId === currentUser.id ? currentUser : undefined),
+    }));
+
     const newExpense: Expense = {
       id: expenseId,
       group_id: input.groupId,
@@ -2140,6 +2167,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       currency: input.currency,
       exchange_rate: exchangeRate,
       converted_amount: convertedAmount,
+      tax_name: input.tax_name || input.taxName || 'IVA',
+      tax_amount: input.tax_amount ?? input.taxAmount ?? 0,
+      tax_rate: input.tax_rate ?? input.taxRate ?? null,
+      subtotal: input.subtotal ?? null,
+      tax_included: input.tax_included ?? input.taxIncluded ?? true,
       category: input.category,
       expense_date: input.expenseDate,
       receipt_url: input.receiptUrl || null,
@@ -2154,18 +2186,9 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       creator: currentUser,
-      payers: input.payers.map((p) => ({
-        id: generateUUID(),
-        expense_id: expenseId,
-        user_id: p.userId,
-        amount_paid: p.amountPaid,
-        profile:
-          memberProfiles.get(p.userId) ||
-          availableUsers.find((u) => u.id === p.userId) ||
-          (currentUser && p.userId === currentUser.id ? currentUser : undefined),
-      })),
+      payers: convertedPayers,
       participants: convertedParticipants,
-      is_pending_sync: false,
+      is_pending_sync: true,
     };
 
     let isSynced = false;
@@ -2183,6 +2206,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             currency: newExpense.currency,
             exchangeRate: newExpense.exchange_rate,
             convertedAmount: newExpense.converted_amount,
+            taxName: newExpense.tax_name,
+            taxAmount: newExpense.tax_amount,
+            taxRate: newExpense.tax_rate,
+            subtotal: newExpense.subtotal,
+            taxIncluded: newExpense.tax_included,
             category: newExpense.category,
             expenseDate: newExpense.expense_date,
             receiptUrl: newExpense.receipt_url,
@@ -2586,8 +2614,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         input.items.map((it) => ({
           id: it.id,
           description: it.description,
+          description_original: it.description_original || undefined,
           price: it.price,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          tax_name: it.tax_name,
+          tax_rate: it.tax_rate,
+          tax_amount: it.tax_amount,
           assignedUserIds: it.assigned_user_ids || [],
+          assignedShares: it.assigned_shares,
         })),
         allMembers,
         input.currency
@@ -2638,6 +2673,11 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       currency: input.currency,
       exchange_rate: exchangeRate,
       converted_amount: convertedAmount,
+      tax_name: input.tax_name !== undefined ? input.tax_name : input.taxName !== undefined ? input.taxName : (existing.tax_name || 'IVA'),
+      tax_amount: input.tax_amount !== undefined ? input.tax_amount : input.taxAmount !== undefined ? input.taxAmount : (existing.tax_amount || 0),
+      tax_rate: input.tax_rate !== undefined ? input.tax_rate : input.taxRate !== undefined ? input.taxRate : existing.tax_rate,
+      subtotal: input.subtotal !== undefined ? input.subtotal : existing.subtotal,
+      tax_included: input.tax_included !== undefined ? input.tax_included : input.taxIncluded !== undefined ? input.taxIncluded : (existing.tax_included !== false),
       category: input.category,
       expense_date: input.expenseDate,
       receipt_url: input.receiptUrl !== undefined ? input.receiptUrl : existing.receipt_url,
@@ -2678,6 +2718,15 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             currency: updatedExpense.currency,
             exchangeRate: updatedExpense.exchange_rate,
             convertedAmount: updatedExpense.converted_amount,
+            tax_name: updatedExpense.tax_name,
+            taxName: updatedExpense.tax_name,
+            tax_amount: updatedExpense.tax_amount,
+            taxAmount: updatedExpense.tax_amount,
+            tax_rate: updatedExpense.tax_rate,
+            taxRate: updatedExpense.tax_rate,
+            subtotal: updatedExpense.subtotal,
+            tax_included: updatedExpense.tax_included,
+            taxIncluded: updatedExpense.tax_included,
             category: updatedExpense.category,
             expenseDate: updatedExpense.expense_date,
             receiptUrl: updatedExpense.receipt_url,

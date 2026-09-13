@@ -99,6 +99,11 @@ export async function PUT(
 
     const finalReceiptUrl = body.receipt_url !== undefined ? body.receipt_url : receiptUrl;
     const finalReceiptTranslatedUrl = body.receipt_translated_url !== undefined ? body.receipt_translated_url : (body.receiptTranslatedUrl || null);
+    const finalTaxName = (body.tax_name || body.taxName || 'IVA').trim();
+    const finalTaxAmount = Number(body.tax_amount ?? body.taxAmount) || 0;
+    const finalTaxRate = body.tax_rate !== null && body.tax_rate !== undefined ? Number(body.tax_rate) : (body.taxRate !== null && body.taxRate !== undefined ? Number(body.taxRate) : null);
+    const finalSubtotal = body.subtotal !== null && body.subtotal !== undefined ? Number(body.subtotal) : null;
+    const finalTaxIncluded = typeof body.tax_included === 'boolean' ? body.tax_included : (typeof body.taxIncluded === 'boolean' ? body.taxIncluded : true);
 
     const client = await pool.connect();
     try {
@@ -116,8 +121,9 @@ export async function PUT(
              receipt_url = $8, receipt_translated_url = $9, notes = $10, split_type = $11,
              latitude = $12, longitude = $13, location_name = $14,
              ocr_status = COALESCE($15, ocr_status),
+             tax_name = $16, tax_amount = $17, tax_rate = $18, subtotal = $19, tax_included = $20,
              updated_at = NOW()
-           WHERE id = $16`,
+           WHERE id = $21`,
           [
             title,
             dbAmount,
@@ -134,6 +140,11 @@ export async function PUT(
             longitude,
             locationName,
             ocr_status || null,
+            finalTaxName,
+            finalTaxAmount,
+            finalTaxRate,
+            finalSubtotal,
+            finalTaxIncluded,
             expenseId,
           ]
         );
@@ -213,17 +224,33 @@ export async function PUT(
             const desc = (it.description || 'Producto').trim();
             const descOrig = it.description_original ? String(it.description_original).trim() : null;
             const itemPrice = Math.max(0, Number(it.price) || 0);
+            const itemQty = Math.max(1, Number(it.quantity) || 1);
+            const unitPrice = it.unit_price ? Number(it.unit_price) : Math.round((itemPrice / itemQty) * 100) / 100;
+            const itemTaxName = (it.tax_name || finalTaxName || 'IVA').trim();
+            const itemTaxRate = Math.max(0, Number(it.tax_rate) || 0);
+            const itemTaxAmount = Math.max(0, Number(it.tax_amount) || 0);
             const assigned = Array.isArray(it.assigned_user_ids) ? it.assigned_user_ids : [];
+            const assignedShares = it.assigned_shares || (it.assignedShares ? it.assignedShares : {});
+
             await client.query(
-              `INSERT INTO public.expense_items (id, expense_id, description, description_original, price, assigned_user_ids)
-               VALUES ($1, $2, $3, $4, $5, $6)`,
-              [itemId, expenseId, desc, descOrig, itemPrice, assigned]
+              `INSERT INTO public.expense_items (
+                id, expense_id, description, description_original, price,
+                quantity, unit_price, tax_name, tax_rate, tax_amount,
+                assigned_user_ids, assigned_shares
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+              [itemId, expenseId, desc, descOrig, itemPrice, itemQty, unitPrice, itemTaxName, itemTaxRate, itemTaxAmount, assigned, JSON.stringify(assignedShares)]
             ).catch(async () => {
               await client.query(
-                `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
-                 VALUES ($1, $2, $3, $4, $5)`,
-                [itemId, expenseId, desc, itemPrice, assigned]
-              );
+                `INSERT INTO public.expense_items (id, expense_id, description, description_original, price, assigned_user_ids)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [itemId, expenseId, desc, descOrig, itemPrice, assigned]
+              ).catch(async () => {
+                await client.query(
+                  `INSERT INTO public.expense_items (id, expense_id, description, price, assigned_user_ids)
+                   VALUES ($1, $2, $3, $4, $5)`,
+                  [itemId, expenseId, desc, itemPrice, assigned]
+                );
+              });
             });
           }
         }
@@ -346,7 +373,13 @@ export async function PUT(
                         'description', ei.description,
                         'description_original', ei.description_original,
                         'price', ei.price,
-                        'assigned_user_ids', ei.assigned_user_ids
+                        'quantity', COALESCE(ei.quantity, 1),
+                        'unit_price', ei.unit_price,
+                        'tax_name', COALESCE(ei.tax_name, 'IVA'),
+                        'tax_rate', COALESCE(ei.tax_rate, 0),
+                        'tax_amount', COALESCE(ei.tax_amount, 0),
+                        'assigned_user_ids', ei.assigned_user_ids,
+                        'assigned_shares', COALESCE(ei.assigned_shares, '{}'::jsonb)
                       )) FILTER (WHERE ei.id IS NOT NULL) as items,
                       jsonb_build_object(
                         'id', pcreator.id,
@@ -374,6 +407,11 @@ export async function PUT(
                 amount: parseFloat(row.amount) || 0,
                 exchange_rate: row.exchange_rate ? parseFloat(row.exchange_rate) : 1.0,
                 converted_amount: row.converted_amount ? parseFloat(row.converted_amount) : (parseFloat(row.amount) || 0),
+                tax_name: row.tax_name || 'IVA',
+                tax_amount: row.tax_amount ? parseFloat(row.tax_amount) : 0,
+                tax_rate: row.tax_rate !== null && row.tax_rate !== undefined ? parseFloat(row.tax_rate) : null,
+                subtotal: row.subtotal !== null && row.subtotal !== undefined ? parseFloat(row.subtotal) : null,
+                tax_included: row.tax_included !== false,
                 latitude: row.latitude !== null && row.latitude !== undefined ? parseFloat(row.latitude) : null,
                 longitude: row.longitude !== null && row.longitude !== undefined ? parseFloat(row.longitude) : null,
                 creator: row.creator && row.creator.id ? row.creator : undefined,
@@ -393,6 +431,11 @@ export async function PUT(
                 items: (row.items || []).map((it: any) => ({
                   ...it,
                   price: parseFloat(it.price) || 0,
+                  quantity: it.quantity ? parseFloat(it.quantity) : 1,
+                  unit_price: it.unit_price !== null && it.unit_price !== undefined ? parseFloat(it.unit_price) : null,
+                  tax_rate: it.tax_rate !== null && it.tax_rate !== undefined ? parseFloat(it.tax_rate) : 0,
+                  tax_amount: it.tax_amount !== null && it.tax_amount !== undefined ? parseFloat(it.tax_amount) : 0,
+                  assigned_shares: it.assigned_shares || {},
                 })),
               };
             } else {
@@ -621,6 +664,12 @@ export async function GET(
         items: itemsRes.rows.map((it) => ({
           ...it,
           price: Number(it.price),
+          quantity: it.quantity ? Number(it.quantity) : 1,
+          unit_price: it.unit_price !== null && it.unit_price !== undefined ? Number(it.unit_price) : null,
+          tax_name: it.tax_name || 'IVA',
+          tax_rate: it.tax_rate !== null && it.tax_rate !== undefined ? Number(it.tax_rate) : 0,
+          tax_amount: it.tax_amount !== null && it.tax_amount !== undefined ? Number(it.tax_amount) : 0,
+          assigned_shares: it.assigned_shares || {},
         })),
       },
     });

@@ -106,8 +106,14 @@ export interface ExpenseItem {
   expense_id?: string;
   description: string;
   description_original?: string | null;
-  price: number;
+  price: number; // Base net price of the item
+  quantity?: number; // Defaults to 1
+  unit_price?: number | null;
+  tax_name?: string; // e.g. 'IVA', 'VAT', 'Tax'
+  tax_rate?: number; // e.g. 21, 10, 4, 0
+  tax_amount?: number; // Tax amount corresponding to this item
   assigned_user_ids: string[];
+  assigned_shares?: Record<string, number>; // e.g. { "user_1": 2, "user_2": 1 }
   created_at?: string;
 }
 
@@ -120,6 +126,11 @@ export interface Expense {
   currency: string;
   exchange_rate?: number; // Dynamically resolved from public.exchange_rates
   converted_amount?: number; // Dynamically calculated (amount * exchange_rate)
+  tax_name?: string;
+  tax_amount?: number;
+  tax_rate?: number | null;
+  subtotal?: number | null;
+  tax_included?: boolean;
   category: ExpenseCategory;
   expense_date: string;
   receipt_url?: string | null;

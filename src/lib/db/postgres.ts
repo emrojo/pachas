@@ -159,6 +159,19 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     // 9. Translated receipts and items original description
     await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS receipt_translated_url TEXT;`).catch(() => {});
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS description_original VARCHAR(255);`).catch(() => {});
+
+    // 10. Taxes and line items quantity & assignments
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS tax_name TEXT DEFAULT 'IVA' NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12, 2) DEFAULT 0 NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) DEFAULT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS subtotal NUMERIC(12, 2) DEFAULT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS tax_included BOOLEAN DEFAULT TRUE NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS quantity NUMERIC(10, 2) DEFAULT 1 NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS unit_price NUMERIC(12, 2) DEFAULT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_name TEXT DEFAULT 'IVA' NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) DEFAULT 0 NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12, 2) DEFAULT 0 NOT NULL;`).catch(() => {});
+    await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS assigned_shares JSONB DEFAULT '{}'::jsonb NOT NULL;`).catch(() => {});
   } catch (err) {
     console.warn('Schema auto-migration notice:', err);
   }

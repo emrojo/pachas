@@ -19,6 +19,11 @@ export interface VisionScanResult {
   title?: string;
   amount?: number;
   amountFormatted?: string;
+  subtotal?: number;
+  tax_name?: string;
+  tax_amount?: number;
+  tax_rate?: number;
+  tax_included?: boolean;
   date?: string; // YYYY-MM-DDTHH:mm
   category?: ExpenseCategory;
   locationName?: string;
@@ -29,7 +34,16 @@ export interface VisionScanResult {
   detectedLanguage?: string;
   sensitiveBoxes?: SensitiveBox[];
   translatedBoxes?: TranslatedBox[];
-  items?: Array<{ description: string; description_original?: string; price: number }>;
+  items?: Array<{
+    description: string;
+    description_original?: string;
+    price: number; // Base net price
+    quantity?: number;
+    unit_price?: number;
+    tax_name?: string;
+    tax_rate?: number;
+    tax_amount?: number;
+  }>;
   confidence: number;
   source: string;
 }
@@ -159,13 +173,18 @@ export async function POST(request: NextRequest) {
     const prompt = `Analiza detalladamente esta fotografía de un ticket, factura o recibo de compra (restaurante, supermercado, hotel, transporte, etc.).
 El idioma nativo / preferido del usuario es: "${targetLangName}" (código: "${userLang}").
 
-Extrae la información económica clave con máxima precisión, detecta cualquier dato bancario o sensible para su censura, y si el ticket está redactado en un idioma diferente a "${userLang}", realiza la traducción simultánea tanto en los productos como en las cajas visuales de texto para generar una versión traducida. Responde ESTRICTAMENTE en formato JSON válido sin texto adicional.
+Extrae la información económica clave con máxima precisión, detecta cualquier dato bancario o sensible para su censura, desglosa los impuestos (IVA en España, VAT, TVA, MwSt, Sales Tax en otros países) y si el ticket está redactado en un idioma diferente a "${userLang}", realiza la traducción simultánea tanto en los productos como en las cajas visuales de texto para generar una versión traducida. Responde ESTRICTAMENTE en formato JSON válido sin texto adicional.
 
 Esquema JSON requerido:
 {
   "title": "Nombre comercial del comercio, tienda o restaurante (limpio, sin CIF/NIF, dirección ni palabras como S.L.)",
   "amount": 0.00,
   "amountFormatted": "0,00",
+  "subtotal": 0.00,
+  "tax_name": "IVA" | "VAT" | "TVA" | "MwSt" | "Sales Tax" | "Tax",
+  "tax_rate": 21.0,
+  "tax_amount": 0.00,
+  "tax_included": true | false,
   "date": "YYYY-MM-DDTHH:mm",
   "category": "food" | "shopping" | "transport" | "accommodation" | "activities" | "other",
   "locationName": "Dirección física (calle, número, código postal y/o ciudad) del establecimiento si aparece en el ticket (ej: 'C/ Gran Vía 28, Madrid') o null",
@@ -175,7 +194,12 @@ Esquema JSON requerido:
     {
       "description": "Nombre del producto traducido a ${targetLangName} (si el ticket ya está en ${userLang}, usa el nombre original)",
       "description_original": "Nombre original exacto impreso en el ticket si es un idioma distinto de ${userLang}, o null si ya estaba en ${userLang}",
-      "price": 0.00
+      "quantity": 1,
+      "unit_price": 0.00,
+      "price": 0.00,
+      "tax_name": "IVA" | "VAT" | "Tax",
+      "tax_rate": 10.0,
+      "tax_amount": 0.00
     }
   ],
   "translatedBoxes": [
@@ -196,25 +220,36 @@ Esquema JSON requerido:
 Reglas críticas de extracción y traducción:
 1. amount: Número decimal puro (ej: 42.50). Busca el total final pagado (TOTAL, TOTAL FACTURA, IMPORTE A PAGAR, TOTAL EUR/€). Nunca tomes subtotales ni bases imponibles si hay un total final con impuestos.
 2. amountFormatted: Representación con coma decimal europea (ej: "42,50").
-3. date: Fecha y hora EXACTA en formato ISO "YYYY-MM-DDTHH:mm". Busca activamente la hora y minutos impresos en el ticket (ej: 14:35 o 21:10). Si solo aparece fecha sin hora, usa las 12:00. Si el año no aparece, usa el año actual.
-4. category: Clasifica según el negocio ("food", "shopping", "transport", "accommodation", "activities", "other").
-5. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay dirección legible, devuelve null.
-6. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").
-7. detectedLanguage: Código de dos letras ISO 639-1 del idioma principal detectado en el ticket.
-8. items: Lista de productos individuales comprados o consumidos con su precio final desglosado.
+3. Impuestos y Desglose:
+   - "tax_name": Nombre del impuesto identificado en la factura ("IVA" en España/países hispanos, "VAT" en Reino Unido, "TVA" en Francia, "Sales Tax" en EE.UU., etc.).
+   - "tax_included": Booleano. Si los precios de los productos ya tienen el impuesto incluido (común en tickets de restaurantes/comercios de España y Europa), pon true. Si los precios de los productos son base imponible neta y el impuesto se calcula y añade al final de la factura (común en facturas B2B o EE.UU.), pon false.
+   - "tax_rate": Porcentaje general del impuesto si se especifica (ej: 21, 10, 4).
+   - "tax_amount": Importe total de impuestos abonados en la factura.
+   - "subtotal": Base imponible total antes de impuestos (si aparece o amount - tax_amount).
+4. items: Lista de productos individuales comprados o consumidos:
+   - "quantity": Número de unidades del producto (ej: 1, 2, 3, etc.). Si el ticket indica "2x Cerveza" o en la columna cantidad hay un 3, pon 3. Por defecto 1.
+   - "unit_price": Precio de cada unidad individual si se muestra o calcula.
+   - "price": Base imponible neta del producto (sin impuesto). Si el precio del producto en el ticket ya incluía impuesto ("tax_included": true), desglósalo calculando su base imponible ("price") y su cuota de impuesto ("tax_amount"). Si el ticket no incluía impuestos, "price" es el precio indicado y calcula el "tax_amount" correspondiente según su "tax_rate".
+   - "tax_rate": Porcentaje de impuesto de ese producto en particular (ej: 10% para alimentación, 21% para bebidas alcohólicas/general).
+   - "tax_amount": Cuota de impuesto abonada por ese producto.
    - Si el idioma del ticket es DIFERENTE al del usuario (${userLang}):
-     * "description": Traduce con precisión y naturalidad el concepto al idioma del usuario (${targetLangName}) para que entienda qué compró.
+     * "description": Traduce con precisión y naturalidad el concepto al idioma del usuario (${targetLangName}).
      * "description_original": Guarda el nombre original tal y como aparece impreso en el ticket.
    - Si el idioma del ticket es igual a ${userLang}:
      * "description": Nombre original del producto.
      * "description_original": null o el mismo nombre.
-9. translatedBoxes: Si detectedLanguage es DIFERENTE de "${userLang}", proporciona las coordenadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 de las líneas o cajas de texto de los productos, conceptos o encabezados principales del ticket junto con su texto original y su traducción a ${targetLangName}. Esto permite superponer visualmente la traducción sobre el ticket. Si detectedLanguage coincide con "${userLang}", devuelve un array vacío: [].
-10. sensitiveBoxes: Coordenadas de cajas delimitadoras normalizadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 que cubran información bancaria o sensible:
+5. date: Fecha y hora EXACTA en formato ISO "YYYY-MM-DDTHH:mm". Busca activamente la hora y minutos impresos en el ticket (ej: 14:35 o 21:10). Si solo aparece fecha sin hora, usa las 12:00. Si el año no aparece, usa el año actual.
+6. category: Clasifica según el negocio ("food", "shopping", "transport", "accommodation", "activities", "other").
+7. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay dirección legible, devuelve null.
+8. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").
+9. detectedLanguage: Código de dos letras ISO 639-1 del idioma principal detectado en el ticket.
+10. translatedBoxes: Si detectedLanguage es DIFERENTE de "${userLang}", proporciona las coordenadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 de las líneas o cajas de texto de los productos, conceptos o encabezados principales del ticket junto con su texto original y su traducción a ${targetLangName}. Si detectedLanguage coincide con "${userLang}", devuelve un array vacío: [].
+11. sensitiveBoxes: Coordenadas de cajas delimitadoras normalizadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 que cubran información bancaria o sensible:
    - Números de tarjeta de crédito/débito (PAN, **** 1234, fecha caducidad, tipo de tarjeta).
    - Datos bancarios, números de cuenta, IBAN, códigos de autorización de datáfono, PINs o firmas.
    - DNI/NIF/CIF del cliente, nombres personales o teléfonos privados del comprador.
    Si no hay información sensible presente en la imagen, devuelve un array vacío: [].
-11. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
+12. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
 
     // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
     const candidateModels = [
@@ -607,29 +642,78 @@ Reglas críticas de extracción y traducción:
         .filter((b) => b.translatedText.length > 0);
     };
 
-    const sanitizeItems = (rawItems: any): Array<{ description: string; description_original?: string; price: number }> => {
+    const sanitizeItems = (rawItems: any): Array<{
+      description: string;
+      description_original?: string;
+      price: number;
+      quantity?: number;
+      unit_price?: number;
+      tax_name?: string;
+      tax_rate?: number;
+      tax_amount?: number;
+    }> => {
       if (!Array.isArray(rawItems)) return [];
-      const items: Array<{ description: string; description_original?: string; price: number }> = [];
+      const items: Array<{
+        description: string;
+        description_original?: string;
+        price: number;
+        quantity?: number;
+        unit_price?: number;
+        tax_name?: string;
+        tax_rate?: number;
+        tax_amount?: number;
+      }> = [];
+
       for (const it of rawItems) {
         if (!it || typeof it !== 'object') continue;
         const desc = String(it.description || it.name || it.concept || '').trim();
         const descOrig = it.description_original ? String(it.description_original).trim().slice(0, 150) : undefined;
         let price = typeof it.price === 'number' ? it.price : parseFloat(String(it.price).replace(',', '.'));
+        const rawQty = typeof it.quantity === 'number' ? it.quantity : parseFloat(String(it.quantity || 1).replace(',', '.'));
+        const quantity = !isNaN(rawQty) && rawQty > 0 ? Math.round(rawQty * 100) / 100 : 1;
+        
+        let unitPrice: number | undefined;
+        if (typeof it.unit_price === 'number') {
+          unitPrice = Math.round(it.unit_price * 100) / 100;
+        } else if (price > 0 && quantity > 0) {
+          unitPrice = Math.round((price / quantity) * 100) / 100;
+        }
+
+        const taxRate = typeof it.tax_rate === 'number' ? Math.round(it.tax_rate * 100) / 100 : undefined;
+        const taxAmount = typeof it.tax_amount === 'number' ? Math.round(it.tax_amount * 100) / 100 : undefined;
+        const taxName = typeof it.tax_name === 'string' ? it.tax_name.trim().slice(0, 20) : undefined;
+
         if (desc && !isNaN(price) && price > 0 && price < 50000) {
           items.push({
             description: desc.slice(0, 150),
             description_original: descOrig && descOrig !== desc ? descOrig : (descOrig || undefined),
             price: Math.round(price * 100) / 100,
+            quantity,
+            unit_price: unitPrice,
+            tax_name: taxName,
+            tax_rate: taxRate,
+            tax_amount: taxAmount,
           });
         }
       }
       return items;
     };
 
+    const detectedSubtotal = typeof parsed.subtotal === 'number' ? Math.round(parsed.subtotal * 100) / 100 : undefined;
+    const detectedTaxAmount = typeof parsed.tax_amount === 'number' ? Math.round(parsed.tax_amount * 100) / 100 : undefined;
+    const detectedTaxRate = typeof parsed.tax_rate === 'number' ? Math.round(parsed.tax_rate * 100) / 100 : undefined;
+    const detectedTaxName = typeof parsed.tax_name === 'string' && parsed.tax_name.trim() ? parsed.tax_name.trim().toUpperCase().slice(0, 20) : 'IVA';
+    const detectedTaxIncluded = typeof parsed.tax_included === 'boolean' ? parsed.tax_included : true;
+
     const result: VisionScanResult = {
       title: cleanTitle(parsed.title),
       amount: detectedAmount,
       amountFormatted: detectedAmountFormatted,
+      subtotal: detectedSubtotal,
+      tax_name: detectedTaxName,
+      tax_amount: detectedTaxAmount,
+      tax_rate: detectedTaxRate,
+      tax_included: detectedTaxIncluded,
       date: normalizeOcrDateTime(parsed.date, rawContent),
       category: detectedCategory,
       locationName: detectedLocationName,

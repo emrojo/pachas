@@ -27,10 +27,30 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
     expect(data.title).toBe('Restaurante El Faro');
     expect(data.category).toBe('food');
     expect(data.confidence).toBeGreaterThanOrEqual(0.8);
+    expect(data.tax_rate).toBe(10);
+    expect(data.tax_amount).toBe(4.39);
+    expect(data.subtotal).toBe(42.91);
+    expect(data.tax_name).toBe('IVA');
     expect(data.items).toBeDefined();
     expect(data.items?.length).toBe(4);
-    expect(data.items?.[0]).toEqual({ description: '2x PAELLA MIXTA', price: 32.0 });
-    expect(data.items?.[1]).toEqual({ description: '1x ENSALADA VERDE', price: 7.5 });
+    expect(data.items?.[0]).toEqual({
+      description: 'PAELLA MIXTA',
+      price: 32.0,
+      quantity: 2,
+      unit_price: 16.0,
+      tax_name: 'IVA',
+      tax_rate: 10,
+      tax_amount: 0,
+    });
+    expect(data.items?.[1]).toEqual({
+      description: 'ENSALADA VERDE',
+      price: 7.5,
+      quantity: 1,
+      unit_price: 7.5,
+      tax_name: 'IVA',
+      tax_rate: 10,
+      tax_amount: 0,
+    });
   });
 
   it('extracts supermarket groceries ticket details', () => {
@@ -54,7 +74,15 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
     expect(data.category).toBe('shopping');
     expect(data.items).toBeDefined();
     expect(data.items?.length).toBe(4);
-    expect(data.items?.[0]).toEqual({ description: 'LECHE ENTERA', price: 1.2 });
+    expect(data.items?.[0]).toEqual({
+      description: 'LECHE ENTERA',
+      price: 1.2,
+      quantity: 1,
+      unit_price: 1.2,
+      tax_name: 'IVA',
+      tax_rate: 0,
+      tax_amount: 0,
+    });
   });
 
   it('extracts transport and gas station receipts', () => {
