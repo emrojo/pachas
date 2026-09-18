@@ -95,6 +95,8 @@ export const it: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Versione Web',
+    mobileView: 'Versione Mobile',
     save: 'Salva',
     cancel: 'Annulla',
     delete: 'Elimina',
@@ -263,6 +265,12 @@ export const it: TranslationDictionary = {
     supportProject: 'Sostieni il progetto',
   },
   groups: {
+    advancedTools: 'Strumenti avanzati del gruppo',
+    advancedToolsDesc: 'Percorso, esportazioni, QR di invito e saldo rapido',
+    gpsRoute: 'Percorso GPS',
+    exportPdf: 'Esporta PDF',
+    exportCsv: 'Esporta CSV',
+    qrInvite: 'QR Invito',
     accessType: 'Tipo di accesso',
     closedGroup: 'Gruppo Chiuso',
     closedGroupDescription: 'Massima privacy. Nessun link generale; invita tramite link personali unici o aggiungendo contatti noti.',
@@ -735,6 +743,14 @@ export const it: TranslationDictionary = {
     usefulPrompt: 'Ti piace usare Pachas per i tuoi viaggi? Puoi offrirmi un caffè per sostenere lo sviluppo!',
   },
   profile: {
+    switchUser: 'Cambia Utente',
+    switchUserDesc: 'Tocca per cambiare prospettiva immediatamente',
+    newUser: 'Nuovo Utente',
+    advancedSecurity: 'Opzioni avanzate e sicurezza',
+    advancedSecurityDesc: 'Notifiche, esportazione e privacy',
+    downloadJson: 'Scarica come file JSON',
+    irreversibleAction: 'Azione irreversibile',
+    generateAvatar: 'Genera avatar con IA',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const it: TranslationDictionary = {
     "banner": "Modalità offline: salvataggio locale delle modifiche"
   },
   notifications: {
+    soundTitle: 'Suono di avviso',
+    testBubbles: 'Testa le bolle',
     title: 'Notifiche',
     centerTitle: 'Centro Notifiche',
     centerSubtitle: 'Cronologia completa di convalide di pagamento in sospeso, modifiche ai gruppi, commenti e avvisi',

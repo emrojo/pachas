@@ -95,6 +95,8 @@ export const ja: TranslationDictionary = {
   },
 
   common: {
+    webView: 'ウェブ版',
+    mobileView: 'モバイル版',
     save: '保存',
     cancel: 'キャンセル',
     delete: '削除',
@@ -263,6 +265,12 @@ export const ja: TranslationDictionary = {
     supportProject: 'プロジェクトを支援',
   },
   groups: {
+    advancedTools: 'グループの高度なツール',
+    advancedToolsDesc: 'ルート、エクスポート、招待QR、クイック清算',
+    gpsRoute: 'GPSルート',
+    exportPdf: 'PDFをエクスポート',
+    exportCsv: 'CSVをエクスポート',
+    qrInvite: '招待QR',
     accessType: 'アクセスタイプ',
     closedGroup: '非公開グループ',
     closedGroupDescription: '最高のプライバシー。全体リンクはありません。個別の専用リンクまたは既知の連絡先を追加して招待します。',
@@ -735,6 +743,14 @@ export const ja: TranslationDictionary = {
     usefulPrompt: '旅行でPachasが役立ちましたか？コーヒー1杯で開発をサポートできます！',
   },
   profile: {
+    switchUser: 'ユーザーを切り替える',
+    switchUserDesc: 'タップしてすぐに視点を切り替えます',
+    newUser: '新しいユーザー',
+    advancedSecurity: '高度な設定とセキュリティ',
+    advancedSecurityDesc: '通知、エクスポート、プライバシー',
+    downloadJson: 'JSONファイルとしてダウンロード',
+    irreversibleAction: '元に戻せない操作',
+    generateAvatar: 'AIでアバターを生成',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const ja: TranslationDictionary = {
     "banner": "オフラインモード：変更をローカルに保存中"
   },
   notifications: {
+    soundTitle: '通知音',
+    testBubbles: 'バブルをテスト',
     title: '通知',
     centerTitle: '通知センター',
     centerSubtitle: '保留中の支払い確認、グループ変更、コメント、アラートの履歴',

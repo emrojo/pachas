@@ -95,6 +95,8 @@ export const eu: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Web Bertsioa',
+    mobileView: 'Mugikorreko Bertsioa',
     save: 'Gorde',
     cancel: 'Utzi',
     delete: 'Ezabatu',
@@ -263,6 +265,12 @@ export const eu: TranslationDictionary = {
     supportProject: 'Babestu proiektua',
   },
   groups: {
+    advancedTools: 'Taldearen tresna aurreratuak',
+    advancedToolsDesc: 'Ibilbidea, esportazioak, gonbidapen QR eta kitatze azkarra',
+    gpsRoute: 'GPS Ibilbidea',
+    exportPdf: 'PDF Esportatu',
+    exportCsv: 'CSV Esportatu',
+    qrInvite: 'Gonbidatu QR',
     accessType: 'Sarbide mota',
     closedGroup: 'Talde Itxia',
     closedGroupDescription: 'Pribatutasun maximoa. Ez dago esteka orokorrik; gonbidatu esteka pertsonal bakarren bidez edo gehitu kontaktu ezagunak.',
@@ -735,6 +743,14 @@ export const eu: TranslationDictionary = {
     usefulPrompt: 'Gustatzen ari zaizu Pachas bidaietarako? Kafe batera gonbida nazakezu garapena babesteko!',
   },
   profile: {
+    switchUser: 'Erabiltzailea Aldatu',
+    switchUserDesc: 'Ukitu berehala ikuspegia aldatzeko',
+    newUser: 'Erabiltzaile Berria',
+    advancedSecurity: 'Aukera aurreratuak eta segurtasuna',
+    advancedSecurityDesc: 'Jakinarazpenak, esportazioa eta pribatutasuna',
+    downloadJson: 'Deskargatu JSON fitxategi gisa',
+    irreversibleAction: 'Ekintza atzeraezina',
+    generateAvatar: 'Sortu avatarra AIrekin',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const eu: TranslationDictionary = {
     "banner": "Lineaz kanpoko modua: aldaketak lokalean gordetzen"
   },
   notifications: {
+    soundTitle: 'Abisu-soinua',
+    testBubbles: 'Burbuilak probatu',
     title: 'Jakinarazpenak',
     centerTitle: 'Jakinarazpen Zentroa',
     centerSubtitle: 'Baliozkotzeko zain dauden ordainketak, talde-aldaketak, iruzkinak eta alertak',

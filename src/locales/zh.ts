@@ -95,6 +95,8 @@ export const zh: TranslationDictionary = {
   },
 
   common: {
+    webView: '网页版',
+    mobileView: '移动版',
     save: '保存',
     cancel: '取消',
     delete: '删除',
@@ -263,6 +265,12 @@ export const zh: TranslationDictionary = {
     supportProject: '支持该项目',
   },
   groups: {
+    advancedTools: '群组高级工具',
+    advancedToolsDesc: '行程路线、导出、邀请二维码与快速结算',
+    gpsRoute: 'GPS 路线',
+    exportPdf: '导出 PDF',
+    exportCsv: '导出 CSV',
+    qrInvite: '邀请二维码',
     accessType: '访问类型',
     closedGroup: '封闭群组',
     closedGroupDescription: '最高隐私保护。无通用链接；通过个人专属链接邀请或添加已知联系人。',
@@ -735,6 +743,14 @@ export const zh: TranslationDictionary = {
     usefulPrompt: '喜欢在旅行中使用 Pachas 吗？欢迎请我喝杯咖啡以支持持续开发！',
   },
   profile: {
+    switchUser: '切换用户',
+    switchUserDesc: '点击立即切换身份视角',
+    newUser: '新用户',
+    advancedSecurity: '高级与安全选项',
+    advancedSecurityDesc: '通知、导出与隐私',
+    downloadJson: '下载为 JSON 文件',
+    irreversibleAction: '不可逆操作',
+    generateAvatar: '用 AI 生成头像',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const zh: TranslationDictionary = {
     "banner": "离线模式：正在本地保存更改"
   },
   notifications: {
+    soundTitle: '提示音',
+    testBubbles: '测试气泡',
     title: '通知',
     centerTitle: '通知中心',
     centerSubtitle: '待验证支付、群组变动、评论和提醒的历史记录',

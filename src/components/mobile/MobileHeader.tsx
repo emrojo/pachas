@@ -255,7 +255,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
                       className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-base text-left cursor-pointer"
                     >
                       <ArrowUpRight className="w-4.5 h-4.5 text-slate-400" />
-                      <span>Ver versión escritorio</span>
+                      <span>{t('common.webView')}</span>
                     </button>
                   ) : (
                     <Link
@@ -264,7 +264,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
                       className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-base"
                     >
                       <ArrowUpRight className="w-4.5 h-4.5 text-slate-400" />
-                      <span>Ver versión escritorio</span>
+                      <span>{t('common.webView')}</span>
                     </Link>
                   )}
 

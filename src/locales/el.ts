@@ -95,6 +95,8 @@ export const el: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Έκδοση Ιστού',
+    mobileView: 'Έκδοση για Κινητά',
     save: 'Αποθήκευση',
     cancel: 'Ακύρωση',
     delete: 'Διαγραφή',
@@ -263,6 +265,12 @@ export const el: TranslationDictionary = {
     supportProject: 'Υποστήριξη του έργου',
   },
   groups: {
+    advancedTools: 'Προηγμένα Εργαλεία Ομάδας',
+    advancedToolsDesc: 'Διαδρομή, εξαγωγές, QR πρόσκλησης και γρήγορος διακανονισμός',
+    gpsRoute: 'Διαδρομή GPS',
+    exportPdf: 'Εξαγωγή PDF',
+    exportCsv: 'Εξαγωγή CSV',
+    qrInvite: 'QR Πρόσκλησης',
     accessType: 'Τύπος πρόσβασης',
     closedGroup: 'Κλειστή Ομάδα',
     closedGroupDescription: 'Μέγιστη ιδιωτικότητα. Χωρίς γενικό σύνδεσμο· προσκαλέστε με μοναδικούς προσωπικούς συνδέσμους ή προσθέστε γνωστές επαφές.',
@@ -735,6 +743,14 @@ export const el: TranslationDictionary = {
     usefulPrompt: 'Σας αρέσει το Pachas για τα ταξίδια σας; Μπορείτε να κεράσετε έναν καφέ για να υποστηρίξετε την ανάπτυξη!',
   },
   profile: {
+    switchUser: 'Αλλαγή Χρήστη',
+    switchUserDesc: 'Πατήστε για άμεση αλλαγή προοπτικής',
+    newUser: 'Νέος Χρήστης',
+    advancedSecurity: 'Προηγμένες Επιλογές & Ασφάλεια',
+    advancedSecurityDesc: 'Ειδοποιήσεις, εξαγωγή και απόρρητο',
+    downloadJson: 'Λήψη ως αρχείο JSON',
+    irreversibleAction: 'Μη αναστρέψιμη ενέργεια',
+    generateAvatar: 'Δημιουργία avatar με AI',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const el: TranslationDictionary = {
     "banner": "Λειτουργία εκτός σύνδεσης: τοπική αποθήκευση αλλαγών"
   },
   notifications: {
+    soundTitle: 'Ήχος ειδοποίησης',
+    testBubbles: 'Δοκιμή φυσαλίδων',
     title: 'Ειδοποιήσεις',
     centerTitle: 'Κέντρο Ειδοποιήσεων',
     centerSubtitle: 'Πλήρες ιστορικό επικυρώσεων πληρωμών, αλλαγών ομάδας, σχολίων και ειδοποιήσεων',

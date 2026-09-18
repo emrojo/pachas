@@ -1055,6 +1055,29 @@ This document serves as the official and permanent registry for all **user requi
 - **FR-77.6**: **Automated Unit Testing Suite**:
   - Unit tests in `src/lib/groups/unclaimedMembers.test.ts` validating independent token generation, state propagation, multi-group claiming reassignment, and conflict merging.
 
+### 📱 FR-78: Complete Application-Wide Dedicated Mobile Architecture & Ergonomics Specification
+- **FR-78.1**: **Decoupled Mobile vs Desktop Component Architecture**:
+  - Fully decoupled mobile components in `src/components/mobile/` ([`MobileDashboardView`](file:///d:/Projects/pachas/src/components/mobile/MobileDashboardView.tsx), [`MobileGroupDetailView`](file:///d:/Projects/pachas/src/components/mobile/MobileGroupDetailView.tsx), [`MobileProfileView`](file:///d:/Projects/pachas/src/components/mobile/MobileProfileView.tsx), [`MobileNotificationsView`](file:///d:/Projects/pachas/src/components/mobile/MobileNotificationsView.tsx), [`MobileHeader`](file:///d:/Projects/pachas/src/components/mobile/MobileHeader.tsx), [`MobileBottomNav`](file:///d:/Projects/pachas/src/components/mobile/MobileBottomNav.tsx), [`MobileShell`](file:///d:/Projects/pachas/src/components/mobile/MobileShell.tsx)) and desktop web components in `src/components/web/` ([`WebGroupDetailView`](file:///d:/Projects/pachas/src/components/web/WebGroupDetailView.tsx), [`WebProfileView`](file:///d:/Projects/pachas/src/components/web/WebProfileView.tsx), [`WebNotificationsView`](file:///d:/Projects/pachas/src/components/web/WebNotificationsView.tsx)).
+  - Adaptive route dispatchers in [`/groups/[id]`](file:///d:/Projects/pachas/src/app/(dashboard)/groups/[id]/page.tsx), [`/profile`](file:///d:/Projects/pachas/src/app/(dashboard)/profile/page.tsx), and [`/notifications`](file:///d:/Projects/pachas/src/app/(dashboard)/notifications/page.tsx) that dynamically load the appropriate experience based on [`useDevicePlatform`](file:///d:/Projects/pachas/src/hooks/useDevicePlatform.ts).
+- **FR-78.2**: **Ergonomic Rule 1: High-Legibility Scaled Typography**:
+  - All mobile views enforce a minimum font size of `text-base` (16px) for body text, form field labels, input values, card descriptions, and secondary metadata to guarantee effortless reading on smartphone screens without zooming.
+  - Key numbers, amounts, titles, and metrics use large high-contrast sizes (`text-xl`, `text-2xl`, `text-3xl font-black`).
+- **FR-78.3**: **Ergonomic Rule 2: Strict Icon-Only Interactive Elements**:
+  - All mobile interactive controls that have an associated icon must render the icon exclusively without text spans or labels, maximizing screen real-estate and touch clarity.
+  - All touch targets satisfy minimum dimensions of 44x44px to 56x56px (`h-12` to `h-14`) with rounded tactile corners (`rounded-2xl`) and native haptic feedback (`triggerHaptic`).
+- **FR-78.4**: **Ergonomic Rule 3: Visual Hierarchy & Collapsed Secondary Options by Default**:
+  - The most frequently used features (expenses, balances, profile editing, notification list) are prominently displayed by default.
+  - Infrequent, secondary, and advanced tools are collapsed by default inside expandable accordion containers with chevrons:
+    - *Group Tools*: Route map, PDF/CSV export, invitation QR, and quick settlement.
+    - *Profile*: Push notification test, GDPR JSON export, and account deletion.
+    - *Notifications*: WhatsApp floating bubble settings, duration selector, and test triggers.
+- **FR-78.5**: **Ergonomic Rule 4: Persistent Unified Mobile Navigation (Header & Footer)**:
+  - Reusable `MobileHeader` with back button (`ArrowLeft`), active group switcher, donation link, language selector, and user profile avatar.
+  - Fixed bottom bar `MobileBottomNav` with 3 prominent icon buttons (`Receipt` for expenses, `Users` for groups/friends, `Settings` for options/profile) with `h-14` height and emerald active indicator (`bg-emerald-500 text-white`).
+- **FR-78.6**: **Adaptive Device Platform Detection & Manual Mode Toggle (`useDevicePlatform`)**:
+  - Automatic detection of mobile devices via screen width (`< 768px`), user agent inspection, and touch points.
+  - User-controlled mode switcher icon (`Laptop` / `Smartphone`) in the mobile and desktop headers allowing users to override automatic detection and persist their view preference in `localStorage`.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -1218,6 +1241,7 @@ This document serves as the official and permanent registry for all **user requi
 | **13/09/2026** | 📱 Added | **FR-35.9** | **Mobile-Dedicated Receipt Validation View & Ergonomic Form Layout**: Dedicated mobile experience in `ReceiptValidationModal.tsx` (`isMobileView`). High-contrast readable privacy notice (`text-xs sm:text-sm`), 44x44px icon-only censorship mini-toolbar, hero financial amount display (`text-3xl font-mono font-black`), touch-friendly math audit card, 3-column category touch tiles with 2xl emojis, and thumb-friendly 48px bottom action buttons (`Trash2`, `X`, `Check`). |
 | **13/09/2026** | 🍕 Added | **FR-60.7** | **Mobile-Dedicated Itemized Split Controls & Informational Tax Breakdown**: Non-editable informative tax display in `ItemizedSplitEditor.tsx` for `ReceiptValidationModal.tsx` (`isTaxReadOnly`), large consumer buttons (min 44px height, enlarged avatars, thumb-friendly steppers), increased typography and inputs, and shortened mobile status comments. |
 | **18/09/2026** | 👥 Added | **FR-77** | **Cross-Group Unclaimed Member Propagation & Multi-Group Unified Claiming**: Propagates `is_unclaimed = true` and generates unique `claim_token` when adding provisional members to new groups; unified multi-group claiming resolving all memberships and expenses across all groups in one step; retroactive database auto-healing (`23-unclaimed-cross-group-sync.sql`); known contacts badging in `InviteModal.tsx`; and unit test suite in `unclaimedMembers.test.ts`. |
+| **18/09/2026** | 📱 Added | **FR-78** | **Application-Wide Dedicated Mobile Architecture & Ergonomics Specification**: Built decoupled mobile components (`MobileGroupDetailView`, `MobileProfileView`, `MobileNotificationsView`, `MobileHeader`, `MobileBottomNav`) and desktop web components (`WebGroupDetailView`, `WebProfileView`, `WebNotificationsView`) dispatched adaptively via `useDevicePlatform`; enforced the 4 universal mobile rules: enlarged typography (`text-base` minimum), icon-only interactive controls (no text labels, 44-56px touch targets, haptics), visual hierarchy with infrequent tools collapsed by default in accordions, and persistent unified header and 3-icon bottom nav (`Receipt`, `Users`, `Settings`). |
 
 
 

@@ -93,6 +93,8 @@ export const es = {
   },
 
   common: {
+    webView: 'Versión Web',
+    mobileView: 'Versión Móvil',
     save: 'Guardar',
     cancel: 'Cancelar',
     delete: 'Eliminar',
@@ -262,6 +264,12 @@ export const es = {
   },
 
   groups: {
+    advancedTools: 'Herramientas avanzadas del grupo',
+    advancedToolsDesc: 'Ruta, exportaciones, QR de invitación y liquidación rápida',
+    gpsRoute: 'Ruta GPS',
+    exportPdf: 'Exportar PDF',
+    exportCsv: 'Exportar CSV',
+    qrInvite: 'QR Invitar',
     accessType: 'Tipo de acceso',
     closedGroup: 'Grupo Cerrado',
     closedGroupDescription: 'Máxima privacidad. No hay enlace general; invita mediante enlaces personales únicos a cada persona o añadiendo contactos conocidos.',
@@ -734,6 +742,14 @@ export const es = {
     usefulPrompt: '¿Te está gustando Pachas para tus viajes? ¡Puedes invitarme a un café para apoyar el desarrollo!',
   },
   profile: {
+    switchUser: 'Cambiar Usuario',
+    switchUserDesc: 'Toca para cambiar de perspectiva inmediatamente',
+    newUser: 'Nuevo Usuario',
+    advancedSecurity: 'Opciones avanzadas y seguridad',
+    advancedSecurityDesc: 'Notificaciones, exportación y privacidad',
+    downloadJson: 'Descargar en archivo JSON',
+    irreversibleAction: 'Acción irreversible',
+    generateAvatar: 'Generar avatar con IA',
     gdprTitle: 'Privacidad y Gestión de Datos',
     gdprSubtitle: 'Controla tus datos personales según el RGPD / LOPDGDD',
     exportDataBtn: 'Descargar mis Datos (JSON)',
@@ -981,6 +997,8 @@ export const es = {
     "banner": "Modo sin conexión: guardando cambios localmente"
   },
   notifications: {
+    soundTitle: 'Sonido de aviso',
+    testBubbles: 'Probar burbujas',
     title: 'Notificaciones',
     centerTitle: 'Centro de Notificaciones',
     centerSubtitle: 'Historial completo de pagos por validar, cambios en el grupo, comentarios y alertas',

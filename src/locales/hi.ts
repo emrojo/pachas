@@ -95,6 +95,8 @@ export const hi: TranslationDictionary = {
   },
 
   common: {
+    webView: 'वेब संस्करण',
+    mobileView: 'मोबाइल संस्करण',
     save: 'सहेजें',
     cancel: 'रद्द करें',
     delete: 'हटाएं',
@@ -263,6 +265,12 @@ export const hi: TranslationDictionary = {
     supportProject: 'परियोजना का समर्थन करें',
   },
   groups: {
+    advancedTools: 'समूह के उन्नत उपकरण',
+    advancedToolsDesc: 'मार्ग, निर्यात, आमंत्रण क्यूआर और त्वरित निपटान',
+    gpsRoute: 'जीपीएस मार्ग',
+    exportPdf: 'पीडीएफ निर्यात करें',
+    exportCsv: 'सीएसवी निर्यात करें',
+    qrInvite: 'आमंत्रण क्यूआर',
     accessType: 'पहुंच प्रकार',
     closedGroup: 'बंद समूह',
     closedGroupDescription: 'अधिकतम गोपनीयता। कोई सामान्य लिंक नहीं; व्यक्तिगत लिंक द्वारा आमंत्रित करें या ज्ञात संपर्क जोड़ें।',
@@ -735,6 +743,14 @@ export const hi: TranslationDictionary = {
     usefulPrompt: 'यात्राओं के लिए Pachas पसंद आ रहा है? निरंतर विकास के लिए कॉफ़ी प्रायोजित कर सकते हैं!',
   },
   profile: {
+    switchUser: 'उपयोगकर्ता बदलें',
+    switchUserDesc: 'तुरंत दृष्टिकोण बदलने के लिए स्पर्श करें',
+    newUser: 'नया उपयोगकर्ता',
+    advancedSecurity: 'उन्नत और सुरक्षा विकल्प',
+    advancedSecurityDesc: 'सूचनाएं, निर्यात और गोपनीयता',
+    downloadJson: 'JSON फ़ाइल के रूप में डाउनलोड करें',
+    irreversibleAction: 'अपरिवर्तनीय कार्रवाई',
+    generateAvatar: 'एआई के साथ अवतार बनाएं',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const hi: TranslationDictionary = {
     "banner": "ऑफ़लाइन मोड: परिवर्तनों को स्थानीय रूप से सहेजा जा रहा है"
   },
   notifications: {
+    soundTitle: 'चेतावनी ध्वनि',
+    testBubbles: 'बबल्स का परीक्षण करें',
     title: 'सूचनाएं',
     centerTitle: 'सूचना केंद्र',
     centerSubtitle: 'लंबित भुगतान सत्यापन, समूह परिवर्तन, टिप्पणियों और अलर्ट का इतिहास',

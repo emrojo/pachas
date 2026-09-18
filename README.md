@@ -90,7 +90,18 @@
 - Personal data portability export (`/api/user/export-data`) and right to erasure (`/api/user/delete-account`).
 - Global compliant footer present across 100% of application views.
 
-### 📱 Mobile Applications (PWA & Native Capacitor Wrapper)
+### 📱 Dedicated Mobile Architecture & Mobile Applications (PWA & Native Capacitor)
+- **Dedicated Mobile Views**: Specialized mobile views for all primary application routes:
+  - **Dashboard**: [`MobileDashboardView`](file:///d:/Projects/pachas/src/components/mobile/MobileDashboardView.tsx)
+  - **Group Detail**: [`MobileGroupDetailView`](file:///d:/Projects/pachas/src/components/mobile/MobileGroupDetailView.tsx)
+  - **User Profile**: [`MobileProfileView`](file:///d:/Projects/pachas/src/components/mobile/MobileProfileView.tsx)
+  - **Notifications**: [`MobileNotificationsView`](file:///d:/Projects/pachas/src/components/mobile/MobileNotificationsView.tsx)
+- **4 Universal Mobile Ergonomics Rules**:
+  - 🔤 **Large Typography**: Minimum `text-base` for descriptions, metadata, forms, and inputs; `text-xl` to `text-3xl` for headers, amounts, and metrics.
+  - 🔘 **Icon-Only Interactive Elements**: All interactive controls with icons render exclusively the icon (without adjacent text), maximizing touch target clarity (44px–56px) and eliminating visual clutter.
+  - 📂 **Visual Hierarchy & Collapsed Secondary Tools**: Core actions (expenses, balances, profile editing) are visible by default; infrequent/advanced options are collapsed inside expandable accordions.
+  - 🧭 **Unified Mobile Navigation**: Persistent `MobileHeader` with back navigation, active group switcher, language selector, and avatar menu, plus a fixed bottom bar `MobileBottomNav` with 3 prominent icon buttons (`Receipt`, `Users`, `Settings`) with emerald active indicator.
+- **Adaptive Dispatcher & Manual Mode Switcher**: Seamless platform detection via `useDevicePlatform` hook with 1-tap mode switcher icon (`Laptop` / `Smartphone`) to alternate between Mobile and Desktop Web views on any screen.
 - **Progressive Web App (PWA)**: Standalone installability on iOS (Safari) and Android (Chrome) with cache-first offline service worker (`public/sw.js`), app manifest, and splash screens.
 - **Native Store Packaging (Capacitor.js)**: Pre-configured Capacitor integration ready to generate native Xcode (iOS) and Android Studio projects for Google Play and Apple App Store.
 - Detailed mobile build guide in [`deploy/MOBILE.md`](file:///d:/Projects/pachas/deploy/MOBILE.md).
@@ -109,7 +120,7 @@
 | **AI / OCR** | [Google Gemini 1.5 Flash Vision](https://ai.google.dev/) API & [Tesseract.js](https://tesseract.projectnaptha.com/) Client Fallback |
 | **Push Notifications** | [web-push](https://www.npmjs.com/package/web-push) (VAPID protocol) |
 | **Mobile Runtime** | [Capacitor 8](https://capacitorjs.com/) (Haptics, Share, Splash Screen, Status Bar, Filesystem) |
-| **Testing** | [Vitest 4.1](https://vitest.dev/) (100+ unit tests across 23 test suites) |
+| **Testing** | [Vitest 4.1](https://vitest.dev/) (270+ unit tests across 48 test suites) |
 | **Containerization** | [Docker](https://www.docker.com/) (Multi-stage standalone image, Docker Swarm Stack, Docker Compose) |
 | **Reporting** | [jsPDF](https://github.com/parallax/jsPDF) & [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) |
 

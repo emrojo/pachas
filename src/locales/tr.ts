@@ -95,6 +95,8 @@ export const tr: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Web Sürümü',
+    mobileView: 'Mobil Sürüm',
     save: 'Kaydet',
     cancel: 'İptal',
     delete: 'Sil',
@@ -263,6 +265,12 @@ export const tr: TranslationDictionary = {
     supportProject: 'Projeyi destekleyin',
   },
   groups: {
+    advancedTools: 'Gelişmiş Grup Araçları',
+    advancedToolsDesc: 'Rota, dışa aktarımlar, davet QR ve hızlı hesap kapatma',
+    gpsRoute: 'GPS Rotası',
+    exportPdf: 'PDF Dışa Aktar',
+    exportCsv: 'CSV Dışa Aktar',
+    qrInvite: 'Davet QR',
     accessType: 'Erişim Türü',
     closedGroup: 'Kapalı Grup',
     closedGroupDescription: 'Maksimum gizlilik. Genel bağlantı yok; üyelere özel tek kullanımlık bağlantılarla veya bilinen kişileri ekleyerek davet edin.',
@@ -735,6 +743,14 @@ export const tr: TranslationDictionary = {
     usefulPrompt: 'Seyahatlerinizde Pachas kullanmaktan memnun musunuz? Geliştirmeyi desteklemek için bir kahve ısmarlayabilirsiniz!',
   },
   profile: {
+    switchUser: 'Kullanıcı Değiştir',
+    switchUserDesc: 'Anında bakış açısını değiştirmek için dokunun',
+    newUser: 'Yeni Kullanıcı',
+    advancedSecurity: 'Gelişmiş ve Güvenlik Seçenekleri',
+    advancedSecurityDesc: 'Bildirimler, dışa aktarma ve gizlilik',
+    downloadJson: 'JSON dosyası olarak indir',
+    irreversibleAction: 'Geri alınamaz eylem',
+    generateAvatar: 'Yapay Zeka ile avatar oluştur',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const tr: TranslationDictionary = {
     "banner": "Çevrimdışı mod: değişiklikler yerel olarak kaydediliyor"
   },
   notifications: {
+    soundTitle: 'Uyarı sesi',
+    testBubbles: 'Balonları test et',
     title: 'Bildirimler',
     centerTitle: 'Bildirim Merkezi',
     centerSubtitle: 'Bekleyen ödeme onayları, grup değişiklikleri, yorumlar ve uyarıların geçmişi',

@@ -247,8 +247,8 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
           <button
             type="button"
             onClick={() => router.push('/dashboard')}
-            title="Volver"
-            aria-label="Volver"
+            title={t('common.back')}
+            aria-label={t('common.back')}
             className="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <ArrowLeft className="w-6 h-6" />
@@ -263,8 +263,8 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
               <button
                 type="button"
                 onClick={onSwitchToWeb}
-                title="Versión Web"
-                aria-label="Versión Web"
+                title={t('common.webView')}
+                aria-label={t('common.webView')}
                 className="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <Laptop className="w-5 h-5" />
@@ -327,8 +327,8 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              title="Tomar o subir foto"
-              aria-label="Tomar o subir foto"
+              title={t('expenses.takePhoto') || 'Tomar foto'}
+              aria-label={t('expenses.takePhoto') || 'Tomar foto'}
               className="w-14 h-14 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
             >
               <Camera className="w-7 h-7" />
@@ -337,8 +337,8 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
             <button
               type="button"
               onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
-              title="Generar avatar con IA"
-              aria-label="Generar avatar con IA"
+              title={t('profile.generateAvatar') || 'Generar avatar'}
+              aria-label={t('profile.generateAvatar') || 'Generar avatar'}
               className="w-14 h-14 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 active:scale-95 transition-all"
             >
               <Sparkles className="w-7 h-7" />
@@ -348,8 +348,8 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
               <button
                 type="button"
                 onClick={() => setAvatarUrl(null)}
-                title="Quitar foto"
-                aria-label="Quitar foto"
+                title={t('groups.removePhoto') || 'Quitar foto'}
+                aria-label={t('groups.removePhoto') || 'Quitar foto'}
                 className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 flex items-center justify-center active:scale-95 transition-all"
               >
                 <Trash2 className="w-6 h-6" />
@@ -465,7 +465,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
               <div className="flex items-center gap-2">
                 <Sparkles className="w-6 h-6 text-amber-500" />
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Cambiar Usuario ({availableUsers.length})
+                  {t('profile.switchUser') || 'Cambiar Usuario'} ({availableUsers.length})
                 </h3>
               </div>
 
@@ -473,8 +473,8 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
                 <button
                   type="button"
                   onClick={() => setIsCreateUserOpen(true)}
-                  title="Nuevo Usuario"
-                  aria-label="Nuevo Usuario"
+                  title={t('profile.newUser') || 'Nuevo Usuario'}
+                  aria-label={t('profile.newUser') || 'Nuevo Usuario'}
                   className="w-12 h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
                 >
                   <UserPlus className="w-6 h-6" />
@@ -483,7 +483,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
             </div>
 
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Toca para cambiar de perspectiva inmediatamente:
+              {t('profile.switchUserDesc') || 'Toca para cambiar de perspectiva inmediatamente'}:
             </p>
 
             <div className="space-y-2">
@@ -562,10 +562,10 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Opciones avanzadas y seguridad
+                  {t('profile.advancedSecurity') || 'Opciones avanzadas y seguridad'}
                 </h3>
                 <p className="text-sm text-slate-400">
-                  Notificaciones, exportación y privacidad
+                  {t('profile.advancedSecurityDesc') || 'Notificaciones, exportación y privacidad'}
                 </p>
               </div>
             </div>
@@ -634,7 +634,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Descargar en archivo JSON
+                    {t('profile.downloadJson') || 'Descargar en archivo JSON'}
                   </p>
                 </div>
 
@@ -660,7 +660,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
                     </span>
                   </div>
                   <p className="text-xs text-rose-500/80 mt-0.5">
-                    Acción irreversible
+                    {t('profile.irreversibleAction') || 'Acción irreversible'}
                   </p>
                 </div>
 

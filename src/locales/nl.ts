@@ -95,6 +95,8 @@ export const nl: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Webversie',
+    mobileView: 'Mobiele Versie',
     save: 'Opslaan',
     cancel: 'Annuleren',
     delete: 'Verwijderen',
@@ -263,6 +265,12 @@ export const nl: TranslationDictionary = {
     supportProject: 'Steun het project',
   },
   groups: {
+    advancedTools: 'Geavanceerde groepstools',
+    advancedToolsDesc: 'Route, export, uitnodigings-QR en snelle vereffening',
+    gpsRoute: 'GPS-route',
+    exportPdf: 'PDF exporteren',
+    exportCsv: 'CSV exporteren',
+    qrInvite: 'Uitnodigings-QR',
     accessType: 'Toegangstype',
     closedGroup: 'Gesloten Groep',
     closedGroupDescription: 'Maximale privacy. Geen algemene link; nodig uit via unieke persoonlijke links of voeg bekende contacten toe.',
@@ -735,6 +743,14 @@ export const nl: TranslationDictionary = {
     usefulPrompt: 'Bevalt Pachas voor je reizen? Je kunt de ontwikkeling steunen met een kopje koffie!',
   },
   profile: {
+    switchUser: 'Gebruiker wisselen',
+    switchUserDesc: 'Tik om direct van perspectief te wisselen',
+    newUser: 'Nieuwe Gebruiker',
+    advancedSecurity: 'Geavanceerde en beveiligingsopties',
+    advancedSecurityDesc: 'Meldingen, export en privacy',
+    downloadJson: 'Downloaden als JSON-bestand',
+    irreversibleAction: 'Onomkeerbare actie',
+    generateAvatar: 'Genereer AI-avatar',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const nl: TranslationDictionary = {
     "banner": "Offlinemodus: wijzigingen lokaal opslaan"
   },
   notifications: {
+    soundTitle: 'Meldingsgeluid',
+    testBubbles: 'Bubbels testen',
     title: 'Meldingen',
     centerTitle: 'Meldingencentrum',
     centerSubtitle: 'Volledige geschiedenis van openstaande betalingsvalidaties, groepswijzigingen, reacties en meldingen',

@@ -95,6 +95,8 @@ export const va: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Versió Web',
+    mobileView: 'Versió Mòbil',
     save: 'Guardar',
     cancel: 'Cancel·lar',
     delete: 'Eliminar',
@@ -263,6 +265,12 @@ export const va: TranslationDictionary = {
     supportProject: 'Donar suport al projecte',
   },
   groups: {
+    advancedTools: 'Eines avançades del grup',
+    advancedToolsDesc: 'Ruta, exportacions, QR d\'invitació i liquidació ràpida',
+    gpsRoute: 'Ruta GPS',
+    exportPdf: 'Exportar PDF',
+    exportCsv: 'Exportar CSV',
+    qrInvite: 'QR Convidar',
     accessType: 'Tipus d\'accés',
     closedGroup: 'Grup Tancat',
     closedGroupDescription: 'Màxima privadesa. Sense enllaç general; convida mitjançant enllaços personals únics o afegint contactes coneguts.',
@@ -734,6 +742,14 @@ export const va: TranslationDictionary = {
     usefulPrompt: 'T’està agradant Pachas per als teus viages? Pots convidar-me a un cafè per a apoiar el desenroll!',
   },
   profile: {
+    switchUser: 'Canviar Usuari',
+    switchUserDesc: 'Toca per a canviar de perspectiva immediatament',
+    newUser: 'Nou Usuari',
+    advancedSecurity: 'Opcions avançades i seguretat',
+    advancedSecurityDesc: 'Notificacions, exportació i privadesa',
+    downloadJson: 'Descarregar en fitxer JSON',
+    irreversibleAction: 'Acció irreversible',
+    generateAvatar: 'Generar avatar amb IA',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -981,6 +997,8 @@ export const va: TranslationDictionary = {
     "banner": "Mode fora de línia: guardant canvis localment"
   },
   notifications: {
+    soundTitle: 'So d\'avís',
+    testBubbles: 'Provar bombolles',
     title: 'Notifications',
     centerTitle: 'Notification Center',
     centerSubtitle: 'Complete history of pending payment validations, group changes, comments, and alerts',

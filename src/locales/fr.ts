@@ -95,6 +95,8 @@ export const fr: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Version Web',
+    mobileView: 'Version Mobile',
     save: 'Enregistrer',
     cancel: 'Annuler',
     delete: 'Supprimer',
@@ -263,6 +265,12 @@ export const fr: TranslationDictionary = {
     supportProject: 'Soutenir le projet',
   },
   groups: {
+    advancedTools: 'Outils avancés du groupe',
+    advancedToolsDesc: 'Itinéraire, exports, QR d\'invitation et règlement rapide',
+    gpsRoute: 'Itinéraire GPS',
+    exportPdf: 'Exporter en PDF',
+    exportCsv: 'Exporter en CSV',
+    qrInvite: 'QR d\'invitation',
     accessType: 'Type d\'accès',
     closedGroup: 'Groupe Fermé',
     closedGroupDescription: 'Confidentialité maximale. Aucun lien général ; invitez via des liens uniques personnels ou ajoutez des contacts connus.',
@@ -735,6 +743,14 @@ export const fr: TranslationDictionary = {
     usefulPrompt: 'Vous aimez Pachas pour vos voyages ? Vous pouvez m’offrir un café pour soutenir le projet !',
   },
   profile: {
+    switchUser: 'Changer d\'utilisateur',
+    switchUserDesc: 'Touchez pour changer de perspective immédiatement',
+    newUser: 'Nouvel utilisateur',
+    advancedSecurity: 'Options avancées et sécurité',
+    advancedSecurityDesc: 'Notifications, exportation et confidentialité',
+    downloadJson: 'Télécharger en fichier JSON',
+    irreversibleAction: 'Action irréversible',
+    generateAvatar: 'Générer un avatar avec l\'IA',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const fr: TranslationDictionary = {
     "banner": "Mode hors ligne : enregistrement local des modifications"
   },
   notifications: {
+    soundTitle: 'Son d\'alerte',
+    testBubbles: 'Tester les bulles',
     title: 'Notifications',
     centerTitle: 'Centre de Notifications',
     centerSubtitle: 'Historique complet des validations de paiements, modifications de groupes, commentaires et alertes',

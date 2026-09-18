@@ -729,7 +729,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                 className="w-full p-4 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/70 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between transition-colors cursor-pointer"
               >
                 <span className="text-base font-black text-slate-800 dark:text-slate-200">
-                  Herramientas avanzadas del viaje
+                  {t('groups.advancedTools')}
                 </span>
                 {isAdvancedToolsOpen ? (
                   <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -755,7 +755,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                       </div>
                       <div>
                         <div className="text-sm font-bold text-slate-900 dark:text-white">
-                          Descargar Informe PDF
+                          {t('groups.exportPdf')}
                         </div>
                         <div className="text-xs text-slate-400">Balance, gráficos y resumen</div>
                       </div>
@@ -801,7 +801,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                       </div>
                       <div>
                         <div className="text-sm font-bold text-slate-900 dark:text-white">
-                          Exportar a Excel / CSV
+                          {t('groups.exportCsv')}
                         </div>
                         <div className="text-xs text-slate-400">Hoja de cálculo completa</div>
                       </div>
@@ -824,7 +824,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                       </div>
                       <div>
                         <div className="text-sm font-bold text-slate-900 dark:text-white">
-                          Mapa y Ruta del Viaje
+                          {t('groups.gpsRoute')}
                         </div>
                         <div className="text-xs text-slate-400">Ver gastos geolocalizados</div>
                       </div>
@@ -847,7 +847,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                       </div>
                       <div>
                         <div className="text-sm font-bold text-slate-900 dark:text-white">
-                          Historial y Auditoría
+                          {t('groups.historyTab')}
                         </div>
                         <div className="text-xs text-slate-400">Registro de cambios y ediciones</div>
                       </div>

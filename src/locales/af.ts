@@ -95,6 +95,8 @@ export const af: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Webweergawe',
+    mobileView: 'Mobiele Weergawe',
     save: 'Stoor',
     cancel: 'Kanselleer',
     delete: 'Verwyder',
@@ -263,6 +265,12 @@ export const af: TranslationDictionary = {
     supportProject: 'Ondersteun die projek',
   },
   groups: {
+    advancedTools: 'Gevorderde Groepnutsmiddels',
+    advancedToolsDesc: 'Roete, uitvoere, uitnodiging-QR en vinnige vereffening',
+    gpsRoute: 'GPS-roete',
+    exportPdf: 'Voer PDF uit',
+    exportCsv: 'Voer CSV uit',
+    qrInvite: 'Uitnodiging-QR',
     accessType: 'Toegangstipe',
     closedGroup: 'Geslote Groep',
     closedGroupDescription: 'Maksimum privaatheid. Geen algemene skakel nie; nooi lede uit via unieke persoonlike skakels of voeg bekende kontakte by.',
@@ -735,6 +743,14 @@ export const af: TranslationDictionary = {
     usefulPrompt: 'Geniet jy Pachas vir jou reise? Jy kan ontwikkeling ondersteun met ’n koppie koffie!',
   },
   profile: {
+    switchUser: 'Wissel Gebruiker',
+    switchUserDesc: 'Tik om dadelik van perspektief te wissel',
+    newUser: 'Nuwe Gebruiker',
+    advancedSecurity: 'Gevorderde en Sekuriteitsopsies',
+    advancedSecurityDesc: 'Kennisgewings, uitvoer en privaatheid',
+    downloadJson: 'Laai af as JSON-lêer',
+    irreversibleAction: 'Onomkeerbare aksie',
+    generateAvatar: 'Genereer KI-avatar',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const af: TranslationDictionary = {
     "banner": "Vanlyn modus: stoor veranderinge plaaslik"
   },
   notifications: {
+    soundTitle: 'Kennisgewingklank',
+    testBubbles: 'Toets borrels',
     title: 'Notifications',
     centerTitle: 'Notification Center',
     centerSubtitle: 'Complete history of pending payment validations, group changes, comments, and alerts',

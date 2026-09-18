@@ -145,5 +145,34 @@ chmod +x deploy/build-native.sh
 | :--- | :--- |
 | `@capacitor/splash-screen` | Native startup splash screen with brand emerald background `#022c22`. |
 | `@capacitor/status-bar` | Customizes phone status bar color and dark/light mode icons. |
-| `@capacitor/haptics` | Provides tactile vibration feedback on expense creation or settlements. |
+| `@capacitor/haptics` | Provides tactile vibration feedback on button presses, tab switches, and settlements. |
+
+---
+
+## 7. 🎨 Native Touch-First UI & Dedicated Mobile Views Architecture
+
+To provide an optimal native mobile app experience that feels completely at home on iOS and Android devices, Pachas features dedicated mobile views decoupled from the desktop web layout:
+
+### Dedicated View Matrix:
+| Route | Mobile View (`src/components/mobile/`) | Desktop View (`src/components/web/`) |
+| :--- | :--- | :--- |
+| `/dashboard` | `MobileDashboardView.tsx` | Standard multi-card desktop dashboard |
+| `/groups/[id]` | `MobileGroupDetailView.tsx` | `WebGroupDetailView.tsx` |
+| `/profile` | `MobileProfileView.tsx` | `WebProfileView.tsx` |
+| `/notifications` | `MobileNotificationsView.tsx` | `WebNotificationsView.tsx` |
+
+### 4 Universal Mobile Ergonomics Rules:
+1. **🔤 Scaled High-Legibility Typography**:
+   - Minimum font size of `text-base` (16px) for all descriptions, labels, form inputs, and metadata.
+   - Prominent high-contrast headings and monetary values (`text-xl` to `text-3xl font-black`).
+2. **🔘 Icon-Only Interactive Buttons**:
+   - Every interactive button or control that features an icon uses the icon exclusively without text labels.
+   - Touch targets range between `44px` and `56px` (`h-12` to `h-14`) with `rounded-2xl` corners and native haptic feedback (`triggerHaptic`).
+3. **📂 Visual Hierarchy & Collapsed Secondary Options**:
+   - Primary daily operations (expenses, balances, profile editing) are visible immediately upon opening each view.
+   - Infrequent or advanced tools (trip route GPS maps, PDF/CSV export, GDPR JSON export, test notifications) are neatly organized inside expandable accordions collapsed by default.
+4. **🧭 Persistent Unified Navigation (Header & Footer)**:
+   - **Header**: Reusable `MobileHeader` with back button, active group switcher, language selector, and avatar menu.
+   - **Footer**: Fixed bottom bar `MobileBottomNav` with 3 prominent icon buttons (`Receipt`, `Users`, `Settings`) with `h-14` height and an emerald active indicator.
+
 

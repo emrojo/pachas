@@ -95,6 +95,8 @@ export const gl: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Versión Web',
+    mobileView: 'Versión Móbil',
     save: 'Gardar',
     cancel: 'Cancelar',
     delete: 'Eliminar',
@@ -263,6 +265,12 @@ export const gl: TranslationDictionary = {
     supportProject: 'Apoiar o proxecto',
   },
   groups: {
+    advancedTools: 'Ferramentas avanzadas do grupo',
+    advancedToolsDesc: 'Ruta, exportacións, QR de convite e liquidación rápida',
+    gpsRoute: 'Ruta GPS',
+    exportPdf: 'Exportar PDF',
+    exportCsv: 'Exportar CSV',
+    qrInvite: 'QR Convidar',
     accessType: 'Tipo de acceso',
     closedGroup: 'Grupo Pechado',
     closedGroupDescription: 'Máxima privacidade. Non hai ligazón xeral; convida mediante ligazóns persoais únicas ou engadindo contactos coñecidos.',
@@ -735,6 +743,14 @@ export const gl: TranslationDictionary = {
     usefulPrompt: 'Gústache Pachas para as túas viaxes? Podes convidar a un café para apoiar o desenvolvemento!',
   },
   profile: {
+    switchUser: 'Cambiar Usuario',
+    switchUserDesc: 'Toca para cambiar de perspectiva inmediatamente',
+    newUser: 'Novo Usuario',
+    advancedSecurity: 'Opcións avanzadas e seguridade',
+    advancedSecurityDesc: 'Notificacións, exportación e privacidade',
+    downloadJson: 'Descargar en ficheiro JSON',
+    irreversibleAction: 'Acción irreversible',
+    generateAvatar: 'Xerar avatar con IA',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const gl: TranslationDictionary = {
     "banner": "Modo fóra de liña: gardando cambios localmente"
   },
   notifications: {
+    soundTitle: 'Son de aviso',
+    testBubbles: 'Probar burbullas',
     title: 'Notificacións',
     centerTitle: 'Centro de Notificacións',
     centerSubtitle: 'Historial completo de validacións de pagamentos pendentes, cambios no grupo, comentarios e alertas',

@@ -95,6 +95,8 @@ export const de: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Web-Version',
+    mobileView: 'Mobile Version',
     save: 'Speichern',
     cancel: 'Abbrechen',
     delete: 'Löschen',
@@ -263,6 +265,12 @@ export const de: TranslationDictionary = {
     supportProject: 'Projekt unterstützen',
   },
   groups: {
+    advancedTools: 'Erweiterte Gruppen-Tools',
+    advancedToolsDesc: 'Route, Exporte, Einladungs-QR und schnelle Abrechnung',
+    gpsRoute: 'GPS-Route',
+    exportPdf: 'PDF exportieren',
+    exportCsv: 'CSV exportieren',
+    qrInvite: 'Einladungs-QR',
     accessType: 'Zugriffstyp',
     closedGroup: 'Geschlossene Gruppe',
     closedGroupDescription: 'Maximale Privatsphäre. Kein allgemeiner Link; lade Mitglieder über persönliche Einzellinks ein oder füge bekannte Kontakte hinzu.',
@@ -735,6 +743,14 @@ export const de: TranslationDictionary = {
     usefulPrompt: 'Gefällt dir Pachas für deine Reisen? Du kannst mich gern auf einen Kaffee einladen, um die Entwicklung zu unterstützen!',
   },
   profile: {
+    switchUser: 'Benutzer wechseln',
+    switchUserDesc: 'Tippen, um die Perspektive sofort zu wechseln',
+    newUser: 'Neuer Benutzer',
+    advancedSecurity: 'Erweiterte & Sicherheitsoptionen',
+    advancedSecurityDesc: 'Benachrichtigungen, Export und Datenschutz',
+    downloadJson: 'Als JSON-Datei herunterladen',
+    irreversibleAction: 'Unwiderrufliche Aktion',
+    generateAvatar: 'KI-Avatar generieren',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const de: TranslationDictionary = {
     "banner": "Offline-Modus: Änderungen werden lokal gespeichert"
   },
   notifications: {
+    soundTitle: 'Hinweiston',
+    testBubbles: 'Blasen testen',
     title: 'Benachrichtigungen',
     centerTitle: 'Benachrichtigungszentrale',
     centerSubtitle: 'Vollständiger Verlauf ausstehender Zahlungsvalidierungen, Gruppenänderungen, Kommentaren und Hinweisen',

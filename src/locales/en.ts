@@ -95,6 +95,8 @@ export const en: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Web Version',
+    mobileView: 'Mobile Version',
     save: 'Save',
     cancel: 'Cancel',
     delete: 'Delete',
@@ -264,6 +266,12 @@ export const en: TranslationDictionary = {
   },
 
   groups: {
+    advancedTools: 'Advanced Group Tools',
+    advancedToolsDesc: 'Route, exports, invite QR and quick settlement',
+    gpsRoute: 'GPS Route',
+    exportPdf: 'Export PDF',
+    exportCsv: 'Export CSV',
+    qrInvite: 'Invite QR',
     accessType: 'Access type',
     closedGroup: 'Closed Group',
     closedGroupDescription: 'Maximum privacy. No general link; invite members via unique personal links or add known contacts.',
@@ -736,6 +744,14 @@ export const en: TranslationDictionary = {
     usefulPrompt: 'Enjoying Pachas for your trips? Consider buying me a coffee to support development!',
   },
   profile: {
+    switchUser: 'Switch User',
+    switchUserDesc: 'Tap to switch perspective immediately',
+    newUser: 'New User',
+    advancedSecurity: 'Advanced & Security Options',
+    advancedSecurityDesc: 'Notifications, export and privacy',
+    downloadJson: 'Download as JSON file',
+    irreversibleAction: 'Irreversible action',
+    generateAvatar: 'Generate AI avatar',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -984,6 +1000,8 @@ export const en: TranslationDictionary = {
     "banner": "Offline mode: saving changes locally"
   },
   notifications: {
+    soundTitle: 'Alert sound',
+    testBubbles: 'Test bubbles',
     title: 'Notifications',
     centerTitle: 'Notification Center',
     centerSubtitle: 'Complete history of pending payment validations, group changes, comments, and alerts',

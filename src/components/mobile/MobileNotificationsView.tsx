@@ -247,8 +247,8 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
           <button
             type="button"
             onClick={() => router.push('/dashboard')}
-            title="Volver"
-            aria-label="Volver"
+            title={t('common.back')}
+            aria-label={t('common.back')}
             className="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <ArrowLeft className="w-6 h-6" />
@@ -298,8 +298,8 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
               <button
                 type="button"
                 onClick={onSwitchToWeb}
-                title="Versión Web"
-                aria-label="Versión Web"
+                title={t('common.webView')}
+                aria-label={t('common.webView')}
                 className="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <Laptop className="w-5 h-5" />
@@ -372,7 +372,7 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
                 : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
             }`}
           >
-            💳 Pagos
+            💳 {t('notifications.payments') || 'Pagos'}
           </button>
 
           <button
@@ -387,7 +387,7 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
                 : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
             }`}
           >
-            💬 Chat
+            💬 {t('notifications.commentsTab') || 'Chat'}
           </button>
 
           <button
@@ -402,7 +402,7 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
                 : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
             }`}
           >
-            🌴 Grupos
+            🌴 {t('notifications.groupsTab') || 'Grupos'}
           </button>
         </div>
 
@@ -422,10 +422,10 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Burbujas flotantes (WhatsApp)
+                  {t('notifications.bubbleTitle') || 'Burbujas flotantes (WhatsApp)'}
                 </h3>
                 <p className="text-sm text-slate-400">
-                  Sonido, duración y pruebas
+                  {t('notifications.bubbleSubtitle') || 'Sonido, duración y pruebas'}
                 </p>
               </div>
             </div>
@@ -444,14 +444,14 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
               {/* Sound & Duration */}
               <div className="flex items-center justify-between gap-3 pt-2">
                 <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                  Sonido de aviso
+                  {t('notifications.soundTitle') || 'Sonido de aviso'}
                 </span>
 
                 <button
                   type="button"
                   onClick={handleToggleSound}
-                  title="Activar/Desactivar sonido"
-                  aria-label="Activar/Desactivar sonido"
+                  title={t('notifications.soundEnabled') || 'Activar/Desactivar sonido'}
+                  aria-label={t('notifications.soundEnabled') || 'Activar/Desactivar sonido'}
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-95 ${
                     soundEnabled
                       ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
@@ -465,7 +465,7 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                    Duración
+                    {t('notifications.bubbleDuration') || 'Duración'}
                   </span>
                   <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
                     {bubbleDuration === 0 ? 'Manual' : `${bubbleDuration}s`}
@@ -500,7 +500,7 @@ export const MobileNotificationsView: React.FC<MobileNotificationsViewProps> = (
               {isDemoMode && (
                 <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800">
                   <span className="text-base font-bold text-slate-800 dark:text-slate-200">
-                    Probar burbujas
+                    {t('notifications.testBubbles') || 'Probar burbujas'}
                   </span>
 
                   <div className="flex items-center gap-2">

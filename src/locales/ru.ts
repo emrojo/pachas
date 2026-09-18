@@ -95,6 +95,8 @@ export const ru: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Веб-версия',
+    mobileView: 'Мобильная версия',
     save: 'Сохранить',
     cancel: 'Отмена',
     delete: 'Удалить',
@@ -263,6 +265,12 @@ export const ru: TranslationDictionary = {
     supportProject: 'Поддержать проект',
   },
   groups: {
+    advancedTools: 'Расширенные инструменты группы',
+    advancedToolsDesc: 'Маршрут, экспорт, QR-приглашение и быстрый расчет',
+    gpsRoute: 'GPS-маршрут',
+    exportPdf: 'Экспорт в PDF',
+    exportCsv: 'Экспорт в CSV',
+    qrInvite: 'QR-приглашение',
     accessType: 'Тип доступа',
     closedGroup: 'Закрытая группа',
     closedGroupDescription: 'Максимальная приватность. Без общей ссылки; приглашайте по индивидуальным ссылкам или добавляйте знакомые контакты.',
@@ -735,6 +743,14 @@ export const ru: TranslationDictionary = {
     usefulPrompt: 'Нравится Pachas в поездках? Вы можете угостить автора кофе для поддержки проекта!',
   },
   profile: {
+    switchUser: 'Сменить пользователя',
+    switchUserDesc: 'Нажмите, чтобы мгновенно сменить профиль',
+    newUser: 'Новый пользователь',
+    advancedSecurity: 'Дополнительные параметры и безопасность',
+    advancedSecurityDesc: 'Уведомления, экспорт и конфиденциальность',
+    downloadJson: 'Скачать в формате JSON',
+    irreversibleAction: 'Необратимое действие',
+    generateAvatar: 'Сгенерировать аватар с помощью ИИ',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const ru: TranslationDictionary = {
     "banner": "Автономный режим: изменения сохраняются локально"
   },
   notifications: {
+    soundTitle: 'Звук уведомления',
+    testBubbles: 'Тестировать всплывающие окна',
     title: 'Уведомления',
     centerTitle: 'Центр уведомлений',
     centerSubtitle: 'История подтверждения платежей, изменений в группах, комментариев и оповещений',

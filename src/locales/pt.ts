@@ -95,6 +95,8 @@ export const pt: TranslationDictionary = {
   },
 
   common: {
+    webView: 'Versão Web',
+    mobileView: 'Versão Móvel',
     save: 'Guardar',
     cancel: 'Cancelar',
     delete: 'Eliminar',
@@ -263,6 +265,12 @@ export const pt: TranslationDictionary = {
     supportProject: 'Apoiar o projeto',
   },
   groups: {
+    advancedTools: 'Ferramentas avançadas do grupo',
+    advancedToolsDesc: 'Rota, exportações, QR de convite e acerto rápido',
+    gpsRoute: 'Rota GPS',
+    exportPdf: 'Exportar PDF',
+    exportCsv: 'Exportar CSV',
+    qrInvite: 'QR Convidar',
     accessType: 'Tipo de acesso',
     closedGroup: 'Grupo Fechado',
     closedGroupDescription: 'Máxima privacidade. Sem link geral; convide através de links pessoais exclusivos ou adicionando contatos conhecidos.',
@@ -735,6 +743,14 @@ export const pt: TranslationDictionary = {
     usefulPrompt: 'Estás a gostar do Pachas para as tuas viagens? Podes pagar-me um café para apoiar o desenvolvimento!',
   },
   profile: {
+    switchUser: 'Mudar de Utilizador',
+    switchUserDesc: 'Toque para mudar de perspetiva imediatamente',
+    newUser: 'Novo Utilizador',
+    advancedSecurity: 'Opções avançadas e segurança',
+    advancedSecurityDesc: 'Notificações, exportação e privacidade',
+    downloadJson: 'Descarregar em ficheiro JSON',
+    irreversibleAction: 'Ação irreversível',
+    generateAvatar: 'Gerar avatar com IA',
     gdprTitle: 'Privacy & Data Management',
     gdprSubtitle: 'Manage your personal data under GDPR',
     exportDataBtn: 'Download my Data (JSON)',
@@ -982,6 +998,8 @@ export const pt: TranslationDictionary = {
     "banner": "Modo offline: a guardar alterações localmente"
   },
   notifications: {
+    soundTitle: 'Som de alerta',
+    testBubbles: 'Testar bolhas',
     title: 'Notificações',
     centerTitle: 'Central de Notificações',
     centerSubtitle: 'Histórico completo de validações de pagamentos pendentes, alterações de grupos, comentários e alertas',
