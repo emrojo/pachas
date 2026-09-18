@@ -3,23 +3,18 @@
 import React from 'react';
 import { useTranslation } from '@/context/LanguageContext';
 import { triggerHaptic } from '@/lib/native/haptics';
-import { Receipt, Users, Settings, PlusCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Receipt, Users, Settings } from 'lucide-react';
 
 export type MobileNavTab = 'expenses' | 'groups' | 'options';
 
 export interface MobileBottomNavProps {
   activeTab: MobileNavTab;
   onTabChange: (tab: MobileNavTab) => void;
-  onAddExpenseClick?: () => void;
-  hasActiveGroup?: boolean;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeTab,
   onTabChange,
-  onAddExpenseClick,
-  hasActiveGroup = true,
 }) => {
   const { t } = useTranslation();
 
@@ -28,87 +23,54 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     onTabChange(tab);
   };
 
-  const handleAddClick = () => {
-    triggerHaptic('medium');
-    if (onAddExpenseClick) {
-      onAddExpenseClick();
-    }
-  };
-
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
+    <footer
+      className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-3 py-2"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}
     >
-      <div className="flex items-center justify-around px-2 pt-1.5 pb-1">
-        {/* Tab: Expenses */}
+      <div className="grid grid-cols-3 gap-2">
         <button
           type="button"
           onClick={() => handleTabClick('expenses')}
-          className={cn(
-            'flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-95 touch-manipulation',
+          title={t('dashboard.tabExpenses') || 'Gastos'}
+          aria-label={t('dashboard.tabExpenses') || 'Gastos'}
+          className={`h-14 flex items-center justify-center rounded-2xl transition-all cursor-pointer ${
             activeTab === 'expenses'
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'
-          )}
+              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
+              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+          }`}
         >
-          <Receipt className={cn('w-5 h-5 mb-0.5', activeTab === 'expenses' && 'stroke-[2.5]')} />
-          <span className="text-[11px] leading-tight">
-            {t('dashboard.tabExpenses') || 'Gastos'}
-          </span>
+          <Receipt className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.2]" />
         </button>
 
-        {/* Central Action Button: Add Expense */}
-        {hasActiveGroup && onAddExpenseClick && (
-          <button
-            type="button"
-            onClick={handleAddClick}
-            className="flex flex-col items-center justify-center -mt-5 px-2 active:scale-90 transition-transform touch-manipulation group"
-            aria-label={t('expenses.addExpense')}
-          >
-            <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-600/35 border-2 border-white dark:border-slate-900">
-              <PlusCircle className="w-7 h-7 stroke-[2.2]" />
-            </div>
-            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mt-1">
-              {t('expenses.addExpense') || 'Añadir'}
-            </span>
-          </button>
-        )}
-
-        {/* Tab: Groups */}
         <button
           type="button"
           onClick={() => handleTabClick('groups')}
-          className={cn(
-            'flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-95 touch-manipulation',
+          title={t('dashboard.tabGroups') || 'Grupos'}
+          aria-label={t('dashboard.tabGroups') || 'Grupos'}
+          className={`h-14 flex items-center justify-center rounded-2xl transition-all cursor-pointer ${
             activeTab === 'groups'
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'
-          )}
+              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
+              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+          }`}
         >
-          <Users className={cn('w-5 h-5 mb-0.5', activeTab === 'groups' && 'stroke-[2.5]')} />
-          <span className="text-[11px] leading-tight">
-            {t('dashboard.tabGroups') || 'Grupos'}
-          </span>
+          <Users className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.2]" />
         </button>
 
-        {/* Tab: Options / Settings */}
         <button
           type="button"
           onClick={() => handleTabClick('options')}
-          className={cn(
-            'flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-95 touch-manipulation',
+          title={t('dashboard.tabOptions') || 'Opciones'}
+          aria-label={t('dashboard.tabOptions') || 'Opciones'}
+          className={`h-14 flex items-center justify-center rounded-2xl transition-all cursor-pointer ${
             activeTab === 'options'
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'
-          )}
+              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
+              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+          }`}
         >
-          <Settings className={cn('w-5 h-5 mb-0.5', activeTab === 'options' && 'stroke-[2.5]')} />
-          <span className="text-[11px] leading-tight">
-            {t('dashboard.tabOptions') || 'Opciones'}
-          </span>
+          <Settings className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.2]" />
         </button>
       </div>
-    </nav>
+    </footer>
   );
 };

@@ -8,8 +8,6 @@ export interface MobileShellProps {
   children: React.ReactNode;
   activeTab?: MobileNavTab;
   onTabChange?: (tab: MobileNavTab) => void;
-  onAddExpenseClick?: () => void;
-  hasActiveGroup?: boolean;
   showBottomNav?: boolean;
   className?: string;
 }
@@ -18,8 +16,6 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   children,
   activeTab,
   onTabChange,
-  onAddExpenseClick,
-  hasActiveGroup = true,
   showBottomNav = true,
   className = '',
 }) => {
@@ -42,8 +38,6 @@ export const MobileShell: React.FC<MobileShellProps> = ({
         <MobileBottomNav
           activeTab={activeTab}
           onTabChange={onTabChange}
-          onAddExpenseClick={onAddExpenseClick}
-          hasActiveGroup={hasActiveGroup}
         />
       )}
     </div>
