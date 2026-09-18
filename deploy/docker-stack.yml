@@ -61,6 +61,11 @@ services:
       - NEXT_PUBLIC_ADMIN_EMAIL=${NEXT_PUBLIC_ADMIN_EMAIL:-admin@pachas.local}
       - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # Motor OCR de Visión IA (Ollama por defecto / Gemini alternativo)
+      - OCR_PROVIDER=${OCR_PROVIDER:-ollama}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://127.0.0.1:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5vl:3b}
+      - SCANBILLS_OCR_URL=${SCANBILLS_OCR_URL:-http://scanbills-web-cpu:8000}
     networks:
       - pachas_network
     configs:

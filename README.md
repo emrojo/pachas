@@ -210,8 +210,9 @@ Pachas connects to several specialized services to deliver intelligent OCR scann
 ├───────────────────────┬─────────────────────────┬────────────────────────────────┤
 │ Service / Feature     │ Provider & Keys         │ Fallback Behavior              │
 ├───────────────────────┼─────────────────────────┼────────────────────────────────┤
-│ Receipt OCR Scanner   │ Google Gemini 1.5 Flash │ Client-side Tesseract.js       │
-│                       │ GEMINI_API_KEY          │ Optical Scanner                │
+│ Receipt OCR Scanner   │ Ollama (ScanBills VLM)  │ Google Gemini 1.5 Flash        │
+│                       │ OCR_PROVIDER=ollama     │ or Client-side Tesseract.js    │
+│                       │ OLLAMA_BASE_URL, MODEL  │ In-browser Optical Scanner     │
 ├───────────────────────┼─────────────────────────┼────────────────────────────────┤
 │ Dynamic Cover Photos  │ Pexels REST API         │ Curated HD Travel Preset       │
 │                       │ PEXELS_API_KEY          │ Offline Photo Library          │
@@ -230,17 +231,25 @@ Pachas connects to several specialized services to deliver intelligent OCR scann
 └───────────────────────┴─────────────────────────┴────────────────────────────────┘
 ```
 
-### 🧠 1. Google Gemini 1.5 Flash Vision (Intelligent Receipt OCR & Geocoding)
-- **What it does**: Multimodal optical character recognition for physical receipts and bills (`src/lib/ocr/geminiScanner.ts`). Automatically extracts monetary totals, split-payment breakdowns, merchant names, purchase categories, European dates (`DD/MM/YYYY`), time (`HH:mm`), and physical establishment addresses with forward-geocoded GPS coordinates pinned on Google Maps.
-- **How to obtain your key (Free — 15 requests/min)**:
-  1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey).
-  2. Sign in with your Google account.
-  3. Click **"Create API Key"** and copy the generated token.
-  4. Add it to your `.env.local`:
-     ```env
-     GEMINI_API_KEY=AIzaSy...
-     ```
-- **Fallback**: If `GEMINI_API_KEY` is not defined, Pachas automatically falls back to client-side [Tesseract.js](https://tesseract.projectnaptha.com/) for in-browser OCR extraction with manual confirmation dialogs.
+### 🧠 1. Intelligent Multimodal OCR Vision Scanner (Ollama / ScanBills & Gemini)
+- **What it does**: Multimodal optical character recognition for physical receipts and bills (`src/lib/ocr/ollamaScanner.ts` & `src/lib/ocr/geminiScanner.ts`). Automatically extracts monetary totals, split-payment breakdowns, itemized line items, tax brackets (RD 1619/2012 / EU Directive 2006/112), merchant names, purchase categories, European dates (`DD/MM/YYYY`), time (`HH:mm`), and physical establishment addresses with forward-geocoded GPS coordinates pinned on Google Maps.
+- **Default Engine — Ollama / ScanBills OCR (Qwen2.5-VL)**:
+  - **Zero-Cost, Privacy-First, Local**: Powered by **Qwen2.5-VL** via [scan-bills-ocr](https://github.com/emrojo/scan-bills-ocr/).
+  - Connects out of the box to local or containerized Ollama daemon (`http://127.0.0.1:11434`) or ScanBills web API (`http://127.0.0.1:8030`).
+  - Configure via `.env`:
+    ```env
+    OCR_PROVIDER=ollama
+    OLLAMA_BASE_URL=http://127.0.0.1:11434
+    OLLAMA_MODEL=qwen2.5vl:7b
+    ```
+- **Alternative Engine — Google Gemini 1.5 Flash Vision**:
+  - Switch anytime to Gemini via `.env` (`OCR_PROVIDER=gemini`) or on the fly from the **Admin Panel (`/admin`)**.
+  - Obtain your free key (15 requests/min) at [Google AI Studio](https://aistudio.google.com/app/apikey) and configure:
+    ```env
+    OCR_PROVIDER=gemini
+    GEMINI_API_KEY=AIzaSy...
+    ```
+- **Zero-Friction Fallback**: If the configured engine is unreachable or offline, Pachas gracefully cascades: `Ollama` ➔ `Gemini` ➔ `Client Tesseract.js`.
 
 ---
 

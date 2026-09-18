@@ -189,6 +189,21 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS tax_legislation VARCHAR(50) DEFAULT 'EU_DIRECTIVE_2006_112';`).catch(() => {});
     await p.query(`ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS is_europe BOOLEAN DEFAULT TRUE NOT NULL;`).catch(() => {});
     await p.query(`ALTER TABLE public.expense_items ADD COLUMN IF NOT EXISTS net_price NUMERIC(12, 2) DEFAULT NULL;`).catch(() => {});
+
+    // 11. Application runtime settings & OCR provider configuration
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS public.app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_by TEXT
+      );
+    `).catch(() => {});
+    await p.query(`
+      INSERT INTO public.app_settings (key, value)
+      VALUES ('ocr_provider', 'ollama')
+      ON CONFLICT (key) DO NOTHING;
+    `).catch(() => {});
   } catch (err) {
     console.warn('Schema auto-migration notice:', err);
   }

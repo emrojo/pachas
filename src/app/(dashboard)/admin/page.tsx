@@ -258,6 +258,78 @@ export default function AdminBackofficePage() {
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
   const [diagnosticsResult, setDiagnosticsResult] = useState<any[] | null>(null);
 
+  // OCR Vision Engine Configuration States
+  const [ocrConfigData, setOcrConfigData] = useState<{
+    provider: 'ollama' | 'gemini';
+    ollamaBaseUrl: string;
+    ollamaModel: string;
+    hasGeminiKey: boolean;
+    ollama?: { status: string; latencyMs: number; serviceType: string; availableModels: string[]; error?: string };
+    gemini?: { status: string };
+  } | null>(null);
+  const [selectedOcrProvider, setSelectedOcrProvider] = useState<'ollama' | 'gemini'>('ollama');
+  const [ollamaBaseUrlInput, setOllamaBaseUrlInput] = useState('http://127.0.0.1:11434');
+  const [ollamaModelInput, setOllamaModelInput] = useState('qwen2.5vl:7b');
+  const [isSavingOcr, setIsSavingOcr] = useState(false);
+  const [ocrSaveFeedback, setOcrSaveFeedback] = useState<string | null>(null);
+  const [isPingingOcr, setIsPingingOcr] = useState(false);
+
+  const fetchOcrConfig = async () => {
+    try {
+      const res = await fetch('/api/ocr/config');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setOcrConfigData(json.data);
+          setSelectedOcrProvider(json.data.provider || 'ollama');
+          setOllamaBaseUrlInput(json.data.ollamaBaseUrl || 'http://127.0.0.1:11434');
+          setOllamaModelInput(json.data.ollamaModel || 'qwen2.5vl:7b');
+        }
+      }
+    } catch {}
+  };
+
+  const handleSaveOcrConfig = async () => {
+    setIsSavingOcr(true);
+    setOcrSaveFeedback(null);
+    try {
+      const res = await fetch('/api/ocr/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: selectedOcrProvider,
+          ollamaBaseUrl: ollamaBaseUrlInput,
+          ollamaModel: ollamaModelInput,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setOcrConfigData(json.data);
+          setOcrSaveFeedback('Configuración de motor OCR guardada y aplicada con éxito.');
+          setTimeout(() => setOcrSaveFeedback(null), 4000);
+          fetchMetrics();
+        }
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setOcrSaveFeedback(json.error || 'Error al guardar la configuración.');
+      }
+    } catch (e: any) {
+      setOcrSaveFeedback(e.message || 'Error de conexión');
+    } finally {
+      setIsSavingOcr(false);
+    }
+  };
+
+  const handlePingOcr = async () => {
+    setIsPingingOcr(true);
+    try {
+      await fetchOcrConfig();
+    } finally {
+      setIsPingingOcr(false);
+    }
+  };
+
   const handleFreezeGroup = async (groupId: string, reason?: string, type?: 'full' | 'read_only') => {
     setIsFreezingSubmitting(true);
     try {
@@ -718,6 +790,7 @@ export default function AdminBackofficePage() {
   useEffect(() => {
     fetchMetrics();
     fetchReports();
+    fetchOcrConfig();
     if (activeTab === 'support') {
       fetchSupportConversations();
     }
@@ -1164,6 +1237,183 @@ export default function AdminBackofficePage() {
                 </Card>
               ))}
             </div>
+
+            {/* OCR Vision Engine (Ollama vs Gemini) Interactive Configuration */}
+            <Card className="p-6 space-y-5 border-2 border-emerald-500/20 bg-gradient-to-br from-white via-white to-emerald-50/20 dark:from-slate-900 dark:via-slate-900 dark:to-emerald-950/20">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs text-xl">
+                    🦙
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        Motor de Visión IA / OCR de Recibos y Facturas
+                      </h3>
+                      <Badge variant={selectedOcrProvider === 'ollama' ? 'emerald' : 'purple'} size="sm">
+                        {selectedOcrProvider === 'ollama' ? '🦙 Ollama (Por Defecto)' : '✨ Gemini Flash'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Configura y conmuta en caliente entre el microservicio local de Ollama (ScanBills OCR / Qwen2.5-VL) y Google Gemini Vision.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePingOcr}
+                    disabled={isPingingOcr}
+                    className="flex items-center gap-1.5 text-xs font-semibold"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isPingingOcr ? 'animate-spin' : ''}`} />
+                    <span>{isPingingOcr ? 'Comprobando...' : 'Comprobar Estado'}</span>
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleSaveOcrConfig}
+                    disabled={isSavingOcr}
+                    className="flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+                  >
+                    {isSavingOcr ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    <span>{isSavingOcr ? 'Guardando...' : 'Guardar Cambios'}</span>
+                  </Button>
+                </div>
+              </div>
+
+              {ocrSaveFeedback && (
+                <div className="p-3 rounded-xl text-xs font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800/50 animate-in fade-in flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{ocrSaveFeedback}</span>
+                </div>
+              )}
+
+              {/* Provider Selection Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                {/* OPTION 1: OLLAMA / SCANBILLS */}
+                <div
+                  onClick={() => setSelectedOcrProvider('ollama')}
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                    selectedOcrProvider === 'ollama'
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 shadow-xs'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-2xl">🦙</span>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <span>Ollama (ScanBills OCR)</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 font-semibold">
+                            Recomendado
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Servidor local, 100% privado, sin costes de API externa (Qwen2.5-VL)
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        selectedOcrProvider === 'ollama' ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 dark:border-slate-600'
+                      }`}>
+                        {selectedOcrProvider === 'ollama' && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Estado de Conexión:</span>
+                      <span className={`font-semibold flex items-center gap-1 ${
+                        ocrConfigData?.ollama?.status === 'online' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                      }`}>
+                        {ocrConfigData?.ollama?.status === 'online' ? '🟢 En línea' : '🟡 Desconectado / Local'}
+                        {ocrConfigData?.ollama?.latencyMs ? ` (${ocrConfigData.ollama.latencyMs}ms)` : ''}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 pt-1">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        URL Servidor Ollama / ScanBills:
+                      </label>
+                      <input
+                        type="text"
+                        value={ollamaBaseUrlInput}
+                        onChange={(e) => setOllamaBaseUrlInput(e.target.value)}
+                        placeholder="http://127.0.0.1:11434 o http://127.0.0.1:8030"
+                        className="w-full text-xs font-mono px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        Modelo Vision (VLM):
+                      </label>
+                      <input
+                        type="text"
+                        value={ollamaModelInput}
+                        onChange={(e) => setOllamaModelInput(e.target.value)}
+                        placeholder="qwen2.5vl:7b o qwen2.5vl:3b"
+                        className="w-full text-xs font-mono px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* OPTION 2: GOOGLE GEMINI */}
+                <div
+                  onClick={() => setSelectedOcrProvider('gemini')}
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                    selectedOcrProvider === 'gemini'
+                      ? 'border-purple-500 bg-purple-50/40 dark:bg-purple-950/30 shadow-xs'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-2xl">✨</span>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          Google Gemini 1.5 Flash
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Modelo multimodal en la nube de Google AI Studio
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        selectedOcrProvider === 'gemini' ? 'border-purple-600 bg-purple-600' : 'border-slate-300 dark:border-slate-600'
+                      }`}>
+                        {selectedOcrProvider === 'gemini' && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800 space-y-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Estado de Clave API:</span>
+                      <span className={`font-semibold ${
+                        ocrConfigData?.hasGeminiKey ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                      }`}>
+                        {ocrConfigData?.hasGeminiKey ? '🔑 Configurada en Entorno' : '⚠️ Sin Clave (GEMINI_API_KEY)'}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Para usar Gemini, define <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[10px]">GEMINI_API_KEY</code> en tu archivo <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[10px]">.env</code> o en el contenedor Docker. Si falla, el sistema conmuta automáticamente a Ollama o Tesseract.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
 
             {/* Deployment Version & Git Commit Information */}
             <Card className="p-6 space-y-4">

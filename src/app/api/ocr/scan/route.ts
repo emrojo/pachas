@@ -6,6 +6,11 @@ import { ExpenseCategory, InvoiceType } from '@/types/database';
 import { ScannedLineItem } from '@/lib/ocr/receiptScanner';
 import { ReceiptAuditReport, auditAndReconcileReceipt } from '@/lib/ocr/receiptMathAuditor';
 import { TaxBracketSummary, getCountryTaxPromptContext, detectEuropeanJurisdiction } from '@/lib/taxes';
+import { getOcrConfig, getGeminiApiKey } from '@/lib/ocr/ocrConfig';
+import { callOllamaVision } from '@/lib/ocr/ollamaScanner';
+import { callGeminiVision } from '@/lib/ocr/geminiScanner';
+
+export { getGeminiApiKey };
 
 export interface SensitiveBox {
   box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
@@ -57,53 +62,6 @@ const VALID_CATEGORIES: ExpenseCategory[] = [
   'other',
 ];
 
-export function getGeminiApiKey(): string | undefined {
-  const sanitizeKey = (raw?: string) => {
-    if (!raw) return undefined;
-    let clean = raw.trim().replace(/^["']|["']$/g, '').trim();
-    // Ignore example placeholder
-    if (!clean || clean.startsWith('AIzaSy...') || clean === 'tu_api_key_aqui') {
-      return undefined;
-    }
-    return clean;
-  };
-
-  // 1. Direct process.env check
-  const envKey = sanitizeKey(process.env.GEMINI_API_KEY);
-  if (envKey) return envKey;
-
-  // 2. Direct filesystem read from deploy/.env.production, .env.production, etc.
-  const candidatePaths = [
-    path.resolve(process.cwd(), 'deploy/.env.production'),
-    path.resolve(process.cwd(), '.env.production'),
-    path.resolve(process.cwd(), '.env.local'),
-    path.resolve(process.cwd(), 'deploy/.env'),
-    path.resolve(process.cwd(), '.env'),
-    '/app/deploy/.env.production',
-    '/app/.env.production',
-    '/app/.env.local',
-  ];
-
-  for (const p of candidatePaths) {
-    try {
-      if (fs.existsSync(/* turbopackIgnore: true */ p)) {
-        const content = fs.readFileSync(/* turbopackIgnore: true */ p, 'utf-8');
-        const match = content.match(/^\s*GEMINI_API_KEY\s*=\s*(?:["']?)([^#\r\n"']+)(?:["']?)/m);
-        if (match && match[1]) {
-          const key = sanitizeKey(match[1]);
-          if (key) {
-            process.env.GEMINI_API_KEY = key;
-            console.log(`[Gemini OCR] 🔑 GEMINI_API_KEY cargada con éxito desde ${p}`);
-            return key;
-          }
-        }
-      }
-    } catch {}
-  }
-
-  return undefined;
-}
-
 export async function POST(request: NextRequest) {
   try {
     // 1. Session verification
@@ -116,17 +74,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const apiKey = getGeminiApiKey();
-    if (!apiKey || !apiKey.trim()) {
-      console.log('[Gemini OCR] ⚠️ GEMINI_API_KEY no configurada. Activando fallback a OCR local.');
-      return NextResponse.json(
-        {
-          fallback: true,
-          message: 'GEMINI_API_KEY no configurada. Usando OCR local en el cliente.',
-        },
-        { status: 200 }
-      );
-    }
+    const ocrConfig = await getOcrConfig();
 
     const body = await request.json();
     const { image, targetLanguage = 'es', currency } = body;
@@ -292,138 +240,105 @@ Reglas críticas de extracción y cálculo de impuestos:
    Si no hay información sensible presente en la imagen, devuelve un array vacío: [].
 13. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
 
-    // 4. Call Google Gemini Vision API with expanded cascade and dynamic ListModels discovery
-    const candidateModels = [
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-exp',
-      'gemini-1.5-flash',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-8b',
-      'gemini-1.5-pro',
-      'gemini-1.5-pro-latest',
-    ];
-
+    // 4. Invocación al motor de visión configurado (Ollama por defecto o Gemini) con fallback automático
     let lastError = '';
     let rawContent = '';
-    let successfulModel = 'gemini-1.5-flash';
+    let successfulModel = '';
 
-    // Helper to send generateContent request to a specific model name
-    const tryGenerateWithModel = async (modelName: string): Promise<string | null> => {
-      try {
-        const cleanName = modelName.replace(/^models\//, '');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 35000);
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanName}:generateContent?key=${apiKey}`;
+    if (ocrConfig.provider === 'ollama') {
+      console.log(`[OCR] 🦙 Invocando motor Ollama / ScanBills (${ocrConfig.ollamaModel}) en ${ocrConfig.ollamaBaseUrl}...`);
+      const ollamaRes = await callOllamaVision({
+        imageBase64: base64Data,
+        mimeType,
+        prompt,
+        baseUrl: ocrConfig.ollamaBaseUrl,
+        model: ocrConfig.ollamaModel,
+      });
 
-        console.log(`[Gemini OCR] 📸 Probando modelo: ${cleanName}...`);
+      if (ollamaRes.success && ollamaRes.rawContent) {
+        rawContent = ollamaRes.rawContent;
+        successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
+      } else {
+        lastError = ollamaRes.error || 'Ollama no disponible';
+        console.warn('[OCR] ⚠️ Ollama no pudo procesar la solicitud:', lastError);
 
-        const geminiResponse = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: controller.signal,
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: prompt,
-                  },
-                  {
-                    inlineData: {
-                      mimeType: mimeType || 'image/jpeg',
-                      data: base64Data,
-                    },
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.1,
-            },
-          }),
+        // Fallback automático a Gemini si tiene clave API
+        if (ocrConfig.hasGeminiKey && ocrConfig.geminiApiKey) {
+          console.log('[OCR] 🔄 Activando fallback automático a Google Gemini...');
+          const geminiRes = await callGeminiVision({
+            imageBase64: base64Data,
+            mimeType,
+            prompt,
+            apiKey: ocrConfig.geminiApiKey,
+          });
+          if (geminiRes.success && geminiRes.rawContent) {
+            rawContent = geminiRes.rawContent;
+            successfulModel = geminiRes.modelUsed || 'gemini-1.5-flash';
+          } else {
+            lastError += ` | Fallback Gemini: ${geminiRes.error}`;
+          }
+        }
+      }
+    } else {
+      // Proveedor configurado: 'gemini'
+      if (ocrConfig.hasGeminiKey && ocrConfig.geminiApiKey) {
+        console.log('[OCR] ✨ Invocando motor Google Gemini Flash...');
+        const geminiRes = await callGeminiVision({
+          imageBase64: base64Data,
+          mimeType,
+          prompt,
+          apiKey: ocrConfig.geminiApiKey,
         });
 
-        clearTimeout(timeoutId);
-
-        if (geminiResponse.ok) {
-          const geminiData = await geminiResponse.json();
-          const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          if (text) {
-            successfulModel = cleanName;
-            return text;
-          }
+        if (geminiRes.success && geminiRes.rawContent) {
+          rawContent = geminiRes.rawContent;
+          successfulModel = geminiRes.modelUsed || 'gemini-1.5-flash';
         } else {
-          const errText = await geminiResponse.text().catch(() => '');
-          lastError = `HTTP ${geminiResponse.status} (${cleanName}): ${errText}`;
-          console.warn(`[Gemini OCR] ${cleanName} no disponible:`, lastError);
-        }
-      } catch (err: any) {
-        lastError = err.message || 'Error de conexión';
-      }
-      return null;
-    };
+          lastError = geminiRes.error || 'Gemini no disponible';
+          console.warn('[OCR] ⚠️ Gemini no pudo procesar la solicitud:', lastError);
 
-    // First attempt: try direct candidate models
-    for (const m of candidateModels) {
-      const resText = await tryGenerateWithModel(m);
-      if (resText) {
-        rawContent = resText;
-        break;
-      }
-    }
-
-    // Second attempt: if direct candidates fail, query Google ListModels API to discover available models for this key
-    if (!rawContent) {
-      try {
-        console.log('[Gemini OCR] 🔍 Consultando ModelService.ListModels para descubrir modelos disponibles...');
-        const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-        const listRes = await fetch(listUrl);
-        if (listRes.ok) {
-          const listData = await listRes.json();
-          // Filter ONLY multimodal vision Gemini models (exclude text-only gemma, embeddings, aqa)
-          const available = (listData.models || [])
-            .filter((m: any) =>
-              m.supportedGenerationMethods?.includes('generateContent') &&
-              m.name.toLowerCase().includes('gemini') &&
-              !m.name.toLowerCase().includes('gemma') &&
-              !m.name.toLowerCase().includes('embedding') &&
-              !m.name.toLowerCase().includes('aqa') &&
-              !m.name.toLowerCase().includes('imagen')
-            )
-            .map((m: any) => m.name)
-            .sort((a: string, b: string) => {
-              const aFlash = a.includes('flash') ? 0 : 1;
-              const bFlash = b.includes('flash') ? 0 : 1;
-              return aFlash - bFlash;
-            });
-
-          console.log('[Gemini OCR] 📋 Modelos Gemini visión disponibles:', available);
-
-          for (const discoveredModel of available) {
-            const resText = await tryGenerateWithModel(discoveredModel);
-            if (resText) {
-              rawContent = resText;
-              break;
-            }
+          // Fallback automático a Ollama
+          console.log('[OCR] 🔄 Activando fallback automático a Ollama...');
+          const ollamaRes = await callOllamaVision({
+            imageBase64: base64Data,
+            mimeType,
+            prompt,
+            baseUrl: ocrConfig.ollamaBaseUrl,
+            model: ocrConfig.ollamaModel,
+          });
+          if (ollamaRes.success && ollamaRes.rawContent) {
+            rawContent = ollamaRes.rawContent;
+            successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
+          } else {
+            lastError += ` | Fallback Ollama: ${ollamaRes.error}`;
           }
-        } else {
-          const listErr = await listRes.text().catch(() => '');
-          lastError = `ListModels HTTP ${listRes.status}: ${listErr}`;
-          console.warn('[Gemini OCR] Error en ListModels:', lastError);
         }
-      } catch (listExc: any) {
-        lastError = `ListModels Exception: ${listExc.message}`;
+      } else {
+        // Gemini seleccionado pero sin clave API -> Probar Ollama
+        console.log('[OCR] ⚠️ Gemini seleccionado pero GEMINI_API_KEY no configurada. Probando Ollama...');
+        const ollamaRes = await callOllamaVision({
+          imageBase64: base64Data,
+          mimeType,
+          prompt,
+          baseUrl: ocrConfig.ollamaBaseUrl,
+          model: ocrConfig.ollamaModel,
+        });
+        if (ollamaRes.success && ollamaRes.rawContent) {
+          rawContent = ollamaRes.rawContent;
+          successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
+        } else {
+          lastError = 'GEMINI_API_KEY no configurada y Ollama no disponible';
+        }
       }
     }
 
     if (!rawContent) {
+      console.warn(`[OCR] ⚠️ Ningún motor IA disponible (${lastError}). Activando fallback local.`);
       return NextResponse.json(
         {
           fallback: true,
-          error: `No se pudo procesar con Gemini: ${lastError}`,
+          error: `No se pudo procesar con IA: ${lastError}`,
+          message: 'Motores IA no disponibles. Usando OCR local en el cliente.',
         },
         { status: 200 }
       );
@@ -807,7 +722,7 @@ Reglas críticas de extracción y cálculo de impuestos:
       sensitiveBoxes: sanitizeSensitiveBoxes(parsed.sensitiveBoxes),
       translatedBoxes: sanitizeTranslatedBoxes(parsed.translatedBoxes),
       confidence: detectedAmount ? 0.98 : 0.7,
-      source: successfulModel || 'gemini-1.5-flash',
+      source: successfulModel || (ocrConfig.provider === 'ollama' ? `ollama-${ocrConfig.ollamaModel}` : 'gemini-1.5-flash'),
     };
 
     const audit = auditAndReconcileReceipt({

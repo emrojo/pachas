@@ -335,26 +335,29 @@ This document serves as the official and permanent registry for all **user requi
   - *Group Creation Modal* ([`CreateGroupModal.tsx`]): Dedicated notification toggle card enabling creators to customize push and in-app alert subscriptions directly during group setup.
   - *Dashboard Quick Join* ([`dashboard/page.tsx`]): Contextual notification opt-in checkbox presented dynamically when entering a group invitation code.
 
-### 📷 FR-31: Intelligent Receipt Vision Scanning with Google Gemini 1.5 Flash (Free Tier) & Local Fallback
-- **FR-31.1**: **Multimodal Vision AI Backend ([`/api/ocr/scan`](file:///d:/Projects/pachas/src/app/api/ocr/scan/route.ts))**:
-  - Integration with **Google Gemini 1.5 Flash** vision model via REST API (`GEMINI_API_KEY`), delivering ~99% parsing precision on real smartphone photos (thermal ink, skewed angles, wrinkles, shadows).
-  - Free Tier utilization (up to 15 requests per minute free via Google AI Studio).
-  - Guarantees structured JSON output `{ title, amount, amountFormatted, date, category, currency }`.
-- **FR-31.2**: **Resilient Hybrid Fallback Engine ([`receiptScanner.ts`](file:///d:/Projects/pachas/src/lib/ocr/receiptScanner.ts))**:
-  - Automatically queries the Gemini 1.5 Flash Vision endpoint first.
+### 📷 FR-31: Intelligent Receipt Vision Scanning with Ollama / ScanBills OCR (Default) & Google Gemini Flash (Toggle)
+- **FR-31.1**: **Dual Multimodal Vision AI Backend ([`/api/ocr/scan`](file:///d:/Projects/pachas/src/app/api/ocr/scan/route.ts))**:
+  - **Ollama / ScanBills OCR by Default**: Integration with the local autonomous OCR engine ([scan-bills-ocr](https://github.com/emrojo/scan-bills-ocr/)) powered by **Qwen2.5-VL** (`OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `SCANBILLS_OCR_URL`). Delivers ~99% parsing precision on real smartphone photos with 100% data privacy and zero API costs.
+  - **Google Gemini 1.5 Flash Vision Alternative**: Cloud-based fallback and alternative engine via REST API (`GEMINI_API_KEY`).
+  - **Dynamic Runtime Toggle**: Allows switching between Ollama and Gemini via environment variables (`OCR_PROVIDER = 'ollama' | 'gemini'`), database-backed settings (`public.app_settings`), and interactive UI in the Admin Panel (`/admin`).
+  - Guarantees standardized JSON output: `{ title, amount, amountFormatted, subtotal, tax_name, tax_rate, tax_amount, tax_included, items_price_includes_tax, tax_breakdown, items, date, category, locationName, latitude, longitude, mapsUrl, currency, sensitiveBoxes, translatedBoxes, confidence, source }`.
+- **FR-31.2**: **Resilient Multi-Tier Fallback Engine ([`receiptScanner.ts`](file:///d:/Projects/pachas/src/lib/ocr/receiptScanner.ts))**:
+  - Prioritizes the configured active provider (Ollama by default).
+  - Automatically falls back to the alternative engine (e.g. Gemini) if the primary engine is unavailable, and cascades to client-side [Tesseract.js](https://tesseract.projectnaptha.com/) if neither AI engine is reachable.
 - **FR-31.3**: **Hero Scan Card & 1-Click Autofill Banner ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
   - Prominent top action card with 📸 **"Photograph Receipt"** (`capture="environment"`) and 🖼️ **"Upload File"**.
-  - Visual badge indicating model source (`✨ Gemini Flash` vs `IA OCR`).
-  - 1-click **"Autofill Expense"** button filling title, amount, date, and category in seconds.
+  - Visual badge indicating model source (`🦙 Ollama Vision`, `✨ Gemini Flash`, or `IA OCR`).
+  - 1-click **"Autofill Expense"** button filling title, amount, date, items, taxes, and category in seconds.
 - **FR-31.4**: **Location & Precise Datetime Auto-Extraction ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
   - Automatically identifies physical store addresses (street, number, postal code, city) printed on receipts and populates the expense `locationName` field.
   - Automatically extracts exact timestamps (hours and minutes: `HH:mm`) and updates both date and time pickers.
 - **FR-31.5**: **Automatic Geocoding & Google Maps GPS Pinpoint Save ([`ExpenseForm.tsx`](file:///d:/Projects/pachas/src/components/expenses/ExpenseForm.tsx))**:
   - Automatically performs forward geocoding on the extracted address to resolve exact GPS coordinates (`latitude`, `longitude`) and generate Google Maps deep links (`https://www.google.com/maps?q=lat,lng`), saving the geographical location directly into the PostgreSQL database.
-- **FR-31.6**: **Strict Multimodal Vision Model Filtering & Fault-Tolerant JSON Parsing**:
-  - Dynamic discovery in `/api/ocr/scan` filters out text-only models (`gemma`, `embedding`, `aqa`), strictly prioritizing multimodal vision models (`gemini-2.0-flash`, `gemini-1.5-flash`, `gemini-1.5-flash-8b`, `gemini-1.5-pro`).
-  - Multi-tier fault-tolerant extraction engine supporting direct parsing, markdown code fences, trailing comma cleanup, single-quote correction, regex key-value extraction, and title sanitization (`cleanTitle`) eliminating prompt leaks (e.g. `6. **Currency**: "EUR"`).
-  - Extended client (45s) and server (35s) timeouts ensuring high-resolution mobile receipt photos process without premature aborts.
+- **FR-31.6**: **Interactive OCR Configuration & Subsystem Diagnostics ([`src/app/(dashboard)/admin/page.tsx`](file:///d:/Projects/pachas/src/app/(dashboard)/admin/page.tsx))**:
+  - Real-time engine switcher in Admin Health tab with ping latency diagnostics, server URL customization, model selector (`qwen2.5vl:7b`, `qwen2.5vl:3b`), and instant hot-reloading without server restarts.
+- **FR-31.7**: **Strict Multimodal Vision Model Filtering & Fault-Tolerant JSON Parsing**:
+  - Multi-tier fault-tolerant extraction engine supporting direct parsing, markdown code fences, trailing comma cleanup, single-quote correction, regex key-value extraction, and title sanitization (`cleanTitle`) eliminating prompt leaks.
+  - Extended client (45s) and server (60s) timeouts ensuring high-resolution mobile receipt photos process without premature aborts.
   - Client-side `rawText` fallback extractor ensuring no detected transaction data is lost.
 
 ### 💬 FR-32: In-Expense Discussion Threads & Comments
@@ -1096,7 +1099,7 @@ This document serves as the official and permanent registry for all **user requi
 - **NFR-12**: **Automated Database Schema Evolution**: Transactional, idempotent migrations ledger (`public._migrations`) preventing schema drift or race conditions.
 - **NFR-13**: **Immutable Artifact Traceability**: Every container image pushed to GHCR is immutably tagged with the full Git commit SHA (`sha-<commit>`) guaranteeing deterministic auditability.
 - **NFR-14**: **Disk Space & Log Retention Protection**: Docker container log limits (max-size 10MB/20MB) and post-deployment dangling image pruning preventing host volume exhaustion.
-- **NFR-15**: **External Services & API Resilience**: Multi-tier fallbacks for AI Vision (Gemini 1.5 Flash -> local Tesseract OCR), currency exchange rates (Frankfurter ECB -> local cache), and email dispatchers (SMTP, Resend, SendGrid -> simulated console logs).
+-**NFR-15**: **External Services & API Resilience**: Multi-tier fallbacks for AI Vision (Ollama Qwen2.5-VL -> Google Gemini 1.5 Flash -> local client Tesseract OCR), currency exchange rates (Frankfurter ECB -> local cache), and email dispatchers (SMTP, Resend, SendGrid -> simulated console logs). Zero-lock-in configuration via environment variables and runtime database persistence (`public.app_settings`).
 - **NFR-16**: **Continuous Integration & Delivery (CI/CD)**: Standard, automated industrial pipeline using GitHub Actions, GitHub Container Registry (GHCR), and SSH Deploy executing automated quality gates, container packaging, and zero-downtime server deployments.
 - **NFR-17**: **Itemized Financial Conservation Law**: The sum of all itemized line items must square exactly with the total expense amount down to the cent, guaranteeing that individual item allocations cannot inflate or deflate the total transaction value.
 
@@ -1242,6 +1245,7 @@ This document serves as the official and permanent registry for all **user requi
 | **13/09/2026** | 🍕 Added | **FR-60.7** | **Mobile-Dedicated Itemized Split Controls & Informational Tax Breakdown**: Non-editable informative tax display in `ItemizedSplitEditor.tsx` for `ReceiptValidationModal.tsx` (`isTaxReadOnly`), large consumer buttons (min 44px height, enlarged avatars, thumb-friendly steppers), increased typography and inputs, and shortened mobile status comments. |
 | **18/09/2026** | 👥 Added | **FR-77** | **Cross-Group Unclaimed Member Propagation & Multi-Group Unified Claiming**: Propagates `is_unclaimed = true` and generates unique `claim_token` when adding provisional members to new groups; unified multi-group claiming resolving all memberships and expenses across all groups in one step; retroactive database auto-healing (`23-unclaimed-cross-group-sync.sql`); known contacts badging in `InviteModal.tsx`; and unit test suite in `unclaimedMembers.test.ts`. |
 | **18/09/2026** | 📱 Added | **FR-78** | **Application-Wide Dedicated Mobile Architecture & Ergonomics Specification**: Built decoupled mobile components (`MobileGroupDetailView`, `MobileProfileView`, `MobileNotificationsView`, `MobileHeader`, `MobileBottomNav`) and desktop web components (`WebGroupDetailView`, `WebProfileView`, `WebNotificationsView`) dispatched adaptively via `useDevicePlatform`; enforced the 4 universal mobile rules: enlarged typography (`text-base` minimum), icon-only interactive controls (no text labels, 44-56px touch targets, haptics), visual hierarchy with infrequent tools collapsed by default in accordions, and persistent unified header and 3-icon bottom nav (`Receipt`, `Users`, `Settings`). |
+| **19/09/2026** | 🦙 Added | **FR-31 & NFR-15** | **Ollama / ScanBills OCR Autonomous VLM Integration & Dynamic Provider Switcher**: Integrated local vision-language service ([scan-bills-ocr](https://github.com/emrojo/scan-bills-ocr/) / `qwen2.5vl:7b`) as the primary default OCR provider (`OCR_PROVIDER=ollama`); retained full Google Gemini 1.5 Flash Vision compatibility (`OCR_PROVIDER=gemini`); created modular scanner clients (`ollamaScanner.ts`, `geminiScanner.ts`, `ocrConfig.ts`); added dynamic configuration endpoint (`/api/ocr/config`) and database-persisted settings (`public.app_settings`, migration 24); added interactive admin control panel with live health ping tests and model switcher; updated expense form badge (`🦙 Ollama Vision`); multi-tier graceful fallback chain (Ollama ➔ Gemini ➔ Tesseract); and unit tests. |
 
 
 

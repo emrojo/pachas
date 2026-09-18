@@ -3,6 +3,7 @@ import { verifyJwt } from '@/lib/auth/jwt';
 import { getDbPool, ensureGlobalSchema } from '@/lib/db/postgres';
 import { isServerAdmin } from '@/lib/auth/adminAuth';
 import { getAppVersionInfo } from '@/lib/version';
+import { getOcrConfig } from '@/lib/ocr/ocrConfig';
 
 async function checkAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string; email?: string }> {
   // 1. Check Bearer Authorization header or sb-access-token cookie
@@ -446,7 +447,7 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY);
+    const ocrConfig = await getOcrConfig();
     const hasVapidKeys = Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PRIVATE_KEY);
 
     const healthServices = [
@@ -458,11 +459,13 @@ export async function GET(request: NextRequest) {
         details: isDbConnected ? `Conexión activa (${dbLatencyMs}ms)` : 'No se pudo conectar al pool de PostgreSQL',
       },
       {
-        id: 'gemini_ocr',
-        name: 'Motor OCR Gemini Vision (IA)',
-        status: hasGeminiKey ? ('healthy' as const) : ('warning' as const),
+        id: 'ocr_vision',
+        name: `Motor OCR IA (${ocrConfig.provider === 'ollama' ? 'Ollama ' + ocrConfig.ollamaModel : 'Gemini Flash'})`,
+        status: (ocrConfig.provider === 'ollama' || ocrConfig.hasGeminiKey) ? ('healthy' as const) : ('warning' as const),
         latencyMs: 0,
-        details: hasGeminiKey ? 'API Key configurada (Gemini 1.5 Flash)' : 'API Key ausente (usa simulación local)',
+        details: ocrConfig.provider === 'ollama'
+          ? `Servidor Ollama configurado en ${ocrConfig.ollamaBaseUrl} (Modelo: ${ocrConfig.ollamaModel})`
+          : (ocrConfig.hasGeminiKey ? 'Clave API Gemini configurada' : 'Gemini sin clave API'),
       },
       {
         id: 'webpush',
@@ -491,12 +494,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (!hasGeminiKey) {
+    if (ocrConfig.provider === 'gemini' && !ocrConfig.hasGeminiKey) {
       anomalies.push({
         id: 'ocr_key_missing',
         level: 'warning',
         title: 'API Key de Gemini AI no configurada',
-        message: 'El escaneo inteligente de tickets está funcionando en modo fallback/simulación.',
+        message: 'El motor Gemini está activo pero sin GEMINI_API_KEY. Usará Ollama o simulación local.',
       });
     }
 

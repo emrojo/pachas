@@ -49,6 +49,15 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - POSTGRES_HOST=${POSTGRES_HOST:-postgres_db}
       - DATABASE_URL=${DATABASE_URL:-postgres://${POSTGRES_USER:-pachas_admin}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres_db}:5432/${POSTGRES_DB:-pachas}}
+      # Motor OCR de Visión IA (Ollama / ScanBills por defecto, Gemini como alternativa)
+      # NOTA IMPORTANTE RED DOCKER (proxy-network):
+      # - La comunicación inter-contenedor usa el puerto interno del servicio web (8000), no el del host (8030).
+      # - Si usas CPU (scan-bills-ocr/docker-compose.cpu.yml): usa scanbills-web-cpu:8000 y qwen2.5vl:3b
+      # - Si usas GPU (scan-bills-ocr/docker-compose.yml): usa scanbills-web:8000 y qwen2.5vl:7b
+      - OCR_PROVIDER=${OCR_PROVIDER:-ollama}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://scanbills-ollama-cpu:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5vl:3b}
+      - SCANBILLS_OCR_URL=${SCANBILLS_OCR_URL:-http://scanbills-web-cpu:8000}
     # depends_on:
     #   postgres:
     #     condition: service_healthy

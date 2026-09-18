@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth/jwt';
 import { getDbPool } from '@/lib/db/postgres';
 import { isServerAdmin } from '@/lib/auth/adminAuth';
+import { getOcrConfig } from '@/lib/ocr/ocrConfig';
+import { checkOllamaHealth } from '@/lib/ocr/ollamaScanner';
 
 async function checkAdminAuth(request: NextRequest): Promise<boolean> {
   const authHeader = request.headers.get('authorization');
@@ -106,14 +108,26 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 3. Probe Gemini AI OCR Config
-    const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY);
+    // 3. Probe OCR Vision Engines (Ollama & Gemini)
+    const ocrConfig = await getOcrConfig();
+    const ollamaHealth = await checkOllamaHealth(ocrConfig.ollamaBaseUrl);
+
+    results.push({
+      id: 'ollama_ocr',
+      name: `Motor OCR Ollama (${ocrConfig.ollamaModel}) [${ocrConfig.provider === 'ollama' ? 'ACTIVO' : 'DISPONIBLE'}]`,
+      status: ollamaHealth.online ? 'healthy' : (ocrConfig.provider === 'ollama' ? 'warning' : 'healthy'),
+      latencyMs: ollamaHealth.latencyMs,
+      details: ollamaHealth.online
+        ? `Servidor Ollama operativo en ${ocrConfig.ollamaBaseUrl} (${ollamaHealth.models.length} modelos detectados)`
+        : `Servidor Ollama no responde en ${ocrConfig.ollamaBaseUrl} (${ollamaHealth.error || 'Desconectado'})`,
+    });
+
     results.push({
       id: 'gemini_ocr',
-      name: 'Motor OCR Gemini Vision (IA)',
-      status: hasGeminiKey ? 'healthy' : 'warning',
+      name: `Motor OCR Gemini Vision (IA) [${ocrConfig.provider === 'gemini' ? 'ACTIVO' : 'DISPONIBLE'}]`,
+      status: ocrConfig.hasGeminiKey ? 'healthy' : (ocrConfig.provider === 'gemini' ? 'warning' : 'healthy'),
       latencyMs: 0,
-      details: hasGeminiKey
+      details: ocrConfig.hasGeminiKey
         ? 'Clave API Gemini 1.5 Flash detectada y configurada en el entorno'
         : 'No se ha configurado GEMINI_API_KEY (funciona en modo simulación/fallback)',
     });

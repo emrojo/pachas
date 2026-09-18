@@ -155,5 +155,32 @@ describe('Intelligent Receipt Vision Scanner', () => {
     expect(result.items?.[1].tax_rate).toBe(21);
     expect(result.items_price_includes_tax).toBe(true);
   });
+
+  it('correctly parses and preserves Ollama VLM scanned result source', async () => {
+    const mockOllamaResponse = {
+      success: true,
+      data: {
+        title: 'Café Ollama Qwen',
+        amount: 8.50,
+        amountFormatted: '8,50',
+        date: '2026-09-19T10:30',
+        category: 'food',
+        confidence: 0.98,
+        source: 'ollama-qwen2.5vl:7b',
+      },
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockOllamaResponse,
+    });
+
+    const result = await scanReceipt('data:image/jpeg;base64,sample...');
+
+    expect(result.title).toBe('Café Ollama Qwen');
+    expect(result.amount).toBe(8.50);
+    expect(result.source).toBe('ollama-qwen2.5vl:7b');
+    expect(result.confidence).toBe(0.98);
+  });
 });
 
