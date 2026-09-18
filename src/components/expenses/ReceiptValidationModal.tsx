@@ -622,6 +622,28 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
       maxWidth="xl"
     >
       <form onSubmit={handleConfirmAndCreate} className="space-y-5">
+        {/* Distintivo de Motor de IA que procesó la factura */}
+        {pendingScan?.scanned_data && (
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
+            <span className="text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Motor de extracción utilizado:</span>
+            </span>
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold shadow-2xs ${
+              pendingScan.scanned_data.fallbackUsed
+                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+            }`}>
+              {pendingScan.scanned_data.providerUsed === 'gemini' || pendingScan.scanned_data.source?.includes('gemini')
+                ? '✨ Google Gemini Flash'
+                : pendingScan.scanned_data.providerUsed === 'ollama' || pendingScan.scanned_data.source?.includes('ollama')
+                ? `🦙 Ollama Vision (${pendingScan.scanned_data.modelUsed || '3b'})`
+                : '📄 Tesseract OCR'}
+              {pendingScan.scanned_data.fallbackUsed && ' (Fallback)'}
+            </span>
+          </div>
+        )}
+
         {/* DISCLAIMER DE PRIVACIDAD & RESPONSABILIDAD */}
         <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1.5 shadow-xs">
           <div className="flex items-center gap-2 font-black text-xs sm:text-sm uppercase tracking-wider text-amber-700 dark:text-amber-400">

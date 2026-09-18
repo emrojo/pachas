@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from '@/context/LanguageContext';
+import { usePachas } from '@/context/PachasContext';
 import {
   Paintbrush,
   Square,
@@ -38,6 +39,7 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
   isMobileView,
 }) => {
   const { t } = useTranslation();
+  const { ocrConfig } = usePachas();
 
   const [isMobile, setIsMobile] = useState(Boolean(isMobileView));
 
@@ -764,16 +766,25 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
         </div>
 
         {/* Bottom Actions */}
-        <div className={`flex items-center justify-between gap-3 ${isMobile ? 'pt-3' : 'pt-2'}`}>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={isProcessing}
-            className={isMobile ? 'py-3.5 px-5 text-sm sm:text-base font-bold rounded-2xl' : undefined}
-          >
-            {t('common.cancel')}
-          </Button>
+        <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 ${isMobile ? 'pt-3' : 'pt-2'}`}>
+          <div className="flex items-center justify-between sm:justify-start gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isProcessing}
+              className={isMobile ? 'py-3.5 px-5 text-sm sm:text-base font-bold rounded-2xl' : undefined}
+            >
+              {t('common.cancel')}
+            </Button>
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-900 border border-slate-800 text-slate-300 shadow-2xs"
+              title="Motor activo para la extracción con IA"
+            >
+              <span className="text-slate-500 font-normal">Motor:</span>
+              <span>{ocrConfig?.provider === 'gemini' ? '✨ Gemini Flash' : `🦙 Ollama (${ocrConfig?.ollamaModel || '3b'})`}</span>
+            </span>
+          </div>
 
           <Button
             type="button"
@@ -785,7 +796,9 @@ export const ReceiptRedactionModal: React.FC<ReceiptRedactionModalProps> = ({
             }`}
           >
             <Sparkles className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
-            <span>{t('expenses.processInBackground')} 🚀</span>
+            <span>
+              {ocrConfig?.provider === 'gemini' ? 'Escanear con Gemini Flash' : 'Escanear con Ollama Vision'} 🚀
+            </span>
           </Button>
         </div>
       </div>

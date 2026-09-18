@@ -180,7 +180,39 @@ describe('Intelligent Receipt Vision Scanner', () => {
     expect(result.title).toBe('Café Ollama Qwen');
     expect(result.amount).toBe(8.50);
     expect(result.source).toBe('ollama-qwen2.5vl:7b');
+    expect(result.providerUsed).toBe('ollama');
     expect(result.confidence).toBe(0.98);
+  });
+
+  it('correctly propagates providerUsed and fallbackUsed when fallback occurred', async () => {
+    const mockFallbackResponse = {
+      success: true,
+      data: {
+        title: 'Restaurante Fallback',
+        amount: 35.00,
+        amountFormatted: '35,00',
+        confidence: 0.98,
+        source: 'gemini-1.5-flash',
+        providerUsed: 'gemini',
+        requestedProvider: 'ollama',
+        fallbackUsed: true,
+        fallbackReason: 'Ollama no respondió',
+        modelUsed: 'gemini-1.5-flash',
+      },
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockFallbackResponse,
+    });
+
+    const result = await scanReceipt('data:image/jpeg;base64,sample...');
+
+    expect(result.providerUsed).toBe('gemini');
+    expect(result.requestedProvider).toBe('ollama');
+    expect(result.fallbackUsed).toBe(true);
+    expect(result.fallbackReason).toBe('Ollama no respondió');
+    expect(result.modelUsed).toBe('gemini-1.5-flash');
   });
 });
 

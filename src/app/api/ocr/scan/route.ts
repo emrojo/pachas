@@ -50,6 +50,11 @@ export interface VisionScanResult {
   items?: ScannedLineItem[];
   confidence: number;
   source: string;
+  providerUsed?: 'ollama' | 'gemini';
+  requestedProvider?: 'ollama' | 'gemini';
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
+  modelUsed?: string;
   audit?: ReceiptAuditReport;
 }
 
@@ -244,6 +249,9 @@ Reglas críticas de extracción y cálculo de impuestos:
     let lastError = '';
     let rawContent = '';
     let successfulModel = '';
+    let providerUsed: 'ollama' | 'gemini' = ocrConfig.provider;
+    let fallbackUsed = false;
+    let fallbackReason = '';
 
     if (ocrConfig.provider === 'ollama') {
       console.log(`[OCR] 🦙 Invocando motor Ollama / ScanBills (${ocrConfig.ollamaModel}) en ${ocrConfig.ollamaBaseUrl}...`);
@@ -257,6 +265,7 @@ Reglas críticas de extracción y cálculo de impuestos:
 
       if (ollamaRes.success && ollamaRes.rawContent) {
         rawContent = ollamaRes.rawContent;
+        providerUsed = 'ollama';
         successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
       } else {
         lastError = ollamaRes.error || 'Ollama no disponible';
@@ -273,6 +282,9 @@ Reglas críticas de extracción y cálculo de impuestos:
           });
           if (geminiRes.success && geminiRes.rawContent) {
             rawContent = geminiRes.rawContent;
+            providerUsed = 'gemini';
+            fallbackUsed = true;
+            fallbackReason = `Ollama no respondió (${lastError})`;
             successfulModel = geminiRes.modelUsed || 'gemini-1.5-flash';
           } else {
             lastError += ` | Fallback Gemini: ${geminiRes.error}`;
@@ -292,6 +304,7 @@ Reglas críticas de extracción y cálculo de impuestos:
 
         if (geminiRes.success && geminiRes.rawContent) {
           rawContent = geminiRes.rawContent;
+          providerUsed = 'gemini';
           successfulModel = geminiRes.modelUsed || 'gemini-1.5-flash';
         } else {
           lastError = geminiRes.error || 'Gemini no disponible';
@@ -308,6 +321,9 @@ Reglas críticas de extracción y cálculo de impuestos:
           });
           if (ollamaRes.success && ollamaRes.rawContent) {
             rawContent = ollamaRes.rawContent;
+            providerUsed = 'ollama';
+            fallbackUsed = true;
+            fallbackReason = `Gemini no respondió (${lastError})`;
             successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
           } else {
             lastError += ` | Fallback Ollama: ${ollamaRes.error}`;
@@ -325,6 +341,9 @@ Reglas críticas de extracción y cálculo de impuestos:
         });
         if (ollamaRes.success && ollamaRes.rawContent) {
           rawContent = ollamaRes.rawContent;
+          providerUsed = 'ollama';
+          fallbackUsed = true;
+          fallbackReason = 'GEMINI_API_KEY no configurada';
           successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
         } else {
           lastError = 'GEMINI_API_KEY no configurada y Ollama no disponible';
@@ -723,6 +742,11 @@ Reglas críticas de extracción y cálculo de impuestos:
       translatedBoxes: sanitizeTranslatedBoxes(parsed.translatedBoxes),
       confidence: detectedAmount ? 0.98 : 0.7,
       source: successfulModel || (ocrConfig.provider === 'ollama' ? `ollama-${ocrConfig.ollamaModel}` : 'gemini-1.5-flash'),
+      providerUsed,
+      requestedProvider: ocrConfig.provider,
+      fallbackUsed,
+      fallbackReason: fallbackUsed ? fallbackReason : undefined,
+      modelUsed: successfulModel || undefined,
     };
 
     const audit = auditAndReconcileReceipt({

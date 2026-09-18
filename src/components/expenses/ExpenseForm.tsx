@@ -170,6 +170,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     queueReceiptScan,
     addNotification,
     isGroupAdmin,
+    ocrConfig,
   } = usePachas();
   const { t, language } = useTranslation();
 
@@ -1585,8 +1586,24 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   // 5. Receipt Section
   const renderReceiptSection = () => {
+    const isGeminiActive = ocrConfig?.provider === 'gemini';
+    const activeModelName = isGeminiActive ? 'Gemini 1.5 Flash' : (ocrConfig?.ollamaModel || 'qwen2.5vl:3b');
     const receiptContent = (
       <div>
+        {!isReadOnly && (
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+              {t('expenses.receiptPhoto')}
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs"
+              title={isGeminiActive ? 'Motor OCR en la nube: Google Gemini' : `Motor OCR local y privado: Ollama (${activeModelName})`}
+            >
+              <span>{isGeminiActive ? '✨' : '🦙'}</span>
+              <span>{isGeminiActive ? 'Gemini Flash (Nube)' : `Ollama Vision (${activeModelName})`}</span>
+            </span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           {!isReadOnly ? (
             <>
@@ -2074,16 +2091,29 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
         {/* Banner de Escaneo OCR en progreso */}
         {isScanningReceipt && (
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-xs animate-pulse">
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-              <ScanLine className="w-4 h-4 animate-spin text-emerald-600" />
+          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800/60 text-xs shadow-xs animate-pulse">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-2xs">
+              {ocrConfig?.provider === 'gemini' ? (
+                <Sparkles className="w-5 h-5 animate-spin text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <span className="text-xl animate-bounce">🦙</span>
+              )}
             </div>
-            <div>
-              <p className="font-bold text-emerald-900 dark:text-emerald-200">
-                {t('ocr.scanningReceipt')}
-              </p>
-              <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
-                {t('ocr.scanningReceiptSubtitle')}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-bold text-emerald-950 dark:text-emerald-100">
+                  {ocrConfig?.provider === 'gemini'
+                    ? 'Escaneando ticket con Google Gemini Flash...'
+                    : `Escaneando ticket con Ollama Vision (${ocrConfig?.ollamaModel || 'qwen2.5vl:3b'})...`}
+                </p>
+                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-emerald-200/80 dark:bg-emerald-800/80 text-emerald-900 dark:text-emerald-100">
+                  {ocrConfig?.provider === 'gemini' ? '✨ Nube' : '🦙 Local'}
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                {ocrConfig?.provider === 'gemini'
+                  ? 'Enviando petición a la API de Gemini 1.5 Flash Vision en Google AI...'
+                  : 'Procesando imagen localmente en el servidor de Ollama / ScanBills...'}
               </p>
             </div>
           </div>
@@ -2097,18 +2127,32 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <Sparkles className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-emerald-950 dark:text-emerald-100">
                     {t('ocr.detectedTitle')}
                   </span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200 flex items-center gap-1">
-                    {scannedData.source?.includes('gemini')
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs ${
+                    scannedData.fallbackUsed
+                      ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                      : 'bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200'
+                  }`}>
+                    {scannedData.providerUsed === 'gemini' || scannedData.source?.includes('gemini')
                       ? '✨ Gemini Flash'
-                      : (scannedData.source?.includes('ollama') || scannedData.source?.includes('qwen'))
-                      ? '🦙 Ollama Vision'
-                      : 'IA OCR'}
+                      : (scannedData.providerUsed === 'ollama' || scannedData.source?.includes('ollama') || scannedData.source?.includes('qwen'))
+                      ? `🦙 Ollama Vision (${scannedData.modelUsed || ocrConfig?.ollamaModel || '3b'})`
+                      : '📄 Tesseract OCR'}
+                    {scannedData.fallbackUsed && (
+                      <span className="font-semibold text-amber-800 dark:text-amber-300" title={scannedData.fallbackReason}>
+                        (Fallback)
+                      </span>
+                    )}
                   </span>
                 </div>
+                {scannedData.fallbackUsed && scannedData.fallbackReason && (
+                  <p className="text-[10px] text-amber-700 dark:text-amber-300/90 mt-0.5">
+                    ℹ️ Motor de respaldo activado: {scannedData.fallbackReason}
+                  </p>
+                )}
                 <div className="text-emerald-800 dark:text-emerald-300 text-[11px] mt-0.5 flex flex-wrap gap-x-2">
                   {scannedData.amountFormatted && (
                     <span className="font-bold">💰 {scannedData.amountFormatted} {currency}</span>

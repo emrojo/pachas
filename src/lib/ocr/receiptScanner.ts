@@ -58,6 +58,11 @@ export interface ScannedReceiptData {
   items?: ScannedLineItem[];
   confidence: number;
   source?: string;
+  providerUsed?: 'ollama' | 'gemini' | 'tesseract' | string;
+  requestedProvider?: 'ollama' | 'gemini' | string;
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
+  modelUsed?: string;
   audit?: ReceiptAuditReport;
 }
 
@@ -593,6 +598,11 @@ export async function scanReceipt(
           receiptTranslatedUrl,
           confidence: d.confidence || 0.98,
           source: d.source || 'gemini-1.5-flash',
+          providerUsed: d.providerUsed || (d.source?.includes('ollama') ? 'ollama' : 'gemini'),
+          requestedProvider: d.requestedProvider,
+          fallbackUsed: d.fallbackUsed,
+          fallbackReason: d.fallbackReason,
+          modelUsed: d.modelUsed,
           audit: d.audit,
         };
       } else if (json.fallback && json.rawText) {
@@ -634,12 +644,18 @@ export async function scanReceipt(
     return {
       ...parsed,
       source: 'tesseract-ocr',
+      providerUsed: 'tesseract',
+      fallbackUsed: true,
+      fallbackReason: 'Sin conexión a motores de visión IA',
     };
   } catch (err) {
     console.warn('[ReceiptScanner] Local OCR fallback error:', err);
     return {
       ...parseReceiptText(''),
       source: 'tesseract-ocr',
+      providerUsed: 'tesseract',
+      fallbackUsed: true,
+      fallbackReason: 'Error en OCR local',
     };
   }
 }

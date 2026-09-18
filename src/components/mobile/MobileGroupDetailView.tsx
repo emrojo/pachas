@@ -82,6 +82,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
     freezeGroup,
     unfreezeGroup,
     addNotification,
+    ocrConfig,
   } = usePachas();
   const { t } = useTranslation();
 
@@ -913,10 +914,11 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
           onConfirmRedaction={async (censoredDataUrl) => {
             await queueReceiptScan(group.id, censoredDataUrl);
             setRedactionImage(null);
+            const engineName = ocrConfig?.provider === 'gemini' ? 'Google Gemini' : 'Ollama Vision';
             addNotification({
               user_id: currentUser?.id || '',
               type: 'receipt_pending',
-              title: '⏳ Procesando factura con IA...',
+              title: `⏳ Procesando factura con ${engineName}...`,
               message: 'Analizando conceptos e importes en segundo plano.',
               group_id: group.id,
             });

@@ -228,6 +228,12 @@ interface PachasContextType {
   markSupportMessagesRead: (targetUserId?: string) => Promise<void>;
   banUser: (userId: string, reason?: string) => Promise<boolean>;
   unbanUser: (userId: string) => Promise<boolean>;
+  ocrConfig: {
+    provider: 'ollama' | 'gemini';
+    ollamaModel: string;
+    hasGeminiKey: boolean;
+  } | null;
+  refreshOcrConfig: () => Promise<void>;
 }
 
 
@@ -366,15 +372,33 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return [];
   });
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        safeSetLocalStorage('pachas_pending_scans_v1', JSON.stringify(pendingReceiptScans));
-      } catch (err) {
-        console.warn('Error saving pending scans to storage:', err);
+  const [ocrConfig, setOcrConfig] = useState<{
+    provider: 'ollama' | 'gemini';
+    ollamaModel: string;
+    hasGeminiKey: boolean;
+  } | null>(null);
+
+  const refreshOcrConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ocr/config');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setOcrConfig({
+            provider: json.data.provider || 'ollama',
+            ollamaModel: json.data.ollamaModel || 'qwen2.5vl:3b',
+            hasGeminiKey: Boolean(json.data.hasGeminiKey),
+          });
+        }
       }
+    } catch (err) {
+      console.warn('Error loading OCR config in PachasContext:', err);
     }
-  }, [pendingReceiptScans]);
+  }, []);
+
+  useEffect(() => {
+    refreshOcrConfig();
+  }, [refreshOcrConfig]);
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
     if (typeof window !== 'undefined') {
@@ -2525,9 +2549,14 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
 
         // 1. Emit in-app notification for user to validate and approve the result
+        const engineLabel = scannedData?.providerUsed === 'ollama'
+          ? '🦙 Ollama'
+          : scannedData?.providerUsed === 'gemini'
+          ? '✨ Gemini'
+          : 'IA';
         const notifTitle = hasDefinitiveData
-          ? `🧾 Factura lista para validar: ${scannedData?.title || 'Nuevo gasto'}`
-          : '🧾 Factura lista para validar';
+          ? `🧾 Factura lista (${engineLabel}): ${scannedData?.title || 'Nuevo gasto'}`
+          : `🧾 Factura lista (${engineLabel})`;
         const notifBody = hasDefinitiveData
           ? `Importe: ${scannedData?.amountFormatted || (typeof scannedData?.amount === 'number' ? `${scannedData.amount} €` : '')}. Pulsa aquí para revisar los datos y confirmar el gasto en el grupo.`
           : 'La IA ha procesado tu factura. Pulsa aquí para revisar los datos y confirmar el gasto.';
@@ -4611,6 +4640,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         markSupportMessagesRead,
         banUser,
         unbanUser,
+        ocrConfig,
+        refreshOcrConfig,
       }}
     >
 
