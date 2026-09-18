@@ -1,10 +1,17 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
 import 'leaflet/dist/leaflet.css';
 import './globals.css';
 import { PachasProvider } from '@/context/PachasContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { CookieConsentBanner } from '@/components/legal/CookieConsentBanner';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
+
+const inter = Inter({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-sans',
+});
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -48,9 +55,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="scroll-smooth" suppressHydrationWarning>
+    <html lang="es" className={`scroll-smooth ${inter.variable}`} suppressHydrationWarning>
+      <head>
+        <meta charSet="utf-8" />
+      </head>
       <body
-        className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-emerald-500 selection:text-white"
+        className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-emerald-500 selection:text-white ${inter.className}`}
         suppressHydrationWarning
       >
         <LanguageProvider>

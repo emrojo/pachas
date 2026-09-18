@@ -35,7 +35,7 @@ function getConvertedAmount(exp: Expense, baseCurrency: string): number {
 
 export function exportGroupToCSV(group: Group, expenses: Expense[], balances: MemberBalance[]) {
   const baseCurrency = group.base_currency || 'EUR';
-  let csvContent = 'data:text/csv;charset=utf-8,\uFEFF'; // UTF-8 BOM for Excel
+  let csvContent = '';
 
   // 1. Group info
   csvContent += `RESUMEN DE GASTOS - ${group.name}\n`;
@@ -89,13 +89,15 @@ export function exportGroupToCSV(group: Group, expenses: Expense[], balances: Me
     csvContent += `"${b.profile.full_name}";"${formatNumber(b.total_paid)}";"${formatNumber(b.total_owed)}";"${formatNumber(b.net_balance)}"\n`;
   }
 
-  const encodedUri = encodeURI(csvContent);
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
+  link.setAttribute('href', url);
   link.setAttribute('download', `Pachas_${group.name.replace(/\s+/g, '_')}_gastos.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 export async function exportGroupToPDF(

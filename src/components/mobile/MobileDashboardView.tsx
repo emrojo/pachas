@@ -261,7 +261,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                             : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold'
                         }`}
                       >
-                        <span className="text-lg shrink-0">{g.icon_emoji || '­ƒÅû´©Å'}</span>
+                        <span className="text-lg shrink-0">{g.icon_emoji || '🏕️'}</span>
                         <span className="truncate flex-1">{g.name}</span>
                         {g.is_closed ? (
                           <Lock className="w-4 h-4 text-slate-400 shrink-0" />
@@ -390,7 +390,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                         className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium text-base"
                       >
                         <LogOut className="w-4.5 h-4.5" />
-                        <span>{t('nav.logout') || 'Cerrar sesi├│n'}</span>
+                        <span>{t('nav.logout') || 'Cerrar sesión'}</span>
                       </button>
                     </div>
                   </div>
@@ -429,7 +429,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                     ) : (
                       <span className="inline-flex items-center gap-1.5 bg-white/15 text-emerald-50 font-bold text-base px-3.5 py-1.5 rounded-xl">
                         <CheckCircle2 className="w-4 h-4 text-emerald-200" />
-                        {t('dashboard.userSettled') || 'Al d├¡a'}
+                        {t('dashboard.userSettled') || 'Al día'}
                       </span>
                     )}
                   </div>
@@ -438,7 +438,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
             </div>
           ) : (
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-center text-base text-slate-500 font-medium">
-              {t('dashboard.noGroupsTitle') || 'Crea o ├║nete a un grupo para empezar.'}
+              {t('dashboard.noGroupsTitle') || 'Crea o únete a un grupo para empezar.'}
             </div>
           )}
         </header>
@@ -474,7 +474,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                 <Plus className="w-5 h-5 text-emerald-600 stroke-[2.5]" />
                 Registrar Gasto
               </span>
-              <span className="text-sm text-slate-400 font-medium">Elige una opci├│n</span>
+              <span className="text-sm text-slate-400 font-medium">Elige una opción</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2.5">
@@ -482,8 +482,8 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                 type="button"
                 disabled={!activeGroup}
                 onClick={() => cameraInputRef.current?.click()}
-                title={t('dashboard.scanReceiptCamera') || 'Escanear factura con la c├ímara'}
-                aria-label={t('dashboard.scanReceiptCamera') || 'Escanear factura con la c├ímara'}
+                title={t('dashboard.scanReceiptCamera') || 'Escanear factura con la cámara'}
+                aria-label={t('dashboard.scanReceiptCamera') || 'Escanear factura con la cámara'}
                 className="h-20 sm:h-24 flex items-center justify-center rounded-2xl sm:rounded-3xl bg-gradient-to-b from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 text-white shadow-md shadow-emerald-500/25 active:scale-95 transition-all hover:brightness-105 group cursor-pointer disabled:opacity-50"
               >
                 <Camera className="w-10 h-10 sm:w-11 sm:h-11 group-hover:scale-110 transition-transform stroke-[2.2]" />
@@ -504,8 +504,8 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                 type="button"
                 disabled={!activeGroup}
                 onClick={handleOpenManualExpense}
-                title={t('dashboard.addExpenseManual') || 'A├▒adir gasto manualmente'}
-                aria-label={t('dashboard.addExpenseManual') || 'A├▒adir gasto manualmente'}
+                title={t('dashboard.addExpenseManual') || 'Añadir gasto manualmente'}
+                aria-label={t('dashboard.addExpenseManual') || 'Añadir gasto manualmente'}
                 className="h-20 sm:h-24 flex items-center justify-center rounded-2xl sm:rounded-3xl bg-gradient-to-b from-slate-700 to-slate-800 dark:from-slate-700 dark:to-slate-800 text-white shadow-md shadow-slate-700/25 active:scale-95 transition-all hover:brightness-105 group cursor-pointer disabled:opacity-50"
               >
                 <Plus className="w-10 h-10 sm:w-11 sm:h-11 group-hover:scale-110 transition-transform stroke-[2.5]" />
@@ -531,7 +531,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
 
               {expenses.length === 0 ? (
                 <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-base font-medium">
-                  {t('dashboard.noExpensesInGroup') || 'A├║n no hay gastos registrados en este grupo.'}
+                  {t('dashboard.noExpensesInGroup') || 'Aún no hay gastos registrados en este grupo.'}
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -557,7 +557,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                                 {exp.title}
                               </span>
                               <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
+                                className={`text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shrink-0 ${
                                   paymentInfo.status === 'PAID'
                                     ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-700/80'
                                     : paymentInfo.status === 'PARTIAL'
@@ -565,7 +565,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80'
                                 }`}
                               >
-                                <span>{paymentInfo.status === 'PAID' ? 'Ô£à' : paymentInfo.status === 'PARTIAL' ? '­ƒöä' : 'ÔÅ│'}</span>
+                                <span>{paymentInfo.status === 'PAID' ? '✅' : paymentInfo.status === 'PARTIAL' ? '🔄' : '⏳'}</span>
                                 <span>
                                   {paymentInfo.status === 'PAID'
                                     ? t('expenses.statusCompleted')
@@ -576,7 +576,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                               </span>
                             </div>
                             <span className="text-sm text-slate-500 dark:text-slate-400 truncate block mt-0.5">
-                              {formatDate(exp.expense_date || exp.created_at)} ÔÇó Pag├│ <strong className="text-slate-700 dark:text-slate-200 font-bold">{payerName}</strong>
+                              {formatDate(exp.expense_date || exp.created_at)} • {t('expenses.paidBy') || 'Pagó'} <strong className="text-slate-700 dark:text-slate-200 font-bold">{payerName}</strong>
                             </span>
                           </div>
                         </div>
@@ -586,7 +586,9 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                             {formatMoney(exp.amount, activeGroup?.base_currency || 'EUR')}
                           </div>
                           {exp.split_type === 'ITEMIZED' && (
-                            <span className="text-xs uppercase font-bold text-emerald-600 block mt-0.5">Por ├¡tems</span>
+                            <span className="text-sm uppercase font-bold text-emerald-600 block mt-0.5">
+                              {t('expenses.itemizedSplit') || 'Por ítems'}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -643,7 +645,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                           <img src={g.cover_image_url} alt="" className="w-12 h-12 rounded-2xl object-cover shrink-0" />
                         ) : (
                           <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-2xl shrink-0">
-                            {g.icon_emoji || '­ƒÅû´©Å'}
+                            {g.icon_emoji || '🏕️'}
                           </div>
                         )}
                         <div className="min-w-0">
@@ -651,7 +653,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                             {g.name}
                           </span>
                           <span className="text-sm text-slate-500 dark:text-slate-400 block mt-0.5">
-                            {gMembers.length} miembros ÔÇó {g.base_currency}
+                            {gMembers.length} miembros • {g.base_currency}
                           </span>
                         </div>
                       </div>
@@ -688,8 +690,12 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                         <QrCode className="w-6 h-6" />
                       </div>
                       <div>
-                        <div className="text-base font-bold text-slate-900 dark:text-white">Invitar Amigos</div>
-                        <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Enlace o c├│digo QR de acceso</div>
+                        <div className="text-base font-bold text-slate-900 dark:text-white">
+                          {t('groups.inviteFriends') || 'Invitar Amigos'}
+                        </div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                          {t('groups.inviteSubtitle') || 'Enlace o código QR de acceso'}
+                        </div>
                       </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-slate-300 shrink-0" />
@@ -709,7 +715,7 @@ export function MobileDashboardPage({ onSwitchToWeb }: MobileDashboardViewProps 
                             className="p-3 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-between text-base cursor-pointer hover:shadow-xs border border-amber-100 dark:border-amber-900/40"
                           >
                             <span className="text-sm font-medium truncate">
-                              <strong className="font-bold">{d.from_profile.full_name}</strong> Ô×ö {d.to_profile.full_name}
+                              <strong className="font-bold">{d.from_profile.full_name}</strong> → {d.to_profile.full_name}
                             </span>
                             <span className="font-black text-emerald-600 text-base shrink-0 ml-2">
                               {formatMoney(d.amount, activeGroup.base_currency)}

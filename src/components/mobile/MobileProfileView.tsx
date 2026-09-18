@@ -308,7 +308,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
               {currentUser.email}
             </p>
             {isCurrentUserAdmin && (
-              <span className="inline-block mt-2 text-xs uppercase font-extrabold px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+              <span className="inline-block mt-2 text-sm uppercase font-extrabold px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
                 {t('common.admin')}
               </span>
             )}
@@ -509,12 +509,12 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
                             {u.full_name}
                           </span>
                           {isCustom && (
-                            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                            <span className="text-xs uppercase font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
                               Creado
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-slate-400 truncate block">
+                        <span className="text-sm text-slate-500 dark:text-slate-400 truncate block mt-0.5">
                           {u.email}
                         </span>
                       </div>
@@ -590,7 +590,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
                       {t('notifications.deviceTitle')}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                     {t('common.status')}: {notificationPermission}
                   </p>
                 </div>
@@ -633,7 +633,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
                       {t('profile.exportDataBtn')}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                     {t('profile.downloadJson') || 'Descargar en archivo JSON'}
                   </p>
                 </div>
@@ -659,7 +659,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
                       {t('profile.deleteAccountBtn')}
                     </span>
                   </div>
-                  <p className="text-xs text-rose-500/80 mt-0.5">
+                  <p className="text-sm text-rose-500/80 mt-0.5">
                     {t('profile.irreversibleAction') || 'Acción irreversible'}
                   </p>
                 </div>
@@ -676,7 +676,7 @@ export const MobileProfileView: React.FC<MobileProfileViewProps> = ({ onSwitchTo
               </div>
 
               {/* Terms & Policies Links */}
-              <div className="pt-2 flex items-center justify-between text-xs text-slate-400">
+              <div className="pt-2 flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
                 <span>{t('profile.gdprTitle')}</span>
                 <div className="flex items-center gap-3">
                   <Link href="/terms" className="text-emerald-600 dark:text-emerald-400 font-semibold">

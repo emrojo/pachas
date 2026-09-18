@@ -207,6 +207,10 @@ export function getDbPool(): Pool | null {
     connectionTimeoutMillis: 5000,
   });
 
+  pool.on('connect', (client) => {
+    client.query(`SET client_encoding TO 'UTF8'`).catch(() => {});
+  });
+
   // Ensure physical columns and run pending SQL migrations asynchronously
   ensureGlobalSchema(pool).catch(() => {});
   runPendingMigrations(pool).catch(() => {});

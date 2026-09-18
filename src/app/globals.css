@@ -52,10 +52,54 @@
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Mobile Typography Root Scale & Legibility Floor */
+@media (max-width: 767px) {
+  html {
+    font-size: 17.5px;
+  }
+
+  body {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Prevent inputs from zooming on iOS Safari and guarantee comfortable mobile readability */
+  input, select, textarea {
+    font-size: 1rem !important;
+  }
+
+  /* Enforce minimum readable typography floor on mobile screens */
+  .text-xs,
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: 0.8125rem !important;
+    line-height: 1.25rem !important;
+  }
+}
+
+/* Dedicated Mobile Shell Typography Floor */
+.mobile-shell {
+  font-size: 1rem;
+}
+
+.mobile-shell .text-xs,
+.mobile-shell .text-\[9px\],
+.mobile-shell .text-\[10px\],
+.mobile-shell .text-\[11px\] {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
+
+.mobile-shell .text-sm {
+  font-size: 0.9375rem !important;
+  line-height: 1.35rem !important;
 }
 
 /* Native Safe Area Inset Helpers */

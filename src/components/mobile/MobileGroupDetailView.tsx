@@ -234,7 +234,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                 <span className="text-sm uppercase tracking-wider font-bold text-slate-400">
                   {t('dashboard.totalGroupSpent') || 'Gasto total del grupo'}
                 </span>
-                <Badge variant="gray" className="border-slate-700 text-slate-200 text-xs px-2.5 py-0.5">
+                <Badge variant="gray" className="border-slate-700 text-slate-200 text-sm font-bold px-2.5 py-0.5">
                   {group.base_currency || 'EUR'}
                 </Badge>
               </div>
@@ -260,7 +260,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                   )}
 
                   <div>
-                    <span className="text-xs text-slate-400 block leading-tight font-medium">
+                    <span className="text-sm text-slate-300 block leading-tight font-medium">
                       {myNetBalance > 0
                         ? t('dashboard.groupOwesYou') || 'Te deben'
                         : myNetBalance < 0
@@ -435,7 +435,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                             <h4 className="font-bold text-base text-slate-900 dark:text-slate-100 truncate">
                               {expense.title}
                             </h4>
-                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                               <span>{formatDate(expense.expense_date)}</span>
                               <span>•</span>
                               <span className="truncate">
@@ -547,22 +547,22 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                                 {member.profile?.full_name || 'Amigo'}
                               </span>
                               {isCurrentUser && (
-                                <Badge variant="gray" size="sm" className="text-[11px] font-bold">
+                                <Badge variant="gray" size="sm" className="text-xs font-bold px-2 py-0.5">
                                   Tú
                                 </Badge>
                               )}
                               {member.role === 'admin' && (
-                                <Badge variant="emerald" size="sm" className="text-[11px] font-bold">
+                                <Badge variant="emerald" size="sm" className="text-xs font-bold px-2 py-0.5">
                                   Admin
                                 </Badge>
                               )}
                               {member.is_unclaimed && (
-                                <Badge variant="amber" size="sm" className="text-[11px] font-bold">
+                                <Badge variant="amber" size="sm" className="text-xs font-bold px-2 py-0.5">
                                   Provisional
                                 </Badge>
                               )}
                             </div>
-                            <span className="text-xs text-slate-400 truncate block mt-0.5">
+                            <span className="text-sm text-slate-500 dark:text-slate-400 truncate block mt-0.5">
                               {member.profile?.email || 'Sin correo asociado'}
                             </span>
                           </div>
@@ -615,7 +615,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                   <div className="text-base font-bold text-slate-900 dark:text-white">
                     ¡Todos los pagos están al día!
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     No existen deudas pendientes entre los miembros del viaje.
                   </div>
                 </Card>
@@ -633,7 +633,7 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                           </strong>{' '}
                           ➔ {debt.to_profile?.full_name?.split(' ')[0] || 'Acreedor'}
                         </div>
-                        <div className="text-xs text-slate-400 mt-0.5">
+                        <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                           Saldo simplificado de cuentas
                         </div>
                       </div>
@@ -754,10 +754,10 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                         <FileDown className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-slate-900 dark:text-white">
+                        <div className="text-base font-bold text-slate-900 dark:text-white">
                           {t('groups.exportPdf')}
                         </div>
-                        <div className="text-xs text-slate-400">Balance, gráficos y resumen</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Balance, gráficos y resumen</div>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-300" />
@@ -777,10 +777,10 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                         <Share2 className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-slate-900 dark:text-white">
+                        <div className="text-base font-bold text-slate-900 dark:text-white">
                           Compartir PDF por apps
                         </div>
-                        <div className="text-xs text-slate-400">Enviar por WhatsApp o email</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Enviar por WhatsApp o email</div>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-300" />
@@ -800,10 +800,10 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                         <FileDown className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-slate-900 dark:text-white">
+                        <div className="text-base font-bold text-slate-900 dark:text-white">
                           {t('groups.exportCsv')}
                         </div>
-                        <div className="text-xs text-slate-400">Hoja de cálculo completa</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Hoja de cálculo completa</div>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-300" />
@@ -823,10 +823,10 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                         <Compass className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-slate-900 dark:text-white">
+                        <div className="text-base font-bold text-slate-900 dark:text-white">
                           {t('groups.gpsRoute')}
                         </div>
-                        <div className="text-xs text-slate-400">Ver gastos geolocalizados</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Ver gastos geolocalizados</div>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-300" />
@@ -846,10 +846,10 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
                         <History className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-slate-900 dark:text-white">
+                        <div className="text-base font-bold text-slate-900 dark:text-white">
                           {t('groups.historyTab')}
                         </div>
-                        <div className="text-xs text-slate-400">Registro de cambios y ediciones</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Registro de cambios y ediciones</div>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-300" />

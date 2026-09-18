@@ -25,7 +25,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
 
   return (
     <div
-      className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col ${className}`}
+      className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col mobile-shell text-base ${className}`}
       style={{
         paddingTop: 'env(safe-area-inset-top, 0px)',
       }}
