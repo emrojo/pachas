@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbPool } from '@/lib/db/postgres';
 import { requireActiveUser } from '@/lib/auth/userAuth';
+import { realtimeHub } from '@/lib/realtime/sse';
 
 export async function GET(request: NextRequest) {
   try {
@@ -148,115 +149,122 @@ export async function POST(request: NextRequest) {
         [user.userId, user.email || `${user.userId}@pachas.local`, user.email?.split('@')[0] || 'Amigo', user.role || 'member']
       );
 
-      // Check if current user is ALREADY a member of this group
-      const existingUserMemberRes = await client.query(
-        `SELECT id FROM public.group_members WHERE group_id::text = $1 AND user_id::text = $2`,
-        [groupId, user.userId]
+      // Fetch ALL group memberships where oldDummyUserId is currently a provisional member
+      const allMembershipsRes = await client.query(
+        `SELECT gm_all.id, gm_all.group_id, gm_all.provisional_name, g.name as group_name, g.invite_code, g.is_archived
+         FROM public.group_members gm_all
+         JOIN public.groups g ON g.id = gm_all.group_id
+         WHERE gm_all.user_id::text = $1 AND gm_all.claimed_at IS NULL
+         FOR UPDATE OF gm_all`,
+        [oldDummyUserId]
       );
 
-      if (existingUserMemberRes.rows.length > 0) {
-        // User is already a member of this group: merge expenses and remove extra dummy member row
-        const existingMemberId = existingUserMemberRes.rows[0].id;
+      const claimedGroups: Array<{ id: string; name: string; inviteCode: string }> = [];
 
-        // Reassign expenses, payers, participants, settlements
+      for (const targetGm of allMembershipsRes.rows) {
+        const targetGroupId = targetGm.group_id;
+
+        // Reassign expenses, payers, participants, settlements in this group
         await client.query(
           `UPDATE public.expense_payers ep
            SET user_id = $1
            FROM public.expenses e
            WHERE ep.expense_id = e.id AND e.group_id::text = $2 AND ep.user_id::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
+          [user.userId, targetGroupId, oldDummyUserId]
         );
         await client.query(
           `UPDATE public.expense_participants ep
            SET user_id = $1
            FROM public.expenses e
            WHERE ep.expense_id = e.id AND e.group_id::text = $2 AND ep.user_id::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
+          [user.userId, targetGroupId, oldDummyUserId]
         );
         await client.query(
           `UPDATE public.settlements
            SET from_user_id = $1
            WHERE group_id::text = $2 AND from_user_id::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
+          [user.userId, targetGroupId, oldDummyUserId]
         );
         await client.query(
           `UPDATE public.settlements
            SET to_user_id = $1
            WHERE group_id::text = $2 AND to_user_id::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
+          [user.userId, targetGroupId, oldDummyUserId]
         );
         await client.query(
           `UPDATE public.expenses
            SET created_by = $1
            WHERE group_id::text = $2 AND created_by::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
+          [user.userId, targetGroupId, oldDummyUserId]
         );
 
-        // Delete the extra provisional member row
-        await client.query(
-          `DELETE FROM public.group_members WHERE id::text = $1`,
-          [gm.id]
+        // Check if current user is ALREADY a member of targetGroupId
+        const existingUserMemberRes = await client.query(
+          `SELECT id FROM public.group_members WHERE group_id::text = $1 AND user_id::text = $2`,
+          [targetGroupId, user.userId]
         );
 
-        // Update existing member record
-        await client.query(
-          `UPDATE public.group_members
-           SET provisional_name = COALESCE(provisional_name, $1),
-               claimed_by = $2,
-               claimed_at = NOW()
-           WHERE id::text = $3`,
-          [gm.provisional_name, user.userId, existingMemberId]
-        );
-      } else {
-        // User is not yet in the group: reassign all expenses and update this member row
-        await client.query(
-          `UPDATE public.expense_payers ep
-           SET user_id = $1
-           FROM public.expenses e
-           WHERE ep.expense_id = e.id AND e.group_id::text = $2 AND ep.user_id::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
-        );
-        await client.query(
-          `UPDATE public.expense_participants ep
-           SET user_id = $1
-           FROM public.expenses e
-           WHERE ep.expense_id = e.id AND e.group_id::text = $2 AND ep.user_id::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
-        );
-        await client.query(
-          `UPDATE public.settlements
-           SET from_user_id = $1
-           WHERE group_id::text = $2 AND from_user_id::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
-        );
-        await client.query(
-          `UPDATE public.settlements
-           SET to_user_id = $1
-           WHERE group_id::text = $2 AND to_user_id::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
-        );
-        await client.query(
-          `UPDATE public.expenses
-           SET created_by = $1
-           WHERE group_id::text = $2 AND created_by::text = $3`,
-          [user.userId, groupId, oldDummyUserId]
-        );
+        if (existingUserMemberRes.rows.length > 0) {
+          // Merge: delete the provisional row and update existing member record
+          const existingMemberId = existingUserMemberRes.rows[0].id;
+          await client.query(
+            `DELETE FROM public.group_members WHERE id::text = $1`,
+            [targetGm.id]
+          );
+          await client.query(
+            `UPDATE public.group_members
+             SET provisional_name = COALESCE(provisional_name, $1),
+                 claimed_by = $2,
+                 claimed_at = NOW()
+             WHERE id::text = $3`,
+            [targetGm.provisional_name, user.userId, existingMemberId]
+          );
+        } else {
+          // Assign provisional member row to real user
+          await client.query(
+            `UPDATE public.group_members
+             SET user_id = $1,
+                 is_unclaimed = FALSE,
+                 claimed_by = $1,
+                 claimed_at = NOW(),
+                 claim_token = NULL,
+                 notifications_enabled = $2
+             WHERE id::text = $3`,
+            [user.userId, enableNotifications, targetGm.id]
+          );
+        }
 
-        // Update group_members row: assign to user.userId, consume claim_token completely
-        await client.query(
-          `UPDATE public.group_members
-           SET user_id = $1,
-               is_unclaimed = FALSE,
-               claimed_by = $1,
-               claimed_at = NOW(),
-               claim_token = NULL,
-               notifications_enabled = $2
-           WHERE id::text = $3`,
-          [user.userId, enableNotifications, gm.id]
-        );
+        claimedGroups.push({
+          id: targetGroupId,
+          name: targetGm.group_name,
+          inviteCode: targetGm.invite_code,
+        });
       }
 
+      // Update public.profiles: mark old dummy profile as no longer unclaimed
+      await client.query(
+        `UPDATE public.profiles
+         SET is_unclaimed = FALSE,
+             updated_at = NOW()
+         WHERE id::text = $1`,
+        [oldDummyUserId]
+      );
+
       await client.query('COMMIT');
+
+      // Realtime broadcasts for all claimed groups
+      for (const cg of claimedGroups) {
+        realtimeHub.broadcast({
+          type: 'member_joined',
+          groupId: cg.id,
+          userId: user.userId,
+          payload: {
+            userId: user.userId,
+            groupId: cg.id,
+            claimedProvisional: true,
+          },
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -265,6 +273,8 @@ export async function POST(request: NextRequest) {
         inviteCode: gm.invite_code,
         provisionalName: gm.provisional_name,
         memberId: gm.id,
+        claimedGroups,
+        claimedCount: claimedGroups.length,
       });
     } catch (txErr: any) {
       await client.query('ROLLBACK').catch(() => {});

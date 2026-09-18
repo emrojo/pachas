@@ -164,4 +164,49 @@ describe('Expense Admin Permissions (FR-67)', () => {
     expect(updatedExpense.notes).toBe('Nota añadida por el admin');
     expect(updatedExpense.created_by).toBe(creatorUser.id);
   });
+
+  function canUserDeleteExpense(
+    user: Profile,
+    expense: Expense,
+    group: Group,
+    members: GroupMember[]
+  ): boolean {
+    const isCreator = expense.created_by === user.id;
+    const isGroupAdminUser = checkIsGroupAdmin(group.id, user, group, members);
+    const isAppAdminUser = user.role === 'admin';
+    return isCreator || isGroupAdminUser || isAppAdminUser;
+  }
+
+  it('allows original expense creator to delete their own expense', () => {
+    const canDelete = canUserDeleteExpense(creatorUser, sampleExpense, testGroup, groupMembers);
+    expect(canDelete).toBe(true);
+  });
+
+  it('prohibits a regular group member from deleting an expense created by another member', () => {
+    const canDelete = canUserDeleteExpense(regularMemberUser, sampleExpense, testGroup, groupMembers);
+    expect(canDelete).toBe(false);
+  });
+
+  it('allows group administrator to delete an individual expense created by another member', () => {
+    const canDelete = canUserDeleteExpense(groupAdminUser, sampleExpense, testGroup, groupMembers);
+    expect(canDelete).toBe(true);
+  });
+
+  it('allows group creator (implicit admin) to delete any individual expense in the group', () => {
+    const groupCreatorUser: Profile = {
+      id: 'user-creator-of-group',
+      email: 'owner@example.com',
+      full_name: 'Group Owner',
+      avatar_url: '',
+      role: 'member',
+      created_at: new Date().toISOString(),
+    };
+    const canDelete = canUserDeleteExpense(groupCreatorUser, sampleExpense, testGroup, groupMembers);
+    expect(canDelete).toBe(true);
+  });
+
+  it('allows platform super administrator to delete any individual expense in any group', () => {
+    const canDelete = canUserDeleteExpense(superAdminUser, sampleExpense, testGroup, groupMembers);
+    expect(canDelete).toBe(true);
+  });
 });

@@ -435,6 +435,11 @@ export const InviteModal: React.FC<InviteModalProps> = ({ group, isOpen, onClose
                           <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {contact.full_name}
                           </span>
+                          {Boolean(contact.is_unclaimed) && (
+                            <span className="text-[9px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-200/60 dark:border-amber-800/40">
+                              ⏳ {t('groups.unclaimedBadge') || 'Sin reclamar'}
+                            </span>
+                          )}
                           {contact.shared_groups_count && contact.shared_groups_count > 1 && (
                             <span className="text-[9px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold px-1.5 py-0.2 rounded border border-emerald-200/60 dark:border-emerald-800/40">
                               {t('groups.knownUsersSharedCount', { count: contact.shared_groups_count })}

@@ -11,9 +11,11 @@ import { getExpensePaymentStatus } from '@/lib/algorithms/simplifyDebts';
 import { ReceiptModal } from '@/components/expenses/ReceiptModal';
 import { LocationModal } from '@/components/expenses/LocationModal';
 import { ReportContentModal } from '@/components/safety/ReportContentModal';
+import { isGroupAdmin as checkIsGroupAdmin } from '@/lib/authConfig';
 import {
   Receipt,
   Pencil,
+  Trash2,
   Users,
   Globe,
   MapPin,
@@ -37,18 +39,33 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
   baseCurrency = 'EUR',
   onEdit,
 }) => {
-  const { currentUser, getExpenseComments, getGroupMembers, availableUsers, isGroupAdmin } = usePachas();
+  const {
+    currentUser,
+    getExpenseComments,
+    getGroupMembers,
+    availableUsers,
+    isGroupAdmin,
+    deleteExpense,
+    getGroup,
+    groups,
+  } = usePachas();
   const { t } = useTranslation();
   const [showReceipt, setShowReceipt] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
+  const group = getGroup ? getGroup(expense.group_id) : groups?.find((g) => g.id === expense.group_id);
+  const members = getGroupMembers ? getGroupMembers(expense.group_id) : [];
   const isProcessing = expense.ocr_status === 'processing';
   const isFailed = expense.ocr_status === 'failed';
   const isCreator = currentUser ? expense.created_by === currentUser.id : false;
-  const isGroupAdminUser = isGroupAdmin ? isGroupAdmin(expense.group_id) : false;
+  const isGroupAdminUser = currentUser
+    ? checkIsGroupAdmin(expense.group_id, currentUser, group, members) || (isGroupAdmin ? isGroupAdmin(expense.group_id) : false)
+    : false;
   const isAppAdminUser = currentUser?.role === 'admin';
   const canEdit = isCreator || isGroupAdminUser || isAppAdminUser;
+  const canDelete = !group?.is_frozen && (isCreator || isGroupAdminUser || isAppAdminUser);
   const isForeign = expense.currency !== baseCurrency;
   const hasLocation = !!(expense.latitude && expense.longitude);
   const category = getCategoryInfo(expense.category);
@@ -105,6 +122,27 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
     e.stopPropagation();
     if (onEdit) {
       onEdit(expense);
+    }
+  };
+
+  const handleDirectDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deleteExpense || isDeleting) return;
+
+    const isGroupAdminDeleting = !isCreator && isGroupAdminUser;
+    const confirmPrompt = isGroupAdminDeleting
+      ? `Como administrador del grupo, ¿estás seguro de que deseas eliminar definitivamente el gasto "${expense.title}"?`
+      : `¿Estás seguro de que deseas eliminar definitivamente el gasto "${expense.title}"?`;
+
+    if (window.confirm(confirmPrompt)) {
+      try {
+        setIsDeleting(true);
+        await deleteExpense(expense.group_id, expense.id);
+      } catch (err: any) {
+        alert(err.message || 'Error al eliminar el gasto');
+      } finally {
+        setIsDeleting(false);
+      }
     }
   };
 
@@ -343,17 +381,30 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
         </div>
 
         {/* Column 4: Dedicated Fixed Action Toolbar */}
-        <div className="shrink-0 flex items-center justify-end w-7 sm:w-14">
+        <div className="shrink-0 flex items-center justify-end min-w-[28px] sm:min-w-[56px]">
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             {canEdit ? (
-              <button
-                type="button"
-                onClick={handleEditClick}
-                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
-                title={t('expenses.editExpense')}
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleEditClick}
+                  className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
+                  title={t('expenses.editExpense')}
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={handleDirectDelete}
+                    disabled={isDeleting}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all disabled:opacity-50"
+                    title={t('expenses.deleteExpense')}
+                  >
+                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin text-rose-500" /> : <Trash2 className="w-4 h-4" />}
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <button
@@ -364,6 +415,17 @@ export const ExpenseCard: React.FC<ExpenseCardProps> = ({
                 >
                   <Eye className="w-4 h-4" />
                 </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={handleDirectDelete}
+                    disabled={isDeleting}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all disabled:opacity-50"
+                    title={t('expenses.deleteExpense')}
+                  >
+                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin text-rose-500" /> : <Trash2 className="w-4 h-4" />}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {

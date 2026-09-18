@@ -36,6 +36,7 @@ export default function JoinGroupPage() {
   const [claimStatus, setClaimStatus] = useState<'idle' | 'checking' | 'available' | 'already_claimed' | 'invalid'>('idle');
   const [claimProvisionalName, setClaimProvisionalName] = useState('');
   const [claimedByName, setClaimedByName] = useState('');
+  const [claimedGroupsCount, setClaimedGroupsCount] = useState<number>(1);
 
   // 1. Check local groups first
   const localGroup = groups.find(
@@ -127,10 +128,13 @@ export default function JoinGroupPage() {
       if (claimToken && claimStatus === 'available') {
         const claimResult = await claimMember(claimToken, enableNotifications);
         if (claimResult.success) {
+          if (claimResult.claimedGroupsCount && claimResult.claimedGroupsCount > 1) {
+            setClaimedGroupsCount(claimResult.claimedGroupsCount);
+          }
           setIsSuccess(true);
           setTimeout(() => {
             router.push(`/groups/${claimResult.groupId}`);
-          }, 1200);
+          }, claimResult.claimedGroupsCount && claimResult.claimedGroupsCount > 1 ? 2200 : 1200);
           return;
         }
       }
@@ -321,11 +325,15 @@ export default function JoinGroupPage() {
               {/* Join / Claim Button */}
               <div>
                 {isSuccess ? (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-bold flex items-center justify-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    {claimStatus === 'available'
-                      ? (t('join.claimedSuccess') || '¡Puesto reclamado y unido con éxito!')
-                      : t('join.joinedSuccess')}
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center gap-2 text-center">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>
+                      {claimedGroupsCount > 1
+                        ? `¡Puesto reclamado en este grupo y en otros ${claimedGroupsCount - 1} grupos!`
+                        : claimStatus === 'available'
+                        ? (t('join.claimedSuccess') || '¡Puesto reclamado y unido con éxito!')
+                        : t('join.joinedSuccess')}
+                    </span>
                   </div>
                 ) : currentUser ? (
                   <Button

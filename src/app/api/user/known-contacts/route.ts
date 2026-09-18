@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         p.bizum_phone, 
         COALESCE(p.is_banned, false) AS is_banned,
         p.ban_reason,
+        COALESCE(p.is_unclaimed, (p.email ILIKE 'unclaimed-%'), false) AS is_unclaimed,
         COUNT(DISTINCT my_gm.group_id) AS shared_groups_count
       FROM public.group_members my_gm
       JOIN public.group_members other_gm ON other_gm.group_id = my_gm.group_id
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     query += `
-      GROUP BY p.id, p.full_name, p.email, p.avatar_url, p.bizum_phone, p.is_banned, p.ban_reason
+      GROUP BY p.id, p.full_name, p.email, p.avatar_url, p.bizum_phone, p.is_banned, p.ban_reason, p.is_unclaimed
       ORDER BY p.full_name ASC
     `;
 
@@ -63,6 +64,7 @@ export async function GET(request: NextRequest) {
       bizum_phone: row.bizum_phone || null,
       is_banned: Boolean(row.is_banned),
       ban_reason: row.ban_reason || null,
+      is_unclaimed: Boolean(row.is_unclaimed),
       shared_groups_count: Number(row.shared_groups_count || 1),
     }));
 

@@ -20,6 +20,7 @@ import { SplitType, ExpenseCategory, Expense, InvoiceType } from '@/types/databa
 import { calculateSplits } from '@/lib/algorithms/splitCalculations';
 import { validateAndCompressImage, sanitizeText } from '@/lib/security/sanitize';
 import { getHistoricalExchangeRate, ExchangeRateResult } from '@/lib/currencies/exchangeRateService';
+import { isGroupAdmin as checkIsGroupAdmin } from '@/lib/authConfig';
 
 import {
   formatDate,
@@ -179,9 +180,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   // Permission calculation: Creator, Group Admin, or App Admin can edit or delete it
   const isCreator = currentUser && expenseToEdit ? expenseToEdit.created_by === currentUser.id : true;
-  const isGroupAdminUser = currentUser ? (isGroupAdmin ? isGroupAdmin(groupId) : false) : false;
+  const isGroupAdminUser = currentUser
+    ? checkIsGroupAdmin(groupId, currentUser, group, members) || (isGroupAdmin ? isGroupAdmin(groupId) : false)
+    : false;
   const isAppAdminUser = currentUser?.role === 'admin';
   const canEdit = isCreator || isGroupAdminUser || isAppAdminUser;
+  const canDelete = !group?.is_frozen && (isCreator || isGroupAdminUser || isAppAdminUser);
 
   // Viewing mode vs active edit mode:
   // When opening an existing expense (expenseToEdit), it opens in read-only mode by default.
@@ -295,7 +299,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   const handleDeleteExpense = async () => {
     if (!expenseToEdit) return;
-    if (confirm(`¿Estás seguro de que deseas eliminar definitivamente el gasto "${expenseToEdit.title}"?`)) {
+    const isGroupAdminDeleting = !isCreator && isGroupAdminUser;
+    const confirmPrompt = isGroupAdminDeleting
+      ? `Como administrador del grupo, ¿estás seguro de que deseas eliminar definitivamente el gasto "${expenseToEdit.title}"?`
+      : `¿Estás seguro de que deseas eliminar definitivamente el gasto "${expenseToEdit.title}"?`;
+
+    if (confirm(confirmPrompt)) {
       try {
         setIsDeleting(true);
         await deleteExpense(groupId, expenseToEdit.id);
@@ -3199,13 +3208,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         {/* Submit Buttons / Delete Action / ReadOnly Action */}
         <div className="pt-2">
           {isReadOnly ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
               {expenseToEdit && (
                 <button
                   type="button"
                   onClick={() => setIsReportOpen(true)}
-                  className={`font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 shrink-0 cursor-pointer ${
-                    isMobileView ? 'px-4 py-3 text-sm rounded-2xl' : 'px-3.5 py-2 text-xs rounded-xl'
+                  className={`font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-800 shrink-0 cursor-pointer ${
+                    isMobileView ? 'min-h-[44px] px-3.5 py-2.5 text-sm rounded-2xl' : 'px-3.5 py-2 text-xs rounded-xl'
                   }`}
                   title={t('expenses.reportExpense')}
                 >
@@ -3213,20 +3222,40 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   <span className="hidden sm:inline">{t('expenses.reportExpense')}</span>
                 </button>
               )}
+
+              {/* Direct Delete Button in View Mode for Group Admin / Creator / Super Admin */}
+              {expenseToEdit && canDelete && (
+                <button
+                  type="button"
+                  onClick={handleDeleteExpense}
+                  disabled={isDeleting || isLoading}
+                  className={`font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all flex items-center justify-center gap-1.5 border border-rose-200 dark:border-rose-900/50 shrink-0 cursor-pointer active:scale-95 ${
+                    isMobileView ? 'min-h-[44px] px-4 py-2.5 text-sm rounded-2xl' : 'px-3.5 py-2 text-xs rounded-xl'
+                  }`}
+                  title={t('expenses.deleteExpense')}
+                >
+                  <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span className={isMobileView ? 'inline' : 'hidden sm:inline'}>
+                    {isDeleting ? '...' : t('expenses.deleteExpense')}
+                  </span>
+                </button>
+              )}
+
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className={isMobileView ? 'py-3.5 px-5 text-base rounded-2xl font-bold' : 'text-sm px-4'}
+                className={isMobileView ? 'min-h-[44px] py-2.5 px-4 text-sm sm:text-base rounded-2xl font-bold' : 'text-sm px-4'}
               >
                 {t('common.close')}
               </Button>
+
               {expenseToEdit && canEdit && (
                 <Button
                   type="button"
                   variant="brand"
                   onClick={handleStartEditing}
-                  className={`flex-1 font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 ${isMobileView ? 'py-3.5 text-base rounded-2xl' : 'text-sm'}`}
+                  className={`flex-1 font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 ${isMobileView ? 'min-h-[44px] py-2.5 text-sm sm:text-base rounded-2xl' : 'text-sm'}`}
                 >
                   <Pencil className="w-4 h-4" />
                   <span>{t('expenses.editExpenseBtn') || 'Editar gasto'}</span>
@@ -3235,18 +3264,20 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             </div>
           ) : expenseToEdit ? (
             <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
-              <button
-                type="button"
-                onClick={handleDeleteExpense}
-                disabled={isDeleting || isLoading}
-                className={`font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all flex items-center gap-1.5 border border-rose-200 dark:border-rose-900/50 cursor-pointer ${
-                  isMobileView ? 'px-4 py-3 text-sm rounded-2xl' : 'px-3.5 py-2 text-xs rounded-xl'
-                }`}
-                title={t('expenses.deleteExpense')}
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>{isDeleting ? '...' : t('expenses.deleteExpense')}</span>
-              </button>
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={handleDeleteExpense}
+                  disabled={isDeleting || isLoading}
+                  className={`font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all flex items-center gap-1.5 border border-rose-200 dark:border-rose-900/50 cursor-pointer active:scale-95 ${
+                    isMobileView ? 'min-h-[44px] px-4 py-2.5 text-sm rounded-2xl' : 'px-3.5 py-2 text-xs rounded-xl'
+                  }`}
+                  title={t('expenses.deleteExpense')}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{isDeleting ? '...' : t('expenses.deleteExpense')}</span>
+                </button>
+              )}
 
               <div className="flex items-center gap-2 flex-1 justify-end">
                 <Button

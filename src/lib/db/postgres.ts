@@ -79,6 +79,18 @@ export async function ensureGlobalSchema(p: Pool): Promise<void> {
     await p.query(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_unclaimed BOOLEAN DEFAULT FALSE;`).catch(() => {});
     await p.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_group_members_claim_token ON public.group_members(claim_token) WHERE claim_token IS NOT NULL;`).catch(() => {});
     await p.query(`CREATE INDEX IF NOT EXISTS idx_group_members_unclaimed ON public.group_members(group_id, is_unclaimed);`).catch(() => {});
+    // Auto-heal cross-group unclaimed members missing tokens or marked false
+    await p.query(`
+      UPDATE public.group_members gm
+      SET is_unclaimed = TRUE,
+          provisional_name = COALESCE(gm.provisional_name, p.full_name, 'Amigo'),
+          claim_token = COALESCE(gm.claim_token, gen_random_uuid()::text)
+      FROM public.profiles p
+      WHERE gm.user_id::text = p.id::text
+        AND gm.claimed_at IS NULL
+        AND (p.is_unclaimed = TRUE OR p.email ILIKE 'unclaimed-%')
+        AND (gm.is_unclaimed = FALSE OR gm.claim_token IS NULL);
+    `).catch(() => {});
 
     // 3. Reports moderation columns
     await p.query(`ALTER TABLE public.content_reports ADD COLUMN IF NOT EXISTS resolution_notes TEXT;`).catch(() => {});

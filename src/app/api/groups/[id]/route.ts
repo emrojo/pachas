@@ -35,6 +35,21 @@ export async function GET(
 
     await autoHealGroupFrozenColumns(pool);
 
+    // Auto-heal cross-group unclaimed members missing tokens or marked false
+    await pool.query(
+      `UPDATE public.group_members gm
+       SET is_unclaimed = TRUE,
+           provisional_name = COALESCE(gm.provisional_name, p.full_name, 'Amigo'),
+           claim_token = COALESCE(gm.claim_token, gen_random_uuid()::text)
+       FROM public.profiles p
+       WHERE gm.user_id::text = p.id::text
+         AND gm.group_id::text = $1
+         AND gm.claimed_at IS NULL
+         AND (p.is_unclaimed = TRUE OR p.email ILIKE 'unclaimed-%')
+         AND (gm.is_unclaimed = FALSE OR gm.claim_token IS NULL)`,
+      [groupId]
+    ).catch(() => {});
+
     const groupRes = await pool.query('SELECT * FROM public.groups WHERE id::text = $1', [groupId]);
     if (groupRes.rows.length === 0) {
       return NextResponse.json({ error: 'Grupo no encontrado' }, { status: 404 });

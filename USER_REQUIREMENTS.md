@@ -1035,6 +1035,26 @@ This document serves as the official and permanent registry for all **user requi
   - Dedicated unit test suite in `src/app/api/admin/impersonate/route.test.ts` (covering non-admin 403, self-impersonation 400, session establishment, session deletion, and status checking).
   - Synchronized translation keys across all 20 supported languages in `src/locales/`.
 
+### 👥 FR-77: Cross-Group Unclaimed Member Propagation & Multi-Group Unified Claiming
+- **FR-77.1**: **Cross-Group Unclaimed Member State Propagation**:
+  - When an unclaimed provisional user (`is_unclaimed = true` or email slug `unclaimed-xxxx@pachas.local`) is added to another group (via Known Contacts, email, or admin modal), the new group membership automatically inherits `is_unclaimed = true` and generates a group-specific cryptographic `claim_token`.
+  - Propagated seamlessly in `src/app/api/groups/[id]/members/route.ts` (POST handler), `addMemberToGroup`, and `addMemberByEmail` in `PachasContext.tsx`.
+- **FR-77.2**: **Independent Single-Use Claim Tokens per Group**:
+  - Every group membership row in `public.group_members` generates its own unique `claim_token`, allowing organizers of different groups to share distinct claim URLs (`/join/[code]?claim=[token]`) for the same person.
+- **FR-77.3**: **Multi-Group Unified Claiming Lifecycle**:
+  - When the final user claims their account via any valid claim token (`POST /api/groups/claim`), the system identifies the provisional user's identity (`oldDummyUserId`) and automatically claims **all group memberships** across all groups where that provisional user participates.
+  - Migrates all expense payers, participants, and debt settlements across all groups to the real user account.
+  - Automatically merges memberships if the claiming user is already present in any of those groups, preventing duplicate member rows.
+- **FR-77.4**: **Database Migration & Automatic Healing**:
+  - Migration script `deploy/init-scripts/23-unclaimed-cross-group-sync.sql` and startup auto-healing in `postgres.ts` (`ensureGlobalSchema`), `GET /api/groups/[id]`, and `GET /api/groups/[id]/members`.
+  - Retroactively heals any previously added unclaimed users in existing groups who lacked claim tokens or were inserted with `is_unclaimed = false`.
+- **FR-77.5**: **Known Contacts Indicator & Claim Screen UX**:
+  - `GET /api/user/known-contacts` returns `is_unclaimed: true` on provisional contacts.
+  - `InviteModal.tsx` renders a distinct `⏳ Sin reclamar` amber badge on provisional contacts.
+  - `/join/[inviteCode]` displays enriched confirmation feedback when multiple groups are claimed simultaneously (*"¡Puesto reclamado en este grupo y en otros N grupos!"*).
+- **FR-77.6**: **Automated Unit Testing Suite**:
+  - Unit tests in `src/lib/groups/unclaimedMembers.test.ts` validating independent token generation, state propagation, multi-group claiming reassignment, and conflict merging.
+
 ---
 
 ## ⚙️ 2. Non-Functional Requirements (NFR)
@@ -1197,6 +1217,7 @@ This document serves as the official and permanent registry for all **user requi
 | **13/09/2026** | 📱 Added | **FR-35.8** | **Mobile-Dedicated Receipt Redaction View & Ergonomic Icon-Only Controls**: Dedicated mobile experience in `ReceiptRedactionModal.tsx` (`isMobileView`). High-contrast, easily readable privacy notice (`text-sm` / `text-xs sm:text-sm`), large 48x48px icon-only action buttons (marker, box, eraser, pan/hand), visual 3-level dot stroke selector without text, enlarged zoom, undo/trash buttons (44x44px), and thumb-friendly action buttons. |
 | **13/09/2026** | 📱 Added | **FR-35.9** | **Mobile-Dedicated Receipt Validation View & Ergonomic Form Layout**: Dedicated mobile experience in `ReceiptValidationModal.tsx` (`isMobileView`). High-contrast readable privacy notice (`text-xs sm:text-sm`), 44x44px icon-only censorship mini-toolbar, hero financial amount display (`text-3xl font-mono font-black`), touch-friendly math audit card, 3-column category touch tiles with 2xl emojis, and thumb-friendly 48px bottom action buttons (`Trash2`, `X`, `Check`). |
 | **13/09/2026** | 🍕 Added | **FR-60.7** | **Mobile-Dedicated Itemized Split Controls & Informational Tax Breakdown**: Non-editable informative tax display in `ItemizedSplitEditor.tsx` for `ReceiptValidationModal.tsx` (`isTaxReadOnly`), large consumer buttons (min 44px height, enlarged avatars, thumb-friendly steppers), increased typography and inputs, and shortened mobile status comments. |
+| **18/09/2026** | 👥 Added | **FR-77** | **Cross-Group Unclaimed Member Propagation & Multi-Group Unified Claiming**: Propagates `is_unclaimed = true` and generates unique `claim_token` when adding provisional members to new groups; unified multi-group claiming resolving all memberships and expenses across all groups in one step; retroactive database auto-healing (`23-unclaimed-cross-group-sync.sql`); known contacts badging in `InviteModal.tsx`; and unit test suite in `unclaimedMembers.test.ts`. |
 
 
 

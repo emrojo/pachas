@@ -118,7 +118,7 @@ interface PachasContextType {
     isClosed?: boolean
   ) => Promise<Group>;
   renameUnclaimedMember: (groupId: string, memberId: string, newName: string) => Promise<boolean>;
-  claimMember: (claimToken: string, enableNotifications?: boolean) => Promise<{ success: boolean; groupId: string; groupName?: string; inviteCode?: string }>;
+  claimMember: (claimToken: string, enableNotifications?: boolean) => Promise<{ success: boolean; groupId: string; groupName?: string; inviteCode?: string; claimedGroupsCount?: number; claimedGroupNames?: string[] }>;
   renounceMember: (groupId: string, memberId: string) => Promise<boolean>;
   addUnclaimedMember: (groupId: string, provisionalName: string) => Promise<GroupMember | null>;
   updateGroup: (groupId: string, data: Partial<Group>) => Promise<Group>;
@@ -694,7 +694,12 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   if (g.members && Array.isArray(g.members)) {
                     memberMap[g.id] = g.members;
                     g.members.forEach((m: any) => {
-                      if (m.profile) friendProfilesMap.set(m.profile.id, m.profile);
+                      if (m.profile) {
+                        friendProfilesMap.set(m.profile.id, {
+                          ...m.profile,
+                          is_unclaimed: Boolean(m.is_unclaimed || m.profile.is_unclaimed),
+                        });
+                      }
                     });
                   }
                 });
@@ -1008,6 +1013,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     full_name: m.profile.full_name || 'Amigo',
                     avatar_url: m.profile.avatar_url || null,
                     bizum_phone: m.profile.bizum_phone || null,
+                    is_unclaimed: Boolean(m.is_unclaimed || m.profile?.is_unclaimed),
                     created_at: m.profile.created_at || m.joined_at || new Date().toISOString(),
                   });
                 }
@@ -1042,6 +1048,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         full_name: m.profile.full_name || 'Amigo',
                         avatar_url: m.profile.avatar_url || null,
                         bizum_phone: m.profile.bizum_phone || null,
+                        is_unclaimed: Boolean(m.is_unclaimed || m.profile?.is_unclaimed),
                         created_at: m.profile.created_at || m.joined_at || new Date().toISOString(),
                       });
                     }
@@ -1352,7 +1359,7 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const claimMember = async (
     claimToken: string,
     enableNotifications: boolean = true
-  ): Promise<{ success: boolean; groupId: string; groupName?: string; inviteCode?: string }> => {
+  ): Promise<{ success: boolean; groupId: string; groupName?: string; inviteCode?: string; claimedGroupsCount?: number; claimedGroupNames?: string[] }> => {
     if (!currentUser) {
       throw new Error('Debes iniciar sesión para reclamar este perfil.');
     }
@@ -1369,30 +1376,107 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         throw new Error(data.error || 'No se pudo reclamar el perfil');
       }
 
-      if (data.group) {
-        setGroups((prev) => {
-          const exists = prev.some((g) => g.id === data.group.id);
-          const updated = exists ? prev.map((g) => (g.id === data.group.id ? data.group : g)) : [data.group, ...prev];
-          saveState(updated);
-          return updated;
-        });
-
-        if (data.members) {
-          setMembers((prev) => {
-            const updated = { ...prev, [data.group.id]: data.members };
-            saveState(undefined, updated);
-            return updated;
-          });
+      // Refresh all claimed groups in state
+      if (Array.isArray(data.claimedGroups) && data.claimedGroups.length > 0) {
+        for (const cg of data.claimedGroups) {
+          fetchGroup(cg.id);
         }
+      } else if (data.groupId || data.group?.id) {
+        fetchGroup(data.groupId || data.group?.id);
       }
+
+      const claimedGroupNames = Array.isArray(data.claimedGroups) ? data.claimedGroups.map((g: any) => g.name) : [];
+      const primaryGroupId = data.groupId || data.group?.id || '';
 
       return {
         success: true,
-        groupId: data.group?.id,
-        groupName: data.group?.name,
-        inviteCode: data.group?.invite_code,
+        groupId: primaryGroupId,
+        groupName: data.groupName || data.group?.name,
+        inviteCode: data.inviteCode || data.group?.invite_code,
+        claimedGroupsCount: data.claimedCount || data.claimedGroups?.length || 1,
+        claimedGroupNames,
       };
     } catch (e: any) {
+      if (isDemoMode || e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError')) {
+        // Fallback for demo/offline:
+        let foundDummyUserId: string | null = null;
+        let primaryGroupId: string | null = null;
+
+        for (const [gid, grpMembers] of Object.entries(members)) {
+          const match = grpMembers.find((m) => m.claim_token === claimToken || (m.is_unclaimed && m.id === claimToken));
+          if (match) {
+            foundDummyUserId = match.user_id;
+            primaryGroupId = gid;
+            break;
+          }
+        }
+
+        if (foundDummyUserId && currentUser) {
+          const updatedMembersMap = { ...members };
+          const updatedExpensesMap = { ...expenses };
+          const updatedSettlementsMap = { ...settlements };
+          const claimedGroupsList: Array<{ id: string; name: string }> = [];
+
+          for (const [gid, grpMembers] of Object.entries(updatedMembersMap)) {
+            const hasDummy = grpMembers.some((m) => m.user_id === foundDummyUserId);
+            if (hasDummy) {
+              const grp = groups.find((g) => g.id === gid);
+              if (grp) claimedGroupsList.push({ id: grp.id, name: grp.name });
+
+              const alreadyMember = grpMembers.some((m) => m.user_id === currentUser.id && m.user_id !== foundDummyUserId);
+              if (alreadyMember) {
+                updatedMembersMap[gid] = grpMembers.filter((m) => m.user_id !== foundDummyUserId);
+              } else {
+                updatedMembersMap[gid] = grpMembers.map((m) => {
+                  if (m.user_id === foundDummyUserId) {
+                    return {
+                      ...m,
+                      user_id: currentUser.id,
+                      is_unclaimed: false,
+                      claimed_by: currentUser.id,
+                      claimed_at: new Date().toISOString(),
+                      claim_token: null,
+                      profile: currentUser,
+                    };
+                  }
+                  return m;
+                });
+              }
+
+              const grpExpenses = updatedExpensesMap[gid] || [];
+              updatedExpensesMap[gid] = grpExpenses.map((exp) => {
+                const newCreatedBy = exp.created_by === foundDummyUserId ? currentUser.id : exp.created_by;
+                const newPayers = exp.payers?.map((payer) =>
+                  payer.user_id === foundDummyUserId ? { ...payer, user_id: currentUser.id } : payer
+                );
+                const newParticipants = exp.participants?.map((part) =>
+                  part.user_id === foundDummyUserId ? { ...part, user_id: currentUser.id } : part
+                );
+                return {
+                  ...exp,
+                  created_by: newCreatedBy,
+                  payers: newPayers,
+                  participants: newParticipants,
+                };
+              });
+            }
+          }
+
+          setMembers(updatedMembersMap);
+          setExpenses(updatedExpensesMap);
+          saveState(undefined, updatedMembersMap, updatedExpensesMap, updatedSettlementsMap);
+
+          const primGrp = groups.find((g) => g.id === primaryGroupId);
+          return {
+            success: true,
+            groupId: primaryGroupId || '',
+            groupName: primGrp?.name,
+            inviteCode: primGrp?.invite_code,
+            claimedGroupsCount: claimedGroupsList.length,
+            claimedGroupNames: claimedGroupsList.map((g) => g.name),
+          };
+        }
+      }
       console.warn('API claimMember error:', e);
       throw e;
     }
@@ -1911,16 +1995,35 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false; // Already in group
     }
 
+    const isUnclaimed = Boolean(
+      targetUser.is_unclaimed ||
+      targetUser.email?.toLowerCase().startsWith('unclaimed-') ||
+      Object.values(members).some((gmList) =>
+        gmList.some((m) => m.user_id === userId && m.is_unclaimed)
+      )
+    );
+
+    let apiMember: any = null;
+
     // Sync to PostgreSQL backend
     try {
       const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: targetUser.id, role: 'member' }),
+        body: JSON.stringify({
+          userId: targetUser.id,
+          role: 'member',
+          is_unclaimed: isUnclaimed,
+          provisional_name: targetUser.full_name,
+        }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Error al agregar miembro al grupo');
+      }
+      const data = await res.json().catch(() => ({}));
+      if (data?.member) {
+        apiMember = data.member;
       }
     } catch (e: any) {
       if (!isDemoMode && !e.message?.includes('Failed to fetch')) {
@@ -1930,13 +2033,20 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('API addMemberToGroup warning:', e);
     }
 
+    const claimToken = isUnclaimed ? (apiMember?.claim_token || generateUUID()) : null;
     const newMember: GroupMember = {
-      id: generateUUID(),
+      id: apiMember?.id || generateUUID(),
       group_id: groupId,
       user_id: targetUser.id,
       role: 'member',
-      joined_at: new Date().toISOString(),
-      profile: targetUser,
+      joined_at: apiMember?.joined_at || new Date().toISOString(),
+      is_unclaimed: isUnclaimed,
+      provisional_name: isUnclaimed ? (apiMember?.provisional_name || targetUser.full_name || 'Amigo') : null,
+      claim_token: claimToken,
+      profile: {
+        ...targetUser,
+        is_unclaimed: isUnclaimed,
+      },
     };
 
     const updatedMembers = {
@@ -1947,10 +2057,14 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Register in availableUsers if not already present
     setAvailableUsers((prev) => {
+      const updatedProfile: Profile = {
+        ...targetUser!,
+        is_unclaimed: isUnclaimed,
+      };
       if (!prev.some((u) => u.id === targetUser!.id)) {
-        return [...prev, targetUser!];
+        return [...prev, updatedProfile];
       }
-      return prev;
+      return prev.map((u) => (u.id === targetUser!.id ? { ...u, is_unclaimed: isUnclaimed } : u));
     });
 
     const targetGroup = getGroup(groupId);
@@ -1997,13 +2111,28 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false; // Already in group
     }
 
+    const isUnclaimed = Boolean(
+      targetUser.is_unclaimed ||
+      targetUser.email?.toLowerCase().startsWith('unclaimed-') ||
+      Object.values(members).some((gmList) =>
+        gmList.some((m) => m.user_id === targetUser?.id && m.is_unclaimed)
+      )
+    );
+    const claimToken = isUnclaimed ? generateUUID() : null;
+
     const newMember: GroupMember = {
       id: generateUUID(),
       group_id: groupId,
       user_id: targetUser.id,
       role: 'member',
       joined_at: new Date().toISOString(),
-      profile: targetUser,
+      is_unclaimed: isUnclaimed,
+      provisional_name: isUnclaimed ? (targetUser.full_name || 'Amigo') : null,
+      claim_token: claimToken,
+      profile: {
+        ...targetUser,
+        is_unclaimed: isUnclaimed,
+      },
     };
 
     const updatedMembers = {
@@ -2021,6 +2150,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         email: targetUser.email,
         fullName: targetUser.full_name,
         role: 'member',
+        is_unclaimed: isUnclaimed,
+        provisional_name: isUnclaimed ? targetUser.full_name : undefined,
       }),
     }).catch((e) => console.warn('API addMemberByEmail warning:', e));
 
@@ -2622,8 +2753,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const currentExpenses = expensesRef.current[groupId] || expenses[groupId] || [];
     let existing = currentExpenses.find((e) => e.id === expenseId);
+    const targetGroup = getGroup(groupId) || groups.find((g) => g.id === groupId);
+    const targetMembers = getGroupMembers(groupId) || members[groupId] || [];
     const isAppAdminUser = isAppAdmin(currentUser);
-    const isGroupAdminUser = isUserGroupAdmin(groupId, currentUser.id);
+    const isGroupAdminUser = checkIsGroupAdmin(groupId, currentUser, targetGroup, targetMembers) || isUserGroupAdmin(groupId, currentUser.id);
     const isCreator = existing ? existing.created_by === currentUser.id : true;
 
     if (existing && !isCreator && !isAppAdminUser && !isGroupAdminUser) {
@@ -2847,7 +2980,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     saveState(undefined, undefined, updatedExpenses);
 
-    const targetGroup = getGroup(groupId);
     addNotification({
       user_id: currentUser.id,
       type: 'expense_updated',
@@ -2874,8 +3006,10 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const currentExpenses = expensesRef.current[groupId] || expenses[groupId] || [];
     const existing = currentExpenses.find((e) => e.id === expenseId);
+    const targetGroup = getGroup(groupId) || groups.find((g) => g.id === groupId);
+    const targetMembers = getGroupMembers(groupId) || members[groupId] || [];
     const isAppAdminUser = isAppAdmin(currentUser);
-    const isGroupAdminUser = isUserGroupAdmin(groupId, currentUser.id);
+    const isGroupAdminUser = checkIsGroupAdmin(groupId, currentUser, targetGroup, targetMembers) || isUserGroupAdmin(groupId, currentUser.id);
     const isCreator = existing ? existing.created_by === currentUser.id : true;
 
     if (existing && !isCreator && !isAppAdminUser && !isGroupAdminUser) {
@@ -2888,7 +3022,6 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     saveState(undefined, undefined, updatedExpenses);
 
-    const targetGroup = getGroup(groupId);
     addNotification({
       user_id: currentUser.id,
       type: 'expense_deleted',

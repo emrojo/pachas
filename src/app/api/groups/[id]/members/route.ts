@@ -36,6 +36,21 @@ export async function GET(
     }
     const group = groupRes.rows[0];
 
+    // Auto-heal cross-group unclaimed members missing tokens or marked false
+    await pool.query(
+      `UPDATE public.group_members gm
+       SET is_unclaimed = TRUE,
+           provisional_name = COALESCE(gm.provisional_name, p.full_name, 'Amigo'),
+           claim_token = COALESCE(gm.claim_token, gen_random_uuid()::text)
+       FROM public.profiles p
+       WHERE gm.user_id::text = p.id::text
+         AND gm.group_id::text = $1
+         AND gm.claimed_at IS NULL
+         AND (p.is_unclaimed = TRUE OR p.email ILIKE 'unclaimed-%')
+         AND (gm.is_unclaimed = FALSE OR gm.claim_token IS NULL)`,
+      [groupId]
+    ).catch(() => {});
+
     // 2. Fetch all members with their profile
     const membersRes = await pool.query(
       `SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at,
@@ -235,10 +250,11 @@ export async function POST(
     let targetUserId = userId;
     let targetEmail = email?.trim()?.toLowerCase();
     let targetName = fullName?.trim();
+    let profRes: any = null;
 
     // If targetUserId provided, look up profile
     if (targetUserId) {
-      const profRes = await pool.query('SELECT * FROM public.profiles WHERE id::text = $1', [targetUserId]);
+      profRes = await pool.query('SELECT * FROM public.profiles WHERE id::text = $1', [targetUserId]);
       if (profRes.rows.length > 0) {
         if (profRes.rows[0].is_banned) {
           return NextResponse.json(
@@ -251,7 +267,7 @@ export async function POST(
       }
     } else if (targetEmail) {
       // Lookup profile by email or create new profile
-      const profRes = await pool.query('SELECT * FROM public.profiles WHERE LOWER(email) = LOWER($1)', [targetEmail]);
+      profRes = await pool.query('SELECT * FROM public.profiles WHERE LOWER(email) = LOWER($1)', [targetEmail]);
       if (profRes.rows.length > 0) {
         targetUserId = profRes.rows[0].id;
         targetName = profRes.rows[0].full_name;
@@ -267,29 +283,67 @@ export async function POST(
       }
     }
 
-    if (!targetUserId) {
-      return NextResponse.json({ error: 'Usuario o correo no especificado' }, { status: 400 });
+    let isTargetUnclaimed = isUnclaimed;
+    let targetProvisionalName = provisionalName;
+
+    // Check if target user profile is unclaimed
+    if (profRes && profRes.rows.length > 0) {
+      const pRow = profRes.rows[0];
+      if (pRow.is_unclaimed || pRow.email?.toLowerCase().startsWith('unclaimed-')) {
+        isTargetUnclaimed = true;
+        targetProvisionalName = targetProvisionalName || pRow.full_name || 'Amigo';
+      }
+    }
+
+    if (!isTargetUnclaimed && targetUserId) {
+      const gmUnclaimedCheck = await pool.query(
+        'SELECT provisional_name FROM public.group_members WHERE user_id::text = $1 AND is_unclaimed = TRUE LIMIT 1',
+        [targetUserId]
+      );
+      if (gmUnclaimedCheck.rows.length > 0) {
+        isTargetUnclaimed = true;
+        targetProvisionalName = targetProvisionalName || gmUnclaimedCheck.rows[0].provisional_name || targetName || 'Amigo';
+      }
     }
 
     // Ensure target profile exists to avoid FK error
     await pool.query(
-      `INSERT INTO public.profiles (id, email, full_name, role, created_at, updated_at)
-       VALUES ($1, $2, $3, 'member', NOW(), NOW())
-       ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
-      [targetUserId, targetEmail || `${targetUserId}@pachas.local`, targetName || 'Amigo']
+      `INSERT INTO public.profiles (id, email, full_name, role, is_unclaimed, created_at, updated_at)
+       VALUES ($1, $2, $3, 'member', $4, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE SET 
+         updated_at = NOW(),
+         is_unclaimed = CASE WHEN EXCLUDED.is_unclaimed = TRUE THEN TRUE ELSE public.profiles.is_unclaimed END`,
+      [targetUserId, targetEmail || `${targetUserId}@pachas.local`, targetName || 'Amigo', isTargetUnclaimed]
     );
 
     const newMemberId = randomUUID();
-    await pool.query(
-      `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
-      [newMemberId, group.id, targetUserId, role]
-    );
+    const claimToken = isTargetUnclaimed ? randomUUID() : null;
+
+    if (isTargetUnclaimed) {
+      await pool.query(
+        `INSERT INTO public.group_members (
+           id, group_id, user_id, role, notifications_enabled, is_unclaimed, provisional_name, claim_token, joined_at
+         )
+         VALUES ($1, $2, $3, $4, FALSE, TRUE, $5, $6, NOW())
+         ON CONFLICT (group_id, user_id) DO UPDATE SET 
+           role = EXCLUDED.role,
+           is_unclaimed = CASE WHEN group_members.claimed_at IS NULL THEN TRUE ELSE group_members.is_unclaimed END,
+           provisional_name = COALESCE(group_members.provisional_name, EXCLUDED.provisional_name),
+           claim_token = CASE WHEN group_members.claimed_at IS NULL AND group_members.claim_token IS NULL THEN EXCLUDED.claim_token ELSE group_members.claim_token END`,
+        [newMemberId, group.id, targetUserId, role, targetProvisionalName || targetName || 'Amigo', claimToken]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO public.group_members (id, group_id, user_id, role, joined_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+        [newMemberId, group.id, targetUserId, role]
+      );
+    }
 
     // Fetch full added member profile
     const finalProfRes = await pool.query(
-      'SELECT id, email, full_name, avatar_url, bizum_phone, is_banned, ban_reason FROM public.profiles WHERE id::text = $1',
+      'SELECT id, email, full_name, avatar_url, bizum_phone, is_banned, ban_reason, is_unclaimed FROM public.profiles WHERE id::text = $1',
       [targetUserId]
     );
     const prof = finalProfRes.rows[0] || {
@@ -300,6 +354,7 @@ export async function POST(
       bizum_phone: null,
       is_banned: false,
       ban_reason: null,
+      is_unclaimed: isTargetUnclaimed,
     };
 
     const newMember = {
@@ -308,7 +363,13 @@ export async function POST(
       user_id: targetUserId,
       role,
       joined_at: new Date().toISOString(),
-      profile: prof,
+      is_unclaimed: isTargetUnclaimed,
+      provisional_name: isTargetUnclaimed ? (targetProvisionalName || targetName || 'Amigo') : null,
+      claim_token: isTargetUnclaimed ? claimToken : null,
+      profile: {
+        ...prof,
+        is_unclaimed: isTargetUnclaimed,
+      },
     };
 
     // Broadcast real-time member_joined
