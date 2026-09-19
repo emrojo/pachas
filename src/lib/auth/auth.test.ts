@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { hashPassword, verifyPassword } from './password';
 import { signJwt, verifyJwt } from './jwt';
 
@@ -53,6 +53,52 @@ describe('JWT Session Tokens', () => {
     const tampered = token.slice(0, -4) + 'abcd';
 
     expect(await verifyJwt(tampered)).toBeNull();
+  });
+});
+
+describe('Google Auth Configuration Endpoint (GET /api/auth/google)', () => {
+  const originalNextPublic = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = originalNextPublic;
+    process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
+  });
+
+  it('returns enabled: false when no client ID is configured', async () => {
+    delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_ID;
+
+    const { GET } = await import('@/app/api/auth/google/route');
+    const response = await GET();
+    const data = await response.json();
+
+    expect(data.enabled).toBe(false);
+    expect(data.clientId).toBeNull();
+  });
+
+  it('returns enabled: true and clientId when NEXT_PUBLIC_GOOGLE_CLIENT_ID is set', async () => {
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'test-public-client-id.apps.googleusercontent.com';
+    delete process.env.GOOGLE_CLIENT_ID;
+
+    const { GET } = await import('@/app/api/auth/google/route');
+    const response = await GET();
+    const data = await response.json();
+
+    expect(data.enabled).toBe(true);
+    expect(data.clientId).toBe('test-public-client-id.apps.googleusercontent.com');
+  });
+
+  it('falls back to GOOGLE_CLIENT_ID if NEXT_PUBLIC_GOOGLE_CLIENT_ID is empty', async () => {
+    delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    process.env.GOOGLE_CLIENT_ID = 'runtime-client-id.apps.googleusercontent.com';
+
+    const { GET } = await import('@/app/api/auth/google/route');
+    const response = await GET();
+    const data = await response.json();
+
+    expect(data.enabled).toBe(true);
+    expect(data.clientId).toBe('runtime-client-id.apps.googleusercontent.com');
   });
 });
 

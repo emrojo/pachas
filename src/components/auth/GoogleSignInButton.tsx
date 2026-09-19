@@ -34,9 +34,28 @@ export function GoogleSignInButton({ onSuccess, onError, context = 'signin' }: G
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [clientId, setClientId] = useState<string | null>(
+    (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '').trim() || null
+  );
   const scriptLoaded = useRef(false);
 
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  useEffect(() => {
+    if (clientId) return;
+
+    let isMounted = true;
+    fetch('/api/auth/google')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data?.enabled && data?.clientId) {
+          setClientId(data.clientId);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clientId]);
 
   useEffect(() => {
     if (!clientId || scriptLoaded.current) return;

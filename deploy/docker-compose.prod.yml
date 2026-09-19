@@ -58,6 +58,9 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://scanbills-ollama-cpu:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5vl:3b}
       - SCANBILLS_OCR_URL=${SCANBILLS_OCR_URL:-http://scanbills-web-cpu:8000}
+      # Autenticación con Google (OAuth 2.0)
+      - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}}
     # depends_on:
     #   postgres:
     #     condition: service_healthy

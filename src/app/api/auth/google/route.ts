@@ -14,6 +14,20 @@ interface GoogleTokenInfo {
 }
 
 /**
+ * GET /api/auth/google
+ *
+ * Exposes whether Google OAuth is enabled and the public Client ID
+ * allowing pre-built Docker containers to support Google Auth at runtime.
+ */
+export async function GET() {
+  const clientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim();
+  return NextResponse.json({
+    enabled: Boolean(clientId),
+    clientId: clientId || null,
+  });
+}
+
+/**
  * POST /api/auth/google
  *
  * Authenticates a user via Google OAuth credential (id_token).
@@ -32,7 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    const clientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim();
     if (!clientId) {
       return NextResponse.json(
         { error: 'Login con Google no configurado en el servidor' },
