@@ -269,7 +269,7 @@ export default function AdminBackofficePage() {
   } | null>(null);
   const [selectedOcrProvider, setSelectedOcrProvider] = useState<'ollama' | 'gemini'>('ollama');
   const [ollamaBaseUrlInput, setOllamaBaseUrlInput] = useState('http://127.0.0.1:11434');
-  const [ollamaModelInput, setOllamaModelInput] = useState('qwen2.5vl:7b');
+  const [ollamaModelInput, setOllamaModelInput] = useState('qwen2.5vl:3b');
   const [isSavingOcr, setIsSavingOcr] = useState(false);
   const [ocrSaveFeedback, setOcrSaveFeedback] = useState<string | null>(null);
   const [isPingingOcr, setIsPingingOcr] = useState(false);
@@ -283,7 +283,7 @@ export default function AdminBackofficePage() {
           setOcrConfigData(json.data);
           setSelectedOcrProvider(json.data.provider || 'ollama');
           setOllamaBaseUrlInput(json.data.ollamaBaseUrl || 'http://127.0.0.1:11434');
-          setOllamaModelInput(json.data.ollamaModel || 'qwen2.5vl:7b');
+          setOllamaModelInput(json.data.ollamaModel || 'qwen2.5vl:3b');
         }
       }
     } catch {}

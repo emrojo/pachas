@@ -67,7 +67,7 @@ export function getDefaultEnvOcrConfig(): OcrConfig {
     process.env.SCANBILLS_OCR_URL ||
     'http://127.0.0.1:11434'
   ).replace(/\/+$/, '');
-  const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5vl:7b';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5vl:3b';
   const apiKey = getGeminiApiKey();
 
   return {
@@ -91,31 +91,37 @@ export async function getOcrConfig(forceFresh = false): Promise<OcrConfig> {
     const pool = getDbPool();
     if (pool) {
       const res = await pool.query(
-        `SELECT key, value FROM public.app_settings WHERE key IN ('ocr_provider', 'ollama_base_url', 'ollama_model')`
+        `SELECT key, value, updated_by FROM public.app_settings WHERE key IN ('ocr_provider', 'ollama_base_url', 'ollama_model')`
       );
 
-      const dbMap = new Map<string, string>();
+      const dbMap = new Map<string, { value: string; updatedBy: string | null }>();
       for (const row of res.rows) {
-        dbMap.set(row.key, row.value);
+        dbMap.set(row.key, { value: row.value, updatedBy: row.updated_by });
       }
 
       if (dbMap.has('ocr_provider')) {
-        const p = dbMap.get('ocr_provider')?.toLowerCase().trim();
+        const item = dbMap.get('ocr_provider')!;
+        const p = item.value?.toLowerCase().trim();
         if (p === 'gemini' || p === 'ollama') {
           baseConfig.provider = p;
         }
       }
 
       if (dbMap.has('ollama_base_url')) {
-        const url = dbMap.get('ollama_base_url')?.trim();
-        if (url) {
+        const item = dbMap.get('ollama_base_url')!;
+        const url = item.value?.trim();
+        // Respect explicit environment variable if DB value was just uncustomized seed (updatedBy === null)
+        const hasExplicitEnvUrl = Boolean(process.env.OLLAMA_BASE_URL || process.env.SCANBILLS_OCR_URL);
+        if (url && (item.updatedBy !== null || !hasExplicitEnvUrl)) {
           baseConfig.ollamaBaseUrl = url.replace(/\/+$/, '');
         }
       }
 
       if (dbMap.has('ollama_model')) {
-        const m = dbMap.get('ollama_model')?.trim();
-        if (m) {
+        const item = dbMap.get('ollama_model')!;
+        const m = item.value?.trim();
+        const hasExplicitEnvModel = Boolean(process.env.OLLAMA_MODEL);
+        if (m && (item.updatedBy !== null || !hasExplicitEnvModel)) {
           baseConfig.ollamaModel = m;
         }
       }

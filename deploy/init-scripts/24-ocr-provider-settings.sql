@@ -11,15 +11,8 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
   updated_by TEXT
 );
 
--- Initialize default OCR provider to 'ollama' (powered by scan-bills-ocr / Qwen2.5-VL)
-INSERT INTO public.app_settings (key, value)
-VALUES ('ocr_provider', 'ollama')
-ON CONFLICT (key) DO NOTHING;
-
-INSERT INTO public.app_settings (key, value)
-VALUES ('ollama_base_url', 'http://127.0.0.1:11434')
-ON CONFLICT (key) DO NOTHING;
-
-INSERT INTO public.app_settings (key, value)
-VALUES ('ollama_model', 'qwen2.5vl:7b')
-ON CONFLICT (key) DO NOTHING;
+-- Clean up uncustomized initial seed so container environment variables (OLLAMA_BASE_URL, OLLAMA_MODEL) take precedence
+DELETE FROM public.app_settings
+WHERE updated_by IS NULL
+  AND key IN ('ollama_base_url', 'ollama_model')
+  AND value IN ('http://127.0.0.1:11434', 'qwen2.5vl:7b');

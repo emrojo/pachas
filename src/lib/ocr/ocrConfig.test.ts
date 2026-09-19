@@ -15,10 +15,11 @@ describe('OCR Provider Configuration Manager', () => {
 
   it('defaults to ollama provider when OCR_PROVIDER is not explicitly set', () => {
     delete process.env.OCR_PROVIDER;
+    delete process.env.OLLAMA_MODEL;
     const config = getDefaultEnvOcrConfig();
     expect(config.provider).toBe('ollama');
     expect(config.ollamaBaseUrl).toBe('http://127.0.0.1:11434');
-    expect(config.ollamaModel).toBe('qwen2.5vl:7b');
+    expect(config.ollamaModel).toBe('qwen2.5vl:3b');
   });
 
   it('respects OCR_PROVIDER=gemini when configured via environment', () => {
