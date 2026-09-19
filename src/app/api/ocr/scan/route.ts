@@ -125,8 +125,9 @@ export async function POST(request: NextRequest) {
     // Build tax bracket context based on currency / country / locale
     const taxCountryContext = getCountryTaxPromptContext(currency, userLang);
 
-    // 3. System prompt for structured receipt extraction with sensitive information detection, tax brackets and bilingual translation
-    const prompt = `Analiza detalladamente esta fotografía de un ticket, factura o recibo de compra (restaurante, supermercado, hotel, transporte, etc.).
+    // 3. System prompts for structured receipt extraction
+    // Gemini prompt: detailed multimodal analysis with box coordinates & multi-country tax rules
+    const geminiPrompt = `Analiza detalladamente esta fotografía de un ticket, factura o recibo de compra (restaurante, supermercado, hotel, transporte, etc.).
 El idioma nativo / preferido del usuario es: "${targetLangName}" (código: "${userLang}").
 
 ${taxCountryContext}
@@ -159,7 +160,7 @@ Esquema JSON requerido:
   "category": "food" | "shopping" | "transport" | "accommodation" | "activities" | "other",
   "locationName": "Dirección física (calle, número, código postal y/o ciudad) del establecimiento si aparece en el ticket (ej: 'C/ Gran Vía 28, Madrid') o null",
   "currency": "EUR",
-  "detectedLanguage": "es" | "en" | "fr" | "de" | "it" | "pt" | "nl" | "ru" | "zh" | "ja" | "ar" | "el" | "tr" | "hi" | "af" | ...,
+  "detectedLanguage": "es" | "en" | "fr" | "de" | "it" | "pt" | "nl" | "ru" | "zh" | "ja" | "ar" | "el" | "tr" | "hi" | "af",
   "items": [
     {
       "description": "Nombre del producto traducido a ${targetLangName} (si el ticket ya está en ${userLang}, usa el nombre original)",
@@ -189,61 +190,52 @@ Esquema JSON requerido:
 }
 
 Reglas críticas de extracción y cálculo de impuestos:
-1. amount: Número decimal puro (ej: 42.50). Es el TOTAL FINAL efectivamente pagado por el cliente (TOTAL, TOTAL FACTURA, IMPORTE A PAGAR, TOTAL EUR/€). Nunca tomes subtotales ni bases imponibles si hay un total final con impuestos.
+1. amount: Número decimal puro (ej: 42.50). Es el TOTAL FINAL efectivamente pagado por el cliente.
 2. amountFormatted: Representación con coma decimal europea (ej: "42,50").
-3. Identificación del IVA, Jurisdicción y Tipo de Factura:
-   - "is_europe": Booleano. true si el comercio está radicado en Europa (España, Francia, Alemania, Italia, UK, etc.) por su dirección, CIF/NIF o divisa (EUR, GBP).
-   - "invoice_type":
-     * "simplified": Ticket de caja / Factura Simplificada emitida a consumidor final sin datos fiscales del comprador. ¡ATENCIÓN!: En Europa, por ley (RD 1619/2012 / Directiva 2006/112/CE), todos los precios mostrados por producto ya incluyen el IVA (tax_included=true).
-     * "full": Factura Completa u Ordinaria con identificación formal del cliente (NIF/CIF, nombre/razón social y domicilio fiscal).
-     * "standard" / "other": Facturas no europeas.
-   - "tax_legislation": "ES_RD_1619_2012" si el establecimiento es español, "EU_DIRECTIVE_2006_112" para el resto de Europa, "UK_VAT_ACT_1994" para Reino Unido, "US_SALES_TAX" para EEUU, "NON_EU" otros.
-   - "tax_name": Nombre del impuesto identificado ("IVA" en España/países hispanos, "VAT" en Reino Unido, "TVA" en Francia, "MwSt" en Alemania, etc.).
-   - "tax_included": Booleano FUNDAMENTAL. Indica si la cantidad total del ticket ("amount") ya incluye los impuestos. En tickets de consumo en España y Europa siempre es true.
-   - "items_price_includes_tax": Booleano FUNDAMENTAL sobre las líneas de productos:
-     * Comprueba si la suma de los precios de los productos ("price") es igual a "amount". Si coincide directamente (ej: 12€ + 8€ = 20€ total), pon true (los precios impresos en el ticket ya son PVP con IVA incluido).
-     * Si la suma de los precios de los productos es menor y coincide con la base imponible ("subtotal"), y esa suma más los impuestos es igual a "amount" (ej: base 100€ + IVA 21€ = 121€ total), pon false (los precios de los productos están listados en base neta sin IVA).
-   - "tax_rate": Porcentaje general o tipo predominante de impuesto si se especifica.
-   - "tax_amount": Importe total de impuestos abonados en la factura (suma de cuotas de IVA).
-   - "subtotal": Base imponible total antes de impuestos. Si "items_price_includes_tax": true, subtotal = amount - tax_amount. Si "items_price_includes_tax": false, subtotal = suma de items.
-4. Desglose de tramos de impuestos ("tax_breakdown"):
-   - En muchos tickets aparece al pie un cuadro o tabla de desglose de IVA (ej: "DESGLOSE DE IVA", "BASES Y CUOTAS", "B.IMP", "CUOTA", "T.IVA", etc.) con diferentes tramos (ej: 10% y 21%).
-   - Extrae cada tramo en "tax_breakdown":
-     * "tax_rate": Porcentaje del tramo (ej: 4.0, 10.0, 21.0).
-     * "base_amount": Base imponible de ese tramo.
-     * "tax_amount": Cuota de impuesto de ese tramo.
-     * "total_amount": Total con impuestos de ese tramo (base + cuota).
-5. Asignación e inferencia de IVA por producto ("items"):
-   - Para cada producto individual:
-     * "quantity": Número de unidades (ej: 1, 2, 3). Si indica "2x Cerveza", pon 2. Por defecto 1.
-     * "unit_price": Precio de cada unidad individual.
-     * "price": Importe total de la línea impreso en el ticket (quantity * unit_price).
-     * "tax_rate": Identifica qué tipo de IVA corresponde a este producto:
-       1) Si en el ticket aparece una letra o indicador al lado del producto (ej: "A", "B", "(1)", "(2)", "%") que hace referencia al cuadro de tramos del pie, usa ese tramo.
-       2) Si no aparece indicador explícito, infiere el IVA por la naturaleza del producto según las reglas del país (consultando el contexto tributario arriba, ej: en España comida/restauración = 10%, cerveza/alcohol/higiene = 21%, pan/leche = 4%).
-       3) COMPROBACIÓN MATEMÁTICA OBLIGATORIA: La suma de los precios de los productos clasificados en cada tramo DEBE cuadrar con la base o total de ese tramo en el cuadro de desglose del ticket, y la suma total de productos debe cuadrar con el total o subtotal de la factura.
-     * "tax_amount": Cuota de impuesto abonada por ese producto:
-       - Si items_price_includes_tax es true: tax_amount = price - (price / (1 + tax_rate / 100)).
-       - Si items_price_includes_tax es false: tax_amount = price * (tax_rate / 100).
-     * "tax_included": Booleano que indica si el precio de este producto ya incluye impuestos (true si es PVP minorista, false si es base neta). REGLA FUNDAMENTAL DE UNIFORMIDAD: En una misma factura, si un producto tiene el IVA incluido en su precio, TODOS los productos de esa factura lo tienen incluido; si uno no lo tiene, NINGUNO lo tiene. Por lo tanto, coincide de forma homogénea con "items_price_includes_tax" para el 100% de los productos.
-   - Si el idioma del ticket es DIFERENTE al del usuario (${userLang}):
-     * "description": Traduce con precisión y naturalidad el concepto a ${targetLangName}.
-     * "description_original": Guarda el nombre original tal y como aparece impreso en el ticket.
-   - Si el idioma del ticket es igual a ${userLang}:
-     * "description": Nombre original del producto.
-     * "description_original": null o el mismo nombre.
-6. date: Fecha y hora EXACTA en formato ISO "YYYY-MM-DDTHH:mm". Busca activamente la hora y minutos impresos en el ticket (ej: 14:35 o 21:10). Si solo aparece fecha sin hora, usa las 12:00. Si el año no aparece, usa el año actual.
-7. category: Clasifica según el negocio ("food", "shopping", "transport", "accommodation", "activities", "other").
-8. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay dirección legible, devuelve null.
-9. title: El nombre comercial más visible (ej: "Mercadona", "Restaurante El Faro", "Repsol", "Burger King", "Zara").
-10. detectedLanguage: Código de dos letras ISO 639-1 del idioma principal detectado en el ticket.
-11. translatedBoxes: Si detectedLanguage es DIFERENTE de "${userLang}", proporciona las coordenadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 de las líneas o cajas de texto de los productos, conceptos o encabezados principales del ticket junto con su texto original y su traducción a ${targetLangName}. Si coincide, devuelve un array vacío: [].
-12. sensitiveBoxes: Coordenadas de cajas delimitadoras normalizadas [ymin, xmin, ymax, xmax] en escala de 0 a 1000 que cubran información bancaria o sensible:
-   - Números de tarjeta de crédito/débito (PAN, **** 1234, fecha caducidad, tipo de tarjeta).
-   - Datos bancarios, números de cuenta, IBAN, códigos de autorización de datáfono, PINs o firmas.
-   - DNI/NIF/CIF del cliente, nombres personales o teléfonos privados del comprador.
-   Si no hay información sensible presente en la imagen, devuelve un array vacío: [].
-13. IMPORTANTE: Devuelve EXCLUSIVAMENTE el objeto JSON que empieza por { y termina por }, sin explicaciones, ni saludos, ni texto conversacional antes o después.`;
+3. date: Fecha y hora EXACTA en formato ISO "YYYY-MM-DDTHH:mm". Si no aparece la hora, usa las 12:00.
+4. category: Clasifica según el negocio ("food", "shopping", "transport", "accommodation", "activities", "other").
+5. locationName: Dirección o ciudad del comercio encontrada en el ticket. Si no hay, null.
+6. title: Nombre comercial más visible.
+7. items: Lista de productos con descripción, cantidad, precio e IVA.
+8. translatedBoxes: Si detectedLanguage != "${userLang}", coordenadas [ymin, xmin, ymax, xmax] escala 0-1000 y traducción. Si coincide, [].
+9. sensitiveBoxes: Coordenadas escala 0-1000 de tarjetas, cuentas, firmas o DNI. Si no hay, [].
+10. Devuelve EXCLUSIVAMENTE el objeto JSON sin texto antes ni después.`;
+
+    // Ollama prompt: streamlined, high-speed prompt without bounding box calculations for CPU inference
+    const ollamaPrompt = `Extrae los datos de este ticket/factura en formato JSON estricto.
+Idioma: ${userLang}. Moneda: ${currency || 'EUR'}.
+
+Devuelve ÚNICAMENTE este objeto JSON:
+{
+  "title": "Nombre del comercio o establecimiento",
+  "amount": 0.00,
+  "amountFormatted": "0,00",
+  "date": "YYYY-MM-DDTHH:mm",
+  "category": "food" | "shopping" | "transport" | "accommodation" | "activities" | "other",
+  "currency": "${currency || 'EUR'}",
+  "subtotal": 0.00,
+  "tax_name": "IVA",
+  "tax_rate": 21.0,
+  "tax_amount": 0.00,
+  "tax_included": true,
+  "items_price_includes_tax": true,
+  "invoice_type": "simplified",
+  "locationName": "Ciudad o dirección si aparece en el ticket",
+  "items": [
+    {
+      "description": "Nombre del producto o concepto",
+      "quantity": 1,
+      "price": 0.00,
+      "tax_rate": 10.0
+    }
+  ]
+}
+Reglas:
+- "amount": Número decimal con el total final pagado.
+- "title": Nombre del establecimiento (ej: Mercadona, Restaurante, etc.).
+- "date": Formato YYYY-MM-DDTHH:mm. Si no hay hora, pon 12:00.
+- "items": Lista de productos comprados con su precio total de línea y unidades.
+- Responde ÚNICAMENTE con el JSON que empieza por { y termina por }, sin explicaciones ni markdown previo o posterior.`;
 
     // 4. Invocación al motor de visión configurado (Ollama por defecto o Gemini) con fallback automático
     let lastError = '';
@@ -258,7 +250,7 @@ Reglas críticas de extracción y cálculo de impuestos:
       const ollamaRes = await callOllamaVision({
         imageBase64: base64Data,
         mimeType,
-        prompt,
+        prompt: ollamaPrompt,
         baseUrl: ocrConfig.ollamaBaseUrl,
         model: ocrConfig.ollamaModel,
         fallbackModels: ocrConfig.ollamaFallbackModels,
@@ -280,7 +272,7 @@ Reglas críticas de extracción y cálculo de impuestos:
           const geminiRes = await callGeminiVision({
             imageBase64: base64Data,
             mimeType,
-            prompt,
+            prompt: geminiPrompt,
             apiKey: ocrConfig.geminiApiKey,
           });
           if (geminiRes.success && geminiRes.rawContent) {
@@ -303,7 +295,7 @@ Reglas críticas de extracción y cálculo de impuestos:
         const geminiRes = await callGeminiVision({
           imageBase64: base64Data,
           mimeType,
-          prompt,
+          prompt: geminiPrompt,
           apiKey: ocrConfig.geminiApiKey,
         });
 
@@ -321,7 +313,7 @@ Reglas críticas de extracción y cálculo de impuestos:
             const ollamaRes = await callOllamaVision({
               imageBase64: base64Data,
               mimeType,
-              prompt,
+              prompt: ollamaPrompt,
               baseUrl: ocrConfig.ollamaBaseUrl,
               model: ocrConfig.ollamaModel,
               fallbackModels: ocrConfig.ollamaFallbackModels,
@@ -346,7 +338,7 @@ Reglas críticas de extracción y cálculo de impuestos:
           const ollamaRes = await callOllamaVision({
             imageBase64: base64Data,
             mimeType,
-            prompt,
+            prompt: ollamaPrompt,
             baseUrl: ocrConfig.ollamaBaseUrl,
             model: ocrConfig.ollamaModel,
             fallbackModels: ocrConfig.ollamaFallbackModels,

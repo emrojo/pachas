@@ -540,7 +540,7 @@ export async function generateTranslatedReceiptOverlay(
  */
 export async function optimizeImageForOcr(
   imageDataUrl: string,
-  maxDimension = 1600,
+  maxDimension = 1024,
   quality = 0.85
 ): Promise<string> {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -622,7 +622,7 @@ export async function scanReceipt(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ image: payloadImage, targetLanguage, currency }),
-      signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(60000) : undefined,
+      signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(300000) : undefined,
     });
 
     if (res.ok) {

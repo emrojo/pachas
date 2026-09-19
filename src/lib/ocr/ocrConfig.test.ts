@@ -73,8 +73,8 @@ describe('OCR Provider Configuration Manager', () => {
     delete process.env.OLLAMA_NUM_CTX;
     delete process.env.OLLAMA_TIMEOUT_MS;
     const defaultConfig = getDefaultEnvOcrConfig();
-    expect(defaultConfig.ollamaNumCtx).toBe(16384);
-    expect(defaultConfig.ollamaTimeoutMs).toBe(120000);
+    expect(defaultConfig.ollamaNumCtx).toBe(8192);
+    expect(defaultConfig.ollamaTimeoutMs).toBe(300000);
 
     process.env.OLLAMA_NUM_CTX = '32768';
     process.env.OLLAMA_TIMEOUT_MS = '60000';

@@ -87,8 +87,8 @@ export function getDefaultEnvOcrConfig(): OcrConfig {
   ).replace(/\/+$/, '');
   const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5vl:3b';
   const ollamaFallbackModels = parseFallbackModelsList(process.env.OLLAMA_FALLBACK_MODELS);
-  const ollamaNumCtx = Number(process.env.OLLAMA_NUM_CTX) || 16384;
-  const ollamaTimeoutMs = Number(process.env.OLLAMA_TIMEOUT_MS) || 120000;
+  const ollamaNumCtx = Number(process.env.OLLAMA_NUM_CTX) || 8192;
+  const ollamaTimeoutMs = Number(process.env.OLLAMA_TIMEOUT_MS) || 300000;
   const rawFallback = (process.env.OCR_ENABLE_FALLBACK || 'true').toLowerCase().trim();
   const enableFallback = rawFallback !== 'false' && rawFallback !== '0' && rawFallback !== 'no';
   const apiKey = getGeminiApiKey();

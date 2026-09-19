@@ -132,8 +132,8 @@ export async function callOllamaVision({
     return { success: false, error: 'Imagen en base64 vacía o no válida' };
   }
 
-  const effectiveTimeoutMs = timeoutMs ?? (Number(process.env.OLLAMA_TIMEOUT_MS) || 120000);
-  const initialNumCtx = numCtx ?? (Number(process.env.OLLAMA_NUM_CTX) || 16384);
+  const effectiveTimeoutMs = timeoutMs ?? (Number(process.env.OLLAMA_TIMEOUT_MS) || 300000);
+  const initialNumCtx = numCtx ?? (Number(process.env.OLLAMA_NUM_CTX) || 8192);
   const effectiveFallbackModels = fallbackModels ?? parseFallbackModelsList(process.env.OLLAMA_FALLBACK_MODELS);
 
   // 1. If baseUrl indicates ScanBills FastAPI endpoint (:8000, :8030, scanbills-web or /api/v1), call /api/v1/extract/base64
@@ -214,7 +214,7 @@ export async function callOllamaVision({
             format: 'json',
             options: {
               temperature: 0.1,
-              num_predict: 4096,
+              num_predict: 1500,
               num_ctx: currentCtx,
             },
           }),

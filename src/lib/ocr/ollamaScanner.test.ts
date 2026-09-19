@@ -156,7 +156,7 @@ describe('Ollama / ScanBills OCR Scanner', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('passes default num_ctx: 16384 and num_predict: 4096 in options to native Ollama /api/chat', async () => {
+  it('passes default num_ctx: 8192 and num_predict: 1500 in options to native Ollama /api/chat', async () => {
     let capturedBody: any = null;
     global.fetch = vi.fn().mockImplementation((_url: string, init: any) => {
       capturedBody = JSON.parse(init.body);
@@ -179,8 +179,8 @@ describe('Ollama / ScanBills OCR Scanner', () => {
     expect(res.success).toBe(true);
     expect(capturedBody).not.toBeNull();
     expect(capturedBody.options).toBeDefined();
-    expect(capturedBody.options.num_ctx).toBe(16384);
-    expect(capturedBody.options.num_predict).toBe(4096);
+    expect(capturedBody.options.num_ctx).toBe(8192);
+    expect(capturedBody.options.num_predict).toBe(1500);
   });
 
   it('respects OLLAMA_NUM_CTX environment variable or custom numCtx parameter', async () => {
