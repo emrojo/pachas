@@ -201,7 +201,9 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     if (!isOpen || !pendingScan) return;
 
     const data = pendingScan.scanned_data || {};
-    setTitle(data.title || 'Ticket escaneado');
+    const isError = pendingScan.status === 'error' || Boolean(data.error);
+    const rawTitle = data.title && data.title !== 'Ticket escaneado' ? data.title : (!isError ? (data.title || 'Ticket') : '');
+    setTitle(rawTitle);
     setAmountStr(data.amountFormatted || (typeof data.amount === 'number' ? String(data.amount) : ''));
     setCurrency(data.currency || group?.base_currency || 'EUR');
     setCategory(data.category || 'food');
@@ -641,24 +643,44 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
       maxWidth="xl"
     >
       <form onSubmit={handleConfirmAndCreate} className="space-y-5">
+        {/* AVISO DE ERROR O FALLO EN EXTRACCIÓN OCR */}
+        {(pendingScan?.status === 'error' || pendingScan?.error_message || pendingScan?.scanned_data?.error) && (
+          <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-400 dark:border-amber-600/70 text-amber-950 dark:text-amber-200 space-y-1 shadow-xs">
+            <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Extracción automática no completada</span>
+            </div>
+            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+              {pendingScan.error_message || pendingScan.scanned_data?.error || pendingScan.scanned_data?.fallbackReason || 'No se pudieron extraer los datos automáticamente del ticket.'}
+              {' '}Puedes rellenar los datos e importes manualmente consultando la foto del ticket a la izquierda.
+            </p>
+          </div>
+        )}
+
         {/* Distintivo de Motor de IA que procesó la factura */}
-        {pendingScan?.scanned_data && (
+        {pendingScan && (pendingScan.scanned_data || pendingScan.status) && (
           <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
             <span className="text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Motor de extracción utilizado:</span>
+              <span>Motor de extracción:</span>
             </span>
             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold shadow-2xs ${
-              pendingScan.scanned_data.fallbackUsed
+              pendingScan.status === 'error' || pendingScan.scanned_data?.error
+                ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-700'
+                : pendingScan.scanned_data?.fallbackUsed
                 ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
                 : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
             }`}>
-              {pendingScan.scanned_data.providerUsed === 'gemini' || pendingScan.scanned_data.source?.includes('gemini')
+              {pendingScan.scanned_data?.providerUsed === 'gemini' || pendingScan.scanned_data?.source?.includes('gemini')
                 ? '✨ Google Gemini Flash'
-                : pendingScan.scanned_data.providerUsed === 'ollama' || pendingScan.scanned_data.source?.includes('ollama')
-                ? `🦙 Ollama Vision (${pendingScan.scanned_data.modelUsed || '3b'})`
+                : (pendingScan.scanned_data?.providerUsed === 'ollama' || pendingScan.scanned_data?.source?.includes('ollama') || pendingScan.scanned_data?.requestedProvider === 'ollama')
+                ? `🦙 Ollama Vision (${pendingScan.scanned_data?.modelUsed || 'qwen2.5vl:3b'})`
                 : '🤖 IA Vision'}
-              {pendingScan.scanned_data.fallbackUsed && ' (Fallback)'}
+              {pendingScan.status === 'error' || pendingScan.scanned_data?.error
+                ? ' (Error / Sin respuesta)'
+                : pendingScan.scanned_data?.fallbackUsed
+                ? ' (Fallback)'
+                : ''}
             </span>
           </div>
         )}

@@ -62,6 +62,7 @@ export interface ScannedReceiptData {
   requestedProvider?: 'ollama' | 'gemini' | string;
   fallbackUsed?: boolean;
   fallbackReason?: string;
+  error?: string;
   modelUsed?: string;
   audit?: ReceiptAuditReport;
 }
@@ -534,9 +535,67 @@ export async function generateTranslatedReceiptOverlay(
 }
 
 /**
+ * Downscales and compresses large camera images to prevent exceeding context window in LLM vision models
+ * and dramatically speeds up inference without losing OCR readability.
+ */
+export async function optimizeImageForOcr(
+  imageDataUrl: string,
+  maxDimension = 1600,
+  quality = 0.85
+): Promise<string> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return imageDataUrl;
+  }
+  if (!imageDataUrl || !imageDataUrl.startsWith('data:image/')) {
+    return imageDataUrl;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          let { width, height } = img;
+          if (width <= maxDimension && height <= maxDimension) {
+            resolve(imageDataUrl);
+            return;
+          }
+
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(imageDataUrl);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const optimizedUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(optimizedUrl);
+        } catch {
+          resolve(imageDataUrl);
+        }
+      };
+      img.onerror = () => resolve(imageDataUrl);
+      img.src = imageDataUrl;
+    } catch {
+      resolve(imageDataUrl);
+    }
+  });
+}
+
+/**
  * Intelligent Receipt Scanner
- * 1. Prioritizes Multimodal AI Vision (Google Gemini 1.5 Flash) via /api/ocr/scan for ~99% accuracy.
- * 2. Gracefully falls back to local client OCR (tesseract.js) if offline or API key not configured.
+ * Prioritizes Multimodal AI Vision (Ollama / Gemini) via /api/ocr/scan with client-side image downscaling.
  */
 export async function scanReceipt(
   imageDataUrl: string,
@@ -544,18 +603,26 @@ export async function scanReceipt(
   currency?: string
 ): Promise<ScannedReceiptData> {
   if (!imageDataUrl) {
-    return { rawText: '', confidence: 0 };
+    return { rawText: '', confidence: 0, error: 'No se proporcionó imagen' };
   }
 
-  // 1. Try Gemini 1.5 Flash Vision via Server Endpoint
+  // Pre-optimize image payload to avoid vision context window token overflow
+  let payloadImage = imageDataUrl;
+  try {
+    payloadImage = await optimizeImageForOcr(imageDataUrl);
+  } catch (optErr) {
+    console.warn('[ReceiptScanner] Optimización de imagen omitida:', optErr);
+  }
+
+  // 1. Try Vision via Server Endpoint
   try {
     const res = await fetch('/api/ocr/scan', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ image: imageDataUrl, targetLanguage, currency }),
-      signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(45000) : undefined,
+      body: JSON.stringify({ image: payloadImage, targetLanguage, currency }),
+      signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(60000) : undefined,
     });
 
     if (res.ok) {
@@ -625,19 +692,26 @@ export async function scanReceipt(
       return {
         ...parseReceiptText(''),
         confidence: 0,
+        error: errMsg,
         fallbackUsed: false,
         fallbackReason: errMsg,
+        providerUsed: errJson?.requestedProvider || (errJson?.error?.toLowerCase().includes('ollama') ? 'ollama' : undefined),
+        requestedProvider: errJson?.requestedProvider || 'ollama',
+        modelUsed: errJson?.modelUsed,
       };
     }
   } catch (visionErr: any) {
     console.warn('[ReceiptScanner] Error de comunicación con motor OCR:', visionErr);
+    const errMsg = visionErr.message || 'Error de conexión con el motor OCR';
     return {
       ...parseReceiptText(''),
       confidence: 0,
+      error: errMsg,
       fallbackUsed: false,
-      fallbackReason: visionErr.message || 'Error de conexión con el motor OCR',
+      fallbackReason: errMsg,
+      requestedProvider: 'ollama',
     };
   }
 
-  return { rawText: '', confidence: 0 };
+  return { rawText: '', confidence: 0, error: 'Respuesta vacía del servicio OCR' };
 }

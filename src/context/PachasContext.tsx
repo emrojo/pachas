@@ -2546,13 +2546,24 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         const hasDefinitiveData = Boolean(
           scannedData &&
+          scannedData.confidence > 0 &&
           (scannedData.amount !== undefined || (scannedData.title && scannedData.title.trim().length > 0))
         );
+
+        const isScanError = Boolean(
+          !scannedData ||
+          scannedData.confidence === 0 ||
+          scannedData.error ||
+          (!hasDefinitiveData && scannedData.fallbackReason)
+        );
+
+        const scanErrorMessage = scannedData?.error || scannedData?.fallbackReason || (isScanError ? 'No se pudieron extraer datos del ticket' : undefined);
 
         const updatedScan: PendingReceiptScan = {
           ...newScan,
           translated_image: scannedData?.receiptTranslatedUrl || null,
-          status: 'ready',
+          status: isScanError ? 'error' : 'ready',
+          error_message: scanErrorMessage,
           scanned_data: scannedData || undefined,
         };
 
@@ -2562,53 +2573,76 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return updated;
         });
 
-        // 1. Emit in-app notification for user to validate and approve the result
-        const engineLabel = scannedData?.providerUsed === 'ollama'
-          ? '🦙 Ollama'
-          : scannedData?.providerUsed === 'gemini'
-          ? '✨ Gemini'
-          : 'IA';
-        const notifTitle = hasDefinitiveData
-          ? `🧾 Factura lista (${engineLabel}): ${scannedData?.title || 'Nuevo gasto'}`
-          : `🧾 Factura lista (${engineLabel})`;
-        const notifBody = hasDefinitiveData
-          ? `Importe: ${scannedData?.amountFormatted || (typeof scannedData?.amount === 'number' ? `${scannedData.amount} €` : '')}. Pulsa aquí para revisar los datos y confirmar el gasto en el grupo.`
-          : 'La IA ha procesado tu factura. Pulsa aquí para revisar los datos y confirmar el gasto.';
+        if (isScanError) {
+          const notifTitle = '⚠️ Error al procesar ticket con IA';
+          const notifBody = scanErrorMessage
+            ? `${scanErrorMessage}. Pulsa aquí para revisar la imagen y rellenar los datos a mano.`
+            : 'No se pudieron reconocer los campos de la factura. Pulsa aquí para rellenar los datos a mano.';
 
-        addNotification({
-          user_id: currentUser.id,
-          type: 'receipt_pending',
-          title: notifTitle,
-          message: notifBody,
-          group_id: groupId,
-          action_url: `/groups/${groupId}?validateScan=${scanId}`,
-          data: { scanId, groupId },
-        });
+          addNotification({
+            user_id: currentUser.id,
+            type: 'receipt_pending',
+            title: notifTitle,
+            message: notifBody,
+            group_id: groupId,
+            action_url: `/groups/${groupId}?validateScan=${scanId}`,
+            data: { scanId, groupId },
+          });
 
-        // 2. Also show native browser / push notification if permitted
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-          try {
-            if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-              const reg = await navigator.serviceWorker.ready;
-              reg.showNotification(notifTitle, {
-                body: notifBody,
-                icon: '/icon-192.png',
-                badge: '/badge-72.png',
-                tag: `scan-${scanId}`,
-                data: { scanId, groupId, url: `/groups/${groupId}?validateScan=${scanId}` },
-              });
-            } else {
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
               new Notification(notifTitle, { body: notifBody, icon: '/icon-192.png' });
+            } catch {}
+          }
+        } else {
+          // 1. Emit in-app notification for user to validate and approve the result
+          const engineLabel = scannedData?.providerUsed === 'ollama'
+            ? '🦙 Ollama'
+            : scannedData?.providerUsed === 'gemini'
+            ? '✨ Gemini'
+            : 'IA';
+          const notifTitle = hasDefinitiveData
+            ? `🧾 Factura lista (${engineLabel}): ${scannedData?.title || 'Nuevo gasto'}`
+            : `🧾 Factura lista (${engineLabel})`;
+          const notifBody = hasDefinitiveData
+            ? `Importe: ${scannedData?.amountFormatted || (typeof scannedData?.amount === 'number' ? `${scannedData.amount} €` : '')}. Pulsa aquí para revisar los datos y confirmar el gasto en el grupo.`
+            : 'La IA ha procesado tu factura. Pulsa aquí para revisar los datos y confirmar el gasto.';
+
+          addNotification({
+            user_id: currentUser.id,
+            type: 'receipt_pending',
+            title: notifTitle,
+            message: notifBody,
+            group_id: groupId,
+            action_url: `/groups/${groupId}?validateScan=${scanId}`,
+            data: { scanId, groupId },
+          });
+
+          // 2. Also show native browser / push notification if permitted
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                const reg = await navigator.serviceWorker.ready;
+                reg.showNotification(notifTitle, {
+                  body: notifBody,
+                  icon: '/icon-192.png',
+                  badge: '/badge-72.png',
+                  tag: `scan-${scanId}`,
+                  data: { scanId, groupId, url: `/groups/${groupId}?validateScan=${scanId}` },
+                });
+              } else {
+                new Notification(notifTitle, { body: notifBody, icon: '/icon-192.png' });
+              }
+            } catch (notifErr) {
+              console.warn('Error showing scan notification:', notifErr);
             }
-          } catch (notifErr) {
-            console.warn('Error showing scan notification:', notifErr);
           }
         }
       } catch (err: any) {
         console.warn('[QueueScan] Error analizando ticket:', err);
         const fallbackScan: PendingReceiptScan = {
           ...newScan,
-          status: 'ready',
+          status: 'error',
           error_message: err.message || 'Error al analizar el ticket',
         };
         setPendingReceiptScans((prev) => {
@@ -2620,8 +2654,8 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addNotification({
           user_id: currentUser.id,
           type: 'receipt_pending',
-          title: '⚠️ Revisión manual requerida',
-          message: 'No se pudieron reconocer todos los campos de la factura. Pulsa para revisar los datos y guardarla.',
+          title: '⚠️ Error al procesar ticket con IA',
+          message: err.message || 'No se pudieron reconocer los campos de la factura. Pulsa para revisar los datos y guardarla.',
           group_id: groupId,
           action_url: `/groups/${groupId}?validateScan=${scanId}`,
           data: { scanId, groupId },

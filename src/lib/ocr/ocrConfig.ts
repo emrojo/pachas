@@ -9,6 +9,8 @@ export interface OcrConfig {
   ollamaBaseUrl: string;
   ollamaModel: string;
   ollamaFallbackModels: string[];
+  ollamaNumCtx: number;
+  ollamaTimeoutMs: number;
   enableFallback: boolean;
   hasGeminiKey: boolean;
   geminiApiKey?: string;
@@ -85,6 +87,8 @@ export function getDefaultEnvOcrConfig(): OcrConfig {
   ).replace(/\/+$/, '');
   const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5vl:3b';
   const ollamaFallbackModels = parseFallbackModelsList(process.env.OLLAMA_FALLBACK_MODELS);
+  const ollamaNumCtx = Number(process.env.OLLAMA_NUM_CTX) || 16384;
+  const ollamaTimeoutMs = Number(process.env.OLLAMA_TIMEOUT_MS) || 120000;
   const rawFallback = (process.env.OCR_ENABLE_FALLBACK || 'true').toLowerCase().trim();
   const enableFallback = rawFallback !== 'false' && rawFallback !== '0' && rawFallback !== 'no';
   const apiKey = getGeminiApiKey();
@@ -94,6 +98,8 @@ export function getDefaultEnvOcrConfig(): OcrConfig {
     ollamaBaseUrl,
     ollamaModel,
     ollamaFallbackModels,
+    ollamaNumCtx,
+    ollamaTimeoutMs,
     enableFallback,
     hasGeminiKey: Boolean(apiKey),
     geminiApiKey: apiKey,

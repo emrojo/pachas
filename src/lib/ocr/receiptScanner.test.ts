@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { parseReceiptText } from './receiptScanner';
 
 describe('OCR Receipt Scanner Text Parsing Engine', () => {
@@ -136,5 +136,36 @@ describe('OCR Receipt Scanner Text Parsing Engine', () => {
 
     const noisyResult = parseReceiptText('asdfghjkl qwerty 12345');
     expect(noisyResult.rawText).toBeDefined();
+  });
+
+  it('optimizeImageForOcr safely handles node/test environments without crashing', async () => {
+    const { optimizeImageForOcr } = await import('./receiptScanner');
+    const result = await optimizeImageForOcr('data:image/jpeg;base64,dGVzdA==');
+    expect(result).toBe('data:image/jpeg;base64,dGVzdA==');
+  });
+
+  it('scanReceipt returns structured error when endpoint responds with HTTP 422', async () => {
+    const { scanReceipt } = await import('./receiptScanner');
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({
+        success: false,
+        error: 'HTTP 400 (qwen2.5vl:3b): exceed_context_size_error',
+        requestedProvider: 'ollama',
+        modelUsed: 'qwen2.5vl:3b',
+      }),
+    } as any);
+
+    try {
+      const res = await scanReceipt('data:image/jpeg;base64,dGVzdA==');
+      expect(res.confidence).toBe(0);
+      expect(res.error).toBe('HTTP 400 (qwen2.5vl:3b): exceed_context_size_error');
+      expect(res.requestedProvider).toBe('ollama');
+      expect(res.providerUsed).toBe('ollama');
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });

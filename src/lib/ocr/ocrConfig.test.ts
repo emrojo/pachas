@@ -68,4 +68,18 @@ describe('OCR Provider Configuration Manager', () => {
     expect(configWithFallback.ollamaFallbackModels).toEqual(['qwen2.5vl:7b', 'llava']);
     expect(configWithFallback.enableFallback).toBe(true);
   });
+
+  it('configures ollamaNumCtx and ollamaTimeoutMs with defaults and custom env values', () => {
+    delete process.env.OLLAMA_NUM_CTX;
+    delete process.env.OLLAMA_TIMEOUT_MS;
+    const defaultConfig = getDefaultEnvOcrConfig();
+    expect(defaultConfig.ollamaNumCtx).toBe(16384);
+    expect(defaultConfig.ollamaTimeoutMs).toBe(120000);
+
+    process.env.OLLAMA_NUM_CTX = '32768';
+    process.env.OLLAMA_TIMEOUT_MS = '60000';
+    const customConfig = getDefaultEnvOcrConfig();
+    expect(customConfig.ollamaNumCtx).toBe(32768);
+    expect(customConfig.ollamaTimeoutMs).toBe(60000);
+  });
 });

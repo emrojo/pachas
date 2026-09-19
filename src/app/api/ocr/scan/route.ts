@@ -262,6 +262,8 @@ Reglas críticas de extracción y cálculo de impuestos:
         baseUrl: ocrConfig.ollamaBaseUrl,
         model: ocrConfig.ollamaModel,
         fallbackModels: ocrConfig.ollamaFallbackModels,
+        numCtx: ocrConfig.ollamaNumCtx,
+        timeoutMs: ocrConfig.ollamaTimeoutMs,
       });
 
       if (ollamaRes.success && ollamaRes.rawContent) {
@@ -323,6 +325,8 @@ Reglas críticas de extracción y cálculo de impuestos:
               baseUrl: ocrConfig.ollamaBaseUrl,
               model: ocrConfig.ollamaModel,
               fallbackModels: ocrConfig.ollamaFallbackModels,
+              numCtx: ocrConfig.ollamaNumCtx,
+              timeoutMs: ocrConfig.ollamaTimeoutMs,
             });
             if (ollamaRes.success && ollamaRes.rawContent) {
               rawContent = ollamaRes.rawContent;
@@ -346,6 +350,8 @@ Reglas críticas de extracción y cálculo de impuestos:
             baseUrl: ocrConfig.ollamaBaseUrl,
             model: ocrConfig.ollamaModel,
             fallbackModels: ocrConfig.ollamaFallbackModels,
+            numCtx: ocrConfig.ollamaNumCtx,
+            timeoutMs: ocrConfig.ollamaTimeoutMs,
           });
           if (ollamaRes.success && ollamaRes.rawContent) {
             rawContent = ollamaRes.rawContent;
@@ -368,6 +374,8 @@ Reglas críticas de extracción y cálculo de impuestos:
         {
           success: false,
           error: `No se pudo procesar el ticket con el motor OCR: ${lastError}`,
+          requestedProvider: ocrConfig.provider,
+          modelUsed: ocrConfig.provider === 'ollama' ? ocrConfig.ollamaModel : undefined,
         },
         { status: 422 }
       );
