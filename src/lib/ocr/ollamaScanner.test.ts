@@ -295,4 +295,68 @@ describe('Ollama / ScanBills OCR Scanner', () => {
     expect(res.success).toBe(false);
     expect(res.error).toContain('HTTP 400 (qwen2.5vl:3b)');
   });
+
+  it('only invokes the primary model when fallbackModels is empty or OLLAMA_FALLBACK_MODELS=none', async () => {
+    const originalEnv = process.env.OLLAMA_FALLBACK_MODELS;
+    process.env.OLLAMA_FALLBACK_MODELS = 'none';
+
+    const modelsCalled: string[] = [];
+    global.fetch = vi.fn().mockImplementation((_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      modelsCalled.push(body.model);
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        text: async () => 'model not found',
+      });
+    });
+
+    try {
+      const res = await callOllamaVision({
+        imageBase64: 'dGVzdA==',
+        prompt: 'Analiza este ticket',
+        baseUrl: 'http://127.0.0.1:11434',
+        model: 'qwen2.5vl:3b',
+      });
+
+      expect(res.success).toBe(false);
+      expect(modelsCalled).toEqual(['qwen2.5vl:3b']);
+    } finally {
+      process.env.OLLAMA_FALLBACK_MODELS = originalEnv;
+    }
+  });
+
+  it('invokes configured custom fallbackModels in order when primary model fails with 404', async () => {
+    const modelsCalled: string[] = [];
+    global.fetch = vi.fn().mockImplementation((_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      modelsCalled.push(body.model);
+      if (body.model === 'primary:3b') {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          text: async () => 'primary not found',
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          model: body.model,
+          message: { role: 'assistant', content: '{"ok":true}' },
+        }),
+      });
+    });
+
+    const res = await callOllamaVision({
+      imageBase64: 'dGVzdA==',
+      prompt: 'Analiza este ticket',
+      baseUrl: 'http://127.0.0.1:11434',
+      model: 'primary:3b',
+      fallbackModels: ['fallback-a:3b', 'fallback-b:7b'],
+    });
+
+    expect(res.success).toBe(true);
+    expect(modelsCalled).toEqual(['primary:3b', 'fallback-a:3b']);
+    expect(res.modelUsed).toBe('fallback-a:3b');
+  });
 });

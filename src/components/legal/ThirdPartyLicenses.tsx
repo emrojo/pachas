@@ -160,16 +160,6 @@ export const THIRD_PARTY_LIBRARIES: ThirdPartyLibrary[] = [
 
   // 4. OCR & Document Processing
   {
-    name: 'Tesseract.js',
-    category: 'ocr',
-    license: 'Apache-2.0',
-    author: 'Jerome Wu & Tesseract OCR team',
-    purpose: 'Reconocimiento óptico de caracteres (OCR) ejecutado en cliente vía WebAssembly para extraer importes de tickets.',
-    purposeEn: 'Client-side optical character recognition (OCR) via WebAssembly to extract totals and dates from receipts.',
-    url: 'https://tesseract.projectnaptha.com',
-    licenseUrl: 'https://github.com/naptha/tesseract.js/blob/master/LICENSE',
-  },
-  {
     name: 'PDF.js (pdfjs-dist)',
     category: 'ocr',
     license: 'Apache-2.0',

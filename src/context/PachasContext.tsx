@@ -372,6 +372,20 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return [];
   });
 
+  const isInitialScanMount = useRef(true);
+  useEffect(() => {
+    if (isInitialScanMount.current) {
+      isInitialScanMount.current = false;
+      return;
+    }
+    safeSetLocalStorage('pachas_pending_scans_v1', JSON.stringify(pendingReceiptScans));
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('pachas_pending_scans_v1', JSON.stringify(pendingReceiptScans));
+      } catch {}
+    }
+  }, [pendingReceiptScans]);
+
   const [ocrConfig, setOcrConfig] = useState<{
     provider: 'ollama' | 'gemini';
     ollamaModel: string;
@@ -2646,12 +2660,47 @@ export const PachasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const confirmPendingScan = async (scanId: string, input: CreateExpenseInput): Promise<Expense> => {
     const createdExpense = await addExpense(input);
-    setPendingReceiptScans((prev) => prev.filter((s) => s.id !== scanId));
+    setPendingReceiptScans((prev) => {
+      const updated = prev.filter((s) => s.id !== scanId);
+      safeSetLocalStorage('pachas_pending_scans_v1', JSON.stringify(updated));
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('pachas_pending_scans_v1', JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+
+    setNotifications((prev) => {
+      const updated = prev.map((n) =>
+        n.type === 'receipt_pending' && n.data?.scanId === scanId ? { ...n, read: true } : n
+      );
+      safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+      return updated;
+    });
+
     return createdExpense;
   };
 
   const dismissPendingScan = (scanId: string) => {
-    setPendingReceiptScans((prev) => prev.filter((s) => s.id !== scanId));
+    setPendingReceiptScans((prev) => {
+      const updated = prev.filter((s) => s.id !== scanId);
+      safeSetLocalStorage('pachas_pending_scans_v1', JSON.stringify(updated));
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('pachas_pending_scans_v1', JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+
+    setNotifications((prev) => {
+      const updated = prev.map((n) =>
+        n.type === 'receipt_pending' && n.data?.scanId === scanId ? { ...n, read: true } : n
+      );
+      safeSetLocalStorage(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const importExpenses = async (groupId: string, inputs: CreateExpenseInput[]): Promise<Expense[]> => {

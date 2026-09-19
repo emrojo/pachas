@@ -58,7 +58,7 @@ export interface ScannedReceiptData {
   items?: ScannedLineItem[];
   confidence: number;
   source?: string;
-  providerUsed?: 'ollama' | 'gemini' | 'tesseract' | string;
+  providerUsed?: 'ollama' | 'gemini' | string;
   requestedProvider?: 'ollama' | 'gemini' | string;
   fallbackUsed?: boolean;
   fallbackReason?: string;
@@ -619,43 +619,25 @@ export async function scanReceipt(
         console.warn('[ReceiptScanner] Servidor solicitó fallback:', json.message || json.error);
       }
     } else {
-      console.warn(`[ReceiptScanner] /api/ocr/scan respondió con código HTTP ${res.status}`);
+      const errJson = await res.json().catch(() => null);
+      const errMsg = errJson?.error || `Error al escanear ticket (${res.status})`;
+      console.warn(`[ReceiptScanner] /api/ocr/scan respondió con error: ${errMsg}`);
+      return {
+        ...parseReceiptText(''),
+        confidence: 0,
+        fallbackUsed: false,
+        fallbackReason: errMsg,
+      };
     }
-  } catch (visionErr) {
-    console.warn('[ReceiptScanner] Gemini Vision API no disponible, usando OCR local:', visionErr);
-  }
-
-  // 2. Fallback to Local Client-Side OCR (tesseract.js with 10s timeout)
-  try {
-    const tesseractPromise = (async () => {
-      const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('spa+eng');
-      const ret = await worker.recognize(imageDataUrl);
-      await worker.terminate();
-      return ret.data.text || '';
-    })();
-
-    const timeoutPromise = new Promise<string>((_, reject) =>
-      setTimeout(() => reject(new Error('Tesseract local OCR timeout')), 10000)
-    );
-
-    const text = await Promise.race([tesseractPromise, timeoutPromise]);
-    const parsed = parseReceiptText(text);
-    return {
-      ...parsed,
-      source: 'tesseract-ocr',
-      providerUsed: 'tesseract',
-      fallbackUsed: true,
-      fallbackReason: 'Sin conexión a motores de visión IA',
-    };
-  } catch (err) {
-    console.warn('[ReceiptScanner] Local OCR fallback error:', err);
+  } catch (visionErr: any) {
+    console.warn('[ReceiptScanner] Error de comunicación con motor OCR:', visionErr);
     return {
       ...parseReceiptText(''),
-      source: 'tesseract-ocr',
-      providerUsed: 'tesseract',
-      fallbackUsed: true,
-      fallbackReason: 'Error en OCR local',
+      confidence: 0,
+      fallbackUsed: false,
+      fallbackReason: visionErr.message || 'Error de conexión con el motor OCR',
     };
   }
+
+  return { rawText: '', confidence: 0 };
 }

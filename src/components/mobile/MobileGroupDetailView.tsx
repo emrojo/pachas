@@ -929,7 +929,18 @@ export const MobileGroupDetailView: React.FC<MobileGroupDetailViewProps> = ({
       {validatingScan && (
         <ReceiptValidationModal
           isOpen={!!validatingScan}
-          onClose={() => setValidatingScan(null)}
+          onClose={() => {
+            setValidatingScan(null);
+            if (typeof window !== 'undefined' && window.history) {
+              try {
+                const url = new URL(window.location.href);
+                if (url.searchParams.has('validateScan')) {
+                  url.searchParams.delete('validateScan');
+                  window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+                }
+              } catch {}
+            }
+          }}
           pendingScan={validatingScan}
           groupId={group.id}
           isMobileView={true}

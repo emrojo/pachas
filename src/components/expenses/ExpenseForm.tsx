@@ -2140,7 +2140,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                       ? '✨ Gemini Flash'
                       : (scannedData.providerUsed === 'ollama' || scannedData.source?.includes('ollama') || scannedData.source?.includes('qwen'))
                       ? `🦙 Ollama Vision (${scannedData.modelUsed || ocrConfig?.ollamaModel || '3b'})`
-                      : '📄 Tesseract OCR'}
+                      : '🤖 IA Vision'}
                     {scannedData.fallbackUsed && (
                       <span className="font-semibold text-amber-800 dark:text-amber-300" title={scannedData.fallbackReason}>
                         (Fallback)

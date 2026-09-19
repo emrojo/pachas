@@ -43,4 +43,29 @@ describe('OCR Provider Configuration Manager', () => {
     process.env.GEMINI_API_KEY = 'valid-gemini-key-123';
     expect(getGeminiApiKey()).toBe('valid-gemini-key-123');
   });
+
+  it('parses fallback models list correctly', async () => {
+    const { parseFallbackModelsList } = await import('./ocrConfig');
+    expect(parseFallbackModelsList(undefined)).toEqual([]);
+    expect(parseFallbackModelsList('')).toEqual([]);
+    expect(parseFallbackModelsList('none')).toEqual([]);
+    expect(parseFallbackModelsList('false')).toEqual([]);
+    expect(parseFallbackModelsList('qwen2.5vl:7b, llama3.2-vision')).toEqual(['qwen2.5vl:7b', 'llama3.2-vision']);
+  });
+
+  it('correctly configures OLLAMA_FALLBACK_MODELS and OCR_ENABLE_FALLBACK from environment', () => {
+    process.env.OLLAMA_FALLBACK_MODELS = 'none';
+    process.env.OCR_ENABLE_FALLBACK = 'false';
+
+    const config = getDefaultEnvOcrConfig();
+    expect(config.ollamaFallbackModels).toEqual([]);
+    expect(config.enableFallback).toBe(false);
+
+    process.env.OLLAMA_FALLBACK_MODELS = 'qwen2.5vl:7b,llava';
+    process.env.OCR_ENABLE_FALLBACK = 'true';
+
+    const configWithFallback = getDefaultEnvOcrConfig();
+    expect(configWithFallback.ollamaFallbackModels).toEqual(['qwen2.5vl:7b', 'llava']);
+    expect(configWithFallback.enableFallback).toBe(true);
+  });
 });

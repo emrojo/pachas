@@ -208,6 +208,15 @@ export function WebGroupDetailView({ onSwitchToMobile }: WebGroupDetailViewProps
       }
       if (match) {
         setValidatingScan(match);
+      } else if (typeof window !== 'undefined' && window.history) {
+        // Clean orphan validateScan query param from URL
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('validateScan')) {
+            url.searchParams.delete('validateScan');
+            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+          }
+        } catch {}
       }
     }
   }, [searchParams, expenses, pendingReceiptScans]);
@@ -1103,7 +1112,18 @@ export function WebGroupDetailView({ onSwitchToMobile }: WebGroupDetailViewProps
       {validatingScan && (
         <ReceiptValidationModal
           isOpen={!!validatingScan}
-          onClose={() => setValidatingScan(null)}
+          onClose={() => {
+            setValidatingScan(null);
+            if (typeof window !== 'undefined' && window.history) {
+              try {
+                const url = new URL(window.location.href);
+                if (url.searchParams.has('validateScan')) {
+                  url.searchParams.delete('validateScan');
+                  window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+                }
+              } catch {}
+            }
+          }}
           pendingScan={validatingScan}
           groupId={group.id}
         />

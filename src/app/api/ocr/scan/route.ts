@@ -261,6 +261,7 @@ Reglas críticas de extracción y cálculo de impuestos:
         prompt,
         baseUrl: ocrConfig.ollamaBaseUrl,
         model: ocrConfig.ollamaModel,
+        fallbackModels: ocrConfig.ollamaFallbackModels,
       });
 
       if (ollamaRes.success && ollamaRes.rawContent) {
@@ -271,8 +272,8 @@ Reglas críticas de extracción y cálculo de impuestos:
         lastError = ollamaRes.error || 'Ollama no disponible';
         console.warn('[OCR] ⚠️ Ollama no pudo procesar la solicitud:', lastError);
 
-        // Fallback automático a Gemini si tiene clave API
-        if (ocrConfig.hasGeminiKey && ocrConfig.geminiApiKey) {
+        // Fallback condicional a Gemini si está habilitado por configuración y tiene clave API
+        if (ocrConfig.enableFallback && ocrConfig.hasGeminiKey && ocrConfig.geminiApiKey) {
           console.log('[OCR] 🔄 Activando fallback automático a Google Gemini...');
           const geminiRes = await callGeminiVision({
             imageBase64: base64Data,
@@ -289,6 +290,8 @@ Reglas críticas de extracción y cálculo de impuestos:
           } else {
             lastError += ` | Fallback Gemini: ${geminiRes.error}`;
           }
+        } else {
+          console.log('[OCR] ℹ️ Fallback a Gemini no activado (enableFallback=false o sin API key).');
         }
       }
     } else {
@@ -310,56 +313,63 @@ Reglas críticas de extracción y cálculo de impuestos:
           lastError = geminiRes.error || 'Gemini no disponible';
           console.warn('[OCR] ⚠️ Gemini no pudo procesar la solicitud:', lastError);
 
-          // Fallback automático a Ollama
-          console.log('[OCR] 🔄 Activando fallback automático a Ollama...');
+          // Fallback condicional a Ollama si está habilitado por configuración
+          if (ocrConfig.enableFallback) {
+            console.log('[OCR] 🔄 Activando fallback automático a Ollama...');
+            const ollamaRes = await callOllamaVision({
+              imageBase64: base64Data,
+              mimeType,
+              prompt,
+              baseUrl: ocrConfig.ollamaBaseUrl,
+              model: ocrConfig.ollamaModel,
+              fallbackModels: ocrConfig.ollamaFallbackModels,
+            });
+            if (ollamaRes.success && ollamaRes.rawContent) {
+              rawContent = ollamaRes.rawContent;
+              providerUsed = 'ollama';
+              fallbackUsed = true;
+              fallbackReason = `Gemini no respondió (${lastError})`;
+              successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
+            } else {
+              lastError += ` | Fallback Ollama: ${ollamaRes.error}`;
+            }
+          }
+        }
+      } else {
+        // Gemini seleccionado pero sin clave API -> Probar Ollama si fallback está permitido
+        if (ocrConfig.enableFallback) {
+          console.log('[OCR] ⚠️ Gemini seleccionado pero GEMINI_API_KEY no configurada. Probando Ollama...');
           const ollamaRes = await callOllamaVision({
             imageBase64: base64Data,
             mimeType,
             prompt,
             baseUrl: ocrConfig.ollamaBaseUrl,
             model: ocrConfig.ollamaModel,
+            fallbackModels: ocrConfig.ollamaFallbackModels,
           });
           if (ollamaRes.success && ollamaRes.rawContent) {
             rawContent = ollamaRes.rawContent;
             providerUsed = 'ollama';
             fallbackUsed = true;
-            fallbackReason = `Gemini no respondió (${lastError})`;
+            fallbackReason = 'GEMINI_API_KEY no configurada';
             successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
           } else {
-            lastError += ` | Fallback Ollama: ${ollamaRes.error}`;
+            lastError = 'GEMINI_API_KEY no configurada y Ollama no disponible';
           }
-        }
-      } else {
-        // Gemini seleccionado pero sin clave API -> Probar Ollama
-        console.log('[OCR] ⚠️ Gemini seleccionado pero GEMINI_API_KEY no configurada. Probando Ollama...');
-        const ollamaRes = await callOllamaVision({
-          imageBase64: base64Data,
-          mimeType,
-          prompt,
-          baseUrl: ocrConfig.ollamaBaseUrl,
-          model: ocrConfig.ollamaModel,
-        });
-        if (ollamaRes.success && ollamaRes.rawContent) {
-          rawContent = ollamaRes.rawContent;
-          providerUsed = 'ollama';
-          fallbackUsed = true;
-          fallbackReason = 'GEMINI_API_KEY no configurada';
-          successfulModel = `ollama-${ollamaRes.modelUsed || ocrConfig.ollamaModel}`;
         } else {
-          lastError = 'GEMINI_API_KEY no configurada y Ollama no disponible';
+          lastError = 'GEMINI_API_KEY no configurada y fallback deshabilitado';
         }
       }
     }
 
     if (!rawContent) {
-      console.warn(`[OCR] ⚠️ Ningún motor IA disponible (${lastError}). Activando fallback local.`);
+      console.warn(`[OCR] ⚠️ Motor OCR no disponible (${lastError}).`);
       return NextResponse.json(
         {
-          fallback: true,
-          error: `No se pudo procesar con IA: ${lastError}`,
-          message: 'Motores IA no disponibles. Usando OCR local en el cliente.',
+          success: false,
+          error: `No se pudo procesar el ticket con el motor OCR: ${lastError}`,
         },
-        { status: 200 }
+        { status: 422 }
       );
     }
 

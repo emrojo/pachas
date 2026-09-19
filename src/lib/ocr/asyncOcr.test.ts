@@ -106,4 +106,36 @@ describe('Asynchronous AI Receipt OCR Workflow', () => {
     expect(scanRecord.scanned_data.sensitiveBoxes[0].box_2d).toEqual([750, 200, 800, 800]);
     expect(scanRecord.scanned_data.sensitiveBoxes[0].label).toContain('tarjeta');
   });
+
+  it('correctly filters out and cleans up dismissed pending scan from localStorage simulation', () => {
+    const scanIdToDismiss = 'scan-to-dismiss-123';
+    const initialScans = [
+      { id: scanIdToDismiss, group_id: 'grp-1', status: 'ready' },
+      { id: 'scan-keep-456', group_id: 'grp-1', status: 'ready' },
+    ];
+
+    const storage: Record<string, string> = {
+      pachas_pending_scans_v1: JSON.stringify(initialScans),
+    };
+
+    // Simulate dismissPendingScan logic
+    const updated = initialScans.filter((s) => s.id !== scanIdToDismiss);
+    storage['pachas_pending_scans_v1'] = JSON.stringify(updated);
+
+    const reloaded = JSON.parse(storage['pachas_pending_scans_v1']);
+    expect(reloaded).toHaveLength(1);
+    expect(reloaded[0].id).toBe('scan-keep-456');
+    expect(reloaded.find((s: any) => s.id === scanIdToDismiss)).toBeUndefined();
+  });
+
+  it('cleans up validateScan query parameter from URL correctly', () => {
+    const originalUrl = 'http://localhost:3000/groups/grp-1?validateScan=scan-to-dismiss-123&tab=expenses';
+    const parsed = new URL(originalUrl);
+    expect(parsed.searchParams.has('validateScan')).toBe(true);
+
+    parsed.searchParams.delete('validateScan');
+    expect(parsed.searchParams.has('validateScan')).toBe(false);
+    expect(parsed.searchParams.get('tab')).toBe('expenses');
+    expect(parsed.pathname + (parsed.search ? parsed.search : '')).toBe('/groups/grp-1?tab=expenses');
+  });
 });

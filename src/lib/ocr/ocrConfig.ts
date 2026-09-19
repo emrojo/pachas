@@ -8,6 +8,8 @@ export interface OcrConfig {
   provider: OcrProvider;
   ollamaBaseUrl: string;
   ollamaModel: string;
+  ollamaFallbackModels: string[];
+  enableFallback: boolean;
   hasGeminiKey: boolean;
   geminiApiKey?: string;
 }
@@ -59,6 +61,20 @@ export function getGeminiApiKey(): string | undefined {
   return undefined;
 }
 
+export function parseFallbackModelsList(raw?: string): string[] {
+  if (raw === undefined || raw === null) {
+    return [];
+  }
+  const clean = raw.trim().toLowerCase();
+  if (!clean || clean === 'none' || clean === 'false' || clean === 'null' || clean === '[]') {
+    return [];
+  }
+  return raw
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+}
+
 export function getDefaultEnvOcrConfig(): OcrConfig {
   const rawProvider = (process.env.OCR_PROVIDER || 'ollama').toLowerCase().trim();
   const provider: OcrProvider = rawProvider === 'gemini' ? 'gemini' : 'ollama';
@@ -68,12 +84,17 @@ export function getDefaultEnvOcrConfig(): OcrConfig {
     'http://127.0.0.1:11434'
   ).replace(/\/+$/, '');
   const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5vl:3b';
+  const ollamaFallbackModels = parseFallbackModelsList(process.env.OLLAMA_FALLBACK_MODELS);
+  const rawFallback = (process.env.OCR_ENABLE_FALLBACK || 'true').toLowerCase().trim();
+  const enableFallback = rawFallback !== 'false' && rawFallback !== '0' && rawFallback !== 'no';
   const apiKey = getGeminiApiKey();
 
   return {
     provider,
     ollamaBaseUrl,
     ollamaModel,
+    ollamaFallbackModels,
+    enableFallback,
     hasGeminiKey: Boolean(apiKey),
     geminiApiKey: apiKey,
   };
@@ -91,7 +112,7 @@ export async function getOcrConfig(forceFresh = false): Promise<OcrConfig> {
     const pool = getDbPool();
     if (pool) {
       const res = await pool.query(
-        `SELECT key, value, updated_by FROM public.app_settings WHERE key IN ('ocr_provider', 'ollama_base_url', 'ollama_model')`
+        `SELECT key, value, updated_by FROM public.app_settings WHERE key IN ('ocr_provider', 'ollama_base_url', 'ollama_model', 'ollama_fallback_models', 'ocr_enable_fallback')`
       );
 
       const dbMap = new Map<string, { value: string; updatedBy: string | null }>();
@@ -125,6 +146,19 @@ export async function getOcrConfig(forceFresh = false): Promise<OcrConfig> {
           baseConfig.ollamaModel = m;
         }
       }
+
+      if (dbMap.has('ollama_fallback_models')) {
+        const item = dbMap.get('ollama_fallback_models')!;
+        if (item.value !== undefined) {
+          baseConfig.ollamaFallbackModels = parseFallbackModelsList(item.value);
+        }
+      }
+
+      if (dbMap.has('ocr_enable_fallback')) {
+        const item = dbMap.get('ocr_enable_fallback')!;
+        const v = item.value?.toLowerCase().trim();
+        baseConfig.enableFallback = v !== 'false' && v !== '0' && v !== 'no';
+      }
     }
   } catch (err) {
     // If DB read fails, silently fallback to env configuration
@@ -136,7 +170,7 @@ export async function getOcrConfig(forceFresh = false): Promise<OcrConfig> {
 }
 
 export async function setOcrConfig(
-  newConfig: Partial<Pick<OcrConfig, 'provider' | 'ollamaBaseUrl' | 'ollamaModel'>>,
+  newConfig: Partial<Pick<OcrConfig, 'provider' | 'ollamaBaseUrl' | 'ollamaModel' | 'ollamaFallbackModels' | 'enableFallback'>>,
   updatedBy?: string
 ): Promise<OcrConfig> {
   const pool = getDbPool();
@@ -165,6 +199,24 @@ export async function setOcrConfig(
          VALUES ('ollama_model', $1, NOW(), $2)
          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
         [newConfig.ollamaModel.trim(), updatedBy || null]
+      );
+    }
+
+    if (newConfig.ollamaFallbackModels !== undefined) {
+      await pool.query(
+        `INSERT INTO public.app_settings (key, value, updated_at, updated_by)
+         VALUES ('ollama_fallback_models', $1, NOW(), $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
+        [newConfig.ollamaFallbackModels.join(','), updatedBy || null]
+      );
+    }
+
+    if (newConfig.enableFallback !== undefined) {
+      await pool.query(
+        `INSERT INTO public.app_settings (key, value, updated_at, updated_by)
+         VALUES ('ocr_enable_fallback', $1, NOW(), $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
+        [newConfig.enableFallback ? 'true' : 'false', updatedBy || null]
       );
     }
   }

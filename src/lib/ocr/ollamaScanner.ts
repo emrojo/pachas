@@ -1,3 +1,5 @@
+import { parseFallbackModelsList } from './ocrConfig';
+
 export interface OllamaHealthResult {
   online: boolean;
   models: string[];
@@ -12,6 +14,7 @@ export interface OllamaVisionRequest {
   prompt: string;
   baseUrl?: string;
   model?: string;
+  fallbackModels?: string[];
   timeoutMs?: number;
   numCtx?: number;
 }
@@ -120,6 +123,7 @@ export async function callOllamaVision({
   model = 'qwen2.5vl:7b',
   timeoutMs,
   numCtx,
+  fallbackModels,
 }: OllamaVisionRequest): Promise<OllamaVisionResponse> {
   const cleanUrl = baseUrl.replace(/\/+$/, '');
   const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '').trim();
@@ -130,6 +134,7 @@ export async function callOllamaVision({
 
   const effectiveTimeoutMs = timeoutMs ?? (Number(process.env.OLLAMA_TIMEOUT_MS) || 120000);
   const initialNumCtx = numCtx ?? (Number(process.env.OLLAMA_NUM_CTX) || 16384);
+  const effectiveFallbackModels = fallbackModels ?? parseFallbackModelsList(process.env.OLLAMA_FALLBACK_MODELS);
 
   // 1. If baseUrl indicates ScanBills FastAPI endpoint (:8000, :8030, scanbills-web or /api/v1), call /api/v1/extract/base64
   if (isScanBillsEndpoint(cleanUrl)) {
@@ -172,16 +177,7 @@ export async function callOllamaVision({
   }
 
   // 2. Native Ollama /api/chat invocation with candidate model list
-  const candidateModels = [
-    model,
-    'qwen2.5vl:7b',
-    'qwen2.5vl:3b',
-    'qwen2.5-vl:7b',
-    'qwen2.5-vl:3b',
-    'llama3.2-vision',
-    'minicpm-v',
-    'llava',
-  ];
+  const candidateModels = [model, ...effectiveFallbackModels];
 
   const triedModels = new Set<string>();
   let lastError = '';

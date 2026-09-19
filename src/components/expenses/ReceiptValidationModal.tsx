@@ -467,10 +467,28 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
     }
   };
 
+  const cleanupUrlValidateScanParam = () => {
+    if (typeof window !== 'undefined' && window.history) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('validateScan')) {
+          url.searchParams.delete('validateScan');
+          window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+        }
+      } catch {}
+    }
+  };
+
+  const handleClose = () => {
+    cleanupUrlValidateScanParam();
+    onClose();
+  };
+
   const handleDismiss = () => {
     if (!pendingScan) return;
     if (confirm('¿Descartar este ticket escaneado? No se creará ningún gasto en el grupo.')) {
       dismissPendingScan(pendingScan.id);
+      cleanupUrlValidateScanParam();
       onClose();
     }
   };
@@ -603,6 +621,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
         colors: ['#10b981', '#059669', '#f59e0b'],
       });
 
+      cleanupUrlValidateScanParam();
       onClose();
     } catch (err: any) {
       setError(err.message || 'Error al guardar el gasto');
@@ -616,7 +635,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={t('expenses.validateAiScanTitle')}
       description={t('expenses.validateAiScanSubtitle')}
       maxWidth="xl"
@@ -638,7 +657,7 @@ export const ReceiptValidationModal: React.FC<ReceiptValidationModalProps> = ({
                 ? '✨ Google Gemini Flash'
                 : pendingScan.scanned_data.providerUsed === 'ollama' || pendingScan.scanned_data.source?.includes('ollama')
                 ? `🦙 Ollama Vision (${pendingScan.scanned_data.modelUsed || '3b'})`
-                : '📄 Tesseract OCR'}
+                : '🤖 IA Vision'}
               {pendingScan.scanned_data.fallbackUsed && ' (Fallback)'}
             </span>
           </div>
