@@ -13,6 +13,7 @@ export interface OllamaVisionRequest {
   baseUrl?: string;
   model?: string;
   timeoutMs?: number;
+  numCtx?: number;
 }
 
 export interface OllamaVisionResponse {
@@ -117,7 +118,8 @@ export async function callOllamaVision({
   prompt,
   baseUrl = 'http://127.0.0.1:11434',
   model = 'qwen2.5vl:7b',
-  timeoutMs = 60000,
+  timeoutMs,
+  numCtx,
 }: OllamaVisionRequest): Promise<OllamaVisionResponse> {
   const cleanUrl = baseUrl.replace(/\/+$/, '');
   const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '').trim();
@@ -126,12 +128,15 @@ export async function callOllamaVision({
     return { success: false, error: 'Imagen en base64 vacía o no válida' };
   }
 
+  const effectiveTimeoutMs = timeoutMs ?? (Number(process.env.OLLAMA_TIMEOUT_MS) || 120000);
+  const initialNumCtx = numCtx ?? (Number(process.env.OLLAMA_NUM_CTX) || 16384);
+
   // 1. If baseUrl indicates ScanBills FastAPI endpoint (:8000, :8030, scanbills-web or /api/v1), call /api/v1/extract/base64
   if (isScanBillsEndpoint(cleanUrl)) {
     try {
       console.log(`[Ollama OCR] 🦙 Consultando servicio ScanBills OCR en ${cleanUrl}/api/v1/extract/base64...`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
       const endpoint = cleanUrl.endsWith('/api/v1') ? `${cleanUrl}/extract/base64` : `${cleanUrl}/api/v1/extract/base64`;
       const res = await fetch(endpoint, {
@@ -144,6 +149,7 @@ export async function callOllamaVision({
           model,
           force_json: true,
           redact_pii: false,
+          num_ctx: initialNumCtx,
         }),
       });
 
@@ -179,67 +185,130 @@ export async function callOllamaVision({
 
   const triedModels = new Set<string>();
   let lastError = '';
+  let primaryModelError = '';
 
   for (const m of candidateModels) {
     if (!m || triedModels.has(m)) continue;
     triedModels.add(m);
 
-    try {
-      console.log(`[Ollama OCR] 🦙 Invocando Ollama /api/chat con modelo "${m}" en ${cleanUrl}...`);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    let currentCtx = initialNumCtx;
+    let hasRetriedWithExpandedCtx = false;
 
-      const res = await fetch(`${cleanUrl}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: m,
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-              images: [cleanBase64],
+    // Retry loop for context expansion if exceed_context_size_error occurs
+    while (true) {
+      try {
+        console.log(`[Ollama OCR] 🦙 Invocando Ollama /api/chat con modelo "${m}" (num_ctx: ${currentCtx}) en ${cleanUrl}...`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
+
+        const res = await fetch(`${cleanUrl}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: m,
+            messages: [
+              {
+                role: 'user',
+                content: prompt,
+                images: [cleanBase64],
+              },
+            ],
+            stream: false,
+            format: 'json',
+            options: {
+              temperature: 0.1,
+              num_predict: 4096,
+              num_ctx: currentCtx,
             },
-          ],
-          stream: false,
-          format: 'json',
-          options: {
-            temperature: 0.1,
-            num_predict: 4096,
-          },
-        }),
-      });
+          }),
+        });
 
-      clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
 
-      if (res.ok) {
-        const data = await res.json();
-        const content = data?.message?.content;
-        if (content && typeof content === 'string' && content.trim()) {
-          console.log(`[Ollama OCR] ✅ Respuesta recibida de Ollama (${m}): ${content.length} caracteres`);
-          return {
-            success: true,
-            rawContent: content,
-            modelUsed: data.model || m,
-          };
+        if (res.ok) {
+          const data = await res.json();
+          const content = data?.message?.content;
+          if (content && typeof content === 'string' && content.trim()) {
+            console.log(`[Ollama OCR] ✅ Respuesta recibida de Ollama (${m}): ${content.length} caracteres`);
+            return {
+              success: true,
+              rawContent: content,
+              modelUsed: data.model || m,
+            };
+          }
+        } else {
+          const errText = await res.text().catch(() => '');
+          lastError = `HTTP ${res.status} (${m}): ${errText}`;
+          if (!primaryModelError && m === model) {
+            primaryModelError = lastError;
+          }
+          console.warn(`[Ollama OCR] Modelo ${m} no disponible o error:`, lastError);
+
+          // Check if error is context window overflow: "exceed_context_size_error" or "exceeds the available context size"
+          const isContextOverflow =
+            res.status === 400 &&
+            (errText.includes('exceed_context_size_error') ||
+              errText.includes('exceeds the available context size'));
+
+          if (isContextOverflow && !hasRetriedWithExpandedCtx) {
+            hasRetriedWithExpandedCtx = true;
+
+            // Try to extract prompt token count, e.g. "n_prompt_tokens": 5354 or "request (5354 tokens) exceeds"
+            let promptTokens = 0;
+            try {
+              const parsedErr = JSON.parse(errText);
+              const innerErr = typeof parsedErr.error === 'string' ? JSON.parse(parsedErr.error) : parsedErr.error;
+              promptTokens = innerErr?.n_prompt_tokens || 0;
+            } catch {
+              const match = errText.match(/(?:n_prompt_tokens"|request\s*\()\s*[:=]?\s*(\d+)/i);
+              if (match && match[1]) {
+                promptTokens = parseInt(match[1], 10);
+              }
+            }
+
+            const expandedCtx = Math.min(
+              65536,
+              Math.max(promptTokens > 0 ? promptTokens + 4096 : currentCtx * 2, 16384)
+            );
+
+            if (expandedCtx > currentCtx) {
+              console.warn(
+                `[Ollama OCR] 🔄 Límite de contexto superado (${promptTokens || 'muchos'} tokens vs ${currentCtx}). Auto-ampliando num_ctx a ${expandedCtx} y reintentando con ${m}...`
+              );
+              currentCtx = expandedCtx;
+              continue; // retry with expanded context
+            }
+          }
+
+          // If status is 400 (Bad Request / Syntax / Context), other uninstalled models won't help
+          // Only continue to other candidate models if it was 404 (Not Found)
+          if (res.status === 400 && m === model) {
+            break;
+          }
         }
-      } else {
-        const errText = await res.text().catch(() => '');
-        lastError = `HTTP ${res.status} (${m}): ${errText}`;
-        console.warn(`[Ollama OCR] Modelo ${m} no disponible o error:`, lastError);
+      } catch (err: any) {
+        lastError = err.message || 'Error de conexión con Ollama';
+        if (!primaryModelError && m === model) {
+          primaryModelError = lastError;
+        }
+        if (err.name === 'AbortError') {
+          lastError = `Timeout de ${effectiveTimeoutMs}ms superado conectando a Ollama`;
+          primaryModelError = lastError;
+          break; // Do not retry other models on hard timeout
+        }
       }
-    } catch (err: any) {
-      lastError = err.message || 'Error de conexión con Ollama';
-      if (err.name === 'AbortError') {
-        lastError = `Timeout de ${timeoutMs}ms superado conectando a Ollama`;
-        break; // Do not retry other models on hard timeout
-      }
+      break; // Exit while loop if no retry triggered
+    }
+
+    // If 400 occurred on primary model, do not try random models that are not installed
+    if (primaryModelError && primaryModelError.startsWith('HTTP 400')) {
+      break;
     }
   }
 
   return {
     success: false,
-    error: lastError || 'No se pudo obtener respuesta de Ollama',
+    error: primaryModelError || lastError || 'No se pudo obtener respuesta de Ollama',
   };
 }

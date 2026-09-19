@@ -155,4 +155,144 @@ describe('Ollama / ScanBills OCR Scanner', () => {
     expect(res.success).toBe(false);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it('passes default num_ctx: 16384 and num_predict: 4096 in options to native Ollama /api/chat', async () => {
+    let capturedBody: any = null;
+    global.fetch = vi.fn().mockImplementation((_url: string, init: any) => {
+      capturedBody = JSON.parse(init.body);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          model: 'qwen2.5vl:3b',
+          message: { role: 'assistant', content: '{"ok":true}' },
+        }),
+      });
+    });
+
+    const res = await callOllamaVision({
+      imageBase64: 'data:image/jpeg;base64,dGVzdA==',
+      prompt: 'Analiza este ticket',
+      baseUrl: 'http://127.0.0.1:11434',
+      model: 'qwen2.5vl:3b',
+    });
+
+    expect(res.success).toBe(true);
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody.options).toBeDefined();
+    expect(capturedBody.options.num_ctx).toBe(16384);
+    expect(capturedBody.options.num_predict).toBe(4096);
+  });
+
+  it('respects OLLAMA_NUM_CTX environment variable or custom numCtx parameter', async () => {
+    const originalEnv = process.env.OLLAMA_NUM_CTX;
+    process.env.OLLAMA_NUM_CTX = '32768';
+
+    let capturedBody: any = null;
+    global.fetch = vi.fn().mockImplementation((_url: string, init: any) => {
+      capturedBody = JSON.parse(init.body);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          model: 'qwen2.5vl:3b',
+          message: { role: 'assistant', content: '{"ok":true}' },
+        }),
+      });
+    });
+
+    try {
+      const res = await callOllamaVision({
+        imageBase64: 'dGVzdA==',
+        prompt: 'Analiza este ticket',
+        baseUrl: 'http://127.0.0.1:11434',
+        model: 'qwen2.5vl:3b',
+      });
+
+      expect(res.success).toBe(true);
+      expect(capturedBody.options.num_ctx).toBe(32768);
+    } finally {
+      process.env.OLLAMA_NUM_CTX = originalEnv;
+    }
+  });
+
+  it('auto-heals and retries with expanded num_ctx when Ollama returns exceed_context_size_error', async () => {
+    const errorPayload = JSON.stringify({
+      error: JSON.stringify({
+        code: 400,
+        message: 'request (5354 tokens) exceeds the available context size (4096 tokens), try increasing it',
+        type: 'exceed_context_size_error',
+        n_prompt_tokens: 5354,
+        n_ctx: 4096,
+      }),
+    });
+
+    const requests: any[] = [];
+    global.fetch = vi.fn().mockImplementation((_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      requests.push(body);
+
+      // First call fails with 400 exceed_context_size_error
+      if (requests.length === 1) {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          text: async () => errorPayload,
+        });
+      }
+
+      // Second call (auto-healing retry) succeeds
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          model: 'qwen2.5vl:3b',
+          message: {
+            role: 'assistant',
+            content: '{"title":"Ticket Recuperado","amount":50.00}',
+          },
+        }),
+      });
+    });
+
+    const res = await callOllamaVision({
+      imageBase64: 'dGVzdA==',
+      prompt: 'Analiza este ticket con imagen grande',
+      baseUrl: 'http://127.0.0.1:11434',
+      model: 'qwen2.5vl:3b',
+      numCtx: 4096, // Simulate low context window
+    });
+
+    expect(res.success).toBe(true);
+    expect(requests.length).toBe(2);
+    expect(requests[0].options.num_ctx).toBe(4096);
+    // Auto-healed: expanded to at least prompt tokens (5354) + 4096 = 9450 -> 16384 minimum
+    expect(requests[1].options.num_ctx).toBeGreaterThanOrEqual(9450);
+    expect(res.rawContent).toContain('Ticket Recuperado');
+  });
+
+  it('preserves the primary model HTTP 400 error instead of masking with 404 from candidate models', async () => {
+    global.fetch = vi.fn().mockImplementation((_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      if (body.model === 'qwen2.5vl:3b') {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          text: async () => '{"error":"Invalid request payload"}',
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        text: async () => `model '${body.model}' not found`,
+      });
+    });
+
+    const res = await callOllamaVision({
+      imageBase64: 'dGVzdA==',
+      prompt: 'Analiza este ticket',
+      baseUrl: 'http://127.0.0.1:11434',
+      model: 'qwen2.5vl:3b',
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('HTTP 400 (qwen2.5vl:3b)');
+  });
 });
